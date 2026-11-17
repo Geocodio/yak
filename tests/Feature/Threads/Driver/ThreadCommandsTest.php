@@ -86,10 +86,27 @@ it('sends each command type', function (Closure $send, array $expected) {
     'steer' => [fn ($commands, $thread) => $commands->steer($thread, 'u2', 'psst', 'next'), ['type' => 'steer', 'uuid' => 'u2', 'text' => 'psst', 'priority' => 'next']],
     'interrupt' => [fn ($commands, $thread) => $commands->interrupt($thread), ['type' => 'interrupt']],
     'set_model' => [fn ($commands, $thread) => $commands->setModel($thread, 'sonnet'), ['type' => 'set_model', 'model' => 'claude-sonnet-5-5']],
+    'set_effort' => [fn ($commands, $thread) => $commands->setEffort($thread, 'high'), ['type' => 'set_effort', 'effort' => 'high']],
+    'set_effort to the default' => [fn ($commands, $thread) => $commands->setEffort($thread, null), ['type' => 'set_effort', 'effort' => null]],
     'end' => [fn ($commands, $thread) => $commands->end($thread), ['type' => 'end']],
     'kill' => [fn ($commands, $thread) => $commands->kill($thread), ['type' => 'kill']],
     'tool_result' => [fn ($commands, $thread) => $commands->toolResult($thread, 'c1', true, 'nope'), ['type' => 'tool_result', 'call_id' => 'c1', 'is_error' => true, 'content' => 'nope']],
 ]);
+
+it('puts the thread effort in the start payload and tracks it on the runner', function () {
+    $thread = commandsThread();
+    $thread->forceFill(['effort' => 'xhigh'])->save();
+    $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
+    $placeholders->shouldReceive('issue')->andReturn('yakph');
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class));
+
+    $commands->startRunner($thread, ClaudeAccount::factory()->create(), null, 'Be brief.');
+    $commands->setEffort($thread, 'low');
+
+    expect(app(BrokerStreams::class)->commands('threads:' . $thread->id)[0]['start']['effort'])->toBe('xhigh')
+        ->and($thread->fresh()->runner_effort)->toBe('low');
+});
 
 it('tracks the runner state for model, end and the channel name', function () {
     $thread = commandsThread();

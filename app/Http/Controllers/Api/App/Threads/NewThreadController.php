@@ -59,6 +59,7 @@ class NewThreadController extends Controller
                     $attachments,
                     $validated['repositories'] ?? [],
                     $sendKey,
+                    $validated['effort'] ?? null,
                 );
             } catch (Throwable $exception) {
                 TaskAttachment::discard($attachments);

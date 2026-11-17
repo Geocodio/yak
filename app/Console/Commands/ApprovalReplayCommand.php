@@ -235,11 +235,6 @@ class ApprovalReplayCommand extends Command
             {
                 return true;
             }
-
-            public function dismissesStaleReviews(int $installationId, string $repoSlug, string $branch): bool
-            {
-                return true;
-            }
         };
     }
 

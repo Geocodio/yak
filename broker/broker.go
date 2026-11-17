@@ -35,9 +35,11 @@ type command struct {
 	Text            string `json:"text"`
 	Priority        string `json:"priority"`
 	Model           string `json:"model"`
-	CallID          string `json:"call_id"`
-	IsError         bool   `json:"is_error"`
-	Content         string `json:"content"`
+	// Effort is a pointer so a JSON null (reset to the model default) reaches the runner as null.
+	Effort  *string `json:"effort"`
+	CallID  string  `json:"call_id"`
+	IsError bool    `json:"is_error"`
+	Content string  `json:"content"`
 }
 
 type userMessage struct {
@@ -440,6 +442,8 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 		b.write(state, map[string]string{"type": "end"})
 	case "set_model":
 		b.write(state, map[string]string{"type": "set_model", "model": cmd.Model})
+	case "set_effort":
+		b.write(state, map[string]any{"type": "set_effort", "effort": cmd.Effort})
 	case "kill":
 		b.kill(ctx, state)
 		state.mu.Lock()

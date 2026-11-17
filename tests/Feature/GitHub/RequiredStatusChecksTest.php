@@ -1,78 +1,73 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     configureFakeGitHubApp();
 });
 
-function fakeProtectionAndRules($protection, array $rules): void
+function fakeBranchAndRules($branch, array $rules): void
 {
     Http::fake(gitHubTokenFake() + [
-        'api.github.com/repos/acme/app/branches/main/protection' => $protection,
+        'api.github.com/repos/acme/app/branches/main' => $branch,
         'api.github.com/repos/acme/app/rules/branches/main' => Http::response($rules),
     ]);
 }
 
-it('is true when classic protection requires checks', function () {
-    fakeProtectionAndRules(Http::response(['required_status_checks' => ['checks' => [['context' => 'ci']], 'contexts' => []]]), []);
+function branchWith(array $protection): Response|PromiseInterface
+{
+    return Http::response(['name' => 'main', 'protection' => $protection]);
+}
+
+it('reads required checks from the branch protection summary', function (array $required) {
+    fakeBranchAndRules(branchWith(['enabled' => true, 'required_status_checks' => ['enforcement_level' => 'non_admins'] + $required]), []);
 
     expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeTrue();
-});
+    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/protection'));
+})->with([
+    'checks' => [['checks' => [['context' => 'ci', 'app_id' => 1]], 'contexts' => []]],
+    'contexts' => [['checks' => [], 'contexts' => ['ci']]],
+]);
+
+it('is false when protection lists no checks, is off or is disabled', function (array $protection) {
+    fakeBranchAndRules(branchWith($protection), []);
+
+    expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeFalse();
+})->with([
+    'empty lists' => [['enabled' => true, 'required_status_checks' => ['enforcement_level' => 'everyone', 'checks' => [], 'contexts' => []]]],
+    'enforcement off' => [['enabled' => true, 'required_status_checks' => ['enforcement_level' => 'off', 'checks' => [['context' => 'ci']], 'contexts' => ['ci']]]],
+    'disabled' => [['enabled' => false, 'required_status_checks' => ['enforcement_level' => 'off', 'checks' => [], 'contexts' => []]]],
+    'no protection' => [[]],
+]);
 
 it('is true when a ruleset requires checks', function () {
-    fakeProtectionAndRules(Http::response([], 200), [
+    fakeBranchAndRules(branchWith(['enabled' => false]), [
         ['type' => 'required_status_checks', 'parameters' => ['required_status_checks' => [['context' => 'ci']]]],
     ]);
 
     expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeTrue();
 });
 
-it('is false when both sources are empty', function () {
-    fakeProtectionAndRules(
-        Http::response(['required_status_checks' => ['checks' => [], 'contexts' => []]]),
-        [['type' => 'required_status_checks', 'parameters' => ['required_status_checks' => []]], ['type' => 'deletion']],
-    );
-
-    expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeFalse();
-});
-
-it('treats a protection 404 as no classic protection', function () {
-    fakeProtectionAndRules(Http::response(['message' => 'Branch not protected'], 404), []);
-
-    expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeFalse();
-});
-
-it('throws when the protection endpoint fails', function () {
-    fakeProtectionAndRules(Http::response([], 500), []);
-
-    app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main');
-})->throws(RequestException::class);
-
-it('detects stale review dismissal from classic protection', function (bool $dismisses) {
-    fakeProtectionAndRules(Http::response(['required_pull_request_reviews' => ['dismiss_stale_reviews' => $dismisses]]), []);
-
-    expect(app(AppService::class)->dismissesStaleReviews(1, 'acme/app', 'main'))->toBe($dismisses);
-})->with([true, false]);
-
-it('detects stale review dismissal from a ruleset pull_request rule', function (bool $dismisses) {
-    fakeProtectionAndRules(Http::response([], 404), [
-        ['type' => 'pull_request', 'parameters' => ['dismiss_stale_reviews_on_push' => $dismisses]],
+it('is false when a ruleset lists no checks', function () {
+    fakeBranchAndRules(branchWith(['enabled' => false]), [
+        ['type' => 'required_status_checks', 'parameters' => ['required_status_checks' => []]], ['type' => 'deletion'],
     ]);
 
-    expect(app(AppService::class)->dismissesStaleReviews(1, 'acme/app', 'main'))->toBe($dismisses);
-})->with([true, false]);
-
-it('does not dismiss stale reviews when nothing is configured or a ruleset has no pull_request rule', function () {
-    fakeProtectionAndRules(Http::response(['message' => 'Branch not protected'], 404), [['type' => 'deletion']]);
-
-    expect(app(AppService::class)->dismissesStaleReviews(1, 'acme/app', 'main'))->toBeFalse();
+    expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeFalse();
 });
 
-it('throws when the stale review lookup fails', function () {
-    fakeProtectionAndRules(Http::response([], 500), []);
+it('treats a missing branch as no checks', function () {
+    fakeBranchAndRules(Http::response(['message' => 'Branch not found'], 404), []);
 
-    app(AppService::class)->dismissesStaleReviews(1, 'acme/app', 'main');
-})->throws(RequestException::class);
+    expect(app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main'))->toBeFalse();
+});
+
+it('throws when the branch cannot be read', function (int $status) {
+    fakeBranchAndRules(Http::response(['message' => 'Resource not accessible by integration'], $status), []);
+
+    app(AppService::class)->hasRequiredStatusChecks(1, 'acme/app', 'main');
+})->with([403, 500])->throws(RequestException::class);

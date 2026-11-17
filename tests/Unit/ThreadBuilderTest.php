@@ -214,3 +214,15 @@ test('a failed run without a result summary still yields a yak entry', function 
 
     expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
 });
+
+it('gives each answer its full question and the chosen option description', function () {
+    $task = YakTask::factory()->withClarificationQuestions([
+        ['id' => 'where', 'header' => 'Where shown', 'question' => 'Where does the timezone appear?', 'options' => [['label' => 'Different repo', 'description' => 'It is in another Geocodio repo.'], ['label' => 'Add new', 'description' => 'Nothing exists yet.']], 'multi_select' => false],
+    ])->create(['started_at' => now()->subHour()]);
+    $task->recordClarificationAnswers(['where' => ['choices' => ['Different repo'], 'other' => null]], null, 'Michele');
+
+    $answers = app(ThreadBuilder::class)->build($task->fresh())->firstWhere('kind', 'clarification-answers')->answerItems;
+
+    expect($answers[0]['question'])->toBe('Where does the timezone appear?')
+        ->and($answers[0]['choices'])->toBe([['label' => 'Different repo', 'description' => 'It is in another Geocodio repo.']]);
+});

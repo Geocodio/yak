@@ -49,7 +49,7 @@ it('links the settings page to the risk profile page', function () {
     fakeRiskMapGitHub(['app/Http/Kernel.php'], null);
     $this->actingAs(User::factory()->create());
 
-    visit(route('repos.edit', $repository))
+    visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']))
         ->click('Open risk profile')
         ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
         ->assertNoJavascriptErrors();
@@ -61,7 +61,7 @@ it('links the database draft block to the risk profile page', function () {
     fakeNoRiskProfilePullRequest();
     $this->actingAs(User::factory()->create());
 
-    visit(route('repos.edit', $repository))
+    visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']))
         ->click('Open risk profile')
         ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
         ->assertNoJavascriptErrors();
@@ -72,7 +72,7 @@ it('names the shared account when the user has none', function () {
     ClaudeAccount::factory()->system()->default()->create(['name' => 'Yak Geocodio', 'validated_at' => now()]);
     $this->actingAs(User::factory()->create());
 
-    visit(route('repos.edit', $repository))
+    visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'accounts']))
         ->assertSee('You have no Claude account yet')
         ->assertSee('shared Yak account (Yak Geocodio)');
 });

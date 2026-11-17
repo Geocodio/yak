@@ -110,6 +110,7 @@ class ThreadFactory
             'continued_from_thread_id' => $continuedFromThreadId,
             'claude_account_id' => $resolved->account?->id,
             'model' => $resolved->model,
+            'effort' => $resolved->effort,
             'branch' => $branch,
         ]);
 

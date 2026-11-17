@@ -30,6 +30,7 @@ class StoreThreadController extends Controller
                 $validated['model'] ?? null,
                 $attachments,
                 $validated['repositories'] ?? [],
+                effort: $validated['effort'] ?? null,
             );
         } catch (Throwable $exception) {
             TaskAttachment::discard($attachments);

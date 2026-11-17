@@ -11,6 +11,11 @@ test('it passes disallowedTools ScheduleWakeup CronCreate CronDelete CronList ev
   assert.deepEqual(buildOptions(start({ disallowedTools: ['CronList', 'WebSearch'] }), {}).disallowedTools, ['ScheduleWakeup', 'CronCreate', 'CronDelete', 'CronList', 'WebSearch']);
 });
 
+test('it passes effort only when start names one', () => {
+  assert.equal(buildOptions(start({ effort: 'xhigh' }), {}).effort, 'xhigh');
+  assert.equal('effort' in buildOptions(start({ effort: null }), {}), false);
+});
+
 test('it never passes budget or turn limits', () => {
   const options = buildOptions(start({ maxTurns: 3, maxBudgetUsd: 1 }), {});
   assert.equal('maxTurns' in options, false);

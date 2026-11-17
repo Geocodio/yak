@@ -4,24 +4,15 @@ namespace App\Http\Controllers\Repositories;
 
 use App\Actions\ApplyPrReviewToOpenPulls;
 use App\Actions\DispatchRepositorySetupTask;
-use App\Channels\Sentry\Service as SentryService;
-use App\Enums\TaskMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\SaveRepositoryRequest;
-use App\Http\Resources\RepositoryClaudeAccountData;
+use App\Http\Resources\RepositorySettingsData;
 use App\Http\Resources\RepositorySummaryData;
-use App\Http\Resources\YakConfigData;
 use App\Models\PrReview;
 use App\Models\Repository;
-use App\Models\User;
-use App\Models\YakTask;
-use App\Services\CoOwner\CoOwnerGateStatus;
-use App\Services\RepositoryConfig;
-use App\Services\RepositoryRiskProfiles;
-use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -36,16 +27,9 @@ class RepositoryController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('Repositories/Form', [
-            'repository' => null,
-            'options' => fn () => $this->options(),
-            'manifest' => null,
-            'sandbox' => null,
-            'setupHistory' => [],
-            'stats' => null,
-            'canDelete' => false,
-            'deleteBlockedReason' => null,
-            'docsLinks' => $this->docsLinks(),
+        return Inertia::render('Repositories/Create', [
+            'options' => fn () => RepositorySettingsData::options(),
+            'docsLinks' => RepositorySettingsData::docsLinks(),
         ]);
     }
 
@@ -80,48 +64,9 @@ class RepositoryController extends Controller
         return redirect()->route('repos.edit', $repository)->with('success', 'Repository created. Setup task dispatched.');
     }
 
-    public function edit(Repository $repository): Response
+    public function edit(Request $request, Repository $repository): Response
     {
-        return Inertia::render('Repositories/Form', [
-            'repository' => fn () => $this->repositoryData($repository),
-            'options' => fn () => $this->options(),
-            'manifest' => fn () => $this->manifestData($repository),
-            'sandbox' => fn () => $this->sandboxData($repository),
-            'setupHistory' => fn () => $this->setupHistory($repository),
-            'stats' => fn () => $this->stats($repository),
-            'canDelete' => fn () => $this->canDelete($repository),
-            'deleteBlockedReason' => fn () => $this->canDelete($repository)
-                ? null
-                : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
-            'docsLinks' => $this->docsLinks(),
-            'claudeAccounts' => fn () => RepositoryClaudeAccountData::forRepository($repository, request()->user()),
-            'yakConfig' => Inertia::defer(
-                fn () => YakConfigData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
-                'yak-config',
-            ),
-            'coOwnerGate' => Inertia::defer(
-                fn () => app(CoOwnerGateStatus::class)->for($repository),
-                'co-owner-gate',
-            ),
-        ]);
-    }
-
-    /**
-     * @return array{guide: string, config: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, refresh: string, rerunSetup: string}
-     */
-    private function docsLinks(): array
-    {
-        return [
-            'guide' => Docs::url('repositories'),
-            'config' => Docs::url('repositories.config'),
-            'adding' => Docs::url('repositories.adding'),
-            'setup' => Docs::url('repositories.setup'),
-            'claudeMd' => Docs::url('repositories.claude-md'),
-            'routing' => Docs::url('repositories.routing'),
-            'prReview' => Docs::url('repositories.pr-review'),
-            'refresh' => Docs::url('repositories.refresh'),
-            'rerunSetup' => Docs::url('repositories.rerun-setup'),
-        ];
+        return Inertia::render('Repositories/Settings/General', RepositorySettingsData::section($repository, 'general', $request->user()));
     }
 
     public function update(SaveRepositoryRequest $request, Repository $repository, ApplyPrReviewToOpenPulls $applyPrReview): RedirectResponse
@@ -134,7 +79,7 @@ class RepositoryController extends Controller
 
         $wasEnabled = (bool) $repository->pr_review_enabled;
 
-        $data = $this->repositoryDataFromRequest($validated, $validated['slug'], $validated['path']);
+        $data = $this->attributesFromRequest($validated);
 
         if (! empty($validated['manifest'])) {
             $data['preview_manifest'] = [
@@ -152,12 +97,12 @@ class RepositoryController extends Controller
             $applyPrReview($repository);
         }
 
-        return redirect()->route('repos.edit', $repository)->with('success', 'Repository updated.');
+        return back()->with('success', 'Saved.');
     }
 
     public function destroy(Repository $repository): RedirectResponse
     {
-        if (! $this->canDelete($repository)) {
+        if (! RepositorySettingsData::canDelete($repository)) {
             return redirect()->route('repos.edit', $repository)->with('error', 'Cannot delete a repository with tasks.');
         }
 
@@ -223,161 +168,35 @@ class RepositoryController extends Controller
     }
 
     /**
+     * Only the keys present in the request become attributes, so a section
+     * save leaves every other column untouched.
+     *
+     * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function repositoryData(Repository $repository): array
+    private function attributesFromRequest(array $validated): array
     {
-        return [
-            'slug' => $repository->slug,
-            'name' => $repository->name,
-            'description' => $repository->description,
-            'agentInstructions' => $repository->agent_instructions,
-            'gitUrl' => $repository->git_url,
-            'path' => $repository->path,
-            'defaultBranch' => $repository->default_branch,
-            'publicSiteUrl' => $repository->public_site_url,
-            'isActive' => $repository->is_active,
-            'isDefault' => $repository->is_default,
-            'defaultResponsibleUserId' => $repository->default_responsible_user_id,
-            'ciSystem' => $repository->ci_system,
-            'sentryProject' => $repository->sentry_project,
-            'prReviewEnabled' => (bool) $repository->pr_review_enabled,
-            'reviewPolicy' => Arr::only($repository->reviewPolicy(), 'profile_max_age_days'),
-            'riskProfiles' => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
-            'riskProfileActionUrl' => route('repos.risk-profile', $repository),
-            'deploymentsEnabled' => (bool) $repository->deployments_enabled,
-            'previewRepairEnabled' => (bool) $repository->preview_repair_enabled,
-            'pathExcludes' => $repository->pr_review_path_excludes,
-            'githubFullName' => $repository->github_full_name,
-            'githubUrl' => $repository->githubUrl(),
-            'githubNameDiverged' => $repository->github_full_name !== $repository->slug,
-        ];
-    }
+        $attributes = Arr::only($validated, [
+            'slug', 'name', 'git_url', 'path', 'default_branch', 'ci_system', 'is_active', 'is_default',
+            'default_responsible_user_id', 'pr_review_enabled', 'pr_review_policy', 'deployments_enabled',
+            'preview_repair_enabled',
+        ]);
 
-    /**
-     * @return array{ciSystems: array<int, array{value: string, label: string}>, sentryProjects: array<int, array{value: string, label: string}>, defaultPathExcludes: array<int, string>, users: array<int, array{value: string, label: string}>}
-     */
-    private function options(): array
-    {
-        return [
-            'ciSystems' => [
-                ['value' => 'none', 'label' => 'None'],
-                ['value' => 'github_actions', 'label' => 'GitHub Actions'],
-                ['value' => 'drone', 'label' => 'Drone'],
-            ],
-            'sentryProjects' => collect($this->loadSentryProjects())
-                ->map(fn (array $project): array => ['value' => $project['slug'], 'label' => $project['name']])
-                ->values()
-                ->all(),
-            'users' => User::query()->orderBy('name')->get(['id', 'name'])
-                ->map(fn (User $user): array => ['value' => (string) $user->id, 'label' => $user->name])
-                ->all(),
-            'defaultPathExcludes' => config('yak.pr_review.default_path_excludes'),
-            'defaultReviewPolicy' => Arr::only((new Repository)->reviewPolicy(), 'profile_max_age_days'),
-        ];
-    }
-
-    /**
-     * @return array{port: int, healthProbePath: string, coldStart: string, checkoutRefresh: string, wakeTimeoutSeconds: int}
-     */
-    private function manifestData(Repository $repository): array
-    {
-        $manifest = $repository->preview_manifest ?? [];
-
-        return [
-            'port' => (int) ($manifest['port'] ?? config('yak.deployments.default_port')),
-            'healthProbePath' => (string) ($manifest['health_probe_path'] ?? '/'),
-            'coldStart' => (string) ($manifest['cold_start'] ?? ''),
-            'checkoutRefresh' => (string) ($manifest['checkout_refresh'] ?? ''),
-            'wakeTimeoutSeconds' => (int) ($manifest['wake_timeout_seconds'] ?? 120),
-        ];
-    }
-
-    /**
-     * @return array{snapshot: ?string, baseVersion: ?int, latestBaseVersion: int}
-     */
-    private function sandboxData(Repository $repository): array
-    {
-        return [
-            'snapshot' => $repository->sandbox_snapshot,
-            'baseVersion' => $repository->sandbox_base_version,
-            'latestBaseVersion' => (int) config('yak.sandbox.base_version', 1),
-        ];
-    }
-
-    /**
-     * @return array<int, array{status: string, id: string, url: string, startedAgo: string, duration: string}>
-     */
-    private function setupHistory(Repository $repository): array
-    {
-        return YakTask::query()
-            ->where('repo', $repository->slug)
-            ->where('mode', TaskMode::Setup)
-            ->latest()
-            ->limit(10)
-            ->get()
-            ->map(fn (YakTask $task): array => [
-                'status' => $task->status->value,
-                'id' => (string) $task->external_id,
-                'url' => route('tasks.show', $task),
-                'startedAgo' => $task->created_at?->diffForHumans() ?? '—',
-                'duration' => $this->formatDuration($task->duration_ms),
-            ])
-            ->all();
-    }
-
-    /**
-     * @return array{tasks: int, tasks7d: int, reviews30d: int}
-     */
-    private function stats(Repository $repository): array
-    {
-        return [
-            'tasks' => $repository->tasks()->count(),
-            'tasks7d' => $repository->tasks()->where('created_at', '>=', now()->subDays(7))->count(),
-            'reviews30d' => PrReview::query()
-                ->where('repo', $repository->slug)
-                ->where('submitted_at', '>=', now()->subDays(30))
-                ->count(),
-        ];
-    }
-
-    private function canDelete(Repository $repository): bool
-    {
-        return $repository->tasks()->count() === 0;
-    }
-
-    private function formatDuration(?int $durationMs): string
-    {
-        if ($durationMs === null || $durationMs === 0) {
-            return '—';
+        foreach (['description', 'public_site_url', 'sentry_project'] as $key) {
+            if (array_key_exists($key, $validated)) {
+                $attributes[$key] = ($validated[$key] ?? '') !== '' ? $validated[$key] : null;
+            }
         }
 
-        $minutes = (int) round($durationMs / 60000);
-
-        if ($minutes < 1) {
-            return '1m';
+        if (array_key_exists('agent_instructions', $validated)) {
+            $attributes['agent_instructions'] = trim((string) $validated['agent_instructions']) !== '' ? $validated['agent_instructions'] : null;
         }
 
-        if ($minutes >= 60) {
-            $hours = intdiv($minutes, 60);
-            $remainingMinutes = $minutes % 60;
-
-            return $remainingMinutes > 0 ? "{$hours}h {$remainingMinutes}m" : "{$hours}h";
+        if (array_key_exists('path_excludes', $validated)) {
+            $attributes['pr_review_path_excludes'] = $validated['path_excludes'];
         }
 
-        return "{$minutes}m";
-    }
-
-    /**
-     * @return array<int, array{slug: string, name: string}>
-     */
-    private function loadSentryProjects(): array
-    {
-        try {
-            return Cache::remember('sentry-projects', 300, fn (): array => app(SentryService::class)->listProjects());
-        } catch (\Throwable) {
-            return [];
-        }
+        return $attributes;
     }
 
     private function generateUniqueSlug(string $name): string

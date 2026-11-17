@@ -4,7 +4,7 @@ Yak can review pull requests on every enabled repository. When a PR is opened or
 
 ## Enabling It
 
-Open the repository page (see [Repositories](repositories.md#the-repository-page)) and switch on **PR review** under **Automation**. When you switch it on, a second switch appears, **Review all currently open PRs on save**. Kept on, it queues a review for every open, non-draft PR when you save. Later, the **Re-review all open PRs** button does the same. You can also set `review.enabled` in `.yak/config.yml` (see [Repository config](repo-config.md#configyml)), which locks the toggle to the file value.
+Open the repository's **PR review** section (see [Repositories](repositories.md#the-repository-page)) and switch on **Review pull requests**. A dialog asks whether to review the open PRs too. Kept ticked, it queues a review for every open, non-draft PR as soon as you confirm. Later, the **Review open PRs** button does the same. You can also set `review.enabled` in `.yak/config.yml` (see [Repository config](repo-config.md#configyml)), which locks the toggle to the file value.
 
 After that:
 
@@ -33,8 +33,8 @@ Yak leaves some paths out of review by default: `vendor/**`, `node_modules/**`, 
 
 Where the repository's list comes from, in order:
 
-1. `review.exclude_paths` in `.yak/config.yml`. When the key is present it replaces everything else, and **PR review path filters** on the repository page shows the file value read-only with a **Propose a change** link.
-2. The list saved on the repository page: add patterns with **Add pattern**, remove a pattern with its x, or choose **Reset to defaults**.
+1. `review.exclude_paths` in `.yak/config.yml`. When the key is present it replaces everything else, and **PR review path filters** in the PR review section shows the file value read-only with a **Propose a change** link.
+2. The list saved in the PR review section: add patterns with **Add pattern**, remove a pattern with its x, or choose **Reset to defaults**.
 3. The host defaults above.
 
 Patterns support `*`, `**` and `?` like `.gitignore`. Yak filters the changed-file list before it builds the prompt and also drops findings on excluded paths, so a stray finding in `vendor/` never posts.
@@ -66,13 +66,13 @@ By default a review is a GitHub comment. A repository can opt in to approvals. Y
 
 ### Settings
 
-Set these under **Risk-based approval** on the repository page, or in `review.approval` in `.yak/config.yml` (a key in the file locks its field). Nothing is on by default.
+Set these under **Auto-approval** and the risk profile in the PR review section, or in `review.approval` in `.yak/config.yml` (a key in the file locks its field). Nothing is on by default.
 
 | Setting | Meaning | Default |
 |---|---|---|
 | Approval mode | **Off** (comments only), **Shadow** (record what Yak would decide) or **Enforce** (submit eligible approvals) | Off |
 | Allowed paths | Only changes inside these globs can be approved | none |
-| Additional blocked paths | Always need a human. Added to Yak's built-in blocked paths, never replacing them | none |
+| Additional blocked paths | Always need a human. Added to Yak's hard floor, never replacing it | none |
 | Required checks and commit statuses | Checks and statuses that must pass. In the dashboard a check needs its name and trusted GitHub App ID, a status its context and trusted creator ID. A file lists check names only, matched whichever app reported them | none |
 | Maximum changed files | | 5 (1 to 100) |
 | Maximum changed lines | | 150 (1 to 5000) |
@@ -80,7 +80,7 @@ Set these under **Risk-based approval** on the repository page, or in `review.ap
 | Minimum model confidence | | 80 (80 to 100) |
 | Profile validity (days) | How old an approved risk profile may be | 90 (1 to 90) |
 
-At least one trusted CI source is required for approval. The built-in blocked paths (CI config, `database/**`, `routes/**`, `config/**`, auth, billing, lockfiles and more) and the files that control Yak itself (`.yak/**`, CODEOWNERS, `AGENTS.md`, `CLAUDE.md`) always need a human. Settings never come from the PR branch.
+At least one trusted CI source is required for approval. The hard floor always needs a human: the files that control Yak itself (`.yak/**`, CODEOWNERS, `AGENTS.md`, `CLAUDE.md`), CI and Docker or infrastructure config, migrations, secrets and auth config. Business areas such as billing or auth code are judged by the repository's protected assets file instead. Settings never come from the PR branch.
 
 ### Risk profiles
 
@@ -108,7 +108,7 @@ A concrete `must_fix` finding on an otherwise eligible PR gives a Request change
 
 Before it approves, Yak checks the live head and base commits, the base branch, PR state, that the head is in the same repository, the file count, resolved review threads and the configured checks and statuses. Pending, skipped, failed or missing CI blocks approval. If CI finishes after the review, request another review. Yak schedules nothing in the background. Re-reviews of an opted-in repository always run in full.
 
-The GitHub App must be able to read the base branch's protection, and the branch must have `dismiss_stale_reviews` enabled. Otherwise Yak falls back to a comment. Yak never changes branch protection. A PR with auto-merge enabled is ineligible. The review is pinned to the reviewed commit, so new commits need a fresh approval. A rejected submission falls back to a comment, with no second approval attempt.
+The base branch must have at least one required status check, through branch protection or a ruleset, and the GitHub App must be able to read the branch. If it cannot, Yak holds the PR and says so. Yak withdraws its own approval when new commits are pushed, so GitHub's "dismiss stale approvals" setting is not required. Yak never changes branch protection. A PR with auto-merge enabled is ineligible. The review is pinned to the reviewed commit, so new commits need a fresh approval. A rejected submission falls back to a comment, with no second approval attempt.
 
 The same GitHub App cannot approve its own PRs. Yak-authored PRs stay comment-only, even in **Enforce**. The review body and the task page show the decision and reasons. The findings panel on the task page labels the model verdict separately from the real GitHub review event. Shadow recommendations are labelled and never shown as a submitted approval.
 

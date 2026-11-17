@@ -557,19 +557,6 @@ return [
             '.yak/**', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
         ],
 
-        // Repository approval settings live in the dashboard/database.
-        // These non-overridable exclusions are the minimum security boundary.
-        'approval_blocked_paths' => [
-            '.github/**', '.claude/**', '.drone*', 'AGENTS.md', 'CLAUDE.md',
-            'database/**', 'routes/**', 'config/**', 'bootstrap/**', 'ansible/**',
-            'docker/**', 'Dockerfile*', '*lock*', 'composer.json', 'package.json',
-            '*.tf', '*.tfvars', '.env*', '*Auth*', '*Policy*', '*Policies*',
-            'app/Auth/**', 'app/Policies/**', 'app/Actions/Fortify/**',
-            'app/Billing/**', 'app/Payments/**',
-            '*Billing*', '*Payment*', '*Review*', '*Approval*', '*Permission*', '*Risk*', '*Prompt*',
-            'app/Channels/GitHub/**', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
-            'resources/views/prompts/**',
-        ],
         // The hard floor: a diff touching any of these always needs a human.
         // Repository-agnostic and not repository editable.
         'approval_veto_paths' => [

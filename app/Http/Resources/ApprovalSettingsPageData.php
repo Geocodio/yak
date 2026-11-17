@@ -5,8 +5,12 @@ namespace App\Http\Resources;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\DataTransferObjects\RepositorySettings;
+use App\Jobs\CheckOpenPullRequestApprovalsJob;
+use App\Models\ApprovalPreview;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Services\ReviewApprovalPolicy;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Shapes the review approvals settings page. The docblocks on each method are
@@ -32,7 +36,7 @@ final class ApprovalSettingsPageData
     private const CONCERN_HOLD_PREFIXES = ['Always needs a human: ', 'Touches '];
 
     /**
-     * @return array{slug: string, name: string, defaultBranch: string, githubUrl: ?string, editUrl: string, updateUrl: string, draftConcernsUrl: string}
+     * @return array{slug: string, name: string, defaultBranch: string, githubUrl: ?string, editUrl: string, updateUrl: string, draftConcernsUrl: string, checkUrl: string}
      */
     public static function repository(Repository $repository): array
     {
@@ -44,6 +48,7 @@ final class ApprovalSettingsPageData
             'editUrl' => route('repos.edit', $repository),
             'updateUrl' => route('repos.approvals.update', $repository),
             'draftConcernsUrl' => route('repos.risk-profile', $repository),
+            'checkUrl' => route('repos.approvals.check', $repository),
         ];
     }
 
@@ -145,6 +150,83 @@ final class ApprovalSettingsPageData
     }
 
     /**
+     * The dry-run approval check of every open pull request. `checkedAt` is when
+     * the last check finished and is null with no rows when the repository was
+     * never checked. `pending` counts rows still being checked; the page polls
+     * with `only: ['openPullRequests']` until it is 0. A row's `holds` are the
+     * reasons it needs a human at every DEFCON level, without the repository-wide
+     * ones in `repositoryHolds`. `waiting` means Yak has not reviewed the current
+     * head commit yet. `changeKind` and `hasTestChange` let the page decide per
+     * level; `changeKind` is null when it was not classified. A row's `error` is set
+     * only when `status` is `failed`. `reviewNowUrl` requests a review of that
+     * pull request; `yakReviewUrl` is Yak's review page, null while `waiting`.
+     * `isChecking` is true while a listing of open pull requests is queued or
+     * running. The top-level `error` is why the last listing of open pull requests failed,
+     * null when it succeeded or never ran.
+     *
+     * @return array{checkedAt: ?string, error: ?string, isChecking: bool, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string, reviewNowUrl: string, yakReviewUrl: ?string}>}
+     */
+    public static function openPullRequests(Repository $repository): array
+    {
+        $previews = ApprovalPreview::where('repository_id', $repository->id)->orderBy('pr_number')->get();
+        $checkError = Cache::get(self::checkErrorCacheKey($repository));
+
+        $stuckBefore = now()->subSeconds(CheckOpenPullRequestApprovalsJob::STUCK_AFTER_SECONDS);
+        $pending = 0;
+        $rows = [];
+        foreach ($previews as $preview) {
+            $isStuck = $preview->status === 'pending' && $preview->updated_at !== null && $preview->updated_at->lt($stuckBefore);
+            $status = $isStuck ? 'failed' : $preview->status;
+            $pending += $status === 'pending' ? 1 : 0;
+            $waiting = (bool) ($preview->result['waiting'] ?? false);
+            $rows[] = [
+                'number' => $preview->pr_number,
+                'title' => $preview->title,
+                'author' => $preview->author,
+                'url' => $preview->url,
+                'headSha' => $preview->head_sha,
+                'status' => $status,
+                'waiting' => $waiting,
+                'holds' => $preview->result['holds'] ?? [],
+                'changeKind' => $preview->result['changeKind'] ?? null,
+                'hasTestChange' => (bool) ($preview->result['hasTestChange'] ?? false),
+                'error' => $status === 'failed' ? ($isStuck ? 'The check did not finish. Check again.' : $preview->error) : null,
+                'reviewNowUrl' => route('repos.approvals.review', [$repository, $preview->pr_number]),
+                'yakReviewUrl' => $waiting || $status !== 'done' ? null : route('pr-reviews.for-pr', [$repository->slug, $preview->pr_number]),
+            ];
+        }
+
+        return [
+            'checkedAt' => $repository->approval_checked_at?->toIso8601String(),
+            'error' => is_string($checkError) ? $checkError : null,
+            'isChecking' => Cache::has(self::checkRunningCacheKey($repository->id)),
+            'pending' => $pending,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Holds that block every pull request of the repository, such as a missing
+     * concerns file or branch protection without required checks.
+     *
+     * @return list<string>
+     */
+    public static function repositoryHolds(Repository $repository): array
+    {
+        return app(ReviewApprovalPolicy::class)->repositoryHolds($repository);
+    }
+
+    public static function checkRunningCacheKey(int $repositoryId): string
+    {
+        return "approval-check-running:{$repositoryId}";
+    }
+
+    public static function checkErrorCacheKey(Repository $repository): string
+    {
+        return "approval-check-error:{$repository->id}";
+    }
+
+    /**
      * `unknown` when GitHub could not be asked; the open concerns pull request
      * is null when there is none or the lookup failed.
      *
@@ -162,18 +244,28 @@ final class ApprovalSettingsPageData
             $requiredChecks = 'unknown';
         }
 
-        $concernsPullRequest = null;
+        return ['requiredChecks' => $requiredChecks, 'concernsPullRequest' => self::concernsPullRequest($repository)];
+    }
 
+    /**
+     * The open pull request that adds the concerns file, null when there is none or the lookup failed.
+     *
+     * @return array{number: int, url: string}|null
+     */
+    public static function concernsPullRequest(Repository $repository): ?array
+    {
         try {
-            $pullRequest = $github->findOpenPullRequestForBranch($installationId, $repository->github_full_name, self::CONCERNS_BRANCH);
+            $pullRequest = app(AppService::class)->findOpenPullRequestForBranch(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                self::CONCERNS_BRANCH,
+            );
 
-            if ($pullRequest !== null) {
-                $concernsPullRequest = ['number' => (int) $pullRequest['number'], 'url' => (string) ($pullRequest['html_url'] ?? '')];
-            }
+            return $pullRequest === null ? null : ['number' => (int) $pullRequest['number'], 'url' => (string) ($pullRequest['html_url'] ?? '')];
         } catch (\Throwable $exception) {
             report($exception);
-        }
 
-        return ['requiredChecks' => $requiredChecks, 'concernsPullRequest' => $concernsPullRequest];
+            return null;
+        }
     }
 }

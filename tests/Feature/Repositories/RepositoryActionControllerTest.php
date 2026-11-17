@@ -18,7 +18,7 @@ beforeEach(function () {
 test('toggle active deactivates an active repository', function () {
     $repo = Repository::factory()->create(['is_active' => true]);
 
-    $this->post(route('repos.toggle-active', $repo))->assertRedirect();
+    $this->from('/origin')->post(route('repos.toggle-active', $repo))->assertRedirect('/origin');
 
     expect($repo->refresh()->is_active)->toBeFalse();
 });
@@ -26,7 +26,7 @@ test('toggle active deactivates an active repository', function () {
 test('toggle active activates an inactive repository', function () {
     $repo = Repository::factory()->inactive()->create();
 
-    $this->post(route('repos.toggle-active', $repo))->assertRedirect();
+    $this->from('/origin')->post(route('repos.toggle-active', $repo))->assertRedirect('/origin');
 
     expect($repo->refresh()->is_active)->toBeTrue();
 });
@@ -60,7 +60,7 @@ test('review open prs enqueues retroactive review tasks', function () {
     ]);
     app()->instance(GitHubAppService::class, $github);
 
-    $this->post(route('repos.review-open-prs', $repo))->assertRedirect();
+    $this->from('/origin')->post(route('repos.review-open-prs', $repo))->assertRedirect('/origin');
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
@@ -69,7 +69,7 @@ test('rebuild deployments dispatches the bulk rebuild job', function () {
     Bus::fake();
     $repo = Repository::factory()->create();
 
-    $this->post(route('repos.rebuild-deployments', $repo))->assertRedirect();
+    $this->from('/origin')->post(route('repos.rebuild-deployments', $repo))->assertRedirect('/origin');
 
     Bus::assertDispatched(
         RebuildRepositoryDeploymentsJob::class,

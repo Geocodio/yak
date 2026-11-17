@@ -18,7 +18,7 @@ it('defers the .yak/ config prop on the edit page', function () {
 
     $this->actingAs($user)->get(route('repos.edit', $repository))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('Repositories/Form')
+            ->component('Repositories/Settings/General')
             ->missing('yakConfig')
             ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
                 ->where('yakConfig.state', 'read')
@@ -69,8 +69,8 @@ it('sends no HTTP request while rendering the edit page', function () {
     Http::preventStrayRequests();
     Http::fake();
 
-    $this->actingAs(User::factory()->create())->get(route('repos.edit', Repository::factory()->create()))
-        ->assertInertia(fn (AssertableInertia $page) => $page->component('Repositories/Form')->has('repository.riskProfiles'));
+    $this->actingAs(User::factory()->create())->get(route('repos.settings.show', ['repository' => Repository::factory()->create(), 'section' => 'review']))
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('Repositories/Settings/Review')->has('repository.riskProfiles'));
 
     Http::assertNothingSent();
 });
@@ -105,4 +105,21 @@ it('gives a null config pull request when none is open or GitHub fails', functio
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
                 ->where('yakConfig.configPullRequest', null)));
+});
+
+it('flags a version 2 concerns file so the old risk profile can be hidden', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => "version: 2\nconcerns:\n  - name: Billing\n    approval: always_human\n    description: Money moves here.\n"]);
+
+    $this->actingAs(User::factory()->create())->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.values.hasConcernsFile', true)));
+
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+
+    $this->actingAs(User::factory()->create())->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.values.hasConcernsFile', false)));
 });

@@ -1,7 +1,7 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Button, cn } from '@geocodio/console-ui';
 import { useMemo } from 'react';
-import { CircleAlert, CircleCheck, ExternalLink, GitPullRequest, List, RotateCcw } from 'lucide-react';
+import { CircleAlert, CircleCheck, ExternalLink, GitPullRequest, List, Loader2, RotateCcw, Settings, Wrench } from 'lucide-react';
 import { ActivityStream, stepFromRow } from '@/components/activity/ActivityStream';
 import { Elapsed } from '@/components/activity/Elapsed';
 import { FinishedSummary } from '@/components/activity/FinishedSummary';
@@ -13,7 +13,7 @@ import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import { allFailuresRetried } from '@/components/tasks/groupActivity';
 import { navigateTaskQuery } from '@/lib/taskQuery';
-import { rerunReview, retry } from '@/routes/tasks';
+import { rerunReview, retry, setupAndContinue } from '@/routes/tasks';
 import type { ActionsData, ActivityRow, ActivitySummary, DeploymentData, FindingsData, ProgressStep, TaskDetail, ThreadEntryData } from '@/types/tasks';
 
 /** Where Yak's activity for the run on screen lives: the loaded rows, the run totals and the paging controls. */
@@ -35,7 +35,7 @@ export type YakBubbleContext = {
     onOpenFullLog: () => void;
 };
 
-const MILESTONE_LABELS = ['Pushed', 'CI passing', 'Pull request'];
+const MILESTONE_LABELS = ['Pushed', 'CI passed', 'Pull request'];
 
 function failureTitle({ mode, isFollowUp }: Pick<TaskDetail, 'mode' | 'isFollowUp'>): string {
     if (isFollowUp) {
@@ -52,8 +52,73 @@ function stoppedAt(rows: ActivityRow[]) {
     return row ? { ...stepFromRow({ ...row, retryPassed: false, retried: false }), key: `x${row.id}` } : null;
 }
 
-function ErrorCard({ entry, context, rows }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[] }) {
+/** The failure card for a task whose repository has no ready sandbox: it explains why and starts setup in place. */
+function RepositorySetupCard({ task, setup }: { task: TaskDetail; setup: NonNullable<TaskDetail['repositorySetup']> }) {
+    const settingsButton = (
+        <Button variant="secondary" icon={<Settings size={14} />} onClick={() => router.visit(setup.settingsUrl)}>
+            Repository settings
+        </Button>
+    );
+    const continueAfterSetup = () => router.post(setupAndContinue.url(task.id), {}, { preserveScroll: true });
+
+    if (setup.isSettingUp) {
+        return (
+            <div className="flex flex-col gap-2 rounded-[10px] bg-warn-soft p-3" data-testid="repository-setup">
+                <h3 className="m-0 flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-warn">
+                    <Loader2 size={16} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+                    Setting up {setup.repo}
+                </h3>
+                <p className="m-0 max-w-[65ch] text-[13.5px] leading-[1.55] text-body">
+                    {setup.continuesAfterSetup
+                        ? 'Yak picks this task back up when setup finishes. Setup usually takes a few minutes.'
+                        : 'Setup is already running for this repository. Yak can pick this task back up when it finishes.'}
+                </p>
+                <div className="mt-0.5 flex flex-wrap gap-2">
+                    {!setup.continuesAfterSetup && (
+                        <Button variant="primary" icon={<RotateCcw size={14} />} onClick={continueAfterSetup} data-testid="setup-and-continue">
+                            Continue when setup finishes
+                        </Button>
+                    )}
+                    {settingsButton}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-2 rounded-[10px] bg-fail-soft p-3" data-testid="repository-setup">
+            <h3 className="m-0 flex flex-wrap items-center gap-[7px] text-[14.5px] font-semibold text-fail">
+                <CircleAlert size={16} className="shrink-0" aria-hidden />
+                {setup.repo} needs setup
+            </h3>
+            <p className="m-0 max-w-[65ch] text-[13.5px] leading-[1.55] text-body">
+                Yak runs every task in a sandbox that Setup builds for the repository. This repository has no ready sandbox, so Yak stopped before it could continue.
+            </p>
+            {setup.failedSetup && (
+                <p className="m-0 text-[12.5px] text-muted">
+                    The last setup failed at {setup.failedSetup.at}.{' '}
+                    <Link href={setup.failedSetup.url} className="font-medium text-accent-text hover:underline">
+                        View failed setup
+                    </Link>
+                </p>
+            )}
+            <div className="mt-0.5 flex flex-wrap gap-2">
+                <Button variant="primary" icon={<Wrench size={14} />} onClick={continueAfterSetup} data-testid="setup-and-continue">
+                    Run setup and continue
+                </Button>
+                {settingsButton}
+            </div>
+        </div>
+    );
+}
+
+function ErrorCard({ entry, context, rows, focused }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[]; focused: boolean }) {
     const { task, actions } = context;
+
+    if (task.repositorySetup && focused) {
+        return <RepositorySetupCard task={task} setup={task.repositorySetup} />;
+    }
+
     const step = stoppedAt(rows);
     const retryAction = actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
 
@@ -215,7 +280,7 @@ export function YakBubble({ entry, context, focused }: { entry: ThreadEntryData;
                         />
                     </FinishedSummary>
                 )}
-                {!live && failed && context && <ErrorCard entry={entry} context={context} rows={stream?.rows ?? []} />}
+                {!live && failed && context && <ErrorCard entry={entry} context={context} rows={stream?.rows ?? []} focused={Boolean(focused)} />}
                 {!live && !failed && context && focused && <Outcome entry={entry} context={context} />}
                 {!live && !failed && !focused && entry.bodyHtml && <Prose html={entry.bodyHtml} className="max-w-[65ch] px-0.5 text-[14px] leading-[1.55]" />}
             </div>

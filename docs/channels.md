@@ -21,7 +21,7 @@ Channels are enabled by the presence of credentials. No credentials, no channel.
 A thread runs on one Claude account (see [Claude accounts](claude-accounts.md)). For a channel-started task, Yak looks for the person who started it:
 
 - **Email** and **Linear** (when the issue's creator has a Yak user with the same email address) use that person's default account for the repository, then their overall default.
-- **Slack**, **Sentry**, **GitHub** comments and other work nobody started in Yak run on the repository's unattended account, then the global Yak account. Set the unattended account on the repository page.
+- **Slack**, **Sentry**, **GitHub** comments and other work nobody started in Yak run on the repository's unattended account, then the global Yak account. Set the unattended account in the repository's **Accounts** section.
 
 A follow-up in the same conversation stays on the thread's account.
 

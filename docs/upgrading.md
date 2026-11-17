@@ -71,7 +71,7 @@ Do these in order. Pick a quiet time: the container is recreated.
    ```
 
    Use `--repo=<slug>` for one repository. A repository that already has `.yak/` files is skipped.
-9. Repository templates built on an older base image are out of date. Re-run setup for a repository (`yak:setup-repo <slug>` or Re-run setup on its page) if its first thread reports a stale or missing template.
+9. Repository templates built on an older base image are out of date. Re-run setup for a repository (`yak:setup-repo <slug>` or **Run setup again** in its Sandbox section) if its first thread reports a stale or missing template.
 10. If you used the shared login before, you can stop running `yak-claude-login`. The System rows "Claude CLI" and "Claude Max Session" still probe it and may stay red. Threads do not depend on them.
 
 ### Tasks in flight

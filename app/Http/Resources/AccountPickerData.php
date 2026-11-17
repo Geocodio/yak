@@ -19,9 +19,9 @@ final class AccountPickerData
 {
     /**
      * @return array{
-     *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, usable: bool, status: string}>,
-     *     defaultsByRepo: array<string, array{accountId: int|null, brokenDefaultAccountId: int|null, model: string|null}>,
-     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
+     *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, defaultEffort: ?string, usable: bool, status: string}>,
+     *     defaultsByRepo: array<string, array{accountId: int|null, brokenDefaultAccountId: int|null, model: string|null, effort: string|null}>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>,
      * }
      */
     public static function forUser(?User $user): array
@@ -39,7 +39,7 @@ final class AccountPickerData
                 'color' => $account->color->value,
                 'isSystem' => $account->isSystem(),
                 'isDefault' => $account->is_default,
-                'defaultModel' => $account->default_model,
+                'defaultModel' => $account->default_model, 'defaultEffort' => $account->default_effort,
                 'usable' => $account->isUsable(),
                 'status' => $account->status->value,
             ])
@@ -54,7 +54,7 @@ final class AccountPickerData
                 $configured = $configuredDefaults->has($repository->slug) ? ClaudeAccount::query()->whereKey((int) $configuredDefaults[$repository->slug])->first() : null;
                 $isBroken = $configured !== null && ! $configured->isUsable() && ($configured->isSystem() || $configured->owner_user_id === $user?->id);
 
-                return [$repository->slug => ['accountId' => $resolved->account?->id, 'brokenDefaultAccountId' => $isBroken ? $configured->id : null, 'model' => $resolved->model]];
+                return [$repository->slug => ['accountId' => $resolved->account?->id, 'brokenDefaultAccountId' => $isBroken ? $configured->id : null, 'model' => $resolved->model, 'effort' => $resolved->effort]];
             })
             ->all();
 

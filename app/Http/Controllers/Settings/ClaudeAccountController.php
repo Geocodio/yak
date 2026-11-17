@@ -61,6 +61,7 @@ class ClaudeAccountController extends Controller
             'kind' => $kind,
             'secret' => $request->string('secret')->toString(),
             'default_model' => $request->input('default_model'),
+            'default_effort' => $request->input('default_effort'),
             ...$request->safe()->only(['icon', 'color']),
             'status' => ClaudeAccountStatus::Active,
             'validated_at' => now(),
@@ -86,6 +87,7 @@ class ClaudeAccountController extends Controller
                 'name' => $account->name,
                 'kind' => $account->kind->value,
                 'defaultModel' => $account->default_model,
+                'defaultEffort' => $account->default_effort,
                 'expiresAt' => $account->expires_at?->toIso8601String(),
             ]);
     }

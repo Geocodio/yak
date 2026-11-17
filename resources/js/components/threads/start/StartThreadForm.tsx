@@ -43,9 +43,12 @@ export function StartThreadForm({
     isRepoBlocked = false,
     example,
     initialDescription = '',
+    isEmbedded = false,
 }: Omit<NewThreadPageData, 'emailToYakAddress'> & {
     onStarted?: () => void;
     autoFocus?: boolean;
+    /** Renders without its own card edge, for a host that already draws one (the New thread dialog). */
+    isEmbedded?: boolean;
     /** Called with the selected repository, so a wrapper can show that repository's setup state. */
     onRepoChange?: (slug: string) => void;
     /** The selected repository is still being set up: the thread is created now and starts when setup is done. */
@@ -59,12 +62,13 @@ export function StartThreadForm({
 }) {
     const { docs } = usePage<SharedProps>().props;
     const field = useStartField();
-    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
+    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; effort: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
         description: initialDescription,
         claude_account_id: '',
         model: null,
+        effort: null,
         attachments: [],
         attachment_refs: [],
         repositories: [],
@@ -85,6 +89,7 @@ export function StartThreadForm({
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
+    const effectiveEffort = form.data.effort ?? chosenAccount?.defaultEffort ?? defaults?.effort ?? null;
     const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3 && !isBlocked && !isRepoBlocked;
 
     const extras = form.data.repositories;
@@ -198,7 +203,7 @@ export function StartThreadForm({
         }
     };
 
-    const error = Object.entries(errors).find(([key]) => key.startsWith('repositories'))?.[1] ?? errors.claude_account_id ?? errors.repo ?? errors.description ?? errors.model ?? errors.mode;
+    const error = Object.entries(errors).find(([key]) => key.startsWith('repositories'))?.[1] ?? errors.claude_account_id ?? errors.repo ?? errors.description ?? errors.model ?? errors.effort ?? errors.mode;
 
     const startLabel = `${isQueueing ? 'Queue' : 'Start'} ${isResearch ? 'research' : 'change'}`;
     const isStartDisabled = !canSubmit || isStarting;
@@ -206,7 +211,7 @@ export function StartThreadForm({
     return (
         <div data-testid="start-thread-form">
             <div
-                className="relative overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_3px_var(--composer-focus-ring)] motion-reduce:transition-none"
+                className={`relative overflow-hidden bg-panel ${isEmbedded ? '' : 'rounded-2xl border border-hair shadow-[var(--composer-shadow)]'}`}
                 {...draft.dropzoneProps}
             >
                 <AttachmentDropOverlay draft={draft} />
@@ -295,6 +300,8 @@ export function StartThreadForm({
                     onAccountChange={(id) => form.setData('claude_account_id', id)}
                     model={effectiveModel}
                     onModelChange={(model) => form.setData('model', model)}
+                    effort={effectiveEffort}
+                    onEffortChange={(effort) => form.setData('effort', effort)}
                     disabled={noAccounts || form.processing}
                     accountsHelpUrl={`${docs.baseUrl.replace(/\/$/, '')}/claude-accounts/`}
                     defaultLabel={defaultAccount ? `${defaultAccount.name} (default)` : 'Default account'}

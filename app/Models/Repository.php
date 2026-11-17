@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
 use App\Services\RepositoryConfig;
+use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\ThreadsAwaitingRepository;
 use Carbon\CarbonImmutable;
 use Database\Factories\RepositoryFactory;
@@ -39,6 +40,7 @@ use InvalidArgumentException;
  * @property bool $deployments_enabled
  * @property string|null $public_site_url
  * @property CarbonImmutable|null $config_read_at
+ * @property CarbonImmutable|null $approval_checked_at
  * @property CarbonImmutable|null $co_owner_gate_enforced_at
  * @property int $approval_level
  * @property string $approval_mode
@@ -71,6 +73,7 @@ class Repository extends Model
         static::updated(function (self $repository): void {
             if ($repository->wasChanged('setup_status')) {
                 app(ThreadsAwaitingRepository::class)->repositoryStatusChanged($repository);
+                app(TaskActions::class)->continueTasksAwaitingSetup($repository);
             }
         });
     }
@@ -82,6 +85,7 @@ class Repository extends Model
     {
         return [
             'build_credentials' => 'encrypted:array',
+            'approval_checked_at' => 'immutable_datetime',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
@@ -140,7 +144,11 @@ class Repository extends Model
         return $level >= 1 && $level <= 5 ? $level : 1;
     }
 
-    /** `off` at level 1, otherwise `shadow` or `enforce`. */
+    /**
+     * `off` at level 1, otherwise `shadow` or `enforce`.
+     *
+     * @return 'off'|'shadow'|'enforce'
+     */
     public function approvalMode(): string
     {
         if ($this->approvalLevel() === 1) {

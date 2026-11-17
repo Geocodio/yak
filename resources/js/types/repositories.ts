@@ -13,6 +13,8 @@ export type RepositorySummary = {
     tasks7d: number;
     prReviewEnabled: boolean;
     prReviews30d: number;
+    approvalLevel: number;
+    approvalMode: 'off' | 'shadow' | 'enforce';
 };
 
 export type RepositoryDetail = {
@@ -100,6 +102,7 @@ export type RepositoryDocsLinks = {
     prReview: string;
     refresh: string;
     rerunSetup: string;
+    previews: string;
 };
 
 export type GitHubSearchRepo = {
@@ -148,6 +151,7 @@ export type YakConfig = {
         previewManifest: Record<string, unknown> | null;
         previewScript: boolean;
         riskProfile: { areas: number; unknowns: number; commitSha: string | null } | null;
+        hasConcernsFile: boolean;
     };
 };
 
@@ -164,7 +168,7 @@ export type CoOwnerGateStatus = {
 /** Mirrors the array shape returned by App\Http\Resources\RepositoryClaudeAccountData. */
 export type RepositoryClaudeAccounts = {
     accounts: PickerAccount[];
-    mySetting: { accountId: number | null; model: string | null };
+    mySetting: { accountId: number | null; model: string | null; effort: string | null };
     unattendedAccountId: number | null;
     globalSystemAccountId: number | null;
     canChangeUnattended: boolean;

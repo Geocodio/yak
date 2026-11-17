@@ -62,8 +62,8 @@ it('lists one row per family in order with older versions under it', function ()
     $families = app(ClaudeModelCatalog::class)->families();
 
     expect(array_column($families, 'family'))->toBe(['opus', 'haiku'])
-        ->and($families[0]['latest'])->toBe(['value' => 'opus', 'label' => 'Opus 5.5', 'description' => 'For complex work and everyday tasks'])
-        ->and($families[0]['older'])->toBe([['value' => 'claude-opus-5', 'label' => 'Opus 5']])
+        ->and($families[0]['latest'])->toBe(['value' => 'opus', 'label' => 'Opus 5.5', 'description' => 'For complex work and everyday tasks', 'efforts' => ['low', 'medium', 'high', 'xhigh', 'max']])
+        ->and($families[0]['older'])->toBe([['value' => 'claude-opus-5', 'label' => 'Opus 5', 'efforts' => ['low', 'medium', 'high', 'xhigh', 'max']]])
         ->and($families[1]['older'])->toBe([]);
 });
 
@@ -130,4 +130,42 @@ it('sends the resolved id to the runner', function () {
         ->startRunner($thread, ClaudeAccount::factory()->create(), null, 'Go.');
 
     expect(app(BrokerStreams::class)->commands('threads:' . $thread->id)[0]['start']['model'])->toBe('claude-sonnet-5-5');
+});
+
+it('reads the supported effort levels from the model capabilities', function () {
+    $supported = ['supported' => true];
+    Http::fake(['proxy.test:8787/v1/models*' => Http::response(modelsResponse([
+        [...modelItem('claude-opus-5-5', 'Claude Opus 5.5', '2026-05-01T00:00:00Z'), 'capabilities' => ['effort' => ['supported' => true, 'low' => $supported, 'medium' => $supported, 'high' => $supported, 'xhigh' => ['supported' => false], 'max' => $supported]]],
+        [...modelItem('claude-haiku-5-5', 'Claude Haiku 5.5', '2026-05-01T00:00:00Z'), 'capabilities' => ['effort' => ['supported' => false]]],
+        modelItem('claude-sonnet-5-5', 'Claude Sonnet 5.5', '2026-05-01T00:00:00Z'),
+    ]))]);
+
+    $catalog = app(ClaudeModelCatalog::class);
+    $catalog->refresh();
+    $efforts = array_column($catalog->entries(), 'efforts', 'id');
+
+    expect($efforts['claude-opus-5-5'])->toBe(['low', 'medium', 'high', 'max'])
+        ->and($efforts['claude-haiku-5-5'])->toBe([])
+        ->and($efforts['claude-sonnet-5-5'])->toBe(['low', 'medium', 'high', 'xhigh', 'max'])
+        ->and(array_column($catalog->families(), 'latest', 'family')['opus']['efforts'])->toBe(['low', 'medium', 'high', 'max']);
+});
+
+it('treats a cached entry without efforts as supporting every level', function () {
+    Cache::forever(ClaudeModelCatalog::CACHE_KEY, [['id' => 'claude-opus-5-5', 'family' => 'opus', 'label' => 'Opus 5.5', 'createdAt' => '2026-05-01T00:00:00Z']]);
+
+    expect(app(ClaudeModelCatalog::class)->entries()[0]['efforts'])->toBe(['low', 'medium', 'high', 'xhigh', 'max']);
+});
+
+it('clamps an unsupported effort to the highest supported level below it', function () {
+    Cache::forever(ClaudeModelCatalog::CACHE_KEY, [
+        ['id' => 'claude-opus-5-5', 'family' => 'opus', 'label' => 'Opus 5.5', 'createdAt' => '2026-05-01T00:00:00Z', 'efforts' => ['low', 'high']],
+        ['id' => 'claude-haiku-5-5', 'family' => 'haiku', 'label' => 'Haiku 5.5', 'createdAt' => '2026-05-01T00:00:00Z', 'efforts' => []],
+    ]);
+    $catalog = app(ClaudeModelCatalog::class);
+
+    expect($catalog->clampEffort('opus', 'xhigh'))->toBe('high')
+        ->and($catalog->clampEffort('opus', 'medium'))->toBe('low')
+        ->and($catalog->clampEffort('claude-opus-5-5', 'high'))->toBe('high')
+        ->and($catalog->clampEffort('haiku', 'high'))->toBeNull()
+        ->and($catalog->clampEffort('opus', null))->toBeNull();
 });

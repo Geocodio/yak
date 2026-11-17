@@ -15,12 +15,12 @@ final class RepositoryClaudeAccountData
 {
     /**
      * @return array{
-     *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, usable: bool, status: string}>,
-     *     mySetting: array{accountId: int|null, model: string|null},
+     *     accounts: list<array{id: int, name: string, kind: string, icon: string, color: string, isSystem: bool, isDefault: bool, defaultModel: ?string, defaultEffort: ?string, usable: bool, status: string}>,
+     *     mySetting: array{accountId: int|null, model: string|null, effort: string|null},
      *     unattendedAccountId: int|null,
      *     globalSystemAccountId: int|null,
      *     canChangeUnattended: bool,
-     *     models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>,
+     *     models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>,
      *     docsUrl: string,
      * }
      */
@@ -33,7 +33,7 @@ final class RepositoryClaudeAccountData
 
         return [
             'accounts' => $picker['accounts'],
-            'mySetting' => ['accountId' => $setting?->claude_account_id, 'model' => $setting?->model],
+            'mySetting' => ['accountId' => $setting?->claude_account_id, 'model' => $setting?->model, 'effort' => $setting?->effort],
             'unattendedAccountId' => $repository->unattended_claude_account_id,
             'globalSystemAccountId' => ClaudeAccount::globalSystemAccount()?->id,
             'canChangeUnattended' => $user?->can('useAsUnattended', ClaudeAccount::class) ?? false,

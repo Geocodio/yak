@@ -109,7 +109,7 @@ test('repository page with the gate status has no accessibility issues', functio
     fakeRiskMapGitHub([], "* @mathias\n");
     $this->actingAs($owner);
 
-    visit(route('repos.edit', $repository))->assertVisible('[data-testid="co-owner-gate-status"]')->assertNoAccessibilityIssues(0);
+    visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']))->assertVisible('[data-testid="co-owner-gate-status"]')->assertNoAccessibilityIssues(0);
 });
 
 test('task page with the early warning notice has no accessibility issues', function () {

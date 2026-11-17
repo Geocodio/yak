@@ -38,6 +38,10 @@ A `stream.reset` event carries `data` as an empty JSON object (`{}`), in broadca
 
 New field on task show, so the protocol stays 1: `task.isFollowUp`, true when the conversation's latest task is a follow-up (a review follow-up then cannot re-run the review).
 
+New field on task show, so the protocol stays 1: `progress.steps.*.failed`, true on the CI step while Yak retries after a CI failure. The CI step's `label` now follows the task: "Waiting for CI" while CI runs, "CI failed, retrying" during a retry, and "CI passed" otherwise.
+
+New field on task show, so the protocol stays 1: `task.repositorySetup`, null unless the task failed or expired on a repository that has no sandbox snapshot. It then carries `repo`, `settingsUrl`, `isSettingUp`, `continuesAfterSetup` and `failedSetup` (`at` and `url` of the last failed setup, or null), so the client can offer to set the repository up.
+
 New fields on thread show, so the protocol stays 1: `localTurnStints`, every stretch of turns run on a computer (`localTurns` keeps the first one), and `teleport.environmentSwitches`, every move between Yak and a computer (`teleport.environmentSwitch` keeps the latest one).
 
 Queued messages go out when a turn completes, without the person sending anything else. A switch to Steer during a running turn hands the message to that turn at once.
@@ -47,3 +51,5 @@ The web header's needs-you count is the same number as `needsYouCount` in `me` a
 A thread that has not run a turn yet lists its starting request as a pending message in `messages` (`id` `initial-message`, `uuid` null), so a new thread shows its first message at once; this adds a row, not a field.
 
 Contract fixtures: `threads`, `thread`, `thread-question` (a thread with an open question), `thread-events`, `thread-event`, `thread-message-sent`, `thread-message-queued`, `thread-message-clear`, `queued-message-updated`, `clarification-answers`, `thread-stop`, `thread-continue`, `thread-restore-retry`, `thread-new`, `thread-store`, `thread-repository-access`, `thread-share`, `thread-share-updated`, `broadcasting-auth-private`, `broadcasting-auth-presence`, `error-thread-blocked`, and the recorded event lists `events/simple-turn`, `events/steer`, `events/question`, `events/failed-turn`, `events/stream-reset` and `events/pointer`.
+
+Effort level, so the protocol stays 1: every place that carries a `model` also carries an optional `effort` (`low`, `medium`, `high`, `xhigh` or `max`; null means the model's default). Request: `effort` on `POST threads`, `POST threads/{thread}/messages` and `POST threads/{thread}/stack/children`. Response: `effort` next to `model` in thread show (`composer`, `brief`, `environment`, message rows and stack children), `defaultEffort` on accounts and `effort` in `defaultsByRepo`. Each model in `models` lists the levels it supports in `efforts` (`latest.efforts` and `older[].efforts`, lowest first, empty when the model has no effort control).

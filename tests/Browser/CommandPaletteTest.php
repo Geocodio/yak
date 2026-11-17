@@ -523,7 +523,9 @@ test('a repository page lists New thread in this repository, Open on GitHub and 
     $page = visit(route('repos.edit', $repository));
     openPalette($page);
 
-    $page->assertSeeIn('[data-testid="palette-action-this-repository-new-thread"]', 'New thread in this repository')
+    $page->assertSeeIn('[data-testid="palette-action-this-repository-set-approval-level"]', 'Set approval level')
+        ->assertSeeIn('[data-testid="palette-action-this-repository-go-previews"]', 'Go to Previews')
+        ->assertSeeIn('[data-testid="palette-action-this-repository-new-thread"]', 'New thread in this repository')
         ->assertSeeIn('[data-testid="palette-action-this-repository-open-github"]', 'Open on GitHub')
         ->assertSeeIn('[data-testid="palette-action-this-repository-risk-profile"]', 'Open the risk profile');
 });
