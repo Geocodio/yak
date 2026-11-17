@@ -93,6 +93,8 @@ public actor OverviewFeed {
         var slow: Task<Void, Never>?
     }
 
+    public static let defaultCaller = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
     public nonisolated let threadID: String
 
     private let client: APIClient
@@ -101,6 +103,7 @@ public actor OverviewFeed {
     private var state = OverviewState()
     private var runtimes: [OverviewResource: Runtime] = [.stack: Runtime(), .environment: Runtime()]
     private var isVisible = false
+    private var visibleCallers: Set<UUID> = []
     private var isClosed = false
     private var lastSnapshot: ConversationSnapshot?
     private let consumers = TaskBag()
@@ -133,8 +136,11 @@ public actor OverviewFeed {
         broadcast.stream()
     }
 
-    /// Visible: loads what is missing or old at once and polls. Hidden: cancels every timer and request.
-    public func setVisible(_ visible: Bool) async {
+    /// Visible while any caller is visible: loads what is missing or old at once and polls. Hidden once every caller
+    /// is hidden: cancels every timer and request. A caller is whatever shows the feed, such as a pane or a panel.
+    public func setVisible(_ requested: Bool, caller: UUID = OverviewFeed.defaultCaller) async {
+        if requested { visibleCallers.insert(caller) } else { visibleCallers.remove(caller) }
+        let visible = !visibleCallers.isEmpty
         guard visible != isVisible, !isClosed else { return }
         isVisible = visible
         state.isVisible = visible

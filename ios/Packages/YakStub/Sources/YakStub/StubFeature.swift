@@ -69,6 +69,7 @@ enum StubFeatures {
     static let all: [any StubFeature] = [
         StubPreviewFeature(),
         StubChanges(),
+        StubOverview(),
     ]
 }
 

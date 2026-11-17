@@ -3,6 +3,16 @@ import SwiftUI
 import YakKit
 
 private struct PaneIDKey: EnvironmentKey { static let defaultValue: PaneID? = nil }
+private struct OpenAddSubThreadKey: EnvironmentKey { static let defaultValue: (@MainActor @Sendable () -> Void)? = nil }
+
+extension EnvironmentValues {
+    /// Opens the Add a sub-thread sheet the thread screen presents; nil outside a thread screen.
+    var openAddSubThread: (@MainActor @Sendable () -> Void)? {
+        get { self[OpenAddSubThreadKey.self] }
+        set { self[OpenAddSubThreadKey.self] = newValue }
+    }
+}
+
 private struct IsPaneShownKey: EnvironmentKey { static let defaultValue = true }
 
 extension EnvironmentValues {
