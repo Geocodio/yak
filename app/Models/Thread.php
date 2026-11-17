@@ -361,7 +361,7 @@ class Thread extends Model
      */
     public function repositories(): HasMany
     {
-        return $this->hasMany(ThreadRepository::class);
+        return $this->hasMany(ThreadRepository::class)->orderBy('id');
     }
 
     /**
