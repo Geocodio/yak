@@ -6,6 +6,7 @@ use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
@@ -256,6 +257,8 @@ class DrainForDeployCommand extends Command
             'completed_at' => now(),
             'interrupted_by_deploy_at' => now(),
         ]);
+
+        Repository::markSetupFailedFor($task);
 
         try {
             $containerName = $sandbox->containerName($task);

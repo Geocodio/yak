@@ -11,6 +11,7 @@ use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\Tasks\StopNotifier;
+use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\RepositoryTemplateDrift;
 use App\Services\Threads\SetupScriptHash;
 use Closure;
@@ -68,7 +69,7 @@ class EnsureRepoReady
                 $job,
                 $task,
                 $repository,
-                "Repository '{$task->repo}' has not been set up yet. Run Setup from its settings, then retry: " . route('repos.edit', $repository),
+                'Repository has no workspace yet; setup started.',
             );
 
             return;
@@ -171,6 +172,20 @@ class EnsureRepoReady
 
         $task->update(['resume_after_setup_at' => now()]);
 
+        if ($this->hasFinishedSetupMeanwhile($repository)) {
+            $task->update(['resume_after_setup_at' => null]);
+
+            try {
+                app(TaskActions::class)->retry($task);
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+
+            $this->failJob($job, $detail);
+
+            return;
+        }
+
         if (! in_array($repository->setup_status, ['pending', 'running'], true)) {
             app(RepositoryTemplateDrift::class)->dispatchSetupTask($repository, 'first task for this repository');
         }
@@ -178,6 +193,14 @@ class EnsureRepoReady
         StopNotifier::notify($task, TaskStop::refreshingWorkspace($repository->slug, $detail), NotificationType::Retry);
 
         $this->failJob($job, $detail);
+    }
+
+    /** Setup can finish between reading the repository and marking the task, and nothing would continue the task then. */
+    private function hasFinishedSetupMeanwhile(Repository $repository): bool
+    {
+        $current = Repository::find($repository->id);
+
+        return $current?->setup_status === 'ready' && ! empty($current->sandbox_snapshot);
     }
 
     private function refuse(object $job, YakTask $task, string $reason, ?TaskStop $stop = null): void

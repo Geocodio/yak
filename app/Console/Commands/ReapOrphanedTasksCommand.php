@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\DataTransferObjects\TaskStop;
 use App\Enums\TaskStatus;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
@@ -80,6 +81,8 @@ class ReapOrphanedTasksCommand extends Command
             'status' => TaskStatus::Failed,
             'completed_at' => now(),
         ]);
+
+        Repository::markSetupFailedFor($task);
 
         // Best-effort sandbox teardown.
         try {

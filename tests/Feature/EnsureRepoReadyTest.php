@@ -67,11 +67,11 @@ test('refuses when the repo has no sandbox snapshot', function () {
 
     expect($called)->toBeFalse()
         ->and($job->failed)->toBeTrue()
-        ->and($job->failMessage)->toContain('not been set up yet');
+        ->and($job->failMessage)->toContain('has no workspace yet');
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('not been set up yet')
+        ->and($task->error_log)->toContain('has no workspace yet')
         ->and($task->completed_at)->not->toBeNull();
 });
 
@@ -443,4 +443,36 @@ test('a changed setup script parks the task and dispatches one setup', function 
     Queue::assertPushed(SetupYakJob::class, 1);
     expect($task->fresh()->resume_after_setup_at)->not->toBeNull()
         ->and($task->fresh()->stop_kind)->toBe(StopKind::YakRetrying);
+});
+
+test('a task parked just as setup finishes is retried instead of waiting', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'acme/race', 'setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/race', 'source' => 'dashboard']);
+    YakTask::updated(function (YakTask $updated) use ($repository): void {
+        if ($updated->resume_after_setup_at !== null) {
+            Repository::whereKey($repository->id)->update(['setup_status' => 'ready', 'sandbox_snapshot' => 'snap']);
+        }
+    });
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    expect($task->fresh()->resume_after_setup_at)->toBeNull()
+        ->and($task->fresh()->status)->toBe(TaskStatus::Pending);
+    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertNotPushed(SetupYakJob::class);
+});
+
+test('a task parked on a never-set-up repository carries the workspace detail', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/never', 'setup_status' => 'pending', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/never']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    expect($task->fresh()->error_log)->toBe('Repository has no workspace yet; setup started.');
 });
