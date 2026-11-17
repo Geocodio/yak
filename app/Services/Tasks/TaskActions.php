@@ -83,7 +83,7 @@ class TaskActions
                 throw ThreadActionRefused::because(ThreadActionRefused::TASK_NOT_RETRYABLE, 'This task cannot be retried right now.');
             }
 
-            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry']);
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry', 'stop_kind', 'stop_summary']);
 
             if ($ciResume !== null) {
                 return $this->claimCiResume($locked, $ciResume, $original, $isTimeBounded);

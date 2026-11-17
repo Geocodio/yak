@@ -2,6 +2,7 @@
 
 use App\Enums\NotificationType;
 use App\Enums\RunnerState;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -517,6 +518,8 @@ test('retry shows an error flash instead of an error page when the queue refuses
         'branch_name' => 'yak/FIX-QUEUE',
         'attempts' => 1,
         'error_log' => 'CI failed',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'The automated checks failed.',
         'completed_at' => now(),
     ]);
     TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
@@ -527,7 +530,9 @@ test('retry shows an error flash instead of an error page when the queue refuses
         ->assertRedirect(route('tasks.show', $task))
         ->assertSessionHas('error', 'Yak could not restart this task. Try again in a moment.');
 
-    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->fresh()->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($task->fresh()->stop_summary)->toBe('The automated checks failed.');
 });
 
 test('setup and continue starts setup and marks the task to continue after it', function () {

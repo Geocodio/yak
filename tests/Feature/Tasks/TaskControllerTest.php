@@ -1153,7 +1153,8 @@ test('a task waiting on setup says so in its next steps and setup card', functio
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('task.nextSteps', 'Waiting for repository setup. Yak continues this task when it finishes.')
+            ->where('task.nextSteps', null)
+            ->where('stop.isWaitingForSetup', true)
             ->where('task.repositorySetup.isSettingUp', true)
             ->where('task.repositorySetup.continuesAfterSetup', true)
             ->where('task.repositorySetup.failedSetup', null)
@@ -1208,6 +1209,18 @@ test('a failed task waiting on setup shows as paused whatever the stored kind', 
             ->where('stop.isWaitingForSetup', true)
             ->where('stop.nextStep', 'Yak picks it back up on its own. Nothing needed from you.')
         );
+});
+
+test('a stopped task with a stop block has no separate next steps', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'source' => 'slack',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'Yak ran into a problem.',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null)->has('stop'));
 });
 
 test('a running task has no stop', function () {

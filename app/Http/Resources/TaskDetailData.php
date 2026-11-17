@@ -190,7 +190,8 @@ final class TaskDetailData
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
-            'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
+            // The stop block already says what to do next.
+            'nextSteps' => self::stop($task) === null ? self::nextSteps($task, $head, $coOwnerRequest) : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
