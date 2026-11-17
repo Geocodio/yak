@@ -6,8 +6,10 @@ use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\RetryYakJob;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeSandboxManager;
 
@@ -48,6 +50,42 @@ test('a retry without new commits succeeds and clears a stale pr_body_update', f
 
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
         ->and($task->fresh()->pr_body_update)->toBeNull();
+});
+
+function unchangedRetryTask(): YakTask
+{
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+    Repository::factory()->create(['slug' => 'org/flaky', 'github_full_name' => 'org/flaky', 'ci_system' => 'github_actions']);
+
+    return retryTask(['repo' => 'org/flaky', 'attempts' => 2]);
+}
+
+test('a retry that leaves the branch unchanged reruns the failed CI jobs instead of waiting', function () {
+    $task = unchangedRetryTask();
+    Http::fake([
+        'api.github.com/repos/org/flaky/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'failure'],
+        ]]),
+    ]);
+    $sandbox = (new FakeSandboxManager)->setBranchDiffCount(0);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, $sandbox, 'Browser failures look like flakes.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi)
+        ->and($sandbox->commandsMatching('git push'))->toBe([]);
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/actions/runs/7/rerun-failed-jobs'));
+});
+
+test('a retry that leaves the branch unchanged fails at once when no CI jobs can rerun', function () {
+    $task = unchangedRetryTask();
+    Http::fake(['api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => []])]);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'Nothing to change.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->fresh()->error_log)->toContain('Retry made no changes');
 });
 
 test('a retry runs on the yak-claude queue with the budget and repo middleware', function () {
