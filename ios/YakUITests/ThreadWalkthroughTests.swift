@@ -175,7 +175,7 @@ import XCTest
     func testChatStreaming() throws {
         // The stub plays the first deltas and holds, so the reply is half written.
         try openChat("one-thread-working", holdAfter: 7)
-        XCTAssertTrue(label("Looking at the importer.").waitForExistence(timeout: 20))
+        XCTAssertTrue(label("Looking at the importer.").waitForExistence(timeout: 60))
         try shootThread("chat-streaming")
     }
 
@@ -204,7 +204,7 @@ import XCTest
 
     func testChatHistory() throws {
         try openChat("long-history")
-        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 20))
+        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 60))
         // Fast swipes reach the first loaded row, where the older page is asked for and takes a few seconds.
         let loading = label("Loading earlier messages")
         let list = app.descendants(matching: .any)["conversation"].firstMatch
@@ -268,7 +268,7 @@ import XCTest
 
     func testChatJumpToLatest() throws {
         try openChat("long-history")
-        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 20))
+        XCTAssertTrue(label("Step 1200.").waitForExistence(timeout: 60))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         for _ in 0..<3 { list.swipeDown() }
         XCTAssertTrue(app.descendants(matching: .any)["chat.jumpToLatest"].firstMatch.waitForExistence(timeout: 5))

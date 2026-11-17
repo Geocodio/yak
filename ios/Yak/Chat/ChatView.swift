@@ -12,6 +12,8 @@ struct ChatView: View {
     @State private var isNearBottom = true
     /// A finger is on the list or its fling is running; the list does not follow new content then.
     @State private var isPersonScrolling = false
+    /// The person has touched the list. Until then the list stays at its end through every change of its rows.
+    @State private var hasPersonScrolled = false
     /// The history row came into view and has not asked for a page yet. A page is asked for once per arrival: the
     /// row's disappearance can reach this view late, after a page has pushed it far above, and that would ask for
     /// every page in a row.
@@ -123,7 +125,10 @@ struct ChatView: View {
         .onChange(of: thread.documents.count) { applyHeldPlace() }
         .onScrollPhaseChange { _, phase in
             isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
-            if [.tracking, .interacting].contains(phase) { placeHeld = nil }
+            if [.tracking, .interacting].contains(phase) {
+                placeHeld = nil
+                hasPersonScrolled = true
+            }
         }
         .onChange(of: thread.historyState) { old, new in
             guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
@@ -147,10 +152,17 @@ struct ChatView: View {
     private func follow(from old: Metrics, to new: Metrics) {
         viewportHeight = new.viewportHeight
         guard new.contentHeight != old.contentHeight else {
+            // A scroll to the end can land short of it while the lazy stack still estimates; it goes on until there.
+            if !hasPersonScrolled, new.distanceFromBottom > 0.5 {
+                withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
+                return
+            }
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
             return
         }
-        if old.distanceFromBottom <= Self.stickDistance, !isPersonScrolling {
+        // Until the person touches the list, the end stays in view however late or in how many steps the rows and
+        // their Markdown arrive; a distance read before the first rows existed decides nothing.
+        if !hasPersonScrolled || (old.distanceFromBottom <= Self.stickDistance && !isPersonScrolling) {
             withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
             isNearBottom = true
         }

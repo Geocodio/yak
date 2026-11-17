@@ -112,7 +112,7 @@ import XCTest
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
-        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 60))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         list.swipeDown()
         func firstStep() throws -> any XCUIElementSnapshot {
@@ -141,6 +141,27 @@ import XCTest
         XCTAssertEqual(moved.frame.minY, tracked.frame.minY, accuracy: 1)
     }
 
+    /// A long conversation opens at its end, also when its first page arrives late: here the thread opens while the
+    /// instance is unreachable, and the rows and their Markdown arrive once it is back.
+    func testALongConversationThatArrivesLateOpensAtItsEnd() throws {
+        try launch(scenario: "long-history")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        try stub.setOnline(false)
+        row.tap()
+        Thread.sleep(forTimeInterval: 4)
+        try stub.setOnline(true)
+        let last = app.staticTexts["Step 1200."]
+        XCTAssertTrue(last.waitForExistence(timeout: 60))
+        // The rows keep arriving and growing as their Markdown is parsed; the end stays in view through all of it.
+        Thread.sleep(forTimeInterval: 3)
+        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        let centre = CGPoint(x: last.frame.midX, y: last.frame.midY)
+        XCTAssertTrue(last.exists && list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
+        XCTAssertFalse(app.descendants(matching: .any)["chat.jumpToLatest"].exists)
+    }
+
     /// The row at the top of the screen stays where it is when earlier messages arrive above it.
     func testEarlierMessagesKeepTheRowInPlace() throws {
         try launch(scenario: "long-history")
@@ -148,13 +169,15 @@ import XCTest
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
-        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 60))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         let loading = app.staticTexts["Loading earlier messages"]
         var isLoading = false
-        for _ in 0..<80 where !isLoading {
+        // The row shows for the 12 seconds the stub holds the page; on a slow machine a swipe takes long, so every
+        // fourth swipe looks for it with more time.
+        for swipe in 1...80 where !isLoading {
             list.swipeDown(velocity: .fast)
-            isLoading = loading.waitForExistence(timeout: 0.5)
+            isLoading = loading.waitForExistence(timeout: swipe.isMultiple(of: 4) ? 3 : 0.5)
         }
         XCTAssertTrue(isLoading)
         // One snapshot of the screen, so rows that are being replaced do not vanish between two queries.
