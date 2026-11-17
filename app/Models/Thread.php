@@ -186,6 +186,57 @@ class Thread extends Model
     }
 
     /**
+     * Hides threads that are not meant for people to browse, such as repository research.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @return Builder<covariant Thread>
+     */
+    public function scopeListed(Builder $query): Builder
+    {
+        return $query->where('threads.source', '!=', ThreadSource::RepositoryResearch->value);
+    }
+
+    /**
+     * Keeps threads from any of the given source keys; unknown keys are ignored and no keys means no filter.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @param  list<string>  $keys
+     * @return Builder<covariant Thread>
+     */
+    public function scopeWhereSources(Builder $query, array $keys): Builder
+    {
+        $sources = array_values(array_filter($keys, fn (string $key): bool => ThreadSource::tryFrom($key) !== null));
+
+        return $sources === [] ? $query : $query->whereIn('threads.source', $sources);
+    }
+
+    /**
+     * Keeps threads started by any of the given starters: `user:<id>`, `name:<author>` or `yak`.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @param  list<string>  $keys
+     * @return Builder<covariant Thread>
+     */
+    public function scopeWhereStarters(Builder $query, array $keys): Builder
+    {
+        if ($keys === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $starters) use ($keys): void {
+            foreach ($keys as $key) {
+                if ($key === 'yak') {
+                    $starters->orWhere(fn (Builder $yak) => $yak->whereNull('threads.created_by_user_id')->whereNull('threads.starter_name'));
+                } elseif (str_starts_with($key, 'user:') && ctype_digit(substr($key, 5))) {
+                    $starters->orWhere('threads.created_by_user_id', (int) substr($key, 5));
+                } elseif (str_starts_with($key, 'name:')) {
+                    $starters->orWhere(fn (Builder $named) => $named->whereNull('threads.created_by_user_id')->where('threads.starter_name', substr($key, 5)));
+                }
+            }
+        });
+    }
+
+    /**
      * @return BelongsTo<Device, $this>
      */
     public function ownerDevice(): BelongsTo
@@ -340,6 +391,14 @@ class Thread extends Model
     public function claudeAccount(): BelongsTo
     {
         return $this->belongsTo(ClaudeAccount::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**
