@@ -165,6 +165,21 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'help_card']);
         }
 
+        $mentionChannel = (string) ($description->metadata['slack_channel'] ?? '');
+        $mentionThreadTs = (string) ($description->metadata['slack_thread_ts'] ?? '');
+        $mentionTs = (string) ($description->metadata['slack_message_ts'] ?? '');
+
+        if ($this->wasHandledAsStoppedReply($mentionChannel, $mentionTs)) {
+            return response()->json(['ok' => true, 'skipped' => 'handled_as_stopped_reply']);
+        }
+
+        $stoppedTask = $this->stoppedTaskInThread($mentionChannel, $mentionThreadTs);
+
+        // A task whose co-owner request lapsed is not retried by a mention; the mention starts a new run.
+        if ($stoppedTask !== null && ! $stoppedTask->coOwnerRequests()->exists() && trim($description->body) !== '') {
+            return $this->replyToStoppedTask($stoppedTask, $description->body, $mentionChannel, $mentionTs, $description->metadata['slack_user_id'] ?? null);
+        }
+
         $detector = new RepoDetector;
         $detection = $detector->detect($description);
         $authorName = UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null);
@@ -413,6 +428,10 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        if ($this->wasHandledAsStoppedReply((string) $channel, (string) ($event['ts'] ?? ''))) {
+            return response()->json(['ok' => true, 'skipped' => 'handled_as_stopped_reply']);
+        }
+
         $clarificationTask = YakTask::where('slack_channel', $channel)
             ->where('slack_thread_ts', $threadTs)
             ->where('status', 'awaiting_clarification')
@@ -522,26 +541,60 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'steering']);
         }
 
-        $stoppedTask = YakTask::where('slack_channel', $channel)
-            ->where('slack_thread_ts', $threadTs)
-            ->latest('id')
-            ->first();
+        $stoppedTask = $this->stoppedTaskInThread((string) $channel, (string) $threadTs);
 
-        if ($stoppedTask !== null
-            && $stoppedTask->pr_url === null
-            && in_array($stoppedTask->status, [TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled], true)) {
+        if ($stoppedTask !== null) {
             $text = (string) ($event['text'] ?? '');
 
             if (trim($text) === '') {
                 return response()->json(['ok' => true]);
             }
 
-            $reply = app(StoppedTaskReplies::class)->handle($stoppedTask, $text, 'slack', UserNameResolver::resolve((string) ($event['user'] ?? '')));
-            SendNotificationJob::dispatch($stoppedTask, NotificationType::Progress, $reply, personalize: false);
-
-            return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);
+            return $this->replyToStoppedTask($stoppedTask, $text, (string) $channel, (string) ($event['ts'] ?? ''), $event['user'] ?? null);
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * The thread's newest task when it stopped without a PR, so a reply can retry it.
+     */
+    private function stoppedTaskInThread(string $channel, string $threadTs): ?YakTask
+    {
+        if ($channel === '' || $threadTs === '') {
+            return null;
+        }
+
+        $task = YakTask::where('slack_channel', $channel)
+            ->where('slack_thread_ts', $threadTs)
+            ->latest('id')
+            ->first();
+
+        return $task !== null
+            && $task->pr_url === null
+            && in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled], true)
+            ? $task
+            : null;
+    }
+
+    /**
+     * A reply that mentions Yak arrives twice, as an app mention and as a message.
+     * Whichever arrives first claims the message, so the other leaves it alone.
+     */
+    private function wasHandledAsStoppedReply(string $channel, string $messageTs): bool
+    {
+        return $messageTs !== '' && Cache::has("slack-stopped-reply:{$channel}:{$messageTs}");
+    }
+
+    private function replyToStoppedTask(YakTask $task, string $text, string $channel, string $messageTs, ?string $userId): JsonResponse
+    {
+        if ($messageTs !== '' && ! Cache::add("slack-stopped-reply:{$channel}:{$messageTs}", true, 300)) {
+            return response()->json(['ok' => true, 'skipped' => 'handled_as_stopped_reply']);
+        }
+
+        $reply = app(StoppedTaskReplies::class)->handle($task, $text, 'slack', UserNameResolver::resolve((string) $userId));
+        SendNotificationJob::dispatch($task, NotificationType::Progress, $reply, personalize: false);
+
+        return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);
     }
 }

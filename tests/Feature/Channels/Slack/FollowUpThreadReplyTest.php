@@ -384,3 +384,39 @@ it('tells the starter a cancelled task stays stopped', function () {
     Queue::assertNotPushed(RunYakJob::class);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === 'This was stopped. Start a new request to try again.');
 });
+
+function postSlackBody(string $body): TestResponse
+{
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    return test()->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+}
+
+it('retries a stopped task once when a reply that mentions Yak arrives as both events', function (array $order) {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    YakTask::factory()->failed()->create([
+        'source' => 'slack', 'repo' => $repository->slug, 'pr_url' => null,
+        'slack_channel' => 'C123', 'slack_thread_ts' => '111.222',
+    ]);
+    $text = '<@U_BOT_ID> try the other approach';
+    $events = [
+        'message' => fn () => postSlackBody(slackThreadReplyPayload($text, 'C123', '111.222')),
+        'mention' => fn () => postSlackBody(slackThreadReplyPayload($text, 'C123', '111.222', ['event' => ['type' => 'app_mention']])),
+    ];
+
+    foreach ($order as $name) {
+        $events[$name]()->assertSuccessful();
+    }
+
+    expect(YakTask::count())->toBe(1);
+    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+})->with([
+    'message first' => [['message', 'mention']],
+    'mention first' => [['mention', 'message']],
+]);
