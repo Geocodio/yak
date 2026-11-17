@@ -11,7 +11,7 @@ export type ThreadLogRow = {
     source: { key: string; label: string; reference: string | null; url: string | null };
     starter: { key: string; name: string; avatarUrl: string | null };
     repo: string | null;
-    pullRequest: { number: number | null; url: string | null; state: 'open' | 'merged' | 'closed' | 'held' } | null;
+    pullRequest: { number: number | null; url: string | null; state: string } | null;
     costUsd: number;
     lastActivityAt: string;
     followUpCount: number;

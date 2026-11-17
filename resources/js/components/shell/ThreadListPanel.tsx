@@ -1,4 +1,5 @@
 import { usePage } from "@inertiajs/react";
+import { threadIdOfUrl } from "@/components/shell/threadUrl";
 import {
     Button,
     IconButton,
@@ -66,8 +67,7 @@ export function ThreadListPanel({
                 setStarters(starters.filter((item) => item !== key)),
         })),
     ];
-    const activeThreadId =
-        /^\/threads\/([^/?#]+)/.exec(url.split("?")[0])?.[1] ?? null;
+    const activeThreadId = threadIdOfUrl(url);
     useKeepThreadSeen(activeThreadId, data);
     const hasNoThreadsAtAll =
         data !== null && !data.hasAnyThreads;

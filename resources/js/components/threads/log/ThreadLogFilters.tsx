@@ -127,7 +127,6 @@ export function ThreadLogFilterControls({
 
     return (
         <>
-            <SearchField key={filters.search} value={filters.search} onSubmit={(search) => onChange({ search })} block={block} />
             <MultiSelectFilter
                 block={block}
                 testId="filter-status"
@@ -184,6 +183,7 @@ export function ThreadLogFilterControls({
                     <span className="tnum text-[11px] text-faint">{counts.needsCoOwner}</span>
                 </button>
             )}
+            <SearchField key={filters.search} value={filters.search} onSubmit={(search) => onChange({ search })} block={block} />
         </>
     );
 }

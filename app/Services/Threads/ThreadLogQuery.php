@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class ThreadLogQuery
 {
+    private const string PULL_REQUEST_STATE = "coalesce(thread_repositories.pull_request_state, 'open')";
+
     private const array STATUS_KEYS = ['closed', 'waiting_for_co_owner', 'needs_you', 'stopped', 'working', 'done'];
 
     /**
@@ -25,7 +27,11 @@ final class ThreadLogQuery
      */
     public static function for(User $viewer, array $filters = []): Builder
     {
-        $query = self::filtered($viewer, $filters, true);
+        $query = self::filtered($viewer, $filters, true)
+            ->select('threads.*')
+            ->selectRaw(self::pullRequestSubquery('thread_repositories.pull_request_number') . ' as pull_request_number')
+            ->selectRaw(self::pullRequestSubquery('thread_repositories.pull_request_url') . ' as pull_request_url')
+            ->selectRaw(self::pullRequestSubquery(self::PULL_REQUEST_STATE) . ' as pull_request_state');
         $direction = ($filters['direction'] ?? '') === 'asc' ? 'asc' : 'desc';
 
         match ($filters['sort'] ?? 'last_activity') {
@@ -65,7 +71,10 @@ final class ThreadLogQuery
         }
         $sources = [];
         foreach ($sourceCounts as $key => $count) {
-            $source = ThreadSource::from((string) $key);
+            $source = ThreadSource::tryFrom((string) $key);
+            if ($source === null) {
+                continue;
+            }
             $sources[] = ['key' => $source->value, 'label' => $source->label(), 'count' => (int) $count];
         }
         usort($sources, fn (array $a, array $b): int => $a['label'] <=> $b['label']);
@@ -150,7 +159,7 @@ final class ThreadLogQuery
         }
 
         if (($filters['search'] ?? '') !== '') {
-            $query->whereRaw("lower(threads.title) like ? escape '!'", [ThreadList::likePattern((string) $filters['search'])]);
+            $query->whereRaw("lower(threads.title) like ? escape '" . ThreadList::LIKE_ESCAPE . "'", [ThreadList::likePattern((string) $filters['search'])]);
         }
 
         self::pullRequest($query, (string) ($filters['pull_request'] ?? ''));
@@ -159,22 +168,32 @@ final class ThreadLogQuery
     }
 
     /**
+     * The one definition of a thread's pull request: its first repository with
+     * one, primary before changes. The rows read the same subquery.
+     */
+    private static function pullRequestSubquery(string $column): string
+    {
+        return "(select {$column} from thread_repositories where thread_repositories.thread_id = threads.id"
+            . " and thread_repositories.role in ('primary', 'changes') and thread_repositories.pull_request_url is not null"
+            . " order by case thread_repositories.role when 'primary' then 0 else 1 end, thread_repositories.id limit 1)";
+    }
+
+    /**
+     * `open`, `merged` and `closed` follow that pull request's state; `held` is no pull request
+     * while waiting for a co-owner; `none` is no pull request otherwise. Any other value matches nothing.
+     *
      * @param  Builder<Thread>  $query
      */
     private static function pullRequest(Builder $query, string $state): void
     {
-        $hasPullRequest = fn (?string $stateName) => fn (Builder $threads) => $threads->whereExists(fn ($repository) => $repository->from('thread_repositories')->selectRaw('1')
-            ->whereColumn('thread_repositories.thread_id', 'threads.id')
-            ->whereIn('thread_repositories.role', ['primary', 'changes'])
-            ->whereNotNull('thread_repositories.pull_request_url')
-            ->when($stateName === 'open', fn ($open) => $open->where(fn ($either) => $either->whereNull('thread_repositories.pull_request_state')->orWhere('thread_repositories.pull_request_state', 'open')))
-            ->when($stateName !== null && $stateName !== 'open', fn ($other) => $other->where('thread_repositories.pull_request_state', $stateName)));
+        $subquery = self::pullRequestSubquery(self::PULL_REQUEST_STATE);
 
         match ($state) {
-            'open', 'merged', 'closed' => $query->where($hasPullRequest($state)),
-            'none' => $query->whereNot($hasPullRequest(null)),
-            'held' => ThreadRequestStatus::scope($query, ['waiting_for_co_owner']),
-            default => null,
+            '' => null,
+            'open', 'merged', 'closed' => $query->whereRaw("{$subquery} = ?", [$state]),
+            'held' => ThreadRequestStatus::scope($query->whereRaw("{$subquery} is null"), ['waiting_for_co_owner']),
+            'none' => $query->whereRaw("{$subquery} is null")->whereNot(fn (Builder $waiting) => ThreadRequestStatus::scope($waiting, ['waiting_for_co_owner'])),
+            default => $query->whereRaw('1 = 0'),
         };
     }
 

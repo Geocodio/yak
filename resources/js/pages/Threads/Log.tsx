@@ -122,7 +122,17 @@ export default function Log({ rows, counts, filters, facets }: Props) {
                         key={scrollKey}
                         data="rows"
                         itemsElement="#thread-log-body"
-                        params={{ onError: () => setLoadMoreFailed(true), onSuccess: () => setLoadMoreFailed(false) }}
+                        params={{
+                            onHttpException: () => {
+                                setLoadMoreFailed(true);
+                                return false;
+                            },
+                            onNetworkError: () => {
+                                setLoadMoreFailed(true);
+                                return false;
+                            },
+                            onSuccess: () => setLoadMoreFailed(false),
+                        }}
                         loading={() => (
                             <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-muted" data-testid="thread-log-loading">
                                 <Spinner size="sm" />

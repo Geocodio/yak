@@ -35,7 +35,7 @@ export function sectionForUrl(url: string): RailSection {
     if (SETTINGS_PREFIXES.some((prefix) => startsWithPath(path, prefix))) {
         return 'settings';
     }
-    if (OPERATIONS_ITEMS.some((item) => startsWithPath(path, item.url))) {
+    if (startsWithPath(path, '/tasks') || OPERATIONS_ITEMS.some((item) => startsWithPath(path, item.url))) {
         return 'operations';
     }
     if (INSIGHTS_ITEMS.some((item) => startsWithPath(path, item.url))) {

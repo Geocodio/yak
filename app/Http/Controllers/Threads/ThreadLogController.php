@@ -24,7 +24,7 @@ class ThreadLogController extends Controller
         $paginator = null;
         $page = function () use (&$paginator, $viewer, $filters): LengthAwarePaginator {
             return $paginator ??= ThreadLogQuery::for($viewer, $filters)
-                ->paginate(self::PER_PAGE, ['threads.*'], 'page', Paginator::resolveCurrentPage());
+                ->paginate(self::PER_PAGE, ['*'], 'page', Paginator::resolveCurrentPage());
         };
 
         return Inertia::render('Threads/Log', [

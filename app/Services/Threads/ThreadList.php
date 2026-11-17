@@ -42,7 +42,7 @@ use Illuminate\Support\Str;
  */
 class ThreadList
 {
-    private const LIKE_ESCAPE = '!';
+    public const LIKE_ESCAPE = '!';
 
     /**
      * @param  list<string>  $sources

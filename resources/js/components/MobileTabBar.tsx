@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
 import { Code2, MessageSquare, Menu as MenuIcon, MessagesSquare, Plus } from 'lucide-react';
+import { isThreadsSectionUrl } from '@/components/shell/threadUrl';
 import { isActive, openMobileNav, openNewThread } from '@/components/Sidebar';
 import { home, prReviews, repos } from '@/routes';
 import type { SharedProps } from '@/types/shared';
@@ -25,16 +26,16 @@ export function MobileTabBar() {
     const { props, url } = usePage<SharedProps>();
 
     const slots = [
-        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: '/threads', badge: props.nav.activeTaskCount },
-        { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), activePrefix: undefined, badge: null },
-        { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), activePrefix: undefined, badge: null },
+        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: true, badge: props.nav.activeTaskCount },
+        { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), activePrefix: false, badge: null },
+        { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), activePrefix: false, badge: null },
     ];
     const items: TabBarItem[] = slots.map((slot) => ({
         key: slot.url,
         label: slot.label,
         icon: slot.icon,
         href: slot.url,
-        active: slot.activePrefix === undefined ? isActive(url, slot.url) : url.split('?')[0] === slot.url || isActive(url, slot.activePrefix),
+        active: slot.activePrefix ? isThreadsSectionUrl(url) : isActive(url, slot.url),
         badge: slot.badge,
         testId: `mobile-tab-${slot.key}`,
     }));

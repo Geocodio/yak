@@ -7,8 +7,14 @@ import { rowLinkHandlers } from '@/lib/visitRow';
 import type { ThreadLogRow, ThreadLogSort, ThreadLogTone } from '@/types/threadLog';
 
 const DOT: Record<ThreadLogTone, string> = { ok: 'bg-ok', warn: 'bg-warn', bad: 'bg-fail', info: 'bg-info', neutral: 'bg-idle' };
-const PULL_REQUEST_TONE = { open: 'ok', merged: 'accent', closed: 'fail', held: 'warn' } as const;
+const PULL_REQUEST_TONE = { open: 'ok', merged: 'info', closed: 'fail', held: 'warn' } as const;
 const PULL_REQUEST_LABEL = { open: 'Open', merged: 'Merged', closed: 'Closed', held: 'Held' } as const;
+
+function PullRequestBadge({ state }: { state: string }) {
+    const known = state in PULL_REQUEST_TONE;
+
+    return <Badge tone={known ? PULL_REQUEST_TONE[state as keyof typeof PULL_REQUEST_TONE] : 'neutral'}>{known ? PULL_REQUEST_LABEL[state as keyof typeof PULL_REQUEST_LABEL] : state}</Badge>;
+}
 
 function PullRequestCell({ row }: { row: ThreadLogRow }) {
     const pullRequest = row.pullRequest;
@@ -24,7 +30,7 @@ function PullRequestCell({ row }: { row: ThreadLogRow }) {
                     #{pullRequest.number}
                 </a>
             )}
-            <Badge tone={PULL_REQUEST_TONE[pullRequest.state]}>{PULL_REQUEST_LABEL[pullRequest.state]}</Badge>
+            <PullRequestBadge state={pullRequest.state} />
         </span>
     );
 }

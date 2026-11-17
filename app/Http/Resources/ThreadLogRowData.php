@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * One row of the thread log. The status, pull request, cost, follow-ups and
+ * One row of the thread log. The pull request comes with the page query ({@see ThreadLogQuery::for}); the status, cost, follow-ups and
  * the person asked are read for the whole page in a fixed number of queries.
  *
  * @phpstan-type LogRow array{
@@ -30,14 +30,6 @@ use Illuminate\Support\Str;
 final class ThreadLogRowData
 {
     private const array STATUS_KEYS_BY_PRIORITY = ['closed', 'waiting_for_co_owner', 'needs_you', 'stopped', 'working'];
-
-    /**
-     * @return LogRow
-     */
-    public static function from(Thread $thread): array
-    {
-        return self::forPage(collect([$thread]))[0];
-    }
 
     /**
      * @param  Collection<int, Thread>  $threads
@@ -62,14 +54,17 @@ final class ThreadLogRowData
 
         $tasks = DB::table('tasks')->whereIn('thread_id', $ids)->orderBy('id')->get(['id', 'thread_id', 'status', 'parent_task_id'])->groupBy('thread_id');
         $firstAskedByThread = self::firstAskedNames($ids);
-        $pullRequests = self::pullRequests($ids);
         $costs = DB::table('task_runs')->whereIn('thread_id', $ids)->groupBy('thread_id')->selectRaw('thread_id, sum(cost_usd) as total')->pluck('total', 'thread_id');
 
-        return $threads->map(function (Thread $thread) use ($statusKeys, $tasks, $firstAskedByThread, $pullRequests, $costs): array {
+        return $threads->map(function (Thread $thread) use ($statusKeys, $tasks, $firstAskedByThread, $costs): array {
             $status = ThreadRequestStatus::describe($statusKeys[$thread->id] ?? 'done');
             $threadTasks = $tasks->get($thread->id, collect());
             $followUpCount = $threadTasks->whereNotNull('parent_task_id')->count();
-            $pullRequest = $pullRequests[$thread->id] ?? null;
+            $pullRequest = $thread->getAttribute('pull_request_url') === null ? null : [
+                'number' => $thread->getAttribute('pull_request_number') !== null ? (int) $thread->getAttribute('pull_request_number') : null,
+                'url' => (string) $thread->getAttribute('pull_request_url'),
+                'state' => (string) $thread->getAttribute('pull_request_state'),
+            ];
 
             if ($pullRequest === null && $status['key'] === 'waiting_for_co_owner') {
                 $pullRequest = ['number' => null, 'url' => null, 'state' => 'held'];
@@ -155,33 +150,5 @@ final class ThreadLogRowData
         }
 
         return $firstNames;
-    }
-
-    /**
-     * The pull request of each thread's primary repository, else of a changes repository.
-     *
-     * @param  list<int>  $ids
-     * @return array<int, array{number: ?int, url: ?string, state: string}>
-     */
-    private static function pullRequests(array $ids): array
-    {
-        $rows = DB::table('thread_repositories')
-            ->whereIn('thread_id', $ids)
-            ->whereIn('role', ['primary', 'changes'])
-            ->whereNotNull('pull_request_url')
-            ->orderByRaw("case role when 'primary' then 0 else 1 end")
-            ->orderBy('id')
-            ->get(['thread_id', 'pull_request_number', 'pull_request_url', 'pull_request_state']);
-
-        $pullRequests = [];
-        foreach ($rows as $row) {
-            $pullRequests[(int) $row->thread_id] ??= [
-                'number' => $row->pull_request_number !== null ? (int) $row->pull_request_number : null,
-                'url' => (string) $row->pull_request_url,
-                'state' => (string) ($row->pull_request_state ?? 'open'),
-            ];
-        }
-
-        return $pullRequests;
     }
 }

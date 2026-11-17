@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { ThreadListData } from '@/types/shell';
 import { csrfToken } from '@/lib/csrfToken';
+import { threadIdOfUrl } from '@/components/shell/threadUrl';
 import { seen } from '@/routes/threads';
 
-const THREAD_URL = /^\/threads\/([^/?#]+)/;
 
 let pendingPosts = 0;
 
@@ -50,7 +50,7 @@ export function useKeepThreadSeen(threadId: string | null, data: ThreadListData 
 /** Posts `threads.seen` once per thread id while its page stays open. */
 export function useMarkThreadSeen(url: string): void {
     const postedId = useRef<string | null>(null);
-    const threadId = THREAD_URL.exec(url.split('?')[0])?.[1] ?? null;
+    const threadId = threadIdOfUrl(url);
 
     useEffect(() => {
         if (threadId === null) {

@@ -136,28 +136,40 @@ test('filters by status with the same answer the rows show', function () {
         ->and($rows['Closed one']['statusLine'])->toBe('Closed without a PR');
 });
 
-test('filters by pull request state and shows the pull request cell', function () {
+test('filters by the pull request state of the first repository, the same one the row shows', function () {
     $viewer = User::factory()->create();
+    $pullRequest = fn (Thread $thread, int $number, string $state, string $role = 'primary') => ThreadRepository::factory()->create([
+        'thread_id' => $thread->id, 'role' => $role, 'repo' => 'acme/' . $role, 'sandbox_path' => '/workspace/' . $role, 'pull_request_url' => 'https://github.com/acme/widgets/pull/' . $number, 'pull_request_number' => $number, 'pull_request_state' => $state,
+    ]);
     $open = Thread::factory()->create(['title' => 'Open PR']);
-    ThreadRepository::factory()->create(['thread_id' => $open->id, 'pull_request_url' => 'https://github.com/acme/widgets/pull/7', 'pull_request_number' => 7, 'pull_request_state' => 'open']);
+    $pullRequest($open, 7, 'open');
     $merged = Thread::factory()->closed()->create(['title' => 'Merged PR']);
-    ThreadRepository::factory()->create(['thread_id' => $merged->id, 'pull_request_url' => 'https://github.com/acme/widgets/pull/8', 'pull_request_number' => 8, 'pull_request_state' => 'merged']);
+    $pullRequest($merged, 8, 'merged');
     $closed = Thread::factory()->closed()->create(['title' => 'Closed PR']);
-    ThreadRepository::factory()->create(['thread_id' => $closed->id, 'pull_request_url' => 'https://github.com/acme/widgets/pull/9', 'pull_request_number' => 9, 'pull_request_state' => 'closed']);
+    $pullRequest($closed, 9, 'closed');
+    $mixed = Thread::factory()->create(['title' => 'Open primary, merged changes']);
+    $pullRequest($mixed, 10, 'open');
+    $pullRequest($mixed, 11, 'merged', 'changes');
+    $changesOnly = Thread::factory()->create(['title' => 'Changes only']);
+    $pullRequest($changesOnly, 12, 'merged', 'changes');
     Thread::factory()->create(['title' => 'No PR yet']);
     $held = Thread::factory()->create(['title' => 'Held']);
     $heldTask = YakTask::factory()->awaitingCoOwner()->create(['thread_id' => $held->id]);
     CoOwnerRequest::factory()->create(['task_id' => $heldTask->id]);
 
-    expect(loggedTitles($viewer, ['pull_request' => 'open']))->toBe(['Open PR'])
-        ->and(loggedTitles($viewer, ['pull_request' => 'merged']))->toBe(['Merged PR'])
+    expect(loggedTitles($viewer, ['pull_request' => 'open']))->toEqualCanonicalizing(['Open PR', 'Open primary, merged changes'])
+        ->and(loggedTitles($viewer, ['pull_request' => 'merged']))->toEqualCanonicalizing(['Merged PR', 'Changes only'])
         ->and(loggedTitles($viewer, ['pull_request' => 'closed']))->toBe(['Closed PR'])
         ->and(loggedTitles($viewer, ['pull_request' => 'held']))->toBe(['Held'])
-        ->and(loggedTitles($viewer, ['pull_request' => 'none']))->toEqualCanonicalizing(['No PR yet', 'Held']);
+        ->and(loggedTitles($viewer, ['pull_request' => 'none']))->toBe(['No PR yet'])
+        ->and(loggedTitles($viewer, ['pull_request' => 'bogus']))->toBe([]);
 
     $rows = collect(threadLog($viewer)->toArray()['props']['rows']['data'])->keyBy('title');
     expect($rows['Open PR']['pullRequest'])->toBe(['number' => 7, 'url' => 'https://github.com/acme/widgets/pull/7', 'state' => 'open'])
         ->and($rows['Merged PR']['pullRequest']['state'])->toBe('merged')
+        ->and($rows['Open primary, merged changes']['pullRequest']['number'])->toBe(10)
+        ->and($rows['Open primary, merged changes']['pullRequest']['state'])->toBe('open')
+        ->and($rows['Changes only']['pullRequest']['number'])->toBe(12)
         ->and($rows['Held']['pullRequest'])->toBe(['number' => null, 'url' => null, 'state' => 'held'])
         ->and($rows['No PR yet']['pullRequest'])->toBeNull();
 });
@@ -194,11 +206,16 @@ test('sorts by last activity, source, starter and repo in either direction', fun
         ->and(loggedTitles($viewer, ['sort' => 'repo', 'direction' => 'desc']))->toBe(['One', 'Two', 'Three']);
 });
 
-test('an invalid sort or filter value is refused', function () {
+test('a hand-edited sort or direction falls back to the default and the page still renders', function () {
     $viewer = User::factory()->create();
+    Thread::factory()->create(['title' => 'Older', 'last_activity_at' => now()->subDay()]);
+    Thread::factory()->create(['title' => 'Newer', 'last_activity_at' => now()]);
 
-    $this->actingAs($viewer)->getJson(route('threads.log', ['sort' => 'title']))->assertUnprocessable();
-    $this->actingAs($viewer)->getJson(route('threads.log', ['pull_request' => 'maybe']))->assertUnprocessable();
+    $response = $this->actingAs($viewer)->get(route('threads.log', ['sort' => 'title', 'direction' => 'sideways', 'pull_request' => 'maybe', 'status' => 'working']));
+
+    $response->assertOk();
+    expect(loggedTitles($viewer, ['sort' => 'title', 'direction' => 'sideways']))->toBe(['Newer', 'Older'])
+        ->and(threadLog($viewer, ['sort' => 'title'])->toArray()['props']['filters']['sort'])->toBe('last_activity');
 });
 
 test('the facets count sources and starters under the other filters and keep a picked value at zero', function () {
