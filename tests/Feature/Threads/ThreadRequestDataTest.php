@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\StopKind;
 use App\Enums\ThreadSource;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadRequestData;
@@ -48,6 +49,13 @@ function threadsByStatus(): array
         taskOn($thread, 'success');
         TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::WaitingForAccount]);
     });
+    $threads['stopped_with_kind'] = tap(Thread::factory()->create(), fn (Thread $thread) => taskOn($thread, 'failed', ['stop_kind' => StopKind::YakStopped, 'stop_summary' => 'Yak stopped']));
+    $threads['retrying_with_kind'] = tap(Thread::factory()->create(), fn (Thread $thread) => taskOn($thread, 'pending', ['stop_kind' => StopKind::YakRetrying, 'stop_summary' => 'Refreshing the workspace']));
+    $threads['guard_stopped_then_turn_active'] = tap(Thread::factory()->create(), function (Thread $thread): void {
+        taskOn($thread, 'success');
+        TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::StoppedByGuard]);
+        TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
+    });
     $threads['moved'] = Thread::factory()->closed()->create(['close_reason' => 'moved']);
     $threads['legacy'] = Thread::factory()->closed()->create(['is_legacy' => true, 'close_reason' => 'legacy']);
 
@@ -60,7 +68,7 @@ it('gives one status per key and the SQL scope agrees', function () {
         'working' => 'working', 'needs_you' => 'needs_you', 'stopped' => 'stopped', 'done' => 'done', 'closed' => 'closed',
         'waiting_for_co_owner' => 'waiting_for_co_owner', 'no_task_done' => 'done', 'no_task_working' => 'working',
         'no_repository' => 'needs_you', 'guard_stopped' => 'stopped', 'active_turn_on_done_task' => 'working',
-        'moved' => 'closed', 'legacy' => 'closed',
+        'moved' => 'closed', 'stopped_with_kind' => 'stopped', 'retrying_with_kind' => 'working', 'guard_stopped_then_turn_active' => 'working', 'legacy' => 'closed',
     ];
 
     foreach ($expected as $name => $key) {
@@ -114,7 +122,7 @@ it('shows no progress for a finished thread and the steps for a working or stopp
 
 it('sums run details over the thread runs and reports a failed latest run', function () {
     $thread = Thread::factory()->create();
-    $task = taskOn($thread, 'failed', ['attempts' => 2]);
+    $task = taskOn($thread, 'failed', ['attempts' => 2, 'error_log' => str_repeat('x', 20_000)]);
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'cost_usd' => 1.25, 'num_turns' => 10, 'total_ms' => 60_000, 'started_at' => '2026-01-01 10:00:00', 'finished_at' => '2026-01-01 10:01:00']);
     TaskRun::factory()->failed()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'cost_usd' => 0.75, 'num_turns' => 5, 'total_ms' => 30_000, 'error_message' => str_repeat('x', 20_000), 'started_at' => '2026-01-01 11:00:00', 'finished_at' => '2026-01-01 11:00:30']);
     ThreadSession::factory()->create(['thread_id' => $thread->id, 'session_id' => 'sess-1']);

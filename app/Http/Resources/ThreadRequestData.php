@@ -83,7 +83,7 @@ final class ThreadRequestData
             ->toBase()->get()->sole();
         $latest = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
         $hasFailed = $latest !== null && ($latest->turn_state === TurnState::Failed || in_array($latest->outcome, [TaskRunOutcome::Error, TaskRunOutcome::Exception], true));
-        $errorLog = $hasFailed ? $latest->error_message : null;
+        $errorLog = $hasFailed ? ($head?->error_log ?? $latest->error_message) : null;
         $isFinished = (int) $totals->run_count > 0 && (int) $totals->unfinished === 0;
 
         return [

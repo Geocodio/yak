@@ -83,7 +83,7 @@ final class ThreadRequestStatus
 
         return match (true) {
             $head?->status === TaskStatus::AwaitingClarification, ! $thread->hasRepository() => 'needs_you',
-            in_array($head?->status, self::STOPPED_TASK_STATUSES, true), $latestRun?->turn_state === TurnState::StoppedByGuard => 'stopped',
+            in_array($head?->status, self::STOPPED_TASK_STATUSES, true), ($latestRun?->turn_state === TurnState::StoppedByGuard && ThreadTurns::activeTurn($thread) === null) => 'stopped',
             in_array($head?->status, self::WORKING_TASK_STATUSES, true), ThreadTurns::activeTurn($thread) !== null => 'working',
             default => 'done',
         };
@@ -120,7 +120,9 @@ final class ThreadRequestStatus
                 ->orWhere($headStatusIn([TaskStatus::AwaitingClarification]))),
             'stopped' => fn (Builder $threads) => $threads->where(fn (Builder $any) => $any
                 ->where($headStatusIn(self::STOPPED_TASK_STATUSES))
-                ->orWhere($hasTurnIn([TurnState::StoppedByGuard], true))),
+                ->orWhere(fn (Builder $guarded) => $guarded
+                    ->where($hasTurnIn([TurnState::StoppedByGuard], true))
+                    ->whereNot($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false)))),
             'working' => fn (Builder $threads) => $threads->where(fn (Builder $any) => $any
                 ->where($headStatusIn(self::WORKING_TASK_STATUSES))
                 ->orWhere($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false))),
