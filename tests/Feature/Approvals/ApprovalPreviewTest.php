@@ -105,6 +105,22 @@ it('keeps the rows and marks them failed when GitHub cannot list pull requests',
     expect(ApprovalPreview::first()->status)->toBe('failed');
 });
 
+it('exposes why the last listing failed and clears it on the next success', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $this->github->shouldReceive('listOpenPullRequests')->once()->andThrow(new RuntimeException('500'));
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+
+    $this->actingAs($user)->get(route('repos.approvals.show', $this->repo))
+        ->assertInertia(fn ($page) => $page->where('openPullRequests.error', CheckOpenPullRequestApprovalsJob::LISTING_ERROR)->where('openPullRequests.checkedAt', null));
+
+    $this->github->shouldReceive('listOpenPullRequests')->once()->andReturn([]);
+    (new CheckOpenPullRequestApprovalsJob($this->repo->id))->handle($this->github);
+
+    $this->actingAs($user)->get(route('repos.approvals.show', $this->repo))
+        ->assertInertia(fn ($page) => $page->where('openPullRequests.error', null));
+});
+
 it('waits without a review at the head commit and never calls the classifier', function () {
     Ai::fakeAgent(ConcernClassifier::class, [previewClassification()]);
     previewReview(['commit_sha_reviewed' => 'other']);
@@ -218,7 +234,7 @@ it('shapes the open pull request prop and reloads it alone', function () {
         + ($only === null ? [] : ['X-Inertia-Partial-Component' => 'Repositories/Approvals', 'X-Inertia-Partial-Data' => $only]);
 
     $this->actingAs($user)->get(route('repos.approvals.show', $this->repo), $inertia())
-        ->assertJsonPath('props.openPullRequests', ['checkedAt' => null, 'pending' => 0, 'rows' => []])
+        ->assertJsonPath('props.openPullRequests', ['checkedAt' => null, 'error' => null, 'pending' => 0, 'rows' => []])
         ->assertJsonPath('props.repositoryHolds', []);
 
     ApprovalPreview::factory()->done()->create(['repository_id' => $this->repo->id, 'pr_number' => 7, 'head_sha' => 'sha7']);

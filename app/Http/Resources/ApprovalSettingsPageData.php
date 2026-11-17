@@ -35,7 +35,7 @@ final class ApprovalSettingsPageData
     private const CONCERN_HOLD_PREFIXES = ['Always needs a human: ', 'Touches '];
 
     /**
-     * @return array{slug: string, name: string, defaultBranch: string, githubUrl: ?string, editUrl: string, updateUrl: string, draftConcernsUrl: string}
+     * @return array{slug: string, name: string, defaultBranch: string, githubUrl: ?string, editUrl: string, updateUrl: string, draftConcernsUrl: string, checkUrl: string}
      */
     public static function repository(Repository $repository): array
     {
@@ -47,6 +47,7 @@ final class ApprovalSettingsPageData
             'editUrl' => route('repos.edit', $repository),
             'updateUrl' => route('repos.approvals.update', $repository),
             'draftConcernsUrl' => route('repos.risk-profile', $repository),
+            'checkUrl' => route('repos.approvals.check', $repository),
         ];
     }
 
@@ -155,18 +156,23 @@ final class ApprovalSettingsPageData
      * reasons it needs a human at every DEFCON level, without the repository-wide
      * ones in `repositoryHolds`. `waiting` means Yak has not reviewed the current
      * head commit yet. `changeKind` and `hasTestChange` let the page decide per
-     * level; `changeKind` is null when it was not classified. `error` is set only
-     * when `status` is `failed`.
+     * level; `changeKind` is null when it was not classified. A row's `error` is set
+     * only when `status` is `failed`. `reviewNowUrl` requests a review of that
+     * pull request; `yakReviewUrl` is Yak's review page, null while `waiting`.
+     * The top-level `error` is why the last listing of open pull requests failed,
+     * null when it succeeded or never ran.
      *
-     * @return array{checkedAt: ?string, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string}>}
+     * @return array{checkedAt: ?string, error: ?string, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string, reviewNowUrl: string, yakReviewUrl: ?string}>}
      */
     public static function openPullRequests(Repository $repository): array
     {
         $previews = ApprovalPreview::where('repository_id', $repository->id)->orderBy('pr_number')->get();
         $checkedAt = Cache::get(self::checkedAtCacheKey($repository));
+        $checkError = Cache::get(self::checkErrorCacheKey($repository));
 
         $rows = [];
         foreach ($previews as $preview) {
+            $waiting = (bool) ($preview->result['waiting'] ?? false);
             $rows[] = [
                 'number' => $preview->pr_number,
                 'title' => $preview->title,
@@ -174,16 +180,19 @@ final class ApprovalSettingsPageData
                 'url' => $preview->url,
                 'headSha' => $preview->head_sha,
                 'status' => $preview->status,
-                'waiting' => (bool) ($preview->result['waiting'] ?? false),
+                'waiting' => $waiting,
                 'holds' => $preview->result['holds'] ?? [],
                 'changeKind' => $preview->result['changeKind'] ?? null,
                 'hasTestChange' => (bool) ($preview->result['hasTestChange'] ?? false),
                 'error' => $preview->status === 'failed' ? $preview->error : null,
+                'reviewNowUrl' => route('repos.approvals.review', [$repository, $preview->pr_number]),
+                'yakReviewUrl' => $waiting || $preview->status !== 'done' ? null : route('pr-reviews.for-pr', [$repository->slug, $preview->pr_number]),
             ];
         }
 
         return [
             'checkedAt' => is_string($checkedAt) ? $checkedAt : null,
+            'error' => is_string($checkError) ? $checkError : null,
             'pending' => $previews->where('status', 'pending')->count(),
             'rows' => $rows,
         ];
@@ -203,6 +212,11 @@ final class ApprovalSettingsPageData
     public static function checkedAtCacheKey(Repository $repository): string
     {
         return "approval-check-finished-at:{$repository->id}";
+    }
+
+    public static function checkErrorCacheKey(Repository $repository): string
+    {
+        return "approval-check-error:{$repository->id}";
     }
 
     /**

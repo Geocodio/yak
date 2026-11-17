@@ -9,6 +9,7 @@ export type ApprovalsRepository = {
     editUrl: string;
     updateUrl: string;
     draftConcernsUrl: string;
+    checkUrl: string;
 };
 
 export type ApprovalSetting = {
@@ -41,10 +42,35 @@ export type ApprovalGithub = {
     concernsPullRequest: { number: number; url: string } | null;
 };
 
+export type OpenPullRequestRow = {
+    number: number;
+    title: string;
+    author: string;
+    url: string;
+    headSha: string;
+    status: 'pending' | 'done' | 'failed';
+    waiting: boolean;
+    holds: string[];
+    changeKind: string | null;
+    hasTestChange: boolean;
+    error: string | null;
+    reviewNowUrl: string;
+    yakReviewUrl: string | null;
+};
+
+export type OpenPullRequests = {
+    checkedAt: string | null;
+    error: string | null;
+    pending: number;
+    rows: OpenPullRequestRow[];
+};
+
 export type ApprovalsPage = {
     repository: ApprovalsRepository;
     approval: ApprovalSetting;
     concerns: ApprovalConcerns;
     shadow: ApprovalShadow;
     github?: ApprovalGithub;
+    openPullRequests: OpenPullRequests;
+    repositoryHolds: string[];
 };

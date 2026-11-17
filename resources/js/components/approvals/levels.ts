@@ -1,4 +1,4 @@
-import type { ApprovalLevel, ApprovalMode } from '@/types/approvals';
+import type { ApprovalLevel, ApprovalMode, OpenPullRequestRow } from '@/types/approvals';
 
 export type LevelDefinition = { n: ApprovalLevel; codename: string; title: string; detail: string; summary: string };
 
@@ -45,4 +45,69 @@ export function needsConfirmation(live: { level: ApprovalLevel; mode: ApprovalMo
     const draftArmed = draft.level > 1 && draft.mode === 'enforce';
 
     return draft.level > live.level || (draftArmed && !liveArmed);
+}
+
+/** Mirrors the level gate in ReviewApprovalPolicy. */
+export function allowedKinds(level: ApprovalLevel, hasTestChange: boolean): string[] {
+    switch (level) {
+        case 1:
+            return [];
+        case 2:
+            return ['no_runtime_change'];
+        case 3:
+            return ['no_runtime_change', 'presentation_or_internal'];
+        case 4:
+            return hasTestChange ? ['no_runtime_change', 'presentation_or_internal', 'behavior_change'] : ['no_runtime_change', 'presentation_or_internal'];
+        default:
+            return ['no_runtime_change', 'presentation_or_internal', 'behavior_change'];
+    }
+}
+
+export type PullRequestOutcome = {
+    kind: 'approve' | 'human' | 'waiting' | 'failed' | 'checking';
+    label: string;
+    reason: string;
+    checks: string[];
+};
+
+export function outcomeAt(row: OpenPullRequestRow, level: ApprovalLevel, repositoryHolds: string[]): PullRequestOutcome {
+    if (row.status === 'pending') {
+        return { kind: 'checking', label: 'Checking', reason: 'Working through the checks for this commit.', checks: [] };
+    }
+
+    if (row.status === 'failed') {
+        return { kind: 'failed', label: 'Could not check', reason: row.error ?? 'The check failed.', checks: [] };
+    }
+
+    if (row.waiting) {
+        return { kind: 'waiting', label: 'Waiting', reason: 'Yak has not reviewed this commit yet.', checks: [] };
+    }
+
+    const holds = [...row.holds, ...repositoryHolds];
+
+    if (holds.length > 0) {
+        return { kind: 'human', label: 'A human reviews', reason: holds[0], checks: holds };
+    }
+
+    if (level === 1) {
+        return { kind: 'human', label: 'A human reviews', reason: 'DEFCON 1 approves nothing.', checks: [] };
+    }
+
+    if (row.changeKind !== null && allowedKinds(level, row.hasTestChange).includes(row.changeKind)) {
+        return { kind: 'approve', label: 'Would approve', reason: `Clean review. Fits DEFCON ${level}.`, checks: [] };
+    }
+
+    const fittingLevel = ([2, 3, 4, 5] as ApprovalLevel[]).find((candidate) => row.changeKind !== null && allowedKinds(candidate, row.hasTestChange).includes(row.changeKind));
+
+    return {
+        kind: 'human',
+        label: 'A human reviews',
+        reason: fittingLevel ? `Needs DEFCON ${fittingLevel} or higher.` : 'Yak could not tell what kind of change this is.',
+        checks: [],
+    };
+}
+
+/** How many open pull requests Yak would approve at each level, index 0 being DEFCON 1. */
+export function approvedCountsByLevel(rows: OpenPullRequestRow[], repositoryHolds: string[]): number[] {
+    return ([1, 2, 3, 4, 5] as ApprovalLevel[]).map((level) => rows.filter((row) => outcomeAt(row, level, repositoryHolds).kind === 'approve').length);
 }

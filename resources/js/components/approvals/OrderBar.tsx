@@ -26,12 +26,13 @@ function confirmCopy(live: Setting, draft: Setting, slug: string): { title: stri
     };
 }
 
-export function OrderBar({ live, draft, slug, isSaving, error, onDiscard, onTransmit }: {
+export function OrderBar({ live, draft, slug, isSaving, error, approvedDelta, onDiscard, onTransmit }: {
     live: Setting;
     draft: Setting;
     slug: string;
     isSaving: boolean;
     error?: string;
+    approvedDelta?: number;
     onDiscard: () => void;
     onTransmit: () => void;
 }) {
@@ -52,6 +53,11 @@ export function OrderBar({ live, draft, slug, isSaving, error, onDiscard, onTran
                     Saves this setting. It takes effect immediately, with no pull request.{' '}
                     {needsConfirmation(live, draft) ? 'Loosening or arming asks you to confirm.' : 'Tightening needs no confirmation.'}
                 </p>
+                {approvedDelta !== undefined && (
+                    <p data-testid="approvals-order-delta" className="mt-0.5 text-[13px] font-semibold leading-snug">
+                        {approvedDelta === 0 ? "Same open PRs approved as today." : `Would approve ${Math.abs(approvedDelta)} ${approvedDelta > 0 ? 'more' : 'fewer'} of today's open PRs.`}
+                    </p>
+                )}
                 {error && <p role="alert" className="mt-1 text-[13px] text-fail">{error}</p>}
             </div>
             <div className="flex flex-wrap gap-2">

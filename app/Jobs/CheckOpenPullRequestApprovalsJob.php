@@ -19,6 +19,8 @@ class CheckOpenPullRequestApprovalsJob implements ShouldQueue
 {
     use Queueable;
 
+    public const LISTING_ERROR = 'Could not list open pull requests on GitHub.';
+
     public int $timeout = 120;
 
     public function __construct(public readonly int $repositoryId)
@@ -45,7 +47,8 @@ class CheckOpenPullRequestApprovalsJob implements ShouldQueue
             $pullRequests = $github->listOpenPullRequests((int) config('yak.channels.github.installation_id'), $repository->github_full_name, orFail: true);
         } catch (\Throwable $exception) {
             report($exception);
-            ApprovalPreview::where('repository_id', $repository->id)->update(['status' => 'failed', 'error' => 'Could not list open pull requests on GitHub.']);
+            ApprovalPreview::where('repository_id', $repository->id)->update(['status' => 'failed', 'error' => self::LISTING_ERROR]);
+            Cache::forever(ApprovalSettingsPageData::checkErrorCacheKey($repository), self::LISTING_ERROR);
 
             return;
         }
@@ -77,6 +80,7 @@ class CheckOpenPullRequestApprovalsJob implements ShouldQueue
         }
 
         ApprovalPreview::where('repository_id', $repository->id)->whereNotIn('pr_number', $openNumbers)->delete();
+        Cache::forget(ApprovalSettingsPageData::checkErrorCacheKey($repository));
         Cache::forever(ApprovalSettingsPageData::checkedAtCacheKey($repository), now()->toIso8601String());
     }
 }
