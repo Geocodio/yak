@@ -140,10 +140,20 @@ private struct AddSubThreadForm: View {
 
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 4) {
-            TextField("addSubThread.name.label", text: $model.draft.name, prompt: Text("addSubThread.name.prompt"))
-                .focused($focus, equals: .name).submitLabel(.next).onSubmit { focus = .brief }
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                .disabled(isLocked).accessibilityIdentifier("addSubThread.name")
+            // A vertical axis lets the field grow with the text size; Return moves to the brief and never enters a break.
+            TextField(
+                "addSubThread.name.label", text: $model.draft.name, prompt: Text("addSubThread.name.prompt"),
+                axis: .vertical
+            )
+            .lineLimit(1...3)
+            .onChange(of: model.draft.name) { _, name in
+                guard name.contains("\n") else { return }
+                model.draft.name = name.replacing("\n", with: "")
+                focus = .brief
+            }
+            .focused($focus, equals: .name).submitLabel(.next).onSubmit { focus = .brief }
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
+            .disabled(isLocked).accessibilityIdentifier("addSubThread.name")
             if model.draft.trimmedName.count >= 50 {
                 Text("addSubThread.name.count \(model.draft.trimmedName.count) \(SubThreadDraft.maximumNameLength)")
                     .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
