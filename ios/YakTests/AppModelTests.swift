@@ -399,3 +399,28 @@ private final class SleeperCount: @unchecked Sendable {
     await model.remove(instance)
     #expect(observer.events == ["will remove, token true, listed true", "removed, listed false"])
 }
+
+@MainActor @Test func aTaskLinkForAnUnpairedAddressNeverOpensTheBrowser() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    await model.handle(url: URL(string: "yak://task?instance=https%3A%2F%2Fevil.example.com&id=12345")!)
+    #expect(model.browserURL == nil)
+    #expect(model.taskToOpen == nil)
+    #expect(model.addressToConnect == URL(string: "https://evil.example.com")!)
+}
+
+@MainActor @Test func aTaskLinkForAnotherPairedInstanceSwitchesToItFirst() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    let first = try #require(await instances.all().first { $0.url.host() == "first.example.com" })
+    try await instances.setActive(first.id)
+    await model.reloadRoute()
+    await model.handle(link: .task(instance: URL(string: "https://second.example.com")!, id: "k3m9p2qa"))
+    #expect(await instances.active()?.url.host() == "second.example.com")
+    #expect(model.taskToOpen == "k3m9p2qa")
+    #expect(model.browserURL == nil)
+}

@@ -164,8 +164,21 @@ final class AppModel {
             do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
             await reloadRoute()
         case .unknownInstance(let address): addressToConnect = address
-        case .openTaskPage(let page):
-            if let id = TaskLink.id(from: page) { taskToOpen = id } else { browserURL = page }
+        case .openTaskPage(let page): openTask(page: page)
+        case .switchInstanceThenOpenTaskPage(let target, let page):
+            do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
+            await reloadRoute()
+            openTask(page: page)
+        }
+    }
+
+    /// A task page of a paired instance: the native screen, or the browser when the id is not a native one.
+    /// The address always comes from a paired instance, and the browser takes only a safe https address.
+    private func openTask(page: URL) {
+        if let id = TaskLink.id(from: page) {
+            taskToOpen = id
+        } else {
+            browserURL = WebLinkRule.safeURL(page.absoluteString)
         }
     }
 

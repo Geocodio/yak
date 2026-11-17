@@ -81,3 +81,22 @@ private func instance(_ address: String) -> Instance {
     #expect(scene.isShown(.files))
     #expect(!scene.isShown(.chat))
 }
+
+@MainActor @Test func aTaskLinkForAnUnpairedAddressAsksToPair() {
+    let active = instance("https://yak.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.task(instance: URL(string: "https://evil.example.com")!, id: "12345")
+    let outcome = scene.handle(link, active: active, instances: [active], isCompactWidth: true)
+    #expect(outcome == .unknownInstance(URL(string: "https://evil.example.com")!))
+}
+
+@MainActor @Test func aTaskLinkForAnotherPairedInstanceSwitchesToIt() {
+    let active = instance("https://yak.example.com")
+    let other = instance("https://other.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.task(instance: URL(string: "https://other.example.com")!, id: "k3m9p2qa")
+    let outcome = scene.handle(link, active: active, instances: [active, other], isCompactWidth: true)
+    #expect(
+        outcome
+            == .switchInstanceThenOpenTaskPage(other, URL(string: "https://other.example.com/tasks/k3m9p2qa")!))
+}
