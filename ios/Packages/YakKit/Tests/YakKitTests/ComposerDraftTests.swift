@@ -66,6 +66,27 @@ struct ComposerDraftTests {
         #expect(!ComposerDraft(attachments: [attachment]).isEmpty)
     }
 
+    @Test func effortIsKeptAndAnOldSavedDraftHasNone() throws {
+        let draft = ComposerDraft(model: "opus", effort: .high)
+        #expect(try JSONDecoder().decode(ComposerDraft.self, from: JSONEncoder().encode(draft)) == draft)
+        #expect(!ComposerDraft(effort: .low).isEmpty)
+        let saved = Data(#"{"text":"a","model":"opus","attachments":[]}"#.utf8)
+        let old = try JSONDecoder().decode(ComposerDraft.self, from: saved)
+        #expect(old.effort == nil)
+    }
+
+    @Test func anOldOutboxItemHasNoEffort() throws {
+        let item = OutboxItem(
+            id: UUID(), target: .thread("t"), text: "x", model: "opus", delivery: .steer, attachments: [],
+            createdAt: Date(timeIntervalSince1970: 0), effort: .xhigh)
+        let saved = try JSONEncoder().encode(item)
+        #expect(try JSONDecoder().decode(OutboxItem.self, from: saved).effort == .xhigh)
+        var json = try #require(try JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        json["effort"] = nil
+        let old = try JSONDecoder().decode(OutboxItem.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(old.effort == nil && old.model == "opus")
+    }
+
     @Test func anOutboxItemTakesTheDraftsSendKey() async throws {
         let outbox = Outbox(
             instance: UUID(),

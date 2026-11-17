@@ -66,6 +66,20 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     #expect(body as NSDictionary == ["message": "Hi", "send_key": sendKey.uuidString, "delivery": "after_turn"])
 }
 
+@Test func sendsTheEffortNextToTheModel() async throws {
+    let json = Endpoint<MessageSendResult>.sendMessage(
+        "d0e515ef", text: "Hi", model: "opus", effort: .xhigh, delivery: .steer, sendKey: sendKey, attachments: [],
+        references: [])
+    let body = try jsonBody(json)
+    #expect(body["model"] as? String == "opus" && body["effort"] as? String == "xhigh")
+    let file = MultipartBody.Part.file(name: "x", fileName: "a.png", contentType: "image/png", data: Data("A".utf8))
+    let multipart = Endpoint<MessageSendResult>.sendMessage(
+        "d0e515ef", text: "Hi", model: "opus", effort: .max, delivery: .steer, sendKey: sendKey, attachments: [file],
+        references: ["Image #1"])
+    let text = String(decoding: try #require(multipart.multipart).encoded(), as: UTF8.self)
+    #expect(text.contains("name=\"effort\"") && text.contains("max"))
+}
+
 @Test func sendsAttachmentsAsMultipartInOrder() async throws {
     let files: [MultipartBody.Part] = [
         .file(name: "x", fileName: "a.png", contentType: "image/png", data: Data("AAA".utf8)),

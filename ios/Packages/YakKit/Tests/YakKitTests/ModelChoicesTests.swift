@@ -38,6 +38,20 @@ struct EffortTests {
           "older":[{"value":"opus-5","label":"Opus 5","efforts":["low","medium"]},{"value":"opus-4","label":"Opus 4"}]}]
         """
 
+    @Test func anUnknownComposerEffortDecodesAsNone() throws {
+        let decode = { (effort: String) in
+            try JSONDecoder().decode(
+                Composer.self,
+                from: Data(
+                    """
+                    {"state":"idle","model":"opus","effort":\(effort),"models":[],"nextAttachmentNumber":1}
+                    """.utf8))
+        }
+        #expect(try decode("\"high\"").effort == .high)
+        #expect(try decode("\"ultra\"").effort == nil)
+        #expect(try decode("null").effort == nil)
+    }
+
     @Test func decodesEffortsAndDefaultsMissingToAll() throws {
         let families = try families(json)
         #expect(families[0].latest.efforts == [.low, .medium, .high, .xhigh])
@@ -48,7 +62,7 @@ struct EffortTests {
 
     @Test func switchingModelClampsEffort() throws {
         let families = try families(json)
-        var form = try NewThreadForm(
+        var form = NewThreadForm(
             options: nil, saved: NewThreadDraft(repo: "a/b", mode: "fix", model: "opus", effort: .xhigh),
             lastUsedRepo: nil, linkRepo: nil)
         form.selectModel("opus-5", families: families)
