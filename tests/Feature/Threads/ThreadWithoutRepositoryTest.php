@@ -4,6 +4,7 @@ use App\Enums\ThreadListFilter;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Exceptions\ThreadActionRefused;
+use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Teleport;
 use App\Models\Thread;
@@ -61,7 +62,19 @@ test('attaching a repository sets the repo and creates the primary row', functio
 test('the thread list includes it', function () {
     $list = ThreadList::for($this->user, ThreadListFilter::Everyone);
 
-    expect(collect($list['threads'])->pluck('id'))->toContain($this->thread->public_id);
+    expect(collect($list['threads'])->pluck('id'))->toContain($this->thread->public_id)
+        ->and(collect($list['needsYou'])->pluck('id'))->not->toContain($this->thread->public_id);
+});
+
+test('the thread list puts it under needs you when repositories are offered', function () {
+    $repository = Repository::factory()->create(['is_active' => true]);
+    $this->task->update(['clarification_options' => [$repository->slug]]);
+
+    $list = ThreadList::for($this->user, ThreadListFilter::Everyone);
+    $row = collect($list['needsYou'])->firstWhere('id', $this->thread->public_id);
+
+    expect(collect($list['threads'])->pluck('id'))->not->toContain($this->thread->public_id)
+        ->and($row['needsYouReason'])->toBe('repository_question');
 });
 
 test('the thread page renders with no repositories', function () {

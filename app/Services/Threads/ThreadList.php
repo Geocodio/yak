@@ -2,14 +2,19 @@
 
 namespace App\Services\Threads;
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NeedsYouReason;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadListFilter;
 use App\Enums\ThreadListStatus;
 use App\Enums\ThreadSandboxState;
+use App\Enums\ThreadSource;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
+use App\Http\Resources\ThreadCardsData;
+use App\Http\Resources\ThreadOriginData;
+use App\Models\CoOwnerRequest;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -29,23 +34,29 @@ use Illuminate\Support\Str;
  *
  * A row is `array{id: string, title: string, repo: string, status: string,
  * needsYouReason: ?string, needsYouLabel: ?string, isPrivate: bool, isShared: bool,
- * isUnattended: bool, isStarred: bool, canDelete: bool, ownerInitials: ?string, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
+ * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
+ * source: array{key: string, label: string, reference: ?string, url: ?string}, starter: array{key: string, name: string, avatarUrl: ?string}, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
+ *
+ * The facets count the tab's rows; a picked source or starter without rows is appended with count 0.
  */
 class ThreadList
 {
     private const LIKE_ESCAPE = '!';
 
     /**
-     * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool}
+     * @param  list<string>  $sources
+     * @param  list<string>  $starters
+     * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, hasAnyThreads: bool, facets: array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}}
      */
-    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null): array
+    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null, array $sources = [], array $starters = []): array
     {
         $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
         $searchText = trim($search ?? '');
         $roots = Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
+            ->listed()
             ->whereNull('parent_thread_id')
             ->where('status', $status)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
@@ -55,6 +66,8 @@ class ThreadList
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
             ->with([
+                'creator:id,name,avatar_url',
+                'children.creator:id,name,avatar_url',
                 'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
                 'children' => fn (Relation $relation) => self::scopeChildren($relation, $user, $status),
                 'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
@@ -80,22 +93,16 @@ class ThreadList
             ->pluck('thread_id')
             ->all();
 
-        $owners = User::query()
-            ->whereIn('id', $all->pluck('created_by_user_id')->filter()->unique()->all())
-            ->get(['id', 'name'])
-            ->keyBy('id');
-
         $startOfDay = now()->startOfDay();
         $startOfWeek = now()->startOfWeek();
-        $starred = [];
-        $needsYou = [];
-        $rest = [];
+        $personReasons = ThreadCardsData::needsYouReasons($all, $user);
+        $rows = [];
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
             $isShared = $isPrivate && (bool) $root->getAttribute('is_shared');
-            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false))->all());
-            $row = self::row($root, $runs, $seen, $owners, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id);
+            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false, $personReasons))->all());
+            $row = self::row($root, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id, $personReasons);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));
 
@@ -105,6 +112,22 @@ class ThreadList
                 $row['needsYouLabel'] = $count . ($count === 1 ? ' sub-thread needs you' : ' sub-threads need you');
             }
 
+            $row['isUnread'] = $row['isUnread'] || in_array(true, array_column($children, 'isUnread'), true);
+            $rows[] = $row;
+        }
+
+        $needsYouCount = count(array_filter($rows, fn (array $row): bool => $row['needsYouReason'] !== null));
+        $facets = self::withPickedKeys(self::facets($rows, $user), $sources, $starters);
+
+        // ponytail: filters the whole tab in memory; move to whereSources / whereStarters in SQL once the list paginates.
+        $rows = array_filter($rows, fn (array $row): bool => ($sources === [] || in_array($row['source']['key'], $sources, true))
+            && ($starters === [] || in_array($row['starter']['key'], $starters, true)));
+
+        $starred = [];
+        $needsYou = [];
+        $rest = [];
+
+        foreach ($rows as $row) {
             if ($row['isStarred']) {
                 $starred[] = $row;
             } elseif ($row['needsYouReason'] === null) {
@@ -118,9 +141,88 @@ class ThreadList
             'starred' => $starred,
             'needsYou' => $needsYou,
             'threads' => $rest,
-            'needsYouCount' => count($needsYou) + count(array_filter($starred, fn (array $row): bool => $row['needsYouReason'] !== null)),
+            'needsYouCount' => $needsYouCount,
             'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
+            'facets' => $facets,
         ];
+    }
+
+    /**
+     * Counts the tab's root rows by source and by starter for the filter menu.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}
+     */
+    private static function facets(array $rows, User $viewer): array
+    {
+        $sources = [];
+        $starters = [];
+
+        foreach ($rows as $row) {
+            $source = $row['source'];
+            $starter = $row['starter'];
+            $sources[$source['key']] ??= ['key' => $source['key'], 'label' => $source['label'], 'count' => 0];
+            $sources[$source['key']]['count']++;
+            $starters[$starter['key']] ??= ['key' => $starter['key'], 'name' => $starter['name'], 'avatarUrl' => $starter['avatarUrl'], 'count' => 0];
+            $starters[$starter['key']]['count']++;
+        }
+
+        $viewerKey = 'user:' . $viewer->id;
+        $sourceList = array_values($sources);
+        $starterList = array_values($starters);
+        usort($sourceList, fn (array $a, array $b): int => [$b['count'], $a['label']] <=> [$a['count'], $b['label']]);
+        usort($starterList, fn (array $a, array $b): int => [$a['key'] === 'yak', $a['key'] !== $viewerKey, $b['count'], $a['name']]
+            <=> [$b['key'] === 'yak', $b['key'] !== $viewerKey, $a['count'], $b['name']]);
+
+        return ['sources' => $sourceList, 'starters' => $starterList];
+    }
+
+    /**
+     * Appends each picked source and starter the tab has no rows for, with count 0, so the menu and chips can name it.
+     *
+     * @param  array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}  $facets
+     * @param  list<string>  $sources
+     * @param  list<string>  $starters
+     * @return array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}
+     */
+    private static function withPickedKeys(array $facets, array $sources, array $starters): array
+    {
+        foreach (array_diff($sources, array_column($facets['sources'], 'key')) as $key) {
+            $source = ThreadSource::tryFrom($key);
+
+            if ($source !== null) {
+                $facets['sources'][] = ['key' => $key, 'label' => $source->label(), 'count' => 0];
+            }
+        }
+
+        $missing = array_unique(array_diff($starters, array_column($facets['starters'], 'key')));
+        $userIds = [];
+
+        foreach ($missing as $key) {
+            if (preg_match('/^user:(\d+)$/', $key, $matches) === 1) {
+                $userIds[] = (int) $matches[1];
+            }
+        }
+
+        $users = $userIds === [] ? collect() : User::query()->whereIn('id', $userIds)->get(['id', 'name', 'avatar_url'])->keyBy('id');
+
+        foreach ($missing as $key) {
+            $starter = match (true) {
+                $key === 'yak' => ['name' => 'Yak', 'avatarUrl' => null],
+                str_starts_with($key, 'name:') && strlen($key) > 5 => ['name' => substr($key, 5), 'avatarUrl' => null],
+                preg_match('/^user:(\d+)$/', $key, $matches) === 1 && $users->has((int) $matches[1]) => [
+                    'name' => $users->get((int) $matches[1])->name,
+                    'avatarUrl' => is_string($avatarUrl = $users->get((int) $matches[1])->getAttribute('avatar_url')) ? $avatarUrl : null,
+                ],
+                default => null,
+            };
+
+            if ($starter !== null) {
+                $facets['starters'][] = ['key' => $key, ...$starter, 'count' => 0];
+            }
+        }
+
+        return $facets;
     }
 
     /**
@@ -149,6 +251,7 @@ class ThreadList
         return Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
+            ->listed()
             ->whereNull('parent_thread_id')
             ->exists();
     }
@@ -188,10 +291,10 @@ class ThreadList
             $query->where('created_by_user_id', $user->id)
                 ->orWhereHas('runs', fn (Builder $runs) => $runs->where('driver_user_id', $user->id))
                 ->orWhereHas('tasks', fn (Builder $tasks) => $tasks->where('started_by_user_id', $user->id))
-                ->orWhere(function (Builder $unattended) use ($user): void {
-                    $unattended->whereNull('created_by_user_id')
-                        ->whereIn('repo', Thread::query()->withoutVisibilityScope()->where('created_by_user_id', $user->id)->select('repo'));
-                });
+                ->orWhereHas('tasks', fn (Builder $tasks) => $tasks->whereIn('tasks.id', CoOwnerRequest::query()
+                    ->select('task_id')
+                    ->where('status', CoOwnerRequestStatus::Pending)
+                    ->whereJsonContains('asked_user_ids', $user->id)));
         });
     }
 
@@ -208,14 +311,15 @@ class ThreadList
     /**
      * @param  Collection<int, TaskRun>  $runs
      * @param  Collection<int, mixed>  $seen
-     * @param  Collection<int, User>  $owners
      * @param  list<array<string, mixed>>  $children
+     * @param  array<int, 'co_owner'|'early_warning'|'repository_question'|null>  $personReasons
      * @return array<string, mixed>
      */
-    private static function row(Thread $thread, Collection $runs, Collection $seen, Collection $owners, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children, bool $isStarred, bool $canDelete): array
+    private static function row(Thread $thread, Collection $runs, Collection $seen, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children, bool $isStarred, bool $canDelete, array $personReasons): array
     {
         $run = $runs->get($thread->getAttribute('latest_run_id'));
-        [$reason, $label] = $thread->isOpen() ? self::needsYou($thread, $run, $seen->get($thread->id)) : [null, null];
+        [$reason, $label] = $thread->isOpen() ? self::needsYou($thread, $personReasons[$thread->id] ?? null) : [null, null];
+        $isUnread = $thread->isOpen() && self::isUnread($run, $seen->get($thread->id), $thread->created_by_user_id === $viewer->id);
 
         return [
             'id' => $thread->public_id,
@@ -230,9 +334,11 @@ class ThreadList
             'isUnattended' => $thread->created_by_user_id === null,
             'isStarred' => $isStarred,
             'canDelete' => $canDelete,
+            'isUnread' => $isUnread,
             'ownerInitials' => $thread->created_by_user_id !== null && $thread->created_by_user_id !== $viewer->id
-                ? $owners->get($thread->created_by_user_id)?->initials()
+                ? $thread->creator?->initials()
                 : null,
+            ...ThreadOriginData::for($thread),
             'lastActivityAt' => $thread->last_activity_at?->toIso8601String(),
             // A thread nobody has acted on yet is as old as its creation.
             'group' => match (true) {
@@ -260,7 +366,7 @@ class ThreadList
     /**
      * @return array{0: ?NeedsYouReason, 1: ?string}
      */
-    private static function needsYou(Thread $thread, ?TaskRun $run, mixed $lastSeenAt): array
+    private static function needsYou(Thread $thread, ?string $personReason): array
     {
         if ($thread->tasks->last()?->status === TaskStatus::AwaitingClarification) {
             return [NeedsYouReason::Question, 'Asked you a question'];
@@ -280,16 +386,26 @@ class ThreadList
             return [NeedsYouReason::Blocked, $isTokenProblem ? 'Your token stopped working' : 'Blocked'];
         }
 
-        $isFinished = $run !== null && in_array($run->getAttribute('turn_state'), [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard], true);
+        return match ($personReason) {
+            'co_owner' => [NeedsYouReason::CoOwner, 'Waiting for your co-owner decision'],
+            'early_warning' => [NeedsYouReason::EarlyWarning, 'Pick a co-owner or decline'],
+            'repository_question' => [NeedsYouReason::RepositoryQuestion, 'Asked which repository'],
+            default => [null, null],
+        };
+    }
 
-        if ($isFinished) {
-            $finishedAt = $run->finished_at ?? $run->updated_at;
-
-            if ($lastSeenAt === null || ($finishedAt !== null && $finishedAt->greaterThan($lastSeenAt))) {
-                return [NeedsYouReason::Unseen, 'Finished, not seen yet'];
-            }
+    /**
+     * Whether the latest turn finished after the viewer last opened the thread. A thread the viewer never opened
+     * is unread only when the viewer started it, so a teammate's finished thread does not light up the Everyone tab.
+     */
+    private static function isUnread(?TaskRun $run, mixed $lastSeenAt, bool $isStartedByViewer): bool
+    {
+        if ($run === null || ! in_array($run->getAttribute('turn_state'), [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard], true)) {
+            return false;
         }
 
-        return [null, null];
+        $finishedAt = $run->finished_at ?? $run->updated_at;
+
+        return $lastSeenAt === null ? $isStartedByViewer : ($finishedAt !== null && $finishedAt->greaterThan($lastSeenAt));
     }
 }

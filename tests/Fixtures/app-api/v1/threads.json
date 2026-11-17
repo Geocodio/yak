@@ -1,4 +1,21 @@
 {
+    "facets": {
+        "sources": [
+            {
+                "count": 1,
+                "key": "dashboard",
+                "label": "Dashboard"
+            }
+        ],
+        "starters": [
+            {
+                "avatarUrl": null,
+                "count": 1,
+                "key": "user:1",
+                "name": "Test person"
+            }
+        ]
+    },
     "hasAnyThreads": true,
     "needsYou": [
         {
@@ -19,11 +36,23 @@
             "isShared": false,
             "isStarred": false,
             "isUnattended": false,
+            "isUnread": false,
             "lastActivityAt": "2026-11-15T11:00:00+00:00",
             "needsYouLabel": "Asked you a question",
             "needsYouReason": "question",
             "ownerInitials": null,
             "repo": "example/api",
+            "source": {
+                "key": "dashboard",
+                "label": "Dashboard",
+                "reference": null,
+                "url": null
+            },
+            "starter": {
+                "avatarUrl": null,
+                "key": "user:1",
+                "name": "Test person"
+            },
             "status": "stopped",
             "step": null,
             "title": "Retry failed uploads",

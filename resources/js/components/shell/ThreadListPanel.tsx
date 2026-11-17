@@ -6,10 +6,12 @@ import {
     Tooltip,
     cn,
 } from "@geocodio/console-ui";
-import { CircleHelp, PanelLeftClose, Plus, Search } from "lucide-react";
+import { PanelLeftClose, Plus, Search, X } from "lucide-react";
 import { shortcutLabel } from "@/commandPalette/shortcuts";
 import { isMacPlatform } from "@/commandPalette/platform";
+import { ThreadFilterMenu, filterKeyLabel, starterLabel } from "@/components/shell/ThreadFilterMenu";
 import { ThreadGroup } from "@/components/shell/ThreadGroup";
+import { useKeepThreadSeen } from "@/components/shell/useMarkThreadSeen";
 import { useThreadList } from "@/components/shell/useThreadList";
 import { openNewThread, openPalette } from "@/components/Sidebar";
 import type { SharedProps } from "@/types/shared";
@@ -17,13 +19,9 @@ import type { ThreadListFilter } from "@/types/shell";
 
 const FILTERS: { value: ThreadListFilter; label: string }[] = [
     { value: "mine", label: "Mine" },
-    { value: "yak", label: "Started by Yak" },
     { value: "everyone", label: "Everyone" },
     { value: "closed", label: "Closed" },
 ];
-
-const FILTER_HELP =
-    "Mine: threads you started or took part in, plus unattended threads on repos you follow. Started by Yak: threads that came from a channel, such as Sentry or Slack. Everyone: every thread you can see. Closed: threads that were closed, hidden from the other views.";
 
 export function ThreadListPanel({
     onCollapse,
@@ -33,10 +31,44 @@ export function ThreadListPanel({
     touch?: boolean;
 }) {
     const { props, url } = usePage<SharedProps>();
-    const { data, filter, setFilter, isLoading } =
-        useThreadList(props.threadList);
+    const {
+        data,
+        filter,
+        setFilter,
+        sources,
+        setSources,
+        starters,
+        setStarters,
+        clearFilters,
+        isLoading,
+    } = useThreadList(props.threadList);
+    const viewerStarterKey = props.auth.user
+        ? `user:${props.auth.user.id}`
+        : null;
+    const hasFilters = sources.length > 0 || starters.length > 0;
+    const chips = [
+        ...sources.map((key) => ({
+            key: `source:${key}`,
+            label:
+                data?.facets.sources.find((option) => option.key === key)
+                    ?.label ?? filterKeyLabel(key),
+            remove: () => setSources(sources.filter((item) => item !== key)),
+        })),
+        ...starters.map((key) => ({
+            key: `starter:${key}`,
+            label: starterLabel(
+                key,
+                data?.facets.starters.find((option) => option.key === key)
+                    ?.name ?? filterKeyLabel(key),
+                viewerStarterKey,
+            ),
+            remove: () =>
+                setStarters(starters.filter((item) => item !== key)),
+        })),
+    ];
     const activeThreadId =
         /^\/threads\/([^/?#]+)/.exec(url.split("?")[0])?.[1] ?? null;
+    useKeepThreadSeen(activeThreadId, data);
     const hasNoThreadsAtAll =
         data !== null && !data.hasAnyThreads;
     const isEmpty =
@@ -104,7 +136,7 @@ export function ThreadListPanel({
                 ) : (
                     <>
                         <div
-                            className="flex flex-wrap items-center gap-1.5"
+                            className="flex min-w-0 items-center justify-between gap-1.5"
                             data-testid="thread-filter"
                         >
                             <div
@@ -117,10 +149,10 @@ export function ThreadListPanel({
                                         key={option.value}
                                         type="button"
                                         aria-pressed={filter === option.value}
-                                data-testid={`thread-filter-${option.value}`}
+                                        data-testid={`thread-filter-${option.value}`}
                                         onClick={() => setFilter(option.value)}
                                         className={cn(
-                                            "rounded-control px-2.5 py-0.5 text-[12px] text-muted",
+                                            "rounded-control px-2 py-0.5 text-[12px] text-muted",
                                             filter === option.value &&
                                                 "bg-panel font-medium text-body shadow-card",
                                         )}
@@ -129,15 +161,48 @@ export function ThreadListPanel({
                                     </button>
                                 ))}
                             </div>
-                            <Tooltip label={FILTER_HELP}>
-                                <span
-                                    className="flex text-faint"
-                                    aria-label={FILTER_HELP}
-                                >
-                                    <CircleHelp size={13} />
-                                </span>
-                            </Tooltip>
+                            <ThreadFilterMenu
+                                facets={data?.facets ?? null}
+                                sources={sources}
+                                starters={starters}
+                                onSourcesChange={setSources}
+                                onStartersChange={setStarters}
+                                viewerStarterKey={viewerStarterKey}
+                            />
                         </div>
+                        {hasFilters ? (
+                            <div
+                                className="flex items-start justify-between gap-2"
+                                data-testid="thread-filter-chips"
+                            >
+                                <div className="flex flex-wrap gap-1">
+                                    {chips.map((chip) => (
+                                        <span
+                                            key={chip.key}
+                                            className="inline-flex items-center gap-1 rounded-pill border border-hair bg-panel py-0.5 pl-2 pr-1 text-[12px]"
+                                        >
+                                            {chip.label}
+                                            <button
+                                                type="button"
+                                                aria-label={`Remove ${chip.label} filter`}
+                                                onClick={chip.remove}
+                                                className="flex rounded-pill p-0.5 text-muted hover:text-body"
+                                            >
+                                                <X size={11} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="shrink-0 py-0.5 text-[12px] text-muted hover:text-body"
+                                    data-testid="thread-filter-clear"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        ) : null}
                     </>
                 )}
             </div>
@@ -157,11 +222,23 @@ export function ThreadListPanel({
                         data-testid="thread-list-empty"
                     >
                         <div className="text-[13px] font-medium">
-                            No threads here
+                            {hasFilters
+                                ? "No threads match these filters"
+                                : "No threads here"}
                         </div>
-                        <p className="mt-1 text-[12px] text-muted">
-                            Try another filter to see more threads.
-                        </p>
+                        {hasFilters ? (
+                            <Button
+                                variant="secondary"
+                                onClick={clearFilters}
+                                className="mt-2"
+                            >
+                                Clear filters
+                            </Button>
+                        ) : (
+                            <p className="mt-1 text-[12px] text-muted">
+                                Try another filter to see more threads.
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <>

@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Tasks outside an open thread that need a person: a question they were asked,
- * or a co-owner decision they owe. A task inside an open thread is never listed
- * here because its thread row already says so.
+ * Tasks with no open thread that need a person: a question they were asked,
+ * or a co-owner decision they owe. A task item is listed only for a task with
+ * no open thread, because an open thread's row already says so.
  */
 class NeedsYouTasks
 {
@@ -90,7 +90,8 @@ class NeedsYouTasks
         VisibleTaskScope::constrain($query, 'tasks', $user->id);
 
         return $query->where(function (Builder $query) use ($user, $coOwnerTaskIds): void {
-            $query->whereIn('tasks.id', $coOwnerTaskIds)
+            $query->where(fn (Builder $coOwner) => $coOwner->whereIn('tasks.id', $coOwnerTaskIds)
+                ->where(fn (Builder $open) => self::withoutOpenThread($open)))
                 ->orWhere(fn (Builder $question) => self::question($question, $user));
         });
     }
@@ -102,7 +103,15 @@ class NeedsYouTasks
     {
         $query->where('tasks.status', TaskStatus::AwaitingClarification)
             ->where('tasks.started_by_user_id', $user->id)
-            ->where(fn (Builder $open) => $open->whereNull('tasks.thread_id')
-                ->orWhereHas('thread', fn (Builder $thread) => $thread->withoutGlobalScopes()->where('status', ThreadStatus::Closed)));
+            ->where(fn (Builder $open) => self::withoutOpenThread($open));
+    }
+
+    /**
+     * @param  Builder<YakTask>  $query
+     */
+    private static function withoutOpenThread(Builder $query): void
+    {
+        $query->whereNull('tasks.thread_id')
+            ->orWhereHas('thread', fn (Builder $thread) => $thread->withoutGlobalScopes()->where('status', ThreadStatus::Closed));
     }
 }

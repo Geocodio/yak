@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\CoOwnerRequest;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -50,4 +53,13 @@ test('a task inside an open thread is counted once in the header', function () {
 
     $this->actingAs($user)->get(route('tasks'))
         ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 5));
+});
+
+test('shares a needsYouCount of one for a co-owner request on a task with an open thread', function () {
+    $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+
+    $this->actingAs($user)->get(route('tasks'))
+        ->assertInertia(fn (Assert $page) => $page->where('nav.needsYouCount', 1));
 });

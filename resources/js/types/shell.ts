@@ -1,13 +1,23 @@
 export type ThreadListFilter = 'mine' | 'yak' | 'everyone' | 'closed';
 
+export type ThreadSource = { key: string; label: string; reference: string | null; url: string | null };
+export type ThreadStarter = { key: string; name: string; avatarUrl: string | null };
+export type ThreadListFacets = {
+    sources: { key: string; label: string; count: number }[];
+    starters: { key: string; name: string; avatarUrl: string | null; count: number }[];
+};
+
 export type ThreadListRow = {
     id: string;
     title: string;
     repo: string;
     step: string | null;
     status: 'running' | 'blocked' | 'paused' | 'stopped' | 'closed' | 'waiting_for_repository';
-    needsYouReason: 'question' | 'blocked' | 'unseen' | null;
+    needsYouReason: 'question' | 'blocked' | 'co_owner' | 'early_warning' | 'repository_question' | null;
     needsYouLabel: string | null;
+    isUnread: boolean;
+    source: ThreadSource;
+    starter: ThreadStarter;
     isPrivate: boolean;
     isShared: boolean;
     isUnattended: boolean;
@@ -35,6 +45,7 @@ export type ThreadListData = {
     threads: ThreadListRow[];
     needsYouCount: number;
     hasAnyThreads: boolean;
+    facets: ThreadListFacets;
 };
 
 export type OperationsPanelData = {
