@@ -75,7 +75,9 @@ platform :ios do
       if options[:core_only] && options[:only].nil?
         # The iPad and the Duo run the core tests; the long-running scenarios run on the iPhone only.
         selection += " -skip-testing:YakUITests/ThreadSmokeTests/testSendWhileATurnRunsSteersAndLongPressQueues" \
-                     " -skip-testing:YakUITests/ThreadSmokeTests/testADroppedConnectionShowsOfflineAndRecovers"
+                     " -skip-testing:YakUITests/ThreadSmokeTests/testADroppedConnectionShowsOfflineAndRecovers" \
+                     " -skip-testing:YakUITests/ThreadSmokeTests/testEarlierMessagesKeepTheRowInPlace" \
+                     " -skip-testing:YakUITests/ThreadSmokeTests/testALongConversationThatArrivesLateOpensAtItsEnd"
       end
       run_ui_tests(device, port, result_path, selection, {}, options)
     end
