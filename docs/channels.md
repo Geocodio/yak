@@ -286,7 +286,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification`. Reply in the thread with a number and Yak continues the same thread, with no re-reading and no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option). Several questions, or any question from GitHub or the dashboard, are answered on the task page form, and Yak posts a link to it. An unanswered question is closed after three working days (see the Slack gotchas).
+The task pauses in `awaiting_clarification`. Reply in the thread with a number and Yak continues the same thread, with no re-reading and no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option). Several questions, or any question from GitHub or the dashboard, are answered on the question card on the thread, and Yak posts a link to it. An unanswered question is closed after three working days (see the Slack gotchas).
 
 ### Follow-ups
 

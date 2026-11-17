@@ -31,7 +31,7 @@ Text fields save together with the section's save bar, which appears once someth
 |---|---|
 | Slug | Read-only. Yak's internal identity for the repository. |
 | GitHub repository | Shown only if the repository was renamed on GitHub. Read-only. |
-| Display name | Name shown in the dashboard and task lists. |
+| Display name | Name shown in the dashboard and thread lists. |
 | Git URL | HTTPS clone URL. |
 | Default branch | The branch Yak bases work on and opens pull requests against. |
 | Public site URL | Shown in the browser bar of walkthrough videos. Locked by `walkthrough.public_site_url`. |

@@ -162,15 +162,7 @@ it('answers within the time bound when GitHub is slow', function () {
     $count = count($recorded);
     $this->getJson(appTaskPath($task), $headers)->assertOk()->assertJsonPath('coOwner.viewer.access', 'error');
     expect($recorded)->toHaveCount($count);
-
-    Cache::flush();
-    $recorded = [];
-    $this->actingAs($user)->get(route('tasks.show', $task));
-    expect($recorded)->not->toBeEmpty();
-    foreach ($recorded as $options) {
-        expect($options['timeout'] ?? null)->not->toBe(3);
-    }
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
+});
 
 it('bounds the collaborator permission call when only that call is slow', function () {
     taskShowSetup();

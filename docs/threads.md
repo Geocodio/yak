@@ -56,7 +56,7 @@ What a message does depends on the thread:
 - **A turn is running.** The composer reads **Add a message. Claude reads it as soon as it can.** Yak hands the message to the running turn, which steers Claude mid-work. If it cannot be delivered, Yak queues it and Claude reads it as a follow-up when the current work is done.
 - **The sandbox is rebuilding, the account is busy or the usage limit is hit.** The message is saved and Claude reads it when the turn can start. The composer says when.
 
-The thread page has no list of queued messages. Edit or remove a queued message (switch it between **Queue** and **Steer**, edit it, or **Remove from queue**) on the task's page in the task log (Operations > Task log).
+Queued messages are listed above the thread's composer. Edit or remove a queued message there: switch it between **Queue** and **Steer**, edit it, or **Remove from queue**.
 
 | Control | What it does |
 | --- | --- |
