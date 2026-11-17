@@ -59,7 +59,7 @@ platform :ios do
 
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName. " \
        "Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). " \
-       "Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true"
+       "Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
     with_stub do |port, build_directory|
@@ -110,9 +110,11 @@ platform :ios do
     sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
     with_sim_slot do
       build_for_testing(device, options)
-      sh(
-        "cd #{IOS_ROOT.shellescape} && xcodebuild test-without-building #{xcodebuild_base(device)} -only-testing:YakTests"
-      )
+      with_simulator(device, options) do
+        sh(
+          "cd #{IOS_ROOT.shellescape} && xcodebuild test-without-building #{xcodebuild_base(device)} -only-testing:YakTests"
+        )
+      end
     end
   end
 
@@ -198,6 +200,18 @@ platform :ios do
     )
   end
 
+  # Runs the block on a simulator and shuts it down afterwards, because every booted simulator costs the machine about a
+  # hundred processes and several gigabytes, idle or not. A simulator someone else already booted stays up, and so does
+  # one with keep:true. CI keeps its simulators.
+  def with_simulator(device, options)
+    booted_before = `xcrun simctl list devices booted`.lines.any? { |line| line.strip.start_with?("#{device} (") }
+    yield
+  ensure
+    unless ci? || booted_before || truthy?(options[:keep])
+      system("xcrun", "simctl", "shutdown", device, err: File::NULL)
+    end
+  end
+
   BUILD_SCHEME = "Yak".freeze
   BUILD_PLATFORM = "iOS Simulator".freeze
 
@@ -225,14 +239,16 @@ platform :ios do
   def run_ui_tests(device, port, result_path, selection, environment, options)
     variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
     build_for_testing(device, options)
-    # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
-    sh("xcrun simctl bootstatus #{device.shellescape} -b")
-    # A hosted simulator sometimes fails to launch the app at all, so CI (or retry:true) gives a failed test one more try.
-    retry_flags = ci? || truthy?(options[:retry]) ? "-retry-tests-on-failure -test-iterations 2 " : ""
-    sh(
-      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
-      "#{retry_flags}-resultBundlePath #{result_path.shellescape}"
-    )
+    with_simulator(device, options) do
+      # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
+      sh("xcrun simctl bootstatus #{device.shellescape} -b")
+      # A hosted simulator sometimes fails to launch the app at all, so CI (or retry:true) gives a failed test one more try.
+      retry_flags = ci? || truthy?(options[:retry]) ? "-retry-tests-on-failure -test-iterations 2 " : ""
+      sh(
+        "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
+        "#{retry_flags}-resultBundlePath #{result_path.shellescape}"
+      )
+    end
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
     UI.user_error!("No test ran for #{selection}") if summary["totalTestCount"].to_i.zero?

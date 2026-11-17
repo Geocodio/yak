@@ -61,7 +61,7 @@ Format check and project rules. The self-test of the rule scripts runs when they
 [bundle exec] fastlane ios ui_smoke
 ```
 
-UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" only:testName. Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true
+UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" only:testName. Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)
 
 ### ios walkthrough
 

@@ -20,7 +20,7 @@ Each company builds its own copy. Nothing in this folder holds a team ID, bundle
 
 Locally, the lanes build once and test many times. `ui_smoke`, `walkthrough` and the app tests of `test` run `xcodebuild build-for-testing` and then `test-without-building` in `build/DerivedData`. The next run skips the build while nothing under `ios/` changed, and the lane output says whether it built or reused. Add `rebuild:true` to force a build. CI always builds.
 
-At most `YAK_SIM_SLOTS` simulator test jobs run at once on a machine (default 4). A job that finds all slots taken prints "waiting for a simulator slot" once a minute and starts when one frees up. The slots are folders in `/tmp/yak-ios-sim-slots`. CI takes no slot.
+At most `YAK_SIM_SLOTS` simulator test jobs run at once on a machine (default 4). Each slot is one booted simulator, and a booted simulator costs about a hundred processes and several gigabytes even when idle. 4 is right for a 16-core, 128 GB Mac with other work running. A lane shuts down the simulator it booted when its run ends; one that was already booted stays up, and `keep:true` leaves it booted for many small commands in a row. A job that finds all slots taken prints "waiting for a simulator slot" once a minute and starts when one frees up. The slots are folders in `/tmp/yak-ios-sim-slots`. CI takes no slot.
 
 A failed UI test is not retried locally. Add `retry:true` to get one more try, as CI does.
 
