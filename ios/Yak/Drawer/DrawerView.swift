@@ -211,50 +211,50 @@ struct DrawerView: View {
         }
     }
 
-    /// A sub-thread row also offers a long press menu and swipe actions; a root row is the plain row.
+    /// A sub-thread row offers a long press menu and swipe actions.
     @ViewBuilder private func rowView(_ row: DrawerRow, now: Date, drawer: DrawerModel) -> some View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id)
-        if row.depth > 0, case .thread = row.target {
-            let menu = drawer.childMenu(row)
-            plain
-                .contextMenu {
-                    childMenuItems(row, menu: menu, drawer: drawer)
-                } preview: {
-                    DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false)
-                        .frame(minWidth: 280)
-                        .onAppear { drawer.menuOpening(row) }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if case .ready(let actions) = menu, !drawer.isOffline {
-                        if actions.contains(.drop) {
-                            Button(role: .destructive) {
-                                dropTarget = row
-                            } label: {
-                                Text("overview.child.drop")
-                            }
-                        }
-                        if actions.contains(.takeOver) {
-                            Button {
-                                Task { await drawer.perform(.takeOver, on: row) }
-                            } label: {
-                                Text("overview.child.takeOver")
-                            }
-                            .tint(Color(.systemGray))
+        // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
+        let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
+        let menu = drawer.childMenu(row)
+        plain
+            .contextMenu {
+                if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
+            } preview: {
+                DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false)
+                    .frame(minWidth: 280)
+                    .onAppear { if isSubThread { drawer.menuOpening(row) } }
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                if isSubThread, case .ready(let actions) = menu, !drawer.isOffline {
+                    if actions.contains(.drop) {
+                        Button(role: .destructive) {
+                            dropTarget = row
+                        } label: {
+                            Text("overview.child.drop")
                         }
                     }
+                    if actions.contains(.takeOver) {
+                        Button {
+                            Task { await drawer.perform(.takeOver, on: row) }
+                        } label: {
+                            Text("overview.child.takeOver")
+                        }
+                        .tint(Color(.systemGray))
+                    }
                 }
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                if isSubThread {
                     Button {
                         open(row)
                     } label: {
                         Text("overview.child.open")
                     }.tint(Color(.systemGray2))
                 }
-        } else {
-            plain
-        }
+            }
     }
 
     @ViewBuilder private func childMenuItems(_ row: DrawerRow, menu: DrawerChildMenu, drawer: DrawerModel)
