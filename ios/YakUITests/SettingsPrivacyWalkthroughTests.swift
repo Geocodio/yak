@@ -95,4 +95,107 @@ import XCTest
         XCTAssertTrue(label("Press and slide").waitForExistence(timeout: 10))
         try shoot("tip-pane-slide", audits: false)
     }
+
+    // MARK: Settings rows and the debug menu
+
+    /// Opens Settings and scrolls to a row.
+    private func revealInSettings(_ identifier: String) {
+        openAccount()
+        let row = app.descendants(matching: .any)[identifier]
+        for _ in 0..<8 where !row.exists || !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.exists, identifier)
+    }
+
+    func testSettingsPrivacy() throws {
+        try start("paired", paired: true)
+        revealInSettings("settings.thisDevice")
+        try shoot("settings-privacy", audits: false)
+    }
+
+    func testSettingsLockConfirming() throws {
+        try start(
+            "paired", paired: true, extraArguments: ["-yakTestAuthentication", "slow"])
+        revealInSettings("settings.appLock")
+        app.switches["settings.appLock"].coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        try shoot("settings-lock-confirming", audits: false)
+    }
+
+    func testSettingsNoPasscode() throws {
+        try start("paired", paired: true, extraArguments: ["-yakTestBiometry", "noPasscode"])
+        revealInSettings("settings.appLock")
+        try shoot("settings-no-passcode", audits: false)
+    }
+
+    func testSettingsSpotlightFailed() throws {
+        try start("paired", paired: true, extraArguments: ["-yakTestSpotlight", "failing"])
+        revealInSettings("settings.spotlightPrivate")
+        app.switches["settings.spotlightPrivate"].coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["settings.spotlightPrivate.failed"].waitForExistence(timeout: 15))
+        try shoot("settings-spotlight-failed", audits: false)
+    }
+
+    func testLicenses() throws {
+        try start("paired", paired: true)
+        revealInSettings("settings.licenses")
+        app.descendants(matching: .any)["settings.licenses"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["licenses.screen"].waitForExistence(timeout: 10))
+        try shoot("licenses", audits: false)
+        app.descendants(matching: .any)["licenses.swift-markdown"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["license.text"].waitForExistence(timeout: 10))
+        try shoot("license-text", audits: false)
+    }
+
+    func testSettingsTestFlight() throws {
+        try start("paired", paired: true, extraArguments: ["-yakTestBuildKind", "testFlight"])
+        revealInSettings("settings.debug")
+        try shoot("settings-debug-row", audits: false)
+    }
+
+    func testSettingsAppStore() throws {
+        try start("paired", paired: true, extraArguments: ["-yakTestBuildKind", "appStore"])
+        revealInSettings("settings.licenses")
+        XCTAssertFalse(app.descendants(matching: .any)["settings.debug"].exists)
+        try shoot("settings-no-debug-row", audits: false)
+    }
+
+    private func openDebug(_ extra: [String] = []) throws {
+        try start("paired", paired: true, extraArguments: extra)
+        revealInSettings("settings.debug")
+        app.descendants(matching: .any)["settings.debug"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["debug.menu"].waitForExistence(timeout: 10))
+    }
+
+    func testDebugMenu() throws {
+        try openDebug()
+        try shoot("debug-menu", audits: false)
+    }
+
+    func testDebugFaults() throws {
+        try openDebug()
+        for fault in ["slow", "verySlow", "offline", "serverError"] {
+            app.descendants(matching: .any)["debug.fault.\(fault)"].tap()
+            try shoot("debug-fault-\(fault)", audits: false)
+        }
+    }
+
+    func testDebugLog() throws {
+        try openDebug(["-yakTestToken", "stub-token"])
+        app.descendants(matching: .any)["debug.log"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["debug.log.screen"].waitForExistence(timeout: 10))
+        try shoot("debug-log", audits: false)
+    }
+
+    func testDebugLogEmpty() throws {
+        try openDebug(["-yakTestLog", "empty"])
+        app.descendants(matching: .any)["debug.log"].tap()
+        XCTAssertTrue(label("No log lines").waitForExistence(timeout: 10))
+        try shoot("debug-log-empty", audits: false)
+    }
+
+    func testDebugLogFailed() throws {
+        try openDebug(["-yakTestLog", "failed"])
+        app.descendants(matching: .any)["debug.log"].tap()
+        XCTAssertTrue(label("could not be read").waitForExistence(timeout: 10))
+        try shoot("debug-log-failed", audits: false)
+    }
 }

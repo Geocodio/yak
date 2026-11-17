@@ -7,6 +7,18 @@ struct DebugMenuScreen: View {
 
     var body: some View {
         List {
+            #if DEBUG
+                Section {
+                    NavigationLink {
+                        LiveActivityGallery(stateName: "working")
+                    } label: {
+                        Text("debug.liveActivities").frame(minHeight: 44, alignment: .leading)
+                    }
+                    .accessibilityIdentifier("debug.liveActivities")
+                } header: {
+                    Text("debug.states.header")
+                }
+            #endif
             Section {
                 ForEach(DebugFault.allCases, id: \.self) { fault in
                     Button {
@@ -30,6 +42,30 @@ struct DebugMenuScreen: View {
                 Text("debug.requests.header")
             } footer: {
                 Text("debug.requests.footer")
+            }
+            Section {
+                NavigationLink {
+                    LogScreen(model: model)
+                } label: {
+                    Text("debug.log.row").frame(minHeight: 44, alignment: .leading)
+                }
+                .accessibilityIdentifier("debug.log")
+            } header: {
+                Text("debug.log.header")
+            }
+            Section {
+                Button {
+                    model.showTipsAgain()
+                } label: {
+                    Text(model.tipsWillShowAgain ? "debug.tips.done" : "debug.tips.row")
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .disabled(model.tipsWillShowAgain)
+                .accessibilityIdentifier("debug.tips")
+            } header: {
+                Text("debug.tips.header")
+            } footer: {
+                Text("debug.tips.footer")
             }
             Section {
             } footer: {

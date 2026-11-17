@@ -18,6 +18,7 @@ struct AppPartsContext {
     var coversWhenActive = false
     var buildKind: any BuildKindSource = BuildKindReader()
     var spotlightWriter: any SpotlightWriter = CoreSpotlightWriter()
+    var logs: any LogSource = LogReader()
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -68,7 +69,10 @@ final class AppParts {
             instances: context.instances, activeLists: { await Self.activeLists(box) }, clock: SystemClock())
         let system = SystemFeatures(
             settings: settings, appLock: appLock, spotlight: spotlight,
-            debug: DebugMenuModel(faults: context.faults, buildKind: context.buildKind), faults: context.faults,
+            debug: DebugMenuModel(
+                faults: context.faults, logs: context.logs, buildKind: context.buildKind, store: context.defaults,
+                clock: SystemClock()),
+            faults: context.faults,
             modelBox: box)
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in

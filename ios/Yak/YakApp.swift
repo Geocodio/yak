@@ -24,7 +24,6 @@ struct YakApp: App {
             }
         #endif
         let storage = SharedStorage.open()
-        GestureTips.configure(.normal)
         if let storage {
             _ = storage.migrateFromStandardStores()
         } else {
@@ -36,6 +35,9 @@ struct YakApp: App {
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
+        let showTipsAgain = defaults.data(forKey: DebugMenuModel.showTipsKey) != nil
+        if showTipsAgain { defaults.set(nil, forKey: DebugMenuModel.showTipsKey) }
+        GestureTips.configure(showTipsAgain ? .resetThenNormal : .normal)
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         let faults = DebugFaultSwitch()
         let environment: @Sendable () -> SessionEnvironment = {

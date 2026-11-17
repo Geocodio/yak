@@ -83,7 +83,8 @@
                     appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
                     coversWhenActive: options.coverWhenActive,
                     buildKind: TestBuildKind(value: options.buildKind),
-                    spotlightWriter: options.spotlightFailing ? FailingSpotlightWriter() : CoreSpotlightWriter()))
+                    spotlightWriter: options.spotlightFailing ? FailingSpotlightWriter() : CoreSpotlightWriter(),
+                    logs: options.log.map { TestLogSource(mode: $0) } ?? LogReader()))
             // A run starts with an empty index, so runs do not leak into each other.
             Task {
                 do { try await CoreSpotlightWriter.makeIndex().deleteAllSearchableItems() } catch {

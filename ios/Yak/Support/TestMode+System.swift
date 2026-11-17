@@ -29,6 +29,8 @@
         var buildKind: DebugBuildKind = .debug
         /// `-yakTestSpotlight failing`
         var spotlightFailing = false
+        /// `-yakTestLog empty|failed`: the log source has nothing, or cannot be read; otherwise the real log.
+        var log: String?
 
         static func parseAuthentication(_ text: String?) -> [TestAuthentication] {
             let words = (text ?? "").split(separator: ",").prefix(8).compactMap {
@@ -60,6 +62,7 @@
             default: break
             }
             options.spotlightFailing = TestMode.value("yakTestSpotlight", in: defaults) == "failing"
+            options.log = TestMode.value("yakTestLog", in: defaults)
             return options
         }
     }
@@ -110,5 +113,13 @@
     struct FailingSpotlightWriter: SpotlightWriter {
         struct Refused: Error {}
         func apply(_ change: SpotlightChange) async throws { throw Refused() }
+    }
+
+    struct TestLogSource: LogSource {
+        let mode: String
+        struct Unreadable: Error {}
+        func read(since: Date, limit: Int, into collector: LogCollector) async throws {
+            if mode == "failed" { throw Unreadable() }
+        }
     }
 #endif
