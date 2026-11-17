@@ -9,7 +9,8 @@ import Testing
         let parts = AppParts.make(
             storage: nil, isTestMode: true,
             context: AppPartsContext(
-                instances: rig.store, tokens: rig.tokens, makeEnvironment: { rig.environment }))
+                instances: rig.store, tokens: rig.tokens, makeEnvironment: { rig.environment },
+                defaults: PushMemoryDefaults()))
         let total = parts.backgroundRefreshSteps.reduce(Duration.zero) { $0 + $1.budget }
         #expect(total <= BackgroundRefresh.totalBudget)
         #expect(!parts.backgroundRefreshSteps.isEmpty)
