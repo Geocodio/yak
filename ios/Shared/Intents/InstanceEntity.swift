@@ -8,6 +8,9 @@ struct InstanceEntity: AppEntity {
     /// Bounded to 60 characters.
     let name: String
     let host: String
+    /// The paired address and the server's own address; the Focus filter allows the hosts of both.
+    let address: URL
+    let canonicalAddress: URL?
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(
         name: LocalizedStringResource("widget.entity.type", table: "Widgets"))
@@ -21,6 +24,14 @@ struct InstanceEntity: AppEntity {
         id = instance.id
         name = WidgetText.bounded(instance.name, limit: WidgetText.instanceNameLimit)
         host = Self.host(of: instance)
+        address = instance.url
+        canonicalAddress = instance.canonicalURL
+    }
+
+    /// The instance as the Focus filter's rule reads it.
+    var instance: Instance {
+        Instance(
+            id: id, url: address, name: name, userName: "", lastUsedAt: .distantPast, canonicalURL: canonicalAddress)
     }
 
     static func host(of instance: Instance) -> String { instance.url.host() ?? instance.url.absoluteString }

@@ -2510,6 +2510,466 @@
         }
       }
     },
+    "focus.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only notifications from the Yaks you choose come through in this Focus."
+          }
+        }
+      }
+    },
+    "focus.param" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yaks that may notify"
+          }
+        }
+      }
+    },
+    "focus.summary.all" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Yaks"
+          }
+        }
+      }
+    },
+    "focus.summary.more %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$lld more"
+          }
+        }
+      }
+    },
+    "focus.summary.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Yaks"
+          }
+        }
+      }
+    },
+    "focus.summary.two %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$@"
+          }
+        }
+      }
+    },
+    "focus.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which Yaks notify you"
+          }
+        }
+      }
+    },
+    "intent.dialog.chooseRepository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a repository."
+          }
+        }
+      }
+    },
+    "intent.dialog.emptyText" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell Yak what to work on."
+          }
+        }
+      }
+    },
+    "intent.dialog.noInstance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair Yak with an instance first."
+          }
+        }
+      }
+    },
+    "intent.dialog.noLastThread %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have not opened a thread on %@ yet."
+          }
+        }
+      }
+    },
+    "intent.dialog.offline %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not reach %@. Try again when you are online."
+          }
+        }
+      }
+    },
+    "intent.dialog.opening" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening your last thread."
+          }
+        }
+      }
+    },
+    "intent.dialog.pairAgain %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair %@ again in Yak."
+          }
+        }
+      }
+    },
+    "intent.dialog.refused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not start the thread."
+          }
+        }
+      }
+    },
+    "intent.dialog.reposUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not load your repositories. Try again in a moment."
+          }
+        }
+      }
+    },
+    "intent.dialog.saved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved. Yak starts the thread the next time it is online."
+          }
+        }
+      }
+    },
+    "intent.dialog.started %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started a thread in %@."
+          }
+        }
+      }
+    },
+    "intent.dialog.textTooLong" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That is too long for one message. Keep it under 4000 characters."
+          }
+        }
+      }
+    },
+    "intent.dialog.timedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak took too long to answer. Try again in a moment."
+          }
+        }
+      }
+    },
+    "intent.mode.fix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix"
+          }
+        }
+      }
+    },
+    "intent.mode.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "intent.mode.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode"
+          }
+        }
+      }
+    },
+    "intent.needsMe.many %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld things need you on %2$@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.manyAnywhere %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld things need you: %2$@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.none %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing needs you on %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.noneAnywhere" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing needs you."
+          }
+        }
+      }
+    },
+    "intent.needsMe.one %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One thing needs you on %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.oneAnywhere %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One thing needs you: %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.part %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld on %2$@"
+          }
+        }
+      }
+    },
+    "intent.needsMe.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What needs me?"
+          }
+        }
+      }
+    },
+    "intent.needsMe.unreachable %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ could not be reached, so its count may be old."
+          }
+        }
+      }
+    },
+    "intent.openLast.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open last thread"
+          }
+        }
+      }
+    },
+    "intent.openThread.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open thread"
+          }
+        }
+      }
+    },
+    "intent.param.instance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak"
+          }
+        }
+      }
+    },
+    "intent.param.mode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode"
+          }
+        }
+      }
+    },
+    "intent.param.repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "intent.param.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What should Yak work on?"
+          }
+        }
+      }
+    },
+    "intent.param.thread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
+          }
+        }
+      }
+    },
+    "intent.repository.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "intent.start.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts a thread in one of your repositories."
+          }
+        }
+      }
+    },
+    "intent.start.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a thread"
+          }
+        }
+      }
+    },
+    "intent.thread.generic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread"
+          }
+        }
+      }
+    },
+    "intent.thread.new %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New thread in %@"
+          }
+        }
+      }
+    },
+    "intent.thread.task" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A task"
+          }
+        }
+      }
+    },
+    "intent.thread.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
+          }
+        }
+      }
+    },
     "list.loadFailed" : {
       "localizations" : {
         "en" : {
@@ -5618,6 +6078,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak has a question"
+          }
+        }
+      }
+    },
+    "quickAction.newThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New thread"
+          }
+        }
+      }
+    },
+    "quickAction.open %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open %@"
+          }
+        }
+      }
+    },
+    "quickAction.openPrivate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a private thread"
+          }
+        }
+      }
+    },
+    "quickAction.waiting %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs you on %@"
           }
         }
       }

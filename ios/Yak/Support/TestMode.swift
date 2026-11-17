@@ -67,6 +67,12 @@
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
             }
+            QuickActions.normalizeAddress = Self.normalize
+            let sharedEnvironment = environment()
+            IntentServices.use(
+                IntentServicesValue(
+                    instances: instances, environment: sharedEnvironment, tokens: lockable, lastRepository: { _ in nil }
+                ))
             let doubles = Self.makePushDoubles()
             let parts = AppParts.make(
                 storage: nil, isTestMode: true,
@@ -87,9 +93,10 @@
                 prepare: { instances in
                     if let token = seed.token {
                         do {
-                            _ = try await instances.add(
+                            let added = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
                                 token: token)
+                            await Self.deliverQuickAction(for: added)
                         } catch {
                             Logger(subsystem: "Yak", category: "TestMode").error(
                                 "seeding failed: \(String(describing: type(of: error)), privacy: .public)")

@@ -35,4 +35,26 @@ import XCTest
             }
         }
     }
+
+    func testStartThreadIntentFromTestMode() throws {
+        try stub.play("paired")
+        app.launchArguments = [
+            "-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestIntent", "start-thread",
+        ]
+        app.launch()
+        let result = app.staticTexts["intent.result"]
+        XCTAssertTrue(result.waitForExistence(timeout: 30))
+        let started = NSPredicate(format: "label BEGINSWITH 'Started a thread in '")
+        expectation(for: started, evaluatedWith: result)
+        waitForExpectations(timeout: 30)
+    }
+
+    func testNewThreadQuickActionOpensTheNewThreadScreen() throws {
+        try stub.play("paired")
+        app.launchArguments = [
+            "-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestQuickAction", "new-thread",
+        ]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["newThread.repo"].waitForExistence(timeout: 30))
+    }
 }

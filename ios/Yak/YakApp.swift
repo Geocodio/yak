@@ -70,6 +70,9 @@ struct YakApp: App {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView.preferredColorScheme(TestMode.colorScheme())
+                        .overlay(alignment: .top) {
+                            if let intent = TestMode.intentName { IntentTestResultView(name: intent) }
+                        }
                 }
             #else
                 rootView
@@ -80,6 +83,9 @@ struct YakApp: App {
     private var rootView: some View {
         RootView(model: model)
             .appRoot(parts, model: model)
+            .task {
+                for await link in QuickActions.links() { await model.handle(url: link) }
+            }
             .task {
                 delegate.attach(parts.push)
                 await parts.push.start()
