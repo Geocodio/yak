@@ -55,7 +55,31 @@ it('moves a stopped thread to another repository from the header menu', function
         ->assertSee('Move to another repository')
         ->click('[data-testid="move-target"]')
         ->assertSee('Move this task to other-repo?')
+        ->click('[data-testid="move-confirm"]')
+        ->wait(2)
         ->assertNoJavaScriptErrors();
+
+    $moved = Thread::query()->findOrFail($thread->id);
+    $next = Thread::query()->where('continued_from_thread_id', $thread->id)->first();
+
+    expect($moved->close_reason)->toBe('moved')
+        ->and($next)->not->toBeNull()
+        ->and($next->repo)->toBe('other-repo');
+});
+
+it('moves from the stop card too', function () {
+    Queue::fake();
+    $thread = stoppedThread();
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="stop-move"]')
+        ->click('[data-testid="move-target"]')
+        ->click('[data-testid="move-confirm"]')
+        ->wait(2)
+        ->assertNoJavaScriptErrors();
+
+    expect(Thread::query()->where('continued_from_thread_id', $thread->id)->exists())->toBeTrue();
 });
 
 it('shows a read-only viewer the stop card without its buttons', function () {

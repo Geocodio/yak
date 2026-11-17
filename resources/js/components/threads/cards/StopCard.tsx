@@ -16,6 +16,7 @@ const TITLES: Record<ThreadStopped['kind'], string> = {
 export function StopCard({ threadId, stopped, actions, onMove, onShowLog }: { threadId: string; stopped: ThreadStopped; actions: ThreadActions; onMove: () => void; onShowLog: (() => void) | null }) {
     const action = useRouterAction();
     const [error, setError] = useState<string | null>(null);
+    const [isDetailShown, setIsDetailShown] = useState(false);
     const isCalm = stopped.kind === 'yak_retrying' || stopped.kind === 'needs_you';
 
     const retryNow = () =>
@@ -38,17 +39,24 @@ export function StopCard({ threadId, stopped, actions, onMove, onShowLog }: { th
                     <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control bg-panel-2 p-2 font-mono text-[11px]">{stopped.detail}</pre>
                 </details>
             )}
-            {error !== null && <p role="alert" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="stop-error">{error}</p>}
+            {onShowLog === null && isDetailShown && (
+                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control bg-panel-2 p-2 font-mono text-[11px]" data-testid="stop-inline-detail">{stopped.detail ?? stopped.summary}</pre>
+            )}
+            {error !== null && <p role="alert" id="stop-error" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="stop-error">{error}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
                 {actions.canRetry && (
-                    <Button variant="primary" icon={<Wrench size={13} />} pending={action.isPending('retry')} pendingLabel="Retrying…" disabled={action.busy} onClick={retryNow} data-testid="stop-retry">
+                    <Button variant="primary" icon={<Wrench size={13} />} pending={action.isPending('retry')} pendingLabel="Retrying…" disabled={action.busy} onClick={retryNow} aria-describedby={error !== null ? 'stop-error' : undefined} data-testid="stop-retry">
                         Retry
                     </Button>
                 )}
                 {actions.canMove && (
                     <Button onClick={onMove} disabled={action.busy} data-testid="stop-move">Move to another repository</Button>
                 )}
-                {onShowLog !== null && stopped.kind !== 'cancelled' && <Button onClick={onShowLog} data-testid="stop-show-log">Show the failing step</Button>}
+                {stopped.kind !== 'cancelled' && (
+                    <Button onClick={onShowLog ?? (() => setIsDetailShown((shown) => !shown))} data-testid="stop-show-log">
+                        {onShowLog !== null ? 'Show the failing step' : isDetailShown ? 'Hide the details' : 'Show the details'}
+                    </Button>
+                )}
             </div>
         </section>
     );

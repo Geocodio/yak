@@ -16,7 +16,7 @@ const savedFor = (when: string) => ({
 });
 
 /** The composer placeholder and the hint line beside the attach button for the thread's current state. `isDefaultHint` is true while the hint is the plain send hint, which a channel hint may replace. */
-export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer['state'], teleportState: TeleportData['state']): { placeholder: string; hint: string; isDefaultHint: boolean } {
+export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer['state'], teleportState: TeleportData['state'], isOwnerless = false): { placeholder: string; hint: string; isDefaultHint: boolean } {
     if (teleportState === 'waiting') {
         return { ...DEFAULT, hint: teleportComposerHint.waiting, isDefaultHint: false };
     }
@@ -40,7 +40,7 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
         return { placeholder: 'Message Claude', hint: 'This work is from before threads. Send a message to continue it in a new thread.', isDefaultHint: false };
     }
     if (state === 'stopped') {
-        return { placeholder: 'Write a note for Yak…', hint: 'Send a note and Yak tries again with it. Or press Retry above.', isDefaultHint: false };
+        return { placeholder: 'Write a note for Yak…', hint: `Send a note and Yak tries again with it. Or press Retry above.${isOwnerless ? ' Your first message makes you the owner.' : ''}`, isDefaultHint: false };
     }
     if (state === 'working') {
         return { ...DEFAULT, placeholder: 'Add a message. Claude reads it as soon as it can.' };

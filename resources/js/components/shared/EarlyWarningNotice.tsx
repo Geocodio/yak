@@ -98,12 +98,12 @@ function Picker({ warning, routes, renderCandidates }: { warning: EarlyWarningDa
         <div className="mt-3 flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
                 {renderCandidates({ disabled: isSaving, onPick: save })}
-                <Button variant="tertiary" pending={isSaving && lastAction === 'decline'} disabled={isSaving} onClick={skip} data-testid="early-warning-decline">
+                <Button variant="tertiary" pending={isSaving && lastAction === 'decline'} disabled={isSaving} onClick={skip} aria-describedby={error !== null ? 'early-warning-error' : undefined} data-testid="early-warning-decline">
                     {warning.fallbackName === null ? 'Ask later' : `Ask ${warning.fallbackName} later`}
                 </Button>
             </div>
             {error !== null && !isSaving && lastAction !== null && (
-                <div role="alert" className="flex items-start gap-2 rounded-card bg-warn/10 p-3" data-testid="early-warning-error">
+                <div role="alert" id="early-warning-error" className="flex items-start gap-2 rounded-card bg-warn/10 p-3" data-testid="early-warning-error">
                     <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="flex flex-col gap-1">
                         {lastAction === 'pick' && picked !== null ? (

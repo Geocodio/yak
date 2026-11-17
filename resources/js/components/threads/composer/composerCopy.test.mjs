@@ -60,3 +60,7 @@ test('only the plain send hint is flagged as replaceable', () => {
 test('stopped thread says a note retries the work, with the task page wording', () => {
     assert.deepEqual(composerCopy(null, 'stopped', 'none'), { placeholder: 'Write a note for Yak…', hint: 'Send a note and Yak tries again with it. Or press Retry above.' });
 });
+
+test('stopped thread with no owner adds the owner sentence after the note sentence', () => {
+    assert.equal(composerCopy(null, 'stopped', 'none', true).hint, 'Send a note and Yak tries again with it. Or press Retry above. Your first message makes you the owner.');
+});

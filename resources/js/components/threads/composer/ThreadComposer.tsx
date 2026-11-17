@@ -37,11 +37,10 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
-    const copy = composerCopy(notice, composer.state, teleportState);
     const isOwnerless = request !== null && request.starter.key === 'yak' && request.responsibleName === null && !thread.isOwner;
-    const isStoppedOwnerless = composer.state === 'stopped' && isOwnerless;
-    const hint = DISABLED_COPY[composer.state] ?? (isStoppedOwnerless ? channelHint(request.source, true) : null) ?? (copy.isDefaultHint && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
-    const placeholder = isOwnerless && (copy.placeholder === 'Message Claude' || composer.state === 'stopped') ? 'Message Claude to take over this thread' : copy.placeholder;
+    const copy = composerCopy(notice, composer.state, teleportState, isOwnerless);
+    const hint = DISABLED_COPY[composer.state] ?? (copy.isDefaultHint && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
+    const placeholder = isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
     const draft = useAttachmentDraft({
         enabled: !disabled,
         firstNumber: composer.nextAttachmentNumber,

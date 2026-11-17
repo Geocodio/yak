@@ -1,13 +1,14 @@
 import { router } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { store } from '@/routes/threads/repository-answer';
 import type { RepositoryQuestion } from '@/types/threads';
 
 /** "Which repository is this for?": the option chips of the old clarification, and a Start button for the chosen one. */
 export function RepositoryQuestionCard({ threadId, question }: { threadId: string; question: RepositoryQuestion }) {
     const [selected, setSelected] = useState<string | null>(question.selected);
+    useEffect(() => setSelected(question.selected), [question.selected]);
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -49,11 +50,11 @@ export function RepositoryQuestionCard({ threadId, question }: { threadId: strin
                 })}
             </div>
             {error !== null && (
-                <p role="alert" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="repository-question-error">{error}</p>
+                <p role="alert" id="repository-question-error" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="repository-question-error">{error}</p>
             )}
             {question.canAnswer ? (
                 <div className="mt-4 flex justify-end">
-                    <Button variant="primary" pending={isStarting} pendingLabel="Starting…" disabled={selected === null || isStarting} onClick={start} data-testid="repository-start">
+                    <Button variant="primary" pending={isStarting} pendingLabel="Starting…" disabled={selected === null || isStarting} onClick={start} aria-describedby={error !== null ? 'repository-question-error' : undefined} data-testid="repository-start">
                         {selected === null ? 'Pick a repository' : `Start in ${selected}`}
                     </Button>
                 </div>

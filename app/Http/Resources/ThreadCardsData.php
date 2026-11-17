@@ -60,6 +60,7 @@ final class ThreadCardsData
             ...$coOwner,
             'connectUrl' => GitHubAccountController::connectUrl(route('threads.show', $thread, false)),
             'canDecide' => $canDrive,
+            'viewerIsAsked' => $coOwnerRequest !== null && in_array($viewer->id, $coOwnerRequest->asked_user_ids, true),
         ];
 
         $earlyWarning = EarlyWarningData::forTask($root, $coOwnerRequest, $viewer);

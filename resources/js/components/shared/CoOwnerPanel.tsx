@@ -47,6 +47,51 @@ function firstName(name: string): string {
     return name.split(' ')[0];
 }
 
+function joinNames(items: string[]): string {
+    return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+function relativeTime(iso: string): string {
+    const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+    const format = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
+
+    if (minutes < 1) {
+        return 'just now';
+    }
+
+    return minutes < 60 ? format.format(-minutes, 'minute') : minutes < 1440 ? format.format(-Math.round(minutes / 60), 'hour') : format.format(-Math.round(minutes / 1440), 'day');
+}
+
+/** Who asked and when, what it touches and who is next, in the words of the thread's held-change card. */
+function cardSentences(coOwner: CoOwnerData, isRequesterView: boolean, holdSentence: string | null): string[] {
+    const asked = coOwner.asked;
+    const ago = relativeTime(coOwner.heldAt);
+    const sentences: string[] = [];
+
+    if (isRequesterView) {
+        if (asked.length > 0) {
+            sentences.push(`Yak asked ${joinNames(asked)} ${ago}.`);
+        }
+    } else {
+        const areas = coOwner.areas.map((area) => area.name);
+        const owners = asked.length === 0 ? '' : coOwner.viewerIsAsked === true ? ' that you own' : ` that ${joinNames(asked)} own`;
+
+        if (areas.length > 0) {
+            sentences.push(`This change touches ${joinNames(areas)} code${owners}.`);
+        } else if (holdSentence !== null) {
+            sentences.push(holdSentence);
+        }
+        if (asked.length > 0) {
+            sentences.push(coOwner.viewerIsAsked === true ? `${firstName(coOwner.requesterName)} asked you ${ago}.` : `${firstName(coOwner.requesterName)} asked ${joinNames(asked)} ${ago}.`);
+        }
+    }
+    if (coOwner.fallbackOwner !== null) {
+        sentences.push(`If nobody answers by ${dateAndTime(coOwner.expiresAt)}, Yak asks ${coOwner.fallbackOwner}.`);
+    }
+
+    return sentences;
+}
+
 function readDecisionError(value: unknown): CoOwnerDecisionError | null {
     const candidate = Array.isArray(value) ? value[0] : value;
     return candidate !== null && typeof candidate === 'object' && 'message' in candidate ? (candidate as CoOwnerDecisionError) : null;
@@ -149,6 +194,22 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
         : `A co-owner is a second person with write access to ${repoName}. They look at changes to sensitive areas before a PR opens. It is about what the change touches, not about who asked for it.`;
 
     const isCard = variant === 'card';
+    const approveButton = canApprove ? (
+        <Button
+            variant="primary"
+            icon={<GitPullRequest className="size-3.5" />}
+            pending={isApproving}
+            pendingLabel="Approving…"
+            disabled={action.busy}
+            onClick={() => run('approve', routes.approve)}
+            aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}
+            data-testid="co-owner-approve"
+        >
+            {isApproving ? 'Approving…' : isCard ? 'Approve and open the PR' : 'Approve & open PR'}
+        </Button>
+    ) : null;
+    const canDecide = coOwner.canDecide !== false;
+    const cardBody = cardSentences(coOwner, isRequesterView, holdSentence).join(' ');
     const dividers = isCard ? '' : 'border-b border-hair';
     const gutter = 'px-6';
 
@@ -162,13 +223,13 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
             <div className={`flex flex-wrap items-start justify-between gap-3 ${dividers} ${gutter} py-4`}>
                 <div className="max-w-xl">
                     <h2 id="co-owner-title" className="text-[15px] font-semibold">{isCard ? 'Yak is waiting for a co-owner before it opens the pull request' : 'This change needs a co-owner'}</h2>
-                    <p className="mt-0.5 text-[12.5px] leading-normal text-muted">{body}</p>
+                    <p className="mt-0.5 text-[12.5px] leading-normal text-muted" data-testid="co-owner-explanation">{isCard ? cardBody : body}</p>
                 </div>
-                <Badge tone="warn">Held since {clock(coOwner.heldAt)} · expires in {daysLeft(coOwner.expiresAt)}</Badge>
+                {!isCard && <Badge tone="warn">Held since {clock(coOwner.heldAt)} · expires in {daysLeft(coOwner.expiresAt)}</Badge>}
             </div>
 
             <div className={`${dividers} ${gutter} ${isCard ? 'pb-3' : 'py-5'}`}>
-                {holdSentence !== null ? <p className="text-[13px] leading-normal" data-testid="co-owner-hold-reason">{holdSentence}</p> : isCard ? <ChangedFiles coOwner={coOwner} onOpenChanges={onOpenChanges} /> : <AreaCards coOwner={coOwner} />}
+                {holdSentence !== null && !isCard ? <p className="text-[13px] leading-normal" data-testid="co-owner-hold-reason">{holdSentence}</p> : isCard ? <ChangedFiles coOwner={coOwner} onOpenChanges={onOpenChanges} /> : <AreaCards coOwner={coOwner} />}
             </div>
 
             {isRequesterView ? (
@@ -189,13 +250,13 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                 </p>
             )}
 
-            {!isRequesterView && feedbackOpen && (
+            {canDecide && !isRequesterView && feedbackOpen && (
                 <div className="flex flex-col gap-1.5 border-b border-hair px-6 py-4" data-testid="co-owner-feedback">
                     <label htmlFor="co-owner-feedback-text" className="text-[13px] font-semibold">
                         What should Yak change? <span className="font-normal text-muted">Yak runs a follow-up with this and asks again here.</span>
                     </label>
-                    <Textarea id="co-owner-feedback-text" rows={3} maxLength={2000} value={feedback} onChange={(event) => setFeedback(event.target.value)} data-testid="co-owner-feedback-text" />
-                    <p className="text-[12px] text-muted">No PR exists yet, so nothing is merged or visible to customers while Yak revises.</p>
+                    <Textarea id="co-owner-feedback-text" aria-describedby="co-owner-feedback-hint" rows={3} maxLength={2000} value={feedback} onChange={(event) => setFeedback(event.target.value)} data-testid="co-owner-feedback-text" />
+                    <p id="co-owner-feedback-hint" className="text-[12px] text-muted">No PR exists yet, so nothing is merged or visible to customers while Yak revises.</p>
                     <div className="flex justify-end gap-2">
                         <Button onClick={() => setFeedbackOpen(false)} disabled={action.busy}>Cancel</Button>
                         <Button
@@ -217,14 +278,15 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                 </Strip>
             )}
 
-            {decisionError !== null && !isApproving && (
+            {canDecide && decisionError !== null && !isApproving && (
                 <DecisionError error={decisionError} lastAction={lastAction} onRetry={() => run('approve', routes.approve)} busy={action.busy} />
             )}
 
-            {!isRequesterView && !canApprove && (
+            {canDecide && !isRequesterView && !canApprove && (
                 <AccessPrompt coOwner={coOwner} busy={action.busy} onCheckAgain={() => run('check-access', routes.checkAccess)} checking={action.isPending('check-access')} />
             )}
 
+            {canDecide && (
             <div className={`flex flex-wrap items-center justify-between gap-3 rounded-b-card px-6 py-3.5 ${isCard ? '' : 'bg-app'}`}>
                 <span className="max-w-md text-[12px] text-muted">
                     {canApprove ? (
@@ -244,25 +306,16 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                         </>
                     ) : viewer.access !== 'read' || canApprove ? (
                         <>
-                            <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>
-                            <Button onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes">Request changes</Button>
-                            {canApprove && (
-                                <Button
-                                    variant="primary"
-                                    icon={<GitPullRequest className="size-3.5" />}
-                                    pending={isApproving}
-                                    pendingLabel="Approving…"
-                                    disabled={action.busy}
-                                    onClick={() => run('approve', routes.approve)}
-                                    data-testid="co-owner-approve"
-                                >
-                                    {isApproving ? 'Approving…' : isCard ? 'Approve and open the PR' : 'Approve & open PR'}
-                                </Button>
-                            )}
+                            {isCard && approveButton}
+                            {!isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            <Button onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes" aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}>Request changes</Button>
+                            {isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            {!isCard && approveButton}
                         </>
                     ) : null}
                 </div>
             </div>
+            )}
 
             <ConfirmDialog
                 open={rejectOpen}
@@ -400,7 +453,7 @@ function DecisionError({ error, lastAction, onRetry, busy }: { error: CoOwnerDec
     const isApproveFailure = error.reason === 'github_failed' && lastAction === 'approve';
 
     return (
-        <div data-testid="co-owner-error">
+        <div id="co-owner-error" data-testid="co-owner-error">
             <Strip icon={<AlertTriangle className="size-4" />} tone="fail" title={isApproveFailure ? 'Could not open the PR.' : error.message}>
                 {isApproveFailure && (
                     <>

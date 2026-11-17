@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryAnswerController::__invoke
-* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:22
+* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:21
 * @route '/threads/{thread}/repository-answer'
 */
 const ThreadRepositoryAnswerController = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ ThreadRepositoryAnswerController.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryAnswerController::__invoke
-* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:22
+* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:21
 * @route '/threads/{thread}/repository-answer'
 */
 ThreadRepositoryAnswerController.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ ThreadRepositoryAnswerController.url = (args: { thread: string | { public_id: st
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRepositoryAnswerController::__invoke
-* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:22
+* @see app/Http/Controllers/Threads/ThreadRepositoryAnswerController.php:21
 * @route '/threads/{thread}/repository-answer'
 */
 ThreadRepositoryAnswerController.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

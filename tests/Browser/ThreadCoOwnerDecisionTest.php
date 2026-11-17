@@ -8,6 +8,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CoOwner\CoOwnerDecisionException;
 use App\Services\CoOwner\CoOwnerDecisions;
 use Illuminate\Support\Facades\Cache;
 
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Cache;
  */
 function heldThreadForCoOwner(?User $requester = null, array $askedUserIds = []): array
 {
-    $repository = Repository::factory()->create(['slug' => 'o-r', 'github_full_name' => 'geocodio/geocodio']);
+    $repository = Repository::query()->where('slug', 'o-r')->first() ?? Repository::factory()->create(['slug' => 'o-r', 'github_full_name' => 'geocodio/geocodio']);
     $task = YakTask::factory()->awaitingCoOwner()->create([
         'repo' => $repository->slug,
         'started_by_user_id' => $requester?->id,
@@ -116,4 +117,125 @@ it('lets the requester pick a co-owner from the early warning card', function ()
         ->assertSeeIn('[data-testid="card-early-warning"]', 'API response pipeline (high risk)')
         ->assertPresent('[data-testid="early-warning-picker"] input[role="combobox"]')
         ->assertNoJavaScriptErrors();
+});
+
+it('shows a refused decision in the card and keeps the request pending', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->mock(CoOwnerDecisions::class, fn ($mock) => $mock->shouldReceive('approve')->once()->andThrow(CoOwnerDecisionException::alreadyResolved()));
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="co-owner-approve"]')
+        ->assertSeeIn('[data-testid="co-owner-error"]', 'Someone already decided this request.')
+        ->assertVisible('[data-testid="card-co-owner"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+});
+
+it('sends feedback from the card with request changes', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->mock(CoOwnerDecisions::class, fn ($mock) => $mock->shouldReceive('requestChanges')->once()->withArgs(fn ($held, $user, string $feedback) => $feedback === 'Split the headers into separate tasks')->andReturnUsing(function (CoOwnerRequest $held) {
+        $held->update(['status' => CoOwnerRequestStatus::ChangesRequested, 'decided_at' => now()]);
+
+        return $held->task;
+    }));
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="co-owner-request-changes"]')
+        ->fill('[data-testid="co-owner-feedback-text"]', 'Split the headers into separate tasks')
+        ->click('[data-testid="co-owner-send-feedback"]')
+        ->wait(2)
+        ->assertMissing('[data-testid="card-co-owner"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::ChangesRequested);
+});
+
+it('rejects after the confirm, and the requester can withdraw', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->mock(CoOwnerDecisions::class, fn ($mock) => $mock->shouldReceive('reject')->once()->andReturnUsing(fn (CoOwnerRequest $held) => $held->update(['status' => CoOwnerRequestStatus::Rejected, 'decided_at' => now()])));
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="co-owner-reject"]')
+        ->assertSee('Reject this change?')
+        ->click('[data-testid="co-owner-reject-confirm"]')
+        ->wait(2)
+        ->assertMissing('[data-testid="card-co-owner"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::Rejected);
+
+    $requester = User::factory()->create();
+    [$ownThread, $ownRequest] = heldThreadForCoOwner($requester, []);
+    $this->mock(CoOwnerDecisions::class, fn ($mock) => $mock->shouldReceive('withdraw')->once()->andReturnUsing(fn (CoOwnerRequest $held) => $held->update(['status' => CoOwnerRequestStatus::Withdrawn, 'decided_at' => now()])));
+    $this->actingAs($requester);
+
+    visit("/threads/{$ownThread->public_id}")
+        ->click('[data-testid="card-co-owner"] button:has-text("Withdraw")')
+        ->wait(2)
+        ->assertMissing('[data-testid="card-co-owner"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($ownRequest->fresh()->status)->toBe(CoOwnerRequestStatus::Withdrawn);
+});
+
+it('shows a person who cannot drive the thread the card without any decision button', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $thread->forceFill(['visibility' => 'private', 'owner_user_id' => User::factory()->create()->id])->save();
+    $thread->shares()->create(['user_id' => $viewer->id]);
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="card-co-owner"]')
+        ->assertSeeIn('[data-testid="co-owner-explanation"]', 'This change touches')
+        ->assertMissing('[data-testid="co-owner-approve"]')
+        ->assertMissing('[data-testid="co-owner-request-changes"]')
+        ->assertMissing('[data-testid="co-owner-reject"]')
+        ->assertMissing('[data-testid="co-owner-connect"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('explains who asked, when and who is next, with approve first', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create(['name' => 'Mathias Hansen']);
+    $fallback = User::factory()->create(['name' => 'Fallback Person']);
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(['name' => 'Liam Hansen']), [$viewer->id]);
+    $request->repository->update(['default_responsible_user_id' => $fallback->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->actingAs($viewer);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertSeeIn('[data-testid="co-owner-explanation"]', 'code that you own.')
+        ->assertSeeIn('[data-testid="co-owner-explanation"]', 'Liam asked you')
+        ->assertSeeIn('[data-testid="co-owner-explanation"]', 'Yak asks Fallback Person.')
+        ->assertDontSee('Held since')
+        ->assertNoJavaScriptErrors();
+});
+
+it('loads the candidates, picks one and the early warning card goes away', function () {
+    $requester = User::factory()->create();
+    $repository = Repository::factory()->create(['slug' => 'o-r', 'github_full_name' => 'geocodio/geocodio']);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'started_by_user_id' => $requester->id, 'early_warning' => ['areas' => [['name' => 'API response pipeline', 'risk' => 'high']], 'state' => 'shown']]);
+    $cory = User::factory()->withGitHub(11, 'cory')->create(['name' => 'Cory Mawhorter']);
+    Cache::put("co-owner:write-access:{$repository->id}:{$cory->github_id}", 'write', now()->addMinutes(10));
+    $this->actingAs($requester);
+
+    visit('/threads/' . Thread::query()->findOrFail($task->thread_id)->public_id)
+        ->click('[data-testid="early-warning-picker"] input[role="combobox"]')
+        ->click('text=Cory Mawhorter, write access')
+        ->wait(2)
+        ->assertMissing('[data-testid="card-early-warning"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($task->fresh()->tagged_co_owner_user_id)->toBe($cory->id);
 });
