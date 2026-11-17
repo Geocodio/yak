@@ -63,8 +63,9 @@ struct TaskQuestionCard: View {
                 typed = flow.answers[item.id]?.other ?? ""
                 model.changeQuestions { $0.startTyping() }
             } label: {
-                Text("task.questions.other").frame(maxWidth: .infinity, minHeight: 44)
+                Text("task.questions.other").font(.body.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
             }
+            .foregroundStyle(.primary)
             .accessibilityIdentifier("task.questions.other")
             HStack(spacing: 12) {
                 if index > 0 {

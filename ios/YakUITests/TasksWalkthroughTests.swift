@@ -30,6 +30,14 @@ import XCTest
         button.tap()
     }
 
+    /// Opens a task that is not in the list's first page, by the test launch argument.
+    private func openTaskDirectly(_ id: String, scenario: String) throws {
+        try stub.play(scenario)
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestOpenTask", id]
+        app.launch()
+        XCTAssertTrue(element("task.title").waitForExistence(timeout: 25))
+    }
+
     private func openTask(_ id: String, scenario: String) throws {
         try openTilesScreen("drawer.tile.tasks", scenario: scenario)
         let row = element("tasks.row.\(id)")
@@ -89,7 +97,7 @@ import XCTest
     }
 
     func testTasksError() throws {
-        try openTilesScreen("drawer.tile.tasks", scenario: "paired")
+        try openTilesScreen("drawer.tile.tasks", scenario: "tasks-error")
         XCTAssertTrue(element("tasks.error").waitForExistence(timeout: 15))
         try shoot("tasks-error")
     }
@@ -163,7 +171,7 @@ import XCTest
     }
 
     func testTaskReadOnly() throws {
-        try openTask("r3d0n1yx", scenario: "changes")
+        try openTaskDirectly("r3d0n1yx", scenario: "changes")
         XCTAssertTrue(element("task.readOnly").waitForExistence(timeout: 10))
         try shoot("task-read-only")
     }
@@ -188,7 +196,7 @@ import XCTest
     }
 
     func testTaskQuestion() throws {
-        try openTask("q5w8e2rt", scenario: "changes")
+        try openTaskDirectly("q5w8e2rt", scenario: "changes")
         XCTAssertTrue(element("task.questions").waitForExistence(timeout: 10))
         try shoot("task-question")
     }
@@ -246,7 +254,7 @@ import XCTest
     }
 
     func testObservationsError() throws {
-        try openTilesScreen("drawer.tile.observations", scenario: "paired")
+        try openTilesScreen("drawer.tile.observations", scenario: "tasks-error")
         XCTAssertTrue(element("observations.error").waitForExistence(timeout: 15))
         try shoot("observations-error")
     }

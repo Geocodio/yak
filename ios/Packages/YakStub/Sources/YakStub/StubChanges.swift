@@ -6,7 +6,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
     let name = "changes"
     let scenarios = [
         "changes", "tasks-empty", "tasks-nulls", "tasks-slow", "task-slow-approve", "task-refused", "task-not-linked",
-        "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
+        "tasks-error", "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
         "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working", "changes-slow",
         "pull-request-open", "pull-request-slow", "pull-request-held", "pull-request-failed", "pull-request-refused",
     ]
@@ -123,6 +123,9 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         if segments.first == "threads", let reply = threadReply(parts[0], segments, request, context) { return reply }
         guard let first = segments.first, first == "tasks" || first == "observations" else { return nil }
         var reply: StubReply?
+        if context.scenario == "tasks-error", first == "observations" || segments == ["tasks"], parts[0] == "GET" {
+            return StubReply(answer: Scenario.error(500, "server_error", "The server could not load the list."))
+        }
         if first == "observations", parts[0] == "GET" {
             reply = observations(request, context: context)
         } else if segments == ["tasks"], parts[0] == "GET" {
