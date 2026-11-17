@@ -123,6 +123,8 @@ class VisibilityRoutes
         'deployments.share.destroy' => ['DELETE', '/deployments/{deployment}/share'],
         'pr-reviews.for-pr' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}'],
         'pr-reviews.for-pr.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}/rerun'],
+        'pr-reviews.for-pr.runs.log' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/log', [], 404],
+        'pr-reviews.for-pr.runs.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/rerun', [], 404],
     ];
 
     /**

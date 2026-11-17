@@ -59,13 +59,41 @@ export type PrReviewForPrSummary = {
     url: string;
 };
 
-export type PrReviewEntry = {
-    id: number;
+export type PrReviewRunStatus = 'queued' | 'reviewing' | 'reviewed' | 'failed' | 'cancelled';
+
+/** One review run of a pull request; mirrors the shape documented in `App\Http\Resources\PrReviewRunData`. */
+export type PrReviewRun = {
+    id: string;
+    status: PrReviewRunStatus;
     scope: 'full' | 'incremental' | string;
-    dismissed: boolean;
-    createdAgo: string | null;
-    reviewer: string;
-    commitSha: string;
-    taskId: number;
+    startedAt: string;
+    commit: string | null;
+    model: string | null;
+    stepCount: number;
+    durationSeconds: number;
+    costUsd: number;
+    verdict: string | null;
+    counts: { mustFix: number; shouldFix: number; consider: number };
+    resolvedCount: number;
     findings: FindingsData;
+    error: string | null;
+    canRerun: boolean;
+    logUrl: string;
+    isLive: boolean;
+    latestActivity: string | null;
+};
+
+export type PrReviewPullRequest = {
+    repository: string;
+    author: string | null;
+    state: 'open' | 'closed' | 'merged';
+    branch: string | null;
+    preview: { status: string; hostname: string; url: string } | null;
+    runCount: number;
+    failedCount: number;
+    totalCostUsd: number;
+    helpfulCount: number;
+    notHelpfulCount: number;
+    thread: { id: string; title: string } | null;
+    source: { label: string; url: string } | null;
 };

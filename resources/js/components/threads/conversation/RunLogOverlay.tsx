@@ -8,8 +8,8 @@ import { replaceTaskQuery } from '@/lib/taskQuery';
 import type { TranscriptEntry } from '@/types/tasks';
 import { useRunLog } from './useRunLog';
 
-/** One run of a thread, or one task of a thread made from an old task, whose steps the overlay shows. */
-export type RunLogTarget = { kind: 'run' | 'task'; id: string; entryId: number | null; headline: string };
+/** One run of a thread (or, for kind 'url', the log route in `id`), or one task of a thread made from an old task, whose steps the overlay shows. */
+export type RunLogTarget = { kind: 'run' | 'task' | 'url'; id: string; entryId: number | null; headline: string };
 
 const EMPTY_TEXT = 'This run has no recorded steps.';
 
@@ -17,9 +17,9 @@ const EMPTY_TEXT = 'This run has no recorded steps.';
  * The existing transcript overlay (desktop) or log entry sheet (phone), fed from the run log route. The run and
  * attempt pickers stay out of it: it shows exactly one run. The `?log=` link follows the open entry.
  */
-export function RunLogOverlay({ threadId, target, onClose }: { threadId: string; target: RunLogTarget | null; onClose: () => void }) {
+export function RunLogOverlay({ threadId = '', target, onClose }: { threadId?: string; target: RunLogTarget | null; onClose: () => void }) {
     const isDesktop = useMediaQuery('(min-width: 768px)');
-    const url = target === null ? null : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
+    const url = target === null ? null : target.kind === 'url' ? target.id : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
     const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry, search } = useRunLog(url);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const lastEntry = useRef<TranscriptEntry | undefined>(undefined);

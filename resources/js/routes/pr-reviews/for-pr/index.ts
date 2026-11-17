@@ -1,7 +1,8 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
+import runs from './runs'
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:67
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 export const rerun = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +17,7 @@ rerun.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:67
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 rerun.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
@@ -42,7 +43,7 @@ rerun.url = (args: { repoSlug: string | number, prNumber: string | number } | [r
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:27
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:67
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/rerun'
 */
 rerun.post = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -52,6 +53,7 @@ rerun.post = (args: { repoSlug: string | number, prNumber: string | number } | [
 
 const forPr = {
     rerun: Object.assign(rerun, rerun),
+    runs: Object.assign(runs, runs),
 }
 
 export default forPr
