@@ -112,7 +112,7 @@ extension View {
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
             .modifier(SpotlightRoot(system: parts.system, model: model))
-            .modifier(PushRoot(push: parts.push, model: model, schedulesRefresh: !parts.isTestMode))
+            .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
@@ -128,8 +128,6 @@ extension View {
 private struct PushRoot: ViewModifier {
     let push: PushController
     let model: AppModel
-    /// Test mode registers no background task, and submitting one that is not registered aborts the app.
-    let schedulesRefresh: Bool
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
@@ -138,7 +136,7 @@ private struct PushRoot: ViewModifier {
                 switch phase {
                 case .active: Task { await push.appBecameActive() }
                 case .background:
-                    if schedulesRefresh { BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier) }
+                    BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
                 default: break
                 }
             }
