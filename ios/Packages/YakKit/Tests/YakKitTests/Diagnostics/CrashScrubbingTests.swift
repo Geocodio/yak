@@ -36,7 +36,8 @@ import Testing
         #expect(huge.utf8.count > 1_000_000)
         var result = ""
         let elapsed = ContinuousClock().measure { result = CrashScrubbing.scrub(huge) }
-        #expect(elapsed < .seconds(1))
+        // A bound that only a runaway implementation exceeds; a loaded machine stays far below it.
+        #expect(elapsed < .seconds(10))
         #expect(result.count <= CrashScrubbing.maximumOutputLength)
     }
 

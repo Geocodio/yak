@@ -45,6 +45,13 @@ enum AuditRules {
         return bars.bars.contains { isBehind(frame, bar: $0.frame) && !isOwn(frame, ownFrames: $0.ownFrames) }
     }
 
+    /// A contrast finding about an element the keyboard covers; what is behind the keyboard cannot be judged. The
+    /// keyboard frame is read before the audit starts, and is nil when no keyboard is up.
+    static func isContrastBehindTheKeyboard(_ issue: XCUIAccessibilityAuditIssue, keyboard: CGRect?) -> Bool {
+        guard issue.auditType == .contrast, let element = issue.element, let keyboard else { return false }
+        return keyboard.intersects(element.frame)
+    }
+
     /// True when the frame equals one of the bar's own elements' frames, within a point.
     static func isOwn(_ frame: CGRect, ownFrames: [CGRect]) -> Bool {
         ownFrames.contains {
@@ -61,5 +68,32 @@ enum AuditRules {
     /// True when the frame has an area and does not intersect the window at all; an empty frame is not off screen.
     static func isOffScreen(_ frame: CGRect, window: CGRect) -> Bool {
         !frame.isEmpty && !frame.intersects(window)
+    }
+
+    /// The frames of the elements inside the web view's own subtree, read before the audit starts. Cards and the
+    /// signing-in overlay sit over the web view but are not part of its subtree, so they stay audited.
+    @MainActor struct Page {
+        let frames: [CGRect]
+
+        /// Reads one snapshot of the subtree, because a page that is still loading changes under per-element reads.
+        init(_ app: XCUIApplication) {
+            var found: [CGRect] = []
+            func collect(_ snapshot: any XCUIElementSnapshot) {
+                for child in snapshot.children {
+                    found.append(child.frame)
+                    collect(child)
+                }
+            }
+            if app.webViews.firstMatch.exists, let snapshot = try? app.webViews.firstMatch.snapshot() {
+                collect(snapshot)
+            }
+            frames = found
+        }
+    }
+
+    /// A finding about an element of the page's own content, which is the page's, not ours to restyle.
+    static func isInsidePage(_ issue: XCUIAccessibilityAuditIssue, page: Page) -> Bool {
+        guard let element = issue.element, !element.frame.isEmpty else { return false }
+        return isOwn(element.frame, ownFrames: page.frames)
     }
 }

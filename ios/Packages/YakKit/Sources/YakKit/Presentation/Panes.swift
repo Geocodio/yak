@@ -5,6 +5,7 @@ public enum Panes {
     public static let built: [PaneID] =
         [
             .chat,
+            .preview,
             .terminal,
         ] + (FilesMode.built.isEmpty ? [] : [.files])
 

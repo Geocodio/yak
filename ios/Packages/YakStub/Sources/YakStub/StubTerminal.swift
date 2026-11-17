@@ -17,7 +17,7 @@ final class StubTerminalFeature: StubFeature, @unchecked Sendable {
         StubFixturePair(server: "error-file-conflict", scenario: "scenario-file-conflict"),
         StubFixturePair(server: "error-sandbox-unavailable", scenario: "scenario-files-waking"),
     ]
-    let scenarioFileNames = [
+    let scenarioDataNames = [
         "scenario-terminal-restoring", "scenario-file-tree-src", "scenario-file-too-large",
         "scenario-files-destroyed", "scenario-files-asleep", "scenario-terminal-frames",
     ]

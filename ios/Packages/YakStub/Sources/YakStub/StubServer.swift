@@ -149,7 +149,7 @@ final class StubServer: Sendable {
                     featureScenario.set(nil)
                     attachments.begin()
                 } else if owners.count == 1 {
-                    current.set(.paired)
+                    current.set(owners[0].coreScenario(for: name).flatMap(Scenario.init(rawValue:)) ?? .paired)
                     attachmentScenario.set(nil)
                     featureScenario.set(name)
                 } else {
@@ -166,6 +166,7 @@ final class StubServer: Sendable {
                 socket.reset()
                 for feature in features {
                     feature.reset()
+                    feature.played(scenario: name)
                     feature.setOnline(true)
                 }
             }
@@ -199,6 +200,10 @@ final class StubServer: Sendable {
         if request.path == "/__stub/last-message" {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))
+        }
+        if request.path == "/deployments/auth-bounce" {
+            let page = "<!doctype html><title>Bounce</title><p>The app showed the dashboard bounce.</p>"
+            return StubReply(answer: .reply(status: 200, contentType: "text/html", body: Data(page.utf8)))
         }
         for feature in features where Self.controlPath(of: feature.name, matches: request.path) {
             if let reply = feature.control(request) { return reply }

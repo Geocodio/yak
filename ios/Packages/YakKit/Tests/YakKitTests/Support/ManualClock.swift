@@ -72,7 +72,7 @@ final class ManualClock: YakClock, @unchecked Sendable {
     }
 
     /// Real-time bound for the polling waits, so a missing sleeper fails the test instead of hanging.
-    private static let waitLimit: Duration = .seconds(10)
+    private static let waitLimit: Duration = TestTiming.defaultTimeout
 
     func waitForSleepers(_ count: Int) async {
         let deadline = ContinuousClock.now + Self.waitLimit
