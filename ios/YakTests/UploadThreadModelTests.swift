@@ -51,3 +51,15 @@ struct UploadThreadModelTests {
         #expect(condition())
     }
 }
+
+@MainActor
+struct AttachmentRefreshRuleTests {
+    @Test func expiredLinksRefreshAtMostOncePerMinute() {
+        let loading = AttachmentLoading()
+        let start = Date(timeIntervalSince1970: 1_000)
+        #expect(loading.claimRefresh(at: start))
+        #expect(!loading.claimRefresh(at: start.addingTimeInterval(30)))
+        #expect(!loading.claimRefresh(at: start.addingTimeInterval(59)))
+        #expect(loading.claimRefresh(at: start.addingTimeInterval(61)))
+    }
+}

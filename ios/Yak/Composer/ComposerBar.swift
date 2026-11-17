@@ -25,6 +25,7 @@ struct ComposerBar: View {
                 .accessibilityElement(children: .combine).accessibilityIdentifier("composer.problem")
             }
             AttachmentStrip(composer: composer)
+            PasteImageButton(composer: composer)
             if let reason = composer.bar.unavailable {
                 UnavailableRow(reason: reason, repo: thread.snapshot?.show?.thread.repo) {
                     scene.openNewThread(repo: thread.snapshot?.show?.thread.repo, text: nil)

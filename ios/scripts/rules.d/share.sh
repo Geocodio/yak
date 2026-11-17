@@ -41,3 +41,6 @@ if [ -n "$log_hits" ]; then
     echo "$log_hits"
     fail 'a url, link or token is logged as public'
 fi
+
+# The debug-only share test host names example.com in canned data; no request is made.
+host_allowed_files+=(Yak/Support/ShareTestHost.swift)

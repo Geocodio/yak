@@ -331,12 +331,72 @@
         }
       }
     },
+    "chat.attachment.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be loaded. Try again."
+          }
+        }
+      }
+    },
+    "chat.attachment.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the file"
+          }
+        }
+      }
+    },
     "chat.attachment.image %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Image %@"
+          }
+        }
+      }
+    },
+    "chat.attachment.image.speech %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, image"
+          }
+        }
+      }
+    },
+    "chat.attachment.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        }
+      }
+    },
+    "chat.attachment.webOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open this thread on the web to see this file."
+          }
+        }
+      }
+    },
+    "chat.attachments.more %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more files"
           }
         }
       }
@@ -1121,6 +1181,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New"
+          }
+        }
+      }
+    },
+    "composer.paste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste image"
           }
         }
       }

@@ -56,6 +56,8 @@ final class ThreadModel {
     /// The drawer row's title, shown until the thread's own arrives.
     /// Progress and failures of this thread's background uploads.
     let uploadWatch = UploadWatch()
+    /// The loader of this thread's attachment thumbnails and files, made when the first one is asked for.
+    let attachmentLoading = AttachmentLoading()
     private var initialTitle: String?
     private var isStarted = false
     private var isVisible = false
@@ -170,6 +172,7 @@ final class ThreadModel {
                 // The thread can close while `apply` waits; the composer then keeps what it has.
                 guard !Task.isCancelled else { return }
                 self.onSnapshot(next)
+                self.noteOpenedForSharing(next)
                 self.composer.update(snapshot: next)
             }
         }

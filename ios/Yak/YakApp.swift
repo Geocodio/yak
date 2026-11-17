@@ -69,6 +69,8 @@ struct YakApp: App {
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else if let shareCase = TestMode.value("yakTestShare") {
+                    ShareTestHost(caseName: shareCase).preferredColorScheme(TestMode.colorScheme())
                 } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
                     MarkdownGallery()
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {

@@ -125,12 +125,9 @@ private struct PersonMessageView: View {
 
     @ViewBuilder private var attachments: some View {
         if let list = message.attachments, !list.isEmpty {
-            let rows = MessageAttachmentRows.make(list, instance: thread.instanceURL, canonical: nil).rows
-            VStack(alignment: .trailing, spacing: 4) {
-                ForEach(rows) { row in
-                    AttachmentChip(title: row.title, detail: row.detail, isImage: row.kind == .image)
-                }
-            }
+            let made = MessageAttachmentRows.make(list, instance: thread.instanceURL, canonical: nil)
+            MessageAttachmentsView(
+                messageKey: message.uuid ?? message.id, rows: made.rows, hiddenCount: made.hiddenCount, thread: thread)
         }
     }
 
