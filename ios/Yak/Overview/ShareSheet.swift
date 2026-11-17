@@ -127,7 +127,7 @@ private struct ShareSheetForm: View {
             }
             .padding(.vertical, 8).frame(minHeight: 44).contentShape(.rect)
         }
-        .buttonStyle(.plain).disabled(model.isSaving)
+        .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(model.isSaving)
         .accessibilityAddTraits(isChosen ? [.isSelected] : [])
         .accessibilityIdentifier("share.mode.\(key)")
     }
@@ -169,7 +169,7 @@ private struct ShareSheetForm: View {
                 }
                 .frame(minHeight: 44).contentShape(.rect)
             }
-            .buttonStyle(.plain).disabled(model.isSaving)
+            .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(model.isSaving)
             .accessibilityAddTraits(isPicked ? [.isSelected] : [])
             .accessibilityIdentifier("share.person.\(person.id.value)")
         } else {

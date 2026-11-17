@@ -66,7 +66,7 @@ struct OverviewPane: View {
 private struct OverviewScroll: View {
     let model: OverviewModel
     let thread: ThreadModel
-    /// The height of the floating pane bar under the page; the side panel has none.
+    /// The height of the floating pane bar over the page; the side panel has none.
     let bottomInset: CGFloat
 
     @Environment(SceneModel.self) private var scene
@@ -102,12 +102,13 @@ private struct OverviewScroll: View {
             .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
+        .scrollEdgeEffectHidden(true, for: .top)
         // An opaque strip under the status bar and the navigation bar keeps scrolled text from showing through them.
         .safeAreaInset(edge: .top, spacing: 0) {
             Color.clear.frame(height: 0).background(Color(.systemBackground), ignoresSafeAreaEdges: .top)
         }
-        // The page stops above the floating bar, so no row's text sits under its glass or on the screen edge.
-        .padding(.bottom, bottomInset)
+        // The last row ends above the floating bar, and the page runs to the screen edge so no row is cut.
+        .contentMargins(.bottom, bottomInset, for: .scrollContent)
         .paneBarRow(key: isOwner) {
             if isOwner {
                 Button {

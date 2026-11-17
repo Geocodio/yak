@@ -19,8 +19,11 @@ import XCTest
         // audit waits for them and covers the settled page.
         XCTAssertTrue(app.staticTexts["Pull request"].waitForExistence(timeout: 30))
         pause(1)
-        // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
-        nudgePage(by: 380)
+        // The page is taller than the screen; its end is shown, then lifted a little so no heading sits at the bar's edge.
+        scrollPage(toEnd: true)
+        let page = app.descendants(matching: .any)["overview"]
+        page.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+            .press(forDuration: 0.1, thenDragTo: page.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         try shootOverview("overview-slow-answered")
     }
 
@@ -137,7 +140,7 @@ import XCTest
         folded.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 5))
         // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
-        nudgePage(by: 170)
+        scrollPage(toEnd: true)
         try shootOverview("overview-messages")
     }
 
@@ -150,9 +153,9 @@ import XCTest
         XCTAssertTrue(app.buttons["Drop it"].firstMatch.waitForNonExistence(timeout: 5))
         pause(1)
         // The lower groups are brought up for the audit and put back for the screenshot.
-        nudgePage(by: 250)
+        scrollPage(toEnd: true)
         try auditOverview("overview-refused")
-        nudgePage(by: -250)
+        scrollPage(toEnd: false)
         try shoot("overview-refused", audits: false)
     }
 
@@ -357,8 +360,14 @@ import XCTest
         // A slow scenario adds rows above the button when its answers arrive, so a tap that missed is tried again.
         let sheet = app.descendants(matching: .any)["share.sheet"]
         for _ in 0..<3 where !sheet.exists {
-            for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
-            change.tap()
+            // The bar's Share button needs no scrolling, which leaves the page behind the sheet where it was.
+            let barButton = app.buttons["overview.shareButton"]
+            if barButton.exists {
+                barButton.tap()
+            } else {
+                for _ in 0..<6 where !change.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
+                change.tap()
+            }
             _ = sheet.waitForExistence(timeout: 4)
         }
         XCTAssertTrue(sheet.exists)
@@ -414,11 +423,10 @@ import XCTest
         XCTAssertTrue(failed.waitForExistence(timeout: 10))
     }
 
-    /// Scrolls the page by a distance in points, a positive distance showing what is lower on the page.
-    private func nudgePage(by distance: CGFloat) {
-        let start = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let end = start.withOffset(CGVector(dx: 0, dy: -distance))
-        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: 300, thenHoldForDuration: 0.3)
+    /// Scrolls the page to its end, where every row is above the floating bar, or back to its top.
+    private func scrollPage(toEnd: Bool) {
+        let page = app.descendants(matching: .any)["overview"]
+        for _ in 0..<4 { toEnd ? page.swipeUp(velocity: .fast) : page.swipeDown(velocity: .fast) }
     }
 
     private func pause(_ seconds: TimeInterval) {
@@ -475,7 +483,7 @@ import XCTest
         let auditBars = AuditRules.Bars(app)
         // Read before the audit starts, because the audit removes elements from the tree while it runs.
         let barFrames = (app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex).map(\.frame)
-        try app.performAccessibilityAudit { [auditBars] issue in
+        try app.performAccessibilityAudit { [self, auditBars] issue in
             // The system caps the size of text in its bars.
             if let element = issue.element, barFrames.contains(where: { $0.contains(element.frame) }),
                 [.dynamicType, .textClipped].contains(issue.auditType)
@@ -484,6 +492,9 @@ import XCTest
             }
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+            if let directory = self.environment["YAK_SHOT_DIR"] {
+                try? self.upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name)-audit.png"))
+            }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }

@@ -9,6 +9,8 @@ final class StubOverview: StubFeature, @unchecked Sendable {
     static let createdChildID = "n3wch11d"
     static let slowDelay = Duration.seconds(14)
     static let busyAnswers = 2
+    /// How long the busy scenario holds a share change after its busy answers, so the saving state stays on screen.
+    static let busySaveDelay = Duration.seconds(45)
 
     static let scenarioNames = [
         "overview-stack", "overview-stopped", "overview-full", "overview-no-sub-threads", "overview-setting-up",
@@ -170,6 +172,7 @@ final class StubOverview: StubFeature, @unchecked Sendable {
             }
         }
         var reply = performAction(action: action, id: id, scenario: scenario, request: request, context: context)
+        if scenario == "overview-busy", action == .updateShare { reply.delay = Self.busySaveDelay }
         if scenario == "overview-slow", action == .stack || action == .environment || action == .share {
             reply.delay = Self.slowDelay
         }
