@@ -127,7 +127,8 @@ import XCTest
         let takeOver = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Take over"))
         XCTAssertTrue(takeOver.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["Split it up"].exists)
-        app.tap()
+        // A tap inside the drawer closes the menu and leaves the drawer open.
+        app.otherElements["drawer"].coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)).tap()
         let working = app.descendants(matching: .any)["drawer.row.thread:b4ckf111"]
         XCTAssertTrue(working.waitForExistence(timeout: 5))
         working.press(forDuration: 1.0)
