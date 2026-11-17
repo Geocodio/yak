@@ -63,11 +63,11 @@ struct TaskDecisionBar: View {
                     Task { await model.perform(.withdraw) }
                 }
             }
-        case .linkGitHub(let connectURL):
+        case .linkGitHub:
             VStack(alignment: .leading, spacing: 10) {
                 Text("task.decision.link").font(.subheadline.weight(.medium))
-                button("task.decision.linkButton", identifier: "task.decision.link") {
-                    if let url = WebLinkRule.safeURL(connectURL) { openWeb(url) }
+                if let url = model.linkGitHubURL {
+                    button("task.decision.linkButton", identifier: "task.decision.link") { openWeb(url) }
                 }
             }
         case .noWriteAccess:

@@ -62,6 +62,11 @@ final class TaskModel {
         if let linkOverride, case .decide = state { return .linkGitHub(connectURL: linkOverride) }
         return state
     }
+    /// The GitHub connect page, only when the server's address passes the web link rule.
+    var linkGitHubURL: URL? {
+        guard case .linkGitHub(let connectURL) = decision else { return nil }
+        return WebLinkRule.safeURL(connectURL)
+    }
     var menu: [TaskMenuItem] { task.map(TaskMenu.items) ?? [] }
     var earlyWarning: EarlyWarningRow { task.map(EarlyWarningRow.make) ?? .none }
     var isSending: Bool { sending != nil }
