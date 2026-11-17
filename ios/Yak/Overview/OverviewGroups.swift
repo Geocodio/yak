@@ -307,7 +307,7 @@ struct LinksGroupView: View {
 
     @ViewBuilder
     private func linkRow(title: Text, subtitle: Text, url: String, identifier: String) -> some View {
-        if let target = URL(string: url), ["https", "http"].contains(target.scheme?.lowercased()) {
+        if let target = URL(string: url), target.scheme?.lowercased() == "https" {
             Button {
                 openURL(target)
             } label: {
