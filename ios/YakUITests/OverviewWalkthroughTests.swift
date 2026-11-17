@@ -451,10 +451,11 @@ import XCTest
 
     private func auditOverview(_ name: String) throws {
         let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [app, auditBars] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+        // Read before the audit starts, because the audit removes elements from the tree while it runs.
+        let barFrames = (app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex).map(\.frame)
+        try app.performAccessibilityAudit { [auditBars] issue in
             // The system caps the size of text in its bars.
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }),
+            if let element = issue.element, barFrames.contains(where: { $0.contains(element.frame) }),
                 [.dynamicType, .textClipped].contains(issue.auditType)
             {
                 return true
