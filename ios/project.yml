@@ -2,6 +2,8 @@ name: Yak
 include:
   - path: YakWidgets/target.yml
     relativePaths: false
+  - path: YakShare/target.yml
+    relativePaths: false
 configFiles:
   Debug: Config.xcconfig
   Release: Config.xcconfig
