@@ -120,7 +120,7 @@ class ThreadMessageSender
         $closedMessage = $head->mode === TaskMode::Research ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
         $stored = $input->storeAttachments === null ? null : ($input->storeAttachments)(new PendingSteeringMessage);
         $attachments = $stored instanceof Collection ? $stored : collect();
-        $child = app(FollowUpTaskFactory::class)->create($head, $input->text, 'dashboard', authorName: $user->name, attachments: $attachments);
+        $child = app(FollowUpTaskFactory::class)->create($head, $input->text, 'dashboard', authorName: $user->name, attachments: $attachments, replier: $user);
 
         if ($child === null) {
             $attachments->each->delete();

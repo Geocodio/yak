@@ -1,7 +1,8 @@
-import { Clock, Laptop } from 'lucide-react';
+import { Clock, Laptop, RotateCw } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
 import { effortLabel } from '@/components/accounts/accountAppearance';
+import { SourceLink } from '@/components/threads/header/SourceLink';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
@@ -15,6 +16,16 @@ const INTENT_CAPTIONS: Record<NonNullable<ThreadMessage['intent']>, string> = {
 export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {} }: { origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
+    if (message.isRetry) {
+        return (
+            <div className="flex items-center gap-2 pl-9 text-[12px] text-faint" data-testid="thread-message-retry">
+                <RotateCw className="size-3" aria-hidden />
+                <span>Retry {message.retryNumber}</span>
+                <span>{time}</span>
+            </div>
+        );
+    }
+
     return (
         <div
             className="flex gap-3"
@@ -24,7 +35,13 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
             <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-panel-2 text-[11px] font-medium">{message.authorInitials}</div>
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
-                    <span className="font-medium text-body">{message.authorName ?? 'Someone'}</span>
+                    <span className="font-medium text-body">{message.authorName}</span>
+                    {message.via && (
+                        <span className="inline-flex items-center gap-1 text-faint" data-testid="thread-message-via">
+                            {message.isReply ? 'replied in' : 'via'}
+                            <SourceLink source={message.via} />
+                        </span>
+                    )}
                     <span className="text-faint">{time}</span>
                     {origin === 'local' && (
                         <span className="inline-flex items-center gap-1 rounded-pill bg-panel-2 py-px pr-2 pl-1.5 text-[11px] text-muted" title="This turn ran on your computer" data-testid="thread-message-origin-local">

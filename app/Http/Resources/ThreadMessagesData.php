@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\TaskRunKind;
+use App\Enums\ThreadSource;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
@@ -13,8 +15,10 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\LegacyConversation;
+use App\Services\Threads\ThreadOrigin;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**
@@ -24,7 +28,7 @@ use Illuminate\Support\Str;
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
      */
     public static function for(Thread $thread, ?User $viewer = null): array
     {
@@ -70,18 +74,30 @@ final class ThreadMessagesData
                     ? ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST)->whereNull('thread_turn_message_id') ?? [])
                     : [])->unique('id')->values();
             $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
-            $text = $steer !== null ? $steer->text : ($row->text ?? (string) $run->task?->description);
+            $isRetry = $run->kind === TaskRunKind::Retry;
+
+            if ($isRetry) {
+                $files = collect();
+                $attachments = [];
+            }
+
+            $text = $isRetry ? '' : ($steer !== null ? $steer->text : ($row->text ?? (string) $run->task?->description));
             $references = array_values(array_filter(array_column($attachments, 'reference')));
 
-            $authorName = $steer !== null ? $steer->author_name : $run->driver?->name;
+            $author = $steer !== null
+                ? self::author(null, $steer->author_name)
+                : self::author($run->task, ...($run->task?->parent_task_id !== null
+                    ? [$run->task->author_name, $run->driver?->name, $run->task->startedBy?->name]
+                    : [$run->driver?->name, $run->task?->startedBy?->name, $run->task?->author_name]));
 
             $messages[] = [
                 'id' => 'turn-message-' . $row->id,
                 'uuid' => $row->uuid,
                 // The assembled prompt on task_runs is never shown; it carries Yak's own notes.
                 'text' => $text,
-                'authorName' => $authorName,
-                'authorInitials' => self::initials($authorName),
+                ...$author,
+                'isRetry' => $isRetry,
+                'retryNumber' => $isRetry ? TaskRun::query()->where('yak_task_id', $run->yak_task_id)->where('kind', TaskRunKind::Retry)->where('id', '<=', $run->id)->count() : null,
                 'model' => $steer !== null ? $steer->model : $run->model,
                 'effort' => $steer !== null ? $steer->effort : $run->effort,
                 'state' => match ($row->state) {
@@ -127,8 +143,9 @@ final class ThreadMessagesData
                 'id' => 'queued-message-' . $queued->id,
                 'uuid' => $queued->uuid,
                 'text' => $queued->text,
-                'authorName' => $queued->author_name,
-                'authorInitials' => self::initials($queued->author_name),
+                ...self::author(null, $queued->author_name),
+                'isRetry' => false,
+                'retryNumber' => null,
                 'model' => $queued->model,
                 'effort' => $queued->effort,
                 'state' => 'pending',
@@ -148,7 +165,7 @@ final class ThreadMessagesData
     }
 
     /**
-     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
+     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
      */
     private static function initialMessage(YakTask $task): array
     {
@@ -159,8 +176,9 @@ final class ThreadMessagesData
             'id' => 'initial-message',
             'uuid' => null,
             'text' => (string) $task->description,
-            'authorName' => $task->author_name,
-            'authorInitials' => self::initials($task->author_name),
+            ...self::author($task, $task->startedBy?->name, $task->author_name),
+            'isRetry' => false,
+            'retryNumber' => null,
             'model' => null,
             'effort' => null,
             'state' => 'pending',
@@ -205,6 +223,31 @@ final class ThreadMessagesData
         }
 
         return $sequences;
+    }
+
+    /**
+     * Who wrote a message and from where. The name is the first one known, else "Yak", so a message never shows "?".
+     * A task from a channel carries the channel it came from; a reply is a follow-up that came from one.
+     *
+     * @return array{authorName: string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool}
+     */
+    public static function author(?YakTask $task, ?string ...$names): array
+    {
+        $name = Arr::first($names, fn (?string $candidate): bool => filled($candidate), 'Yak');
+        $origin = $task === null ? null : app(ThreadOrigin::class)->forRequest($task);
+        $source = $origin['source'] ?? ThreadSource::Dashboard;
+
+        return [
+            'authorName' => $name,
+            'authorInitials' => self::initials($name),
+            'via' => $source === ThreadSource::Dashboard ? null : [
+                'key' => $source->value,
+                'label' => $source->label(),
+                'reference' => $origin['source_reference'] ?? null,
+                'url' => $origin['source_url'] ?? null,
+            ],
+            'isReply' => $task?->parent_task_id !== null && in_array($source, [ThreadSource::Slack, ThreadSource::Linear, ThreadSource::Sentry, ThreadSource::Github, ThreadSource::Email], true),
+        ];
     }
 
     public static function initials(?string $name): string

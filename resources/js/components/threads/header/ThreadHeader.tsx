@@ -54,7 +54,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
         () =>
             headerActions({
                 threadId: thread.id,
-                isOwner: thread.isOwner,
+                isOwner: thread.canShare,
                 visibility: thread.visibility,
                 canOpenPullRequest,
                 pullRequestOpeningState: thread.pullRequestOpening?.state,
@@ -66,7 +66,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 canDelete: canDrive,
                 subThreadCount,
             }),
-        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
+        [thread.id, thread.canShare, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
     useCommandPaletteActions(THREAD_GROUP, actions);
@@ -74,7 +74,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const closeConfirm = closeThreadConfirm(subThreadCount);
     const menuItems = [
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
-        ...(thread.isOwner && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
+        ...(thread.canShare && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
         ...(canDrive && isOpen ? [{ key: 'close', label: 'Close thread', icon: <XCircle size={14} />, dividerAbove: true, onSelect: () => setConfirming('close'), testId: 'thread-menu-close' }] : []),
         ...(canDrive ? [{ key: 'delete', label: 'Delete thread', icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirming('delete'), testId: 'thread-menu-delete' }] : []),
     ];

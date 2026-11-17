@@ -112,7 +112,7 @@ class TaskMessageController extends Controller
         }
 
         $attachments = TaskAttachment::storeFromRequest($request);
-        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name, attachments: $attachments);
+        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name, attachments: $attachments, replier: auth()->user());
 
         if ($child === null) {
             $attachments->each->delete();

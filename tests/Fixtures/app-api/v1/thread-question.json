@@ -99,21 +99,25 @@
         {
             "attachmentIds": [],
             "attachments": [],
-            "authorInitials": "?",
-            "authorName": null,
+            "authorInitials": "TP",
+            "authorName": "Test person",
             "bodyHtml": "<p>Fix the checkout bug</p>\n",
             "canEditText": false,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": null,
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "pending",
             "text": "Fix the checkout bug",
-            "uuid": "<volatile:null>"
+            "uuid": "<volatile:null>",
+            "via": null
         }
     ],
     "modelLabels": {
@@ -185,6 +189,7 @@
     "thread": {
         "blockedReason": null,
         "branch": null,
+        "canShare": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

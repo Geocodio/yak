@@ -53,11 +53,11 @@ test('a shared person gets 403 on update', function () {
 
 test('a viewer of a team thread without being its owner gets 403', function () {
     $thread = Thread::factory()->create(['owner_user_id' => User::factory()->create()->id]);
-    $nobody = Thread::factory()->create();
+    $nobody = Thread::factory()->private()->create();
 
     $this->actingAs(User::factory()->create());
     $this->putJson("/threads/{$thread->public_id}/share", ['mode' => 'only_me'])->assertForbidden();
-    $this->putJson("/threads/{$nobody->public_id}/share", ['mode' => 'only_me'])->assertForbidden();
+    $this->putJson("/threads/{$nobody->public_id}/share", ['mode' => 'only_me'])->assertNotFound();
 });
 
 test('the owner switches only_me to people to everyone and back', function () {

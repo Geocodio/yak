@@ -106,14 +106,18 @@
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": "opus",
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "read",
             "text": "Retry failed uploads with backoff",
-            "uuid": "<volatile:string>"
+            "uuid": "<volatile:string>",
+            "via": null
         }
     ],
     "modelLabels": {
@@ -164,6 +168,7 @@
     "thread": {
         "blockedReason": null,
         "branch": null,
+        "canShare": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

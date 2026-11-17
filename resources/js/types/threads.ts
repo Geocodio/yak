@@ -26,6 +26,7 @@ export type ThreadData = {
     repositories: ThreadRepositoryData[];
     pullRequestCount: number;
     isOwner: boolean;
+    canShare: boolean;
     isStarred: boolean;
     sharedWithCount: number;
     startedOnDevice: boolean;
@@ -188,12 +189,20 @@ export type LocalTurnsData = {
     turns: LocalTurn[];
 };
 
+export type ThreadMessageVia = { key: string; label: string; reference: string | null; url: string | null };
+
 export type ThreadMessage = {
     id: string;
     uuid: string | null;
     text: string;
-    authorName: string | null;
+    authorName: string;
     authorInitials: string;
+    /** The channel the message came from; null for a dashboard message. */
+    via: ThreadMessageVia | null;
+    /** A follow-up that came from a channel. */
+    isReply: boolean;
+    isRetry: boolean;
+    retryNumber: number | null;
     model: string | null;
     effort: string | null;
     state: 'pending' | 'read' | 'cancelled';

@@ -103,21 +103,25 @@
         {
             "attachmentIds": [],
             "attachments": [],
-            "authorInitials": "?",
-            "authorName": null,
+            "authorInitials": "TP",
+            "authorName": "Test person",
             "bodyHtml": "<p>Retry failed uploads</p>\n",
             "canEditText": false,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": null,
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "pending",
             "text": "Retry failed uploads",
-            "uuid": "<volatile:null>"
+            "uuid": "<volatile:null>",
+            "via": null
         }
     ],
     "modelLabels": {
@@ -171,6 +175,7 @@
     "thread": {
         "blockedReason": null,
         "branch": "yak/retry-failed-uploads",
+        "canShare": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

@@ -9,6 +9,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\ReviewFeedbackFormatter;
@@ -117,6 +118,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
             $instructions,
             'github',
             authorName: $this->reviewerLogin,
+            replier: User::query()->where('github_login', $this->reviewerLogin)->first(),
             reRequestReviewFrom: [$this->reviewerLogin],
         );
     }

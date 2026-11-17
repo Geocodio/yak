@@ -10,6 +10,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\ReviewFeedbackFormatter;
@@ -147,7 +148,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             return;
         }
 
-        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, summonReviewCommentId: $threadId, summonQuote: $quote);
+        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, replier: User::query()->where('github_login', $this->summonerLogin)->first(), summonReviewCommentId: $threadId, summonQuote: $quote);
 
         if ($child === null) {
             $refuse("This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.");

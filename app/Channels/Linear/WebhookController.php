@@ -500,7 +500,7 @@ class WebhookController extends Controller
         }
 
         if ($task->acceptsFollowUp()) {
-            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'), replier: User::findByEmail($request->input('actor.email')));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }

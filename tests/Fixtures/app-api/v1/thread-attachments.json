@@ -145,14 +145,18 @@
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": "opus",
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "<volatile:string>",
             "state": "read",
             "text": "See Image #1 and File #2",
-            "uuid": "<volatile:string>"
+            "uuid": "<volatile:string>",
+            "via": null
         },
         {
             "attachmentIds": [
@@ -178,14 +182,18 @@
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": "queue",
             "model": null,
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "<volatile:string>",
             "state": "pending",
             "text": "Also File #3",
-            "uuid": "<volatile:string>"
+            "uuid": "<volatile:string>",
+            "via": null
         }
     ],
     "modelLabels": {
@@ -236,6 +244,7 @@
     "thread": {
         "blockedReason": null,
         "branch": null,
+        "canShare": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

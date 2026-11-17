@@ -146,7 +146,7 @@ test('the read routes answer with empty data', function () {
     $this->actingAs($this->user)->getJson("{$this->path}/events")->assertOk()->assertJsonPath('events', []);
     $this->actingAs($this->user)->getJson("{$this->path}/local-turns?stint=none&before=1")->assertOk();
     $this->actingAs($this->user)->getJson("{$this->path}/stack")->assertOk()->assertJsonPath('children', []);
-    $this->actingAs($this->user)->getJson("{$this->path}/share")->assertStatus(403);
+    $this->actingAs($this->user)->getJson("{$this->path}/share")->assertOk()->assertJsonPath('mode', 'everyone');
     expectNoSandbox($this->thread);
 });
 
