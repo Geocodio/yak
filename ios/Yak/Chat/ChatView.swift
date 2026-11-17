@@ -123,7 +123,7 @@ struct ChatView: View {
         .onChange(of: thread.documents.count) { applyHeldPlace() }
         .onScrollPhaseChange { _, phase in
             isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
-            if phase == .interacting { placeHeld = nil }
+            if [.tracking, .interacting].contains(phase) { placeHeld = nil }
         }
         .onChange(of: thread.historyState) { old, new in
             guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
@@ -194,7 +194,7 @@ struct ChatView: View {
     }
 
     private func applyHeldPlace() {
-        guard let held = placeHeld else { return }
+        guard let held = placeHeld, !isPersonScrolling else { return }
         guard held.until > .now else {
             placeHeld = nil
             return
