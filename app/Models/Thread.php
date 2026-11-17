@@ -98,6 +98,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
 {
+    public const UNKNOWN_REPOSITORY = 'unknown';
+
     /** @use HasFactory<ThreadFactory> */
     use HasFactory, HasPublicId;
 
@@ -438,6 +440,15 @@ class Thread extends Model
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
             ->exists();
+    }
+
+    /**
+     * False for a thread whose repository is not chosen yet: it has no
+     * repository row and never gets a sandbox.
+     */
+    public function hasRepository(): bool
+    {
+        return $this->repo !== self::UNKNOWN_REPOSITORY;
     }
 
     public function isChild(): bool

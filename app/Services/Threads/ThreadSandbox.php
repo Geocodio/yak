@@ -297,6 +297,10 @@ class ThreadSandbox
 
     private function restoreAwake(Thread $thread): SandboxWake
     {
+        if (! $thread->hasRepository()) {
+            return new SandboxWake(false, false, false);
+        }
+
         if ($this->mustWaitForRepository($thread)) {
             return SandboxWake::restoring();
         }

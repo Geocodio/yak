@@ -47,6 +47,49 @@ class ThreadFactory
     }
 
     /**
+     * The thread of a request whose repository is not known yet: `repo` is
+     * the unknown marker, there is no repository row and no sandbox, and
+     * `attachRepository` completes it once the repository is chosen.
+     */
+    public function forRequestWithoutRepository(YakTask $root): Thread
+    {
+        return DB::transaction(function () use ($root): Thread {
+            $thread = $this->create(Thread::UNKNOWN_REPOSITORY, $root, null, null);
+            $root->forceFill(['thread_id' => $thread->id])->save();
+
+            return $thread;
+        });
+    }
+
+    /**
+     * Gives a thread without a repository its primary repository. A thread
+     * that has not run yet also resolves its Claude account again, because
+     * the account choice depends on the repository.
+     */
+    public function attachRepository(Thread $thread, string $repo): void
+    {
+        DB::transaction(function () use ($thread, $repo): void {
+            $locked = Thread::query()->lockForUpdate()->findOrFail($thread->id);
+
+            if ($locked->hasRepository()) {
+                return;
+            }
+
+            $locked->repo = $repo;
+
+            if (! $locked->runs()->exists()) {
+                $starter = $locked->created_by_user_id === null ? null : User::query()->find($locked->created_by_user_id);
+                $resolved = $this->resolver->forNewThread($starter, $repo, null, null);
+                $locked->forceFill(['claude_account_id' => $resolved->account?->id, 'model' => $resolved->model, 'effort' => $resolved->effort]);
+            }
+
+            $locked->save();
+            $this->addPrimaryRepository($locked, $locked->branch);
+            $thread->setRawAttributes($locked->getAttributes(), true);
+        });
+    }
+
+    /**
      * The thread `/clear` starts: same repository and branch, a fresh account
      * resolution, the same visibility and owner, and no session to resume.
      */
@@ -116,8 +159,15 @@ class ThreadFactory
             ...$this->origin->forRequest($root),
         ]);
 
-        $thread->repositories()->create(['repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => (string) config('yak.sandbox.workspace_path', '/workspace'), 'branch' => $branch]);
+        if ($thread->hasRepository()) {
+            $this->addPrimaryRepository($thread, $branch);
+        }
 
         return $thread;
+    }
+
+    private function addPrimaryRepository(Thread $thread, ?string $branch): void
+    {
+        $thread->repositories()->create(['repo' => $thread->repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => (string) config('yak.sandbox.workspace_path', '/workspace'), 'branch' => $branch]);
     }
 }

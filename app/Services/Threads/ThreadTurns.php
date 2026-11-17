@@ -12,6 +12,7 @@ use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
@@ -130,6 +131,10 @@ class ThreadTurns
         [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey, $answersQuestion, $effort): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
+
+            if (! $thread->hasRepository()) {
+                throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
+            }
 
             if ($thread->lock_holder !== ThreadLockHolder::None || self::activeTurn($thread) !== null) {
                 throw new ThreadBusy("Thread {$thread->id} already runs a turn.");
