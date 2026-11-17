@@ -39,6 +39,7 @@ struct ShellMenu: View {
             .accessibilityIdentifier("terminal.shells.new")
         } label: {
             Text(model.shells.shells.count, format: .number).font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.primary)
                 .frame(minWidth: 44, minHeight: 44)
                 .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
                 .contentShape(.rect)
