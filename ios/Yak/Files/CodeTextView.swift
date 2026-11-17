@@ -161,6 +161,7 @@ final class CodeUITextView: UITextView {
         storage.addLayoutManager(layout)
         super.init(frame: .zero, textContainer: container)
         textContainer.lineFragmentPadding = 4
+        adjustsFontForContentSizeCategory = true
         addSubview(gutter)
         gutter.owner = self
         gutter.isUserInteractionEnabled = false
@@ -338,7 +339,7 @@ private final class GutterView: UIView {
         let visible = CGRect(x: 0, y: offset - inset, width: container.size.width, height: bounds.height)
         let glyphs = layout.glyphRange(forBoundingRect: visible, in: container)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: owner.codeFont, .foregroundColor: UIColor.secondaryLabel,
+            .font: owner.codeFont, .foregroundColor: UIColor.label.withAlphaComponent(0.7),
         ]
         layout.enumerateLineFragments(forGlyphRange: glyphs) { fragment, _, _, range, _ in
             let character = layout.characterIndexForGlyph(at: range.location)

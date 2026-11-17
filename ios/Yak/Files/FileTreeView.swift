@@ -39,6 +39,7 @@ struct FileTreeView: View {
     let model: FilesEverythingModel
     let snapshot: FileTreeSnapshot
     @ScaledMetric private var indentation = 22
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let items = FileTreeDisplay.make(rows: snapshot.rows, rootState: snapshot.root, isOffline: snapshot.isOffline)
@@ -49,6 +50,7 @@ struct FileTreeView: View {
             }
         }
         .listStyle(.plain)
+        .id(dynamicTypeSize)
         .refreshable { await model.turnFinished() }
         .accessibilityIdentifier("files.tree")
     }

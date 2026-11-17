@@ -91,6 +91,7 @@ struct FileHeader: View {
             Text(verbatim: name).font(.headline.monospaced())
             folderLine(folder).font(.subheadline).foregroundStyle(Color.yakMuted)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
@@ -156,7 +157,9 @@ struct FileViewerBarRow: View {
                 Button {
                     model.thread.files.requestedDiffPath = document.path
                 } label: {
-                    Text("files.viewer.diff").font(.subheadline.weight(.semibold)).padding(.horizontal, 10)
+                    Text("files.viewer.diff").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                        .underline()
+                        .padding(.horizontal, 10)
                         .frame(minHeight: 44).contentShape(.rect)
                 }
                 .accessibilityIdentifier("files.viewer.diff")
@@ -180,7 +183,8 @@ struct FileViewerBarRow: View {
                 Toggle(
                     "files.viewer.wrap", isOn: Binding(get: { document.wrapsLines }, set: { document.wrapsLines = $0 }))
             } label: {
-                Image(systemName: "ellipsis.circle").frame(width: 44, height: 44).contentShape(.rect)
+                Image(systemName: "ellipsis.circle").foregroundStyle(Color.primary).frame(width: 44, height: 44)
+                    .contentShape(.rect)
             }
             .accessibilityLabel("files.viewer.menu").accessibilityIdentifier("files.viewer.menu")
         }
