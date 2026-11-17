@@ -42,6 +42,19 @@ module FastLanes
     groups[part - 1][:names].sort
   end
 
+  RUNNER_NEVER_CONNECTED = [
+    "Failed to establish communication with the test runner",
+    "Channel disconnected"
+  ].freeze
+
+  # True when the output of a failed xcodebuild test step shows that the test runner never connected, so no test ran:
+  # one of the strings above, or every "Executed N tests" line says 0. A run in which a test executed and failed is not.
+  def self.runner_never_started?(output)
+    return true if RUNNER_NEVER_CONNECTED.any? { |text| output.include?(text) }
+    counts = output.scan(/Executed (\d+) tests?,/).flatten.map(&:to_i)
+    !counts.empty? && counts.all?(&:zero?)
+  end
+
   def self.file_digest(path)
     File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
   end

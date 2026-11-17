@@ -253,6 +253,23 @@ platform :ios do
     FastLanes.remember(marker, fingerprint)
   end
 
+  # On CI, a step whose runner never connected (hosted simulator trouble, no test ran) gets a fresh boot and one more
+  # run. A run in which tests executed and failed is not repeated here.
+  def run_test_step(command, device, result_path)
+    failure = nil
+    sh(command) { |status, output| failure = output unless status.success? }
+    return unless failure
+    if ci? && FastLanes.runner_never_started?(failure)
+      UI.important("The test runner never connected; rebooting #{device} and running the step once more")
+      FileUtils.rm_rf(result_path)
+      system("xcrun", "simctl", "shutdown", device, err: File::NULL)
+      sh("xcrun simctl bootstatus #{device.shellescape} -b")
+      sh(command)
+    else
+      UI.user_error!("xcodebuild test-without-building failed")
+    end
+  end
+
   def run_ui_tests(device, port, result_path, selection, environment, options)
     variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
     build_for_testing(device, options)
@@ -261,10 +278,9 @@ platform :ios do
       sh("xcrun simctl bootstatus #{device.shellescape} -b")
       # A hosted simulator sometimes fails to launch the app at all, so CI (or retry:true) gives a failed test one more try.
       retry_flags = ci? || truthy?(options[:retry]) ? "-retry-tests-on-failure -test-iterations 2 " : ""
-      sh(
-        "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
+      command = "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
         "#{retry_flags}-resultBundlePath #{result_path.shellescape}"
-      )
+      run_test_step(command, device, result_path)
     end
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)

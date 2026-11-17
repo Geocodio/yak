@@ -96,4 +96,12 @@ class FastLanesTest < Minitest::Test
       assert_empty Dir.children(directory)
     end
   end
+
+  def test_runner_never_started
+    assert FastLanes.runner_never_started?("x\nYakUITests-Runner encountered an error (Failed to establish communication with the test runner. (Underlying Error: Channel disconnected))")
+    assert FastLanes.runner_never_started?("Test Suite 'Selected tests' passed\nExecuted 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds\n")
+    refute FastLanes.runner_never_started?("Executed 0 tests, with 0 failures\nExecuted 12 tests, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
+    refute FastLanes.runner_never_started?("Executed 1 test, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
+    refute FastLanes.runner_never_started?("error: compile failed")
+  end
 end
