@@ -132,7 +132,7 @@ final class ThreadRequestStatus
     /**
      * @return array{key: string, label: string, tone: string}
      */
-    private static function describe(string $key): array
+    public static function describe(string $key): array
     {
         return match ($key) {
             'closed' => ['key' => 'closed', 'label' => 'Closed', 'tone' => 'neutral'],

@@ -93,6 +93,7 @@ use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Threads\ContinueTurnController;
 use App\Http\Controllers\Threads\LocalTurnsController;
 use App\Http\Controllers\Threads\NewThreadController;
+use App\Http\Controllers\Threads\ThreadLogController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController;
@@ -385,6 +386,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('threads.continue');
     Route::post('threads/{thread}/restore/retry', RestoreRetryController::class)
         ->name('threads.restore.retry');
+    Route::get('threads/log', ThreadLogController::class)->name('threads.log');
     Route::get('threads/new', NewThreadController::class)->name('threads.new');
     Route::post('threads', StoreThreadController::class)->name('threads.store');
     Route::get('threads/{thread}', [ThreadController::class, 'show'])
