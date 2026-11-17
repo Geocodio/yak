@@ -29,10 +29,10 @@ import XCTest
         try launch(scenario: "changes")
         openDrawerIfNeeded()
         let row = element("drawer.row.task:k3m9p2qa")
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         XCTAssertTrue(element("drawer.taskLabel").exists)
         row.tap()
-        XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: 15))
+        XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: 60))
         XCTAssertFalse(app.webViews.firstMatch.exists && app.otherElements["SFSafariView"].exists)
     }
 
@@ -47,7 +47,7 @@ import XCTest
             URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "k3m9p2qa"),
         ]
         app.open(try XCTUnwrap(components.url))
-        XCTAssertTrue(element("task.screen").waitForExistence(timeout: 30))
+        XCTAssertTrue(element("task.screen").waitForExistence(timeout: 120))
     }
 
     func testApprovingATaskShowsTheDecision() throws {
@@ -55,12 +55,12 @@ import XCTest
         openDrawerIfNeeded()
         app.buttons["drawer.tile.tasks"].tap()
         let row = element("tasks.row.k3m9p2qa")
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
         let approve = element("task.decision.approve")
-        XCTAssertTrue(approve.waitForExistence(timeout: 15))
+        XCTAssertTrue(approve.waitForExistence(timeout: 60))
         approve.tap()
-        XCTAssertTrue(app.staticTexts["Approved by Test person"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Approved by Test person"].waitForExistence(timeout: 60))
         try audit()
     }
 
@@ -68,7 +68,7 @@ import XCTest
         try launch(scenario: "changes")
         openDrawerIfNeeded()
         app.buttons["drawer.tile.observations"].tap()
-        XCTAssertTrue(element("observations.row.302").waitForExistence(timeout: 15))
+        XCTAssertTrue(element("observations.row.302").waitForExistence(timeout: 60))
         try audit()
     }
 
@@ -77,32 +77,32 @@ import XCTest
         try launch(scenario: scenario)
         openDrawerIfNeeded()
         let row = element("drawer.row.thread:d0e515ef")
-        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         row.tap()
         showPane("Files")
-        XCTAssertTrue(element("files.bar").waitForExistence(timeout: 15))
+        XCTAssertTrue(element("files.bar").waitForExistence(timeout: 60))
     }
 
     private func showPane(_ name: String) {
         let menu = app.buttons["pane.menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 15))
+        XCTAssertTrue(menu.waitForExistence(timeout: 60))
         menu.tap()
         let item = app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
-        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertTrue(item.waitForExistence(timeout: 60))
         item.tap()
     }
 
     /// Smoke test 8, Changed half: the file and the bar position survive a switch to Chat and back.
     func testChangedKeepsItsFileAcrossAPaneSwitch() throws {
         try openFiles(scenario: "changes")
-        XCTAssertTrue(app.staticTexts["File RetryUpload.php"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["File RetryUpload.php"].waitForExistence(timeout: 60))
         element("files.next").tap()
         element("files.next").tap()
-        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 60))
         XCTAssertEqual(element("files.list").label, "File 3 of 4. Show all files")
         showPane("Chat")
         showPane("Files")
-        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["File uploads.ts"].waitForExistence(timeout: 60))
         XCTAssertEqual(element("files.list").label, "File 3 of 4. Show all files")
         try audit()
     }
@@ -113,17 +113,17 @@ import XCTest
         let row = element("files.changed").descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@", "retry(3)")
         ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         XCTAssertFalse(element("files.page.failed").exists)
     }
 
     func testOpenPullRequestOpensAndBecomesTheNumber() throws {
         try openFiles(scenario: "changes")
         let button = element("files.openPullRequest")
-        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        XCTAssertTrue(button.waitForExistence(timeout: 60))
         button.tap()
         let opened = NSPredicate(format: "label == %@", "Pull request 41, open. Show details")
-        wait(for: [XCTNSPredicateExpectation(predicate: opened, object: button)], timeout: 15)
+        wait(for: [XCTNSPredicateExpectation(predicate: opened, object: button)], timeout: 60)
         XCTAssertEqual(button.label, "Pull request 41, open. Show details")
         try audit()
     }

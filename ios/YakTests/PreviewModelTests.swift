@@ -202,6 +202,22 @@ private func snapshot(
         #expect(model.isPerforming == nil)
     }
 
+    /// The status asked for right after the send can reach the server before the message does, so the status is
+    /// asked for again once the outbox has delivered the message.
+    @Test func aDeliveredIntentAsksForTheStatusAgain() async throws {
+        let (model, backend, _, _) = make()
+        await model.start()
+        backend.send(snapshot(.failing, url: nil))
+        await settle { model.card != nil }
+        await model.perform(.ask(.fixPreview, isPending: false))
+        backend.send(PreviewIntentState(pending: [.fixPreview], refused: [:]))
+        await settle { model.intents.pending.contains(.fixPreview) }
+        let before = backend.count("refresh")
+        backend.send(PreviewIntentState(pending: [], refused: [:]))
+        await settle { backend.count("refresh") > before }
+        #expect(backend.count("refresh") == before + 1)
+    }
+
     @Test func aRefusedIntentShowsALineWithRetryThatSendsItAgain() async throws {
         let (model, backend, _, _) = make()
         await model.start()
