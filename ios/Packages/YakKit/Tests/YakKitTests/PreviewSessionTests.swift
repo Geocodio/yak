@@ -352,3 +352,19 @@ extension Data {
         return try JSONSerialization.data(withJSONObject: object)
     }
 }
+
+@Test func theThreadDetailOfTheShowWinsOverTheStreamedState() async throws {
+    let rig = try await Rig(status: "scenario-preview-failing")
+    let base = try decoded(ThreadShow.self, "scenario-thread-show")
+    let detail = ThreadDetail(
+        id: base.thread.id, name: base.thread.name, title: base.thread.title, repo: base.thread.repo,
+        kind: base.thread.kind, status: base.thread.status, visibility: base.thread.visibility,
+        sandboxState: "destroyed", runnerState: base.thread.runnerState, blockedReason: "restore_failed",
+        pullRequestCount: 0, isOwner: true, isStarred: false)
+    let show = ThreadShow(
+        thread: detail, canDrive: true, messages: [], composer: base.composer, panes: base.panes, latestSequence: 1)
+    await rig.session.setVisible(true)
+    await rig.session.threadChanged(ConversationSnapshot(show: show, thread: thread().thread))
+    let seen = try await rig.recorder.next { $0.blockedReason == "restore_failed" }
+    #expect(seen.sandboxState == "destroyed")
+}

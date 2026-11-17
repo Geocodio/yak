@@ -258,7 +258,9 @@ func aTappedConversationLinkOpensOnlyWhenItIsSafe(_ text: String) {
         switch route {
         case "GET tasks/k3m9p2qa": return (200, try json(task()))
         case "POST tasks/k3m9p2qa/co-owner/approve":
-            return (409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "javascript:alert(1)"]))
+            return (
+                409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "javascript:alert(1)"])
+            )
         default: return nil
         }
     }
@@ -277,7 +279,9 @@ func aTappedConversationLinkOpensOnlyWhenItIsSafe(_ text: String) {
         switch route {
         case "GET tasks/k3m9p2qa": return (200, try json(task()))
         case "POST tasks/k3m9p2qa/co-owner/approve":
-            return (409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "https://example.test/link"]))
+            return (
+                409, errorBody("not_linked", "Link GitHub first.", details: ["connectUrl": "https://example.test/link"])
+            )
         default: return nil
         }
     }
