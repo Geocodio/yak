@@ -156,6 +156,8 @@ import XCTest
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: everyone)], timeout: 15)
         XCTAssertTrue(app.staticTexts["Shared with the team"].waitForExistence(timeout: 60))
+        // A heading just under the floating top buttons reads as low contrast, so the page goes back to its top.
+        app.descendants(matching: .any)["overview"].swipeDown(velocity: .fast)
         try audit()
     }
 
