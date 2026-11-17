@@ -127,7 +127,7 @@ private struct OverviewScroll: View {
         .sheet(isPresented: $isShareOpen) {
             ShareSheet(session: thread.session, threadID: thread.threadID) { await thread.engine?.refreshShow() }
         }
-        .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.medium, .large]) }
+        .sheet(item: $outputRow) { SetupOutputSheet(row: $0).presentationDetents([.large]) }
     }
 
     private var isOwner: Bool { thread.snapshot?.show?.thread.isOwner == true }

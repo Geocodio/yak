@@ -15,6 +15,8 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["overview.skeleton"].waitForExistence(timeout: 5))
         try shootOverview("overview-loading")
         XCTAssertTrue(app.descendants(matching: .any)["overview.slow"].waitForExistence(timeout: 12))
+        // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
+        nudgePage(by: 380)
         try shootOverview("overview-slow")
     }
 
@@ -130,6 +132,8 @@ import XCTest
         for _ in 0..<6 where !folded.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         folded.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 5))
+        // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
+        nudgePage(by: 170)
         try shootOverview("overview-messages")
     }
 
@@ -138,7 +142,14 @@ import XCTest
         try chooseFromMenu(of: "q7adapt0", "Drop it")
         app.buttons["Drop it"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.actionLine"].waitForExistence(timeout: 10))
-        try shootOverview("overview-refused", auditFirst: true)
+        // The audit runs once the dialog's dimming is gone.
+        XCTAssertTrue(app.buttons["Drop it"].firstMatch.waitForNonExistence(timeout: 5))
+        pause(1)
+        // The lower groups are brought up for the audit and put back for the screenshot.
+        nudgePage(by: 120)
+        try auditOverview("overview-refused")
+        nudgePage(by: -120)
+        try shoot("overview-refused", audits: false)
     }
 
     func testActionBusy() throws {
@@ -397,6 +408,13 @@ import XCTest
             toggle.tap()
         }
         XCTAssertTrue(failed.waitForExistence(timeout: 10))
+    }
+
+    /// Scrolls the page by a distance in points, a positive distance showing what is lower on the page.
+    private func nudgePage(by distance: CGFloat) {
+        let start = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: -distance))
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: 300, thenHoldForDuration: 0.3)
     }
 
     private func pause(_ seconds: TimeInterval) {
