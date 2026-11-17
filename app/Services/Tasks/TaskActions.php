@@ -26,6 +26,7 @@ use App\Models\Artifact;
 use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
@@ -317,7 +318,7 @@ class TaskActions
 
     public function reroute(YakTask $task, string $repoSlug): TaskActionOutcome
     {
-        /** @var array{from: string, to: string, statusBefore: TaskStatus, wasInFlight: bool}|null $moved */
+        /** @var array{thread: ?Thread, from: string, to: string, statusBefore: TaskStatus, wasInFlight: bool}|null $moved */
         $moved = $this->locked($task, function (YakTask $locked) use ($repoSlug): ?array {
             $canReroute = ! in_array($locked->mode, [TaskMode::Setup, TaskMode::Review], true) && $locked->pr_url === null;
 
@@ -355,9 +356,11 @@ class TaskActions
 
             if ($thread !== null && ! $thread->hasRepository()) {
                 app(ThreadFactory::class)->attachRepository($thread, $newRepo->slug);
+                $thread = null;
             }
 
             return [
+                'thread' => $thread,
                 'from' => $from,
                 'to' => $newRepo->slug,
                 'statusBefore' => $statusBefore,
@@ -378,6 +381,10 @@ class TaskActions
         }
 
         $task->refresh();
+
+        if ($moved['thread'] !== null) {
+            app(ThreadFactory::class)->moved($moved['thread'], $task, $moved['to']);
+        }
 
         TaskStatusChanged::dispatch($task, $moved['statusBefore'], TaskStatus::Pending);
         Telemetry::feature('dashboard.reroute', ['from' => $moved['from'], 'to' => $moved['to']], task: $task);

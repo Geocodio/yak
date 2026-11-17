@@ -26,7 +26,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, repo?: ?string, threadId?: string, threadTitle?: string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -35,6 +35,14 @@ final class ThreadNoticeData
         $isOwnerOfAccount = $viewer !== null && $account !== null && $account->owner_user_id === $viewer->id;
         $ownerName = $account?->owner?->name;
         $ownerFirstName = Str::before((string) $ownerName, ' ');
+
+        if ($thread->close_reason === 'moved') {
+            $moved = self::moved($thread);
+
+            if ($moved !== null) {
+                return $moved;
+            }
+        }
 
         $steps = self::restoreSteps($thread);
         $failedIndex = array_search('failed', array_column($steps, 'status'), true);
@@ -75,6 +83,28 @@ final class ThreadNoticeData
         return null;
     }
 
+    /**
+     * The closed thread of a request that moved on: where it went, or that it waits for a repository answer.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function moved(Thread $thread): ?array
+    {
+        $next = Thread::query()->withoutGlobalScopes()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+
+        if ($next === null) {
+            return null;
+        }
+
+        $repo = $next->hasRepository() ? $next->repo : null;
+        $notice = self::notice('moved', $repo === null ? 'Moved: waiting for a repository' : "Moved to {$repo}", 'This request continues in a new thread.', false, false, []);
+        $notice['repo'] = $repo;
+        $notice['threadId'] = $next->public_id;
+        $notice['threadTitle'] = $next->title;
+
+        return $notice;
+    }
+
     private static function queuePositionSentence(Thread $thread): string
     {
         $run = TaskRun::query()
@@ -113,13 +143,13 @@ final class ThreadNoticeData
     /**
      * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
      * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}|null  $waiting
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repo?: ?string, threadId?: string, threadTitle?: string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
      */
     private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {
         $isAccountProblem = in_array($kind, ['account_invalid', 'account_expired', 'credential_exposure'], true);
 
-        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring' $kind */
+        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved' $kind */
         return [
             'kind' => $kind,
             'title' => $title,

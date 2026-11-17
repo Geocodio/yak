@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -67,13 +68,14 @@ function dirtySandbox(): FakeSandboxManager
 test('a wrong repository verdict asks for a repo instead of failing on a dirty tree', function () {
     Queue::fake();
 
-    fakeAfterTurnCollaborators(shell: dirtySandbox());
+    $collaborators = fakeAfterTurnCollaborators(shell: dirtySandbox());
+    $collaborators['sandbox']->shouldReceive('destroy')->once();
 
     Repository::factory()->create(['slug' => 'acme/api']);
     Repository::factory()->create(['slug' => 'acme/billing']);
     Repository::factory()->create(['slug' => 'acme/inactive', 'is_active' => false]);
 
-    [$task, $run] = endedTurn(
+    [$task, $run, $thread] = endedTurn(
         wrongRepositoryEvent('acme/billing'),
         ['repo' => 'acme/atlas', 'source' => 'linear', 'session_id' => 'old-session', 'branch_name' => 'yak/old-branch'],
         ['slug' => 'acme/atlas'],
@@ -82,12 +84,18 @@ test('a wrong repository verdict asks for a repo instead of failing on a dirty t
     runFinisher($run);
 
     $task->refresh();
+    $newThread = Thread::query()->findOrFail($task->thread_id);
+
+    expect($newThread->id)->not->toBe($thread->id)
+        ->and($newThread->hasRepository())->toBeFalse()
+        ->and($newThread->continued_from_thread_id)->toBe($thread->id)
+        ->and($thread->fresh()->isOpen())->toBeFalse()
+        ->and($thread->fresh()->close_reason)->toBe('moved');
 
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->repo)->toBe('unknown')
         ->and($task->session_id)->toBeNull()
         ->and($task->branch_name)->toBeNull()
-        ->and($task->thread_id)->toBeNull()
         ->and($task->error_log)->toBeNull()
         ->and($task->clarification_options)->toBe(['acme/billing', 'acme/api'])
         ->and($task->clarification_expires_at)->not->toBeNull()

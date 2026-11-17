@@ -19,6 +19,7 @@ class ThreadFactory
         private readonly ClaudeAccountResolver $resolver,
         private readonly SessionSync $sessionSync,
         private readonly ThreadOrigin $origin,
+        private readonly ThreadCloser $closer,
     ) {}
 
     /**
@@ -105,6 +106,38 @@ class ThreadFactory
 
             return $thread;
         });
+    }
+
+    /**
+     * Moves a request to another repository without losing its page: the
+     * thread closes, a thread in the new repository continues it with the
+     * same origin, and the conversation's tasks follow. Past runs stay on
+     * the closed thread. The unknown marker moves the request into a thread
+     * that waits for its repository.
+     */
+    public function moved(Thread $from, YakTask $task, string $repo): Thread
+    {
+        $thread = DB::transaction(function () use ($from, $task, $repo): Thread {
+            $root = $task->rootTask();
+            $thread = $this->create($repo, $root, null, $from->id);
+            $conversationIds = $root->conversation()->pluck('id');
+
+            YakTask::query()->withoutGlobalScopes()->where('thread_id', $from->id)->whereIn('id', $conversationIds)->get()
+                ->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
+
+            return $thread;
+        });
+
+        try {
+            $this->closer->close($from, 'moved');
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $task->setAttribute('thread_id', $thread->id);
+        $task->syncOriginalAttribute('thread_id');
+
+        return $thread;
     }
 
     /**

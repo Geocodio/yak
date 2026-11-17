@@ -227,7 +227,8 @@ export type ThreadNoticeKind =
     | 'restore_failed'
     | 'guard_turns'
     | 'guard_time'
-    | 'restoring';
+    | 'restoring'
+    | 'moved';
 
 export type ThreadWaiting = {
     position: number | null;
@@ -256,6 +257,10 @@ export type ThreadNotice = {
     accountSettingsUrl: string | null;
     startOnOwnAccountUrl: string | null;
     repositoryUrl?: string | null;
+    /** The repository a moved request continues in; null while it waits for one. Set with `kind: 'moved'`. */
+    repo?: string | null;
+    threadId?: string;
+    threadTitle?: string;
     waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;
