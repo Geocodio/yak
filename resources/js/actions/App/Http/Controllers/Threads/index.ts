@@ -1,4 +1,7 @@
 import ThreadMessageController from './ThreadMessageController'
+import ThreadTaskActionController from './ThreadTaskActionController'
+import ThreadCoOwnerController from './ThreadCoOwnerController'
+import ThreadQueuedMessageController from './ThreadQueuedMessageController'
 import ContinueTurnController from './ContinueTurnController'
 import RestoreRetryController from './RestoreRetryController'
 import NewThreadController from './NewThreadController'
@@ -29,6 +32,9 @@ import PullRequests from './PullRequests'
 
 const Threads = {
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),
+    ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
+    ThreadCoOwnerController: Object.assign(ThreadCoOwnerController, ThreadCoOwnerController),
+    ThreadQueuedMessageController: Object.assign(ThreadQueuedMessageController, ThreadQueuedMessageController),
     ContinueTurnController: Object.assign(ContinueTurnController, ContinueTurnController),
     RestoreRetryController: Object.assign(RestoreRetryController, RestoreRetryController),
     NewThreadController: Object.assign(NewThreadController, NewThreadController),

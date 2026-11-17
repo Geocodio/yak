@@ -112,6 +112,7 @@ use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
 use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
+use App\Http\Controllers\Threads\ThreadCoOwnerController;
 use App\Http\Controllers\Threads\ThreadDestroyController;
 use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEnvironmentController;
@@ -120,12 +121,14 @@ use App\Http\Controllers\Threads\ThreadFileController;
 use App\Http\Controllers\Threads\ThreadListController;
 use App\Http\Controllers\Threads\ThreadMessageController;
 use App\Http\Controllers\Threads\ThreadPullRequestController;
+use App\Http\Controllers\Threads\ThreadQueuedMessageController;
 use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
 use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
 use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
+use App\Http\Controllers\Threads\ThreadTaskActionController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\ClientProtocol;
@@ -333,6 +336,25 @@ Route::middleware(['auth'])->group(function () {
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
         ->middleware('thread.drive')
         ->name('threads.stop');
+    Route::middleware('thread.drive')->group(function (): void {
+        Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
+        Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');
+        Route::post('threads/{thread}/move', [ThreadTaskActionController::class, 'move'])->name('threads.move');
+        Route::post('threads/{thread}/setup-and-continue', [ThreadTaskActionController::class, 'setUpRepositoryAndContinue'])->name('threads.setup-and-continue');
+        Route::post('threads/{thread}/request-review', [ThreadTaskActionController::class, 'requestReview'])->name('threads.request-review');
+        Route::post('threads/{thread}/retry-render', [ThreadTaskActionController::class, 'retryRender'])->name('threads.retry-render');
+        Route::post('threads/{thread}/clarification-answers', [ThreadTaskActionController::class, 'answerClarification'])->name('threads.clarification-answers.store');
+        Route::post('threads/{thread}/co-owner/approve', [ThreadCoOwnerController::class, 'approve'])->name('threads.co-owner.approve');
+        Route::post('threads/{thread}/co-owner/request-changes', [ThreadCoOwnerController::class, 'requestChanges'])->name('threads.co-owner.request-changes');
+        Route::post('threads/{thread}/co-owner/reject', [ThreadCoOwnerController::class, 'reject'])->name('threads.co-owner.reject');
+        Route::post('threads/{thread}/co-owner/withdraw', [ThreadCoOwnerController::class, 'withdraw'])->name('threads.co-owner.withdraw');
+        Route::post('threads/{thread}/co-owner/check-access', [ThreadCoOwnerController::class, 'checkAccess'])->name('threads.co-owner.check-access');
+        Route::post('threads/{thread}/co-owner/tag', [ThreadCoOwnerController::class, 'tag'])->name('threads.co-owner.tag');
+        Route::post('threads/{thread}/co-owner/decline', [ThreadCoOwnerController::class, 'decline'])->name('threads.co-owner.decline');
+        Route::get('threads/{thread}/co-owner/candidates', [ThreadCoOwnerController::class, 'candidates'])->name('threads.co-owner.candidates');
+        Route::patch('threads/{thread}/queued-messages/{message}', [ThreadQueuedMessageController::class, 'update'])->name('threads.queued-messages.update');
+        Route::delete('threads/{thread}/queued-messages/{message}', [ThreadQueuedMessageController::class, 'destroy'])->name('threads.queued-messages.destroy');
+    });
     Route::post('threads/{thread}/continue', ContinueTurnController::class)
         ->name('threads.continue');
     Route::post('threads/{thread}/restore/retry', RestoreRetryController::class)

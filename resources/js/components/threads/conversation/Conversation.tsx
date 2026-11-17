@@ -170,7 +170,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                     <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
                 ))}
                 {question !== null && !readonly && (
-                    <QuestionsForm key={question.taskId} taskId={question.taskId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
+                    <QuestionsForm key={question.taskId} taskId={question.taskId} threadId={threadId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
                 )}
                 {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
