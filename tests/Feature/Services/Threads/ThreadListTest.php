@@ -77,6 +77,35 @@ test('a finished unseen turn marks the row unread and stays out of needsYou', fu
     expect(ThreadList::for($user)['threads'][0]['isUnread'])->toBeFalse();
 });
 
+test('a teammate thread the viewer never opened is not unread, the viewer\'s own is', function () {
+    $user = User::factory()->create();
+    $teammate = Thread::factory()->create(['created_by_user_id' => User::factory()->create()->id]);
+    $own = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    runFor($teammate, TurnState::Completed, ['finished_at' => now()->subHour()]);
+    runFor($own, TurnState::Completed, ['finished_at' => now()->subHour()]);
+
+    $rows = collect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'])->keyBy('id');
+
+    expect($rows[$teammate->public_id]['isUnread'])->toBeFalse()->and($rows[$own->public_id]['isUnread'])->toBeTrue();
+});
+
+test('a teammate thread the viewer opened before the turn finished is unread', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => User::factory()->create()->id]);
+    ThreadView::create(['user_id' => $user->id, 'thread_id' => $thread->id, 'last_seen_at' => now()->subHours(2)]);
+    runFor($thread, TurnState::Completed, ['finished_at' => now()->subHour()]);
+
+    expect(ThreadList::for($user, ThreadListFilter::Everyone)['threads'][0]['isUnread'])->toBeTrue();
+});
+
+test('a closed thread with an unseen finished run is not unread', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->closed()->create(['created_by_user_id' => $user->id]);
+    runFor($thread, TurnState::Completed, ['finished_at' => now()->subHour()]);
+
+    expect(ThreadList::for($user, ThreadListFilter::Closed)['threads'][0]['isUnread'])->toBeFalse();
+});
+
 test('an unread sub-thread marks its parent unread', function () {
     $user = User::factory()->create();
     $parent = Thread::factory()->create(['created_by_user_id' => $user->id]);

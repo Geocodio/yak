@@ -4,6 +4,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadView;
 use App\Models\User;
 use App\Models\YakTask;
 
@@ -191,5 +192,45 @@ test('a picked value with no rows still shows in the menu with count 0', functio
         ->click('[data-testid="thread-filter-menu-button"]')
         ->assertVisible('[data-testid="thread-filter-source-slack"]')
         ->assertVisible('[data-testid="thread-filter-source-slack"] [role="checkbox"][aria-checked="true"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('the open thread never shows the unread mark, even when a turn finishes while it is open', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the cache', 'repo' => 'Geocodio/geocodio']);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+    $this->actingAs($user);
+
+    $page = visit('/threads/' . $thread->public_id)
+        ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"]')
+        ->assertMissing('[data-testid="thread-unread-' . $thread->public_id . '"]')
+        ->wait(2);
+
+    $newerRun = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()]);
+
+    $page->wait(7)
+        ->assertMissing('[data-testid="thread-unread-' . $thread->public_id . '"]')
+        ->assertNoJavaScriptErrors();
+
+    expect(ThreadView::query()->where('user_id', $user->id)->where('thread_id', $thread->id)->first()->last_seen_at->greaterThan($newerRun->finished_at))->toBeTrue();
+});
+
+test('picked filters survive a page reload', function () {
+    $user = User::factory()->create();
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Slack request', 'source' => 'slack', 'repo' => 'Geocodio/geocodio']);
+    Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Linear ticket', 'source' => 'linear', 'repo' => 'Geocodio/geocodio']);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter-everyone"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->click('[data-testid="thread-filter-source-slack"]')
+        ->click('[data-testid="thread-filter-menu-button"]')
+        ->refresh()
+        ->click('[data-testid="thread-filter-everyone"]')
+        ->assertSeeIn('[data-testid="thread-filter-chips"]', 'Slack')
+        ->assertSee('Slack request')
+        ->assertDontSee('Linear ticket')
         ->assertNoJavaScriptErrors();
 });

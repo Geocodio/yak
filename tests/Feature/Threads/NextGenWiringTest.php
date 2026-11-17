@@ -24,7 +24,7 @@ it('runs a natural turn from start to pause and keeps a private thread off anoth
     $owner = User::factory()->create();
     $other = User::factory()->create();
     $account = ClaudeAccount::factory()->create();
-    $thread = Thread::factory()->private($owner)->create(['claude_account_id' => $account->id, 'model' => 'sonnet']);
+    $thread = Thread::factory()->private($owner)->create(['claude_account_id' => $account->id, 'model' => 'sonnet', 'created_by_user_id' => $owner->id]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
 
     $run = app(ThreadTurns::class)->start($task, 'scrubbed text 1', $owner, null);

@@ -310,7 +310,7 @@ class ThreadList
     {
         $run = $runs->get($thread->getAttribute('latest_run_id'));
         [$reason, $label] = $thread->isOpen() ? self::needsYou($thread) : [null, null];
-        $isUnread = $thread->isOpen() && self::isUnread($run, $seen->get($thread->id));
+        $isUnread = $thread->isOpen() && self::isUnread($run, $seen->get($thread->id), $thread->created_by_user_id === $viewer->id);
 
         return [
             'id' => $thread->public_id,
@@ -381,9 +381,10 @@ class ThreadList
     }
 
     /**
-     * Whether the latest turn finished after the viewer last opened the thread, or the viewer never opened it.
+     * Whether the latest turn finished after the viewer last opened the thread. A thread the viewer never opened
+     * is unread only when the viewer started it, so a teammate's finished thread does not light up the Everyone tab.
      */
-    private static function isUnread(?TaskRun $run, mixed $lastSeenAt): bool
+    private static function isUnread(?TaskRun $run, mixed $lastSeenAt, bool $isStartedByViewer): bool
     {
         if ($run === null || ! in_array($run->getAttribute('turn_state'), [TurnState::Completed, TurnState::Failed, TurnState::StoppedByGuard], true)) {
             return false;
@@ -391,6 +392,6 @@ class ThreadList
 
         $finishedAt = $run->finished_at ?? $run->updated_at;
 
-        return $lastSeenAt === null || ($finishedAt !== null && $finishedAt->greaterThan($lastSeenAt));
+        return $lastSeenAt === null ? $isStartedByViewer : ($finishedAt !== null && $finishedAt->greaterThan($lastSeenAt));
     }
 }

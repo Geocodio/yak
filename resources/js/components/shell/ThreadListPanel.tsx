@@ -11,6 +11,7 @@ import { shortcutLabel } from "@/commandPalette/shortcuts";
 import { isMacPlatform } from "@/commandPalette/platform";
 import { ThreadFilterMenu, filterKeyLabel, starterLabel } from "@/components/shell/ThreadFilterMenu";
 import { ThreadGroup } from "@/components/shell/ThreadGroup";
+import { useKeepThreadSeen } from "@/components/shell/useMarkThreadSeen";
 import { useThreadList } from "@/components/shell/useThreadList";
 import { openNewThread, openPalette } from "@/components/Sidebar";
 import type { SharedProps } from "@/types/shared";
@@ -67,6 +68,7 @@ export function ThreadListPanel({
     ];
     const activeThreadId =
         /^\/threads\/([^/?#]+)/.exec(url.split("?")[0])?.[1] ?? null;
+    useKeepThreadSeen(activeThreadId, data);
     const hasNoThreadsAtAll =
         data !== null && !data.hasAnyThreads;
     const isEmpty =

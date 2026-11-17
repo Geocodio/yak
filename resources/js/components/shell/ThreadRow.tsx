@@ -24,6 +24,7 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const hasChildren = row.children.length > 0;
     const isClosed = row.status === 'closed';
+    const isUnread = row.isUnread && !active;
     const hoverControl = 'absolute top-1.5 hidden size-5 items-center justify-center rounded-control text-faint hover:bg-panel hover:text-body focus-visible:flex group-hover/row:flex';
 
     return (
@@ -41,12 +42,12 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                 >
                     <span className="flex items-center gap-2">
                         <ThreadStatusDot row={row} />
-                        <span className={cn('flex min-w-0 flex-1 items-center gap-1 text-[13px] text-body', nested && 'text-[12.5px]', row.isUnread && 'font-semibold')} data-testid={`thread-title-${row.id}`}>
+                        <span className={cn('flex min-w-0 flex-1 items-center gap-1 text-[13px] text-body', nested && 'text-[12.5px]', isUnread && 'font-semibold')} data-testid={`thread-title-${row.id}`}>
                             {row.isPrivate ? <Lock size={11} className="shrink-0 text-faint" aria-hidden /> : null}
                             <span className="truncate">{row.title}</span>
                         </span>
                         {row.isStarred ? <Star size={11} className="shrink-0 fill-warn text-warn group-hover/row:hidden" aria-hidden data-testid={`thread-starred-${row.id}`} /> : null}
-                        {row.isUnread ? <span role="img" aria-label="Unread" data-testid={`thread-unread-${row.id}`} className="size-1.5 shrink-0 rounded-full bg-info" /> : null}
+                        {isUnread ? <span role="img" aria-label="Unread" data-testid={`thread-unread-${row.id}`} className="size-1.5 shrink-0 rounded-full bg-info" /> : null}
                         <span className="tnum shrink-0 text-[11px] text-faint group-hover/row:invisible">{formatTime(row.lastActivityAt)}</span>
                     </span>
                     <span className="flex items-center gap-2 pl-4 text-[11.5px]">
