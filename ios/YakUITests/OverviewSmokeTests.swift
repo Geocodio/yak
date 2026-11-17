@@ -82,7 +82,7 @@ import XCTest
         brief.typeText("Look at the cache keys.")
         app.segmentedControls["addSubThread.kind"].buttons["Research"].tap()
         // The keyboard covers the footer rows, so it goes away before the audit looks at them.
-        app.otherElements["addSubThread.sheet"].collectionViews.firstMatch.swipeDown()
+        app.otherElements["addSubThread.sheet"].scrollViews.firstMatch.swipeDown()
         // The audit judges what is on screen, so the sheet is pulled to its large size where its footer is not cut.
         let grabber = app.staticTexts["Add a sub-thread"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
         let top = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
