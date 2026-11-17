@@ -130,6 +130,19 @@ import XCTest
         try shoot("task-refused")
     }
 
+    func testTaskOffline() throws {
+        try openTask("k3m9p2qa", scenario: "changes")
+        XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: 10))
+        try stub.setOnline(false)
+        app.terminate()
+        app.launchArguments = [
+            "-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestOpenTask", "k3m9p2qa",
+        ]
+        app.launch()
+        XCTAssertTrue(element("task.error").waitForExistence(timeout: 30))
+        try shoot("task-offline")
+    }
+
     func testTaskApproving() throws {
         try openTask("k3m9p2qa", scenario: "task-slow-approve")
         element("task.decision.approve").tap()
