@@ -54,6 +54,8 @@ final class ThreadModel {
     /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
     @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
     /// The drawer row's title, shown until the thread's own arrives.
+    /// Progress and failures of this thread's background uploads.
+    let uploadWatch = UploadWatch()
     private var initialTitle: String?
     private var isStarted = false
     private var isVisible = false
@@ -159,6 +161,7 @@ final class ThreadModel {
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
         await opened.setVisible(isVisible)
+        uploadWatch.start(summaries: await session.uploadSummaries(), clock: session.clock)
         if ownName == nil { ownName = await session.me()?.user.name }
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
@@ -176,6 +179,7 @@ final class ThreadModel {
         generation += 1
         readingTask?.cancel()
         readingTask = nil
+        uploadWatch.stop()
         markdownTask?.cancel()
         flushTask?.cancel()
         actionLineTask?.cancel()
