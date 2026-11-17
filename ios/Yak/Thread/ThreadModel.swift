@@ -151,6 +151,8 @@ final class ThreadModel {
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
                 await self.apply(next)
+                // The thread can close while `apply` waits; the composer then keeps what it has.
+                guard !Task.isCancelled else { return }
                 self.composer.update(snapshot: next)
             }
         }
