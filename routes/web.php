@@ -88,12 +88,11 @@ use App\Http\Controllers\Tasks\StoreTaskController;
 use App\Http\Controllers\Tasks\TaskActionController;
 use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
-use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\TaskRedirectController;
 use App\Http\Controllers\Threads\ContinueTurnController;
 use App\Http\Controllers\Threads\LocalTurnsController;
 use App\Http\Controllers\Threads\NewThreadController;
-use App\Http\Controllers\Threads\ThreadLogController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewHeartbeatController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewRestoreController;
 use App\Http\Controllers\Threads\Preview\ThreadPreviewStatusController;
@@ -121,6 +120,7 @@ use App\Http\Controllers\Threads\ThreadEnvironmentController;
 use App\Http\Controllers\Threads\ThreadEventController;
 use App\Http\Controllers\Threads\ThreadFileController;
 use App\Http\Controllers\Threads\ThreadListController;
+use App\Http\Controllers\Threads\ThreadLogController;
 use App\Http\Controllers\Threads\ThreadMessageController;
 use App\Http\Controllers\Threads\ThreadPullRequestController;
 use App\Http\Controllers\Threads\ThreadQueuedMessageController;
@@ -160,10 +160,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('tasks', TaskListController::class)->name('tasks');
+    Route::get('tasks', [TaskRedirectController::class, 'index'])->name('tasks');
     Route::post('tasks', StoreTaskController::class)->name('tasks.store');
     Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
-    Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+    Route::get('tasks/{task}', [TaskRedirectController::class, 'show'])->name('tasks.show');
     Route::get('tasks/{task}/log-entries', [TaskController::class, 'logEntries'])->name('tasks.log-entries');
     Route::middleware('task.drive')->group(function (): void {
         Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');

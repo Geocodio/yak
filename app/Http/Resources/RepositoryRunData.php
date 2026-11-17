@@ -60,10 +60,14 @@ final class RepositoryRunData
 
     public static function belongsToRepository(YakTask $task, Repository $repository): bool
     {
-        if ($task->repo !== $repository->slug) {
-            return false;
-        }
+        return $task->repo === $repository->slug && self::isRepositoryRun($task);
+    }
 
+    /**
+     * A setup run or a repository research run, whichever repository it belongs to.
+     */
+    public static function isRepositoryRun(YakTask $task): bool
+    {
         if ($task->mode === TaskMode::Setup) {
             return true;
         }

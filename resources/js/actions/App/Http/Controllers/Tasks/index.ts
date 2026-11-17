@@ -1,4 +1,4 @@
-import TaskListController from './TaskListController'
+import TaskRedirectController from './TaskRedirectController'
 import StoreTaskController from './StoreTaskController'
 import DismissSetupCardController from './DismissSetupCardController'
 import TaskController from './TaskController'
@@ -12,7 +12,7 @@ import RequestReReviewController from './RequestReReviewController'
 import PullRequestImageController from './PullRequestImageController'
 
 const Tasks = {
-    TaskListController: Object.assign(TaskListController, TaskListController),
+    TaskRedirectController: Object.assign(TaskRedirectController, TaskRedirectController),
     StoreTaskController: Object.assign(StoreTaskController, StoreTaskController),
     DismissSetupCardController: Object.assign(DismissSetupCardController, DismissSetupCardController),
     TaskController: Object.assign(TaskController, TaskController),

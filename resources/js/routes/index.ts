@@ -206,8 +206,8 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:15
+* @see \App\Http\Controllers\Tasks\TaskRedirectController::tasks
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -221,8 +221,8 @@ tasks.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:15
+* @see \App\Http\Controllers\Tasks\TaskRedirectController::tasks
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -230,8 +230,8 @@ tasks.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:15
+* @see \App\Http\Controllers\Tasks\TaskRedirectController::tasks
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -240,8 +240,8 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:15
+* @see \App\Http\Controllers\Tasks\TaskRedirectController::tasks
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
