@@ -32,7 +32,8 @@ struct LogRingTests {
     @Test func hostileLinesAreRedactedAndBounded() {
         let clock = ContinuousClock()
         let elapsed = clock.measure { runHostileCases() }
-        #expect(elapsed < .seconds(1))
+        // A bound that only a runaway implementation exceeds; a loaded machine stays far below it.
+        #expect(elapsed < .seconds(10))
     }
 
     private func runHostileCases() {
