@@ -91,6 +91,31 @@ it('sends the model before the steer when it changed', function () {
     expect($order)->toBe(['set_model', 'steer']);
 });
 
+it('sends the effort before the steer when it changed, including a reset to the default', function (?string $effort, ?string $runnerEffort) {
+    [$thread] = runningThreadWithTask();
+    $thread->forceFill(['runner_effort' => $runnerEffort])->save();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldReceive('setEffort')->once()->with(Mockery::any(), $effort);
+    $fakes['commands']->shouldReceive('steer')->once();
+
+    app(ThreadTurns::class)->steer($thread, 'think harder', null, 'sonnet', null, 'system', null, false, $effort);
+
+    expect($thread->fresh()->effort)->toBe($effort);
+})->with([
+    'raised' => ['high', null],
+    'reset to the default' => [null, 'high'],
+]);
+
+it('leaves the effort alone when the steer names neither a model nor an effort', function () {
+    [$thread] = runningThreadWithTask();
+    $thread->forceFill(['runner_effort' => 'high', 'effort' => 'high'])->save();
+    $fakes = fakeTurnCollaborators();
+    $fakes['commands']->shouldNotReceive('setEffort');
+    $fakes['commands']->shouldReceive('steer')->once();
+
+    app(ThreadTurns::class)->steer($thread, 'also this', null, null);
+});
+
 it('does not wrap a steer Yak framed itself', function () {
     [$thread] = runningThreadWithTask();
     fakeTurnCollaborators()['commands']->shouldReceive('steer')->once()->with(Mockery::any(), Mockery::type('string'), 'already framed');

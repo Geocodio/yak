@@ -1,6 +1,7 @@
 import { Clock, Laptop } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
+import { effortLabel } from '@/components/accounts/accountAppearance';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
@@ -37,7 +38,7 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                             Not read yet
                         </span>
                     )}
-                    {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{modelLabels[message.model] ?? message.model}</span>}
+                    {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{modelLabels[message.model] ?? message.model}{message.effort ? ` · ${effortLabel(message.effort)}` : ''}</span>}
                 </div>
                 <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
                     <Prose html={message.bodyHtml} className="mt-1" />

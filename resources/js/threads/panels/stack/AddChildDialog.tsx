@@ -32,6 +32,7 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
     const [brief, setBrief] = useState('');
     const [kind, setKind] = useState('implement');
     const [model, setModel] = useState<string | null>('sonnet');
+    const [effort, setEffort] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,7 +59,7 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
             method: 'POST',
             credentials: 'same-origin',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken() },
-            body: JSON.stringify({ name, brief, kind, model }),
+            body: JSON.stringify({ name, brief, kind, model, effort }),
         })
             .then(async (response) => {
                 if (!response.ok) {
@@ -82,11 +83,11 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
             title="Add a sub-thread"
             description={`Sub-thread of ${parentTitle}`}
             width="w-[min(660px,100vw)]"
-            className="rounded-xl p-3"
+            className="overflow-hidden rounded-xl p-0 pt-4 [&>h2]:px-4 [&>p]:px-4"
             data-testid="stack-add-dialog"
         >
-            <div className="flex flex-col gap-3">
-                <div className="overflow-hidden rounded-2xl border border-hair bg-panel shadow-[var(--composer-shadow)] transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--accent-edge)] focus-within:shadow-[var(--composer-shadow),0_0_0_3px_var(--composer-focus-ring)] motion-reduce:transition-none">
+            <div className="flex flex-col">
+                <div className="bg-panel">
                     <div className="flex items-center gap-2 border-b border-hair px-4 py-2 text-[12.5px] text-muted">
                         <label htmlFor="stack-add-name" className="shrink-0">Name</label>
                         <input
@@ -170,16 +171,16 @@ export function AddChildDialog({ threadId, parentTitle, stack, onClose, onAdded 
                             {stack.parentAccountName ?? 'the parent account'}
                         </span>
                         <span>with</span>
-                        <ModelPicker variant="chip" models={stack.models} value={model} onChange={setModel} disabled={isSubmitting} testId="stack-add-model" />
+                        <ModelPicker variant="chip" models={stack.models} value={model} onChange={setModel} effort={effort} onEffortChange={setEffort} disabled={isSubmitting} testId="stack-add-model" />
                     </div>
                 </div>
                 {notice && (
-                    <p className="flex items-center gap-2 rounded-card bg-panel-2 px-3 py-2 text-[12.5px] text-muted" data-testid="stack-add-notice">
+                    <p className="mx-3 mb-3 flex items-center gap-2 rounded-card bg-panel-2 px-3 py-2 text-[12.5px] text-muted" data-testid="stack-add-notice">
                         <span className={cn('size-2 shrink-0 rounded-full', notice.isFailure ? 'bg-fail' : 'bg-warn')} aria-hidden="true" />
                         {notice.text}
                     </p>
                 )}
-                {error && <p className="text-[12.5px] text-fail" data-testid="stack-add-error">{error}</p>}
+                {error && <p className="px-4 pb-3 text-[12.5px] text-fail" data-testid="stack-add-error">{error}</p>}
             </div>
         </Dialog>
     );

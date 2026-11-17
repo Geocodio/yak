@@ -7,6 +7,7 @@ use App\Channels\GitHub\PullRequestSummonReplier;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ParsedFollowUpSummary;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\GitOperations;
@@ -34,7 +35,7 @@ trait FinishesFollowUpRuns
     {
         if ($result->isError) {
             TaskMetricsAccumulator::record($this->task, $result);
-            $this->handleError($result->failureMessage());
+            $this->handleError($result->failureMessage(), stop: $result->stop());
 
             return;
         }
@@ -214,7 +215,7 @@ trait FinishesFollowUpRuns
      * message may carry command lines or credentials, so it stays in the task
      * log and the PR gets a generic line.
      */
-    private function handleError(string $errorMessage, bool $isUserFacing = false): void
+    private function handleError(string $errorMessage, bool $isUserFacing = false, ?TaskStop $stop = null): void
     {
         // Don't overwrite a task that's already terminal -- see
         // RunYakJob::handleError() for the full reasoning.
@@ -233,7 +234,7 @@ trait FinishesFollowUpRuns
         // The failure reply goes to the summoning thread for an external PR;
         // a second error notification would comment on the PR again.
         if (! $this->task->targets_external_pr) {
-            $this->notifySourceOfFailure($errorMessage);
+            $this->notifySourceOfFailure($errorMessage, $stop);
         }
 
         if ($this->task->targets_external_pr) {

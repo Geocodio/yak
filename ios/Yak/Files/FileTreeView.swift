@@ -115,7 +115,7 @@ struct FileTreeView: View {
         }
         switch row.mark {
         case .modified: return Text("files.row.modified \(row.name)")
-        case .added: return Text("files.row.added \(row.name)")
+        case .added: return Text("files.row.addedFile \(row.name)")
         case .containsChanges: return Text("files.row.containsChanges \(row.name)")
         case nil: return Text("files.row.file \(row.name)")
         }

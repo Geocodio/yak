@@ -48,6 +48,22 @@ public enum ModelChoices {
         return value
     }
 
+    /// "Opus 5.5 · High" when an effort is set, else the model label. Nil without a model.
+    public static func label(for value: String?, effort: EffortLevel?, in families: [ModelFamily]) -> String? {
+        guard let name = label(for: value, in: families) else { return nil }
+        return effort.map { "\(name) · \($0.displayName)" } ?? name
+    }
+
+    /// The levels the model supports. A missing or unknown model offers every level.
+    public static func efforts(for value: String?, in families: [ModelFamily]) -> [EffortLevel] {
+        guard let value else { return EffortLevel.allCases }
+        for family in families {
+            if value == family.latest.value || value == family.family { return family.latest.efforts }
+            if let version = family.older.first(where: { $0.value == value }) { return version.efforts }
+        }
+        return EffortLevel.allCases
+    }
+
     public static func isPinned(_ value: String, in families: [ModelFamily]) -> Bool {
         families.contains { $0.older.contains { $0.value == value } }
     }

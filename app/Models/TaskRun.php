@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $finished_at
  * @property array<string, int>|null $stages
  * @property array<string, array<string, int|float>>|null $model_usage
+ * @property string|null $effort
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown
  * @property array<string, int>|null $api_retry_breakdown
  * @property array<string, mixed>|null $last_result_event

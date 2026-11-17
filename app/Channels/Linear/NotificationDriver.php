@@ -32,8 +32,8 @@ class NotificationDriver implements NotificationDriverContract
             }
         }
 
-        if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
-            $this->updateIssueState($accessToken, $task, $type);
+        if ($type === NotificationType::Result) {
+            $this->updateIssueState($accessToken, $task);
         }
     }
 
@@ -259,25 +259,15 @@ class NotificationDriver implements NotificationDriverContract
             ]);
     }
 
-    private function updateIssueState(string $accessToken, YakTask $task, NotificationType $type): void
+    private function updateIssueState(string $accessToken, YakTask $task): void
     {
-        $stateConfigKey = match ($type) {
-            NotificationType::Result => 'done_state_id',
-            NotificationType::Expiry => 'cancelled_state_id',
-            default => null,
-        };
-
-        if ($stateConfigKey === null) {
-            return;
-        }
-
         // A task with a pull request stays in review until a human merges
         // it, so a Result notice must not move it to Done.
-        if ($type === NotificationType::Result && $task->pr_url !== null) {
+        if ($task->pr_url !== null) {
             return;
         }
 
-        $stateId = (string) config("yak.channels.linear.{$stateConfigKey}");
+        $stateId = (string) config('yak.channels.linear.done_state_id');
         if ($stateId === '') {
             return;
         }

@@ -261,7 +261,7 @@ Open the setup task's page (`https://{your-domain}/tasks/{setup_task_id}`), expa
 docker exec yak php artisan yak:setup-repo {slug}
 ```
 
-Or press **Re-run setup** on the repo's edit page. If `CLAUDE.md` is the cause, update it in the target repo. See [Repositories](repositories.md#claudemd-the-highest-leverage-config-point).
+Or choose **Run setup again** in the repository's **Sandbox** section. If `CLAUDE.md` is the cause, update it in the target repo. See [Repositories](repositories.md#claudemd-the-highest-leverage-config-point).
 
 ## Webhooks not arriving
 

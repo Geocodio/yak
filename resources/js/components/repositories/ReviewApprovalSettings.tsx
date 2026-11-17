@@ -4,17 +4,17 @@ import { Map, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
-import { show as showPrompt } from '@/routes/prompts';
-import { show as showApprovals } from '@/routes/repos/approvals';
 import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { ConfigSourceBadge, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
+
+type RiskProfileRepository = Pick<RepositoryDetail, 'slug' | 'defaultBranch' | 'riskProfiles' | 'riskProfileActionUrl'>;
 
 export function ReviewApprovalSettings({ value, onChange, errors, repository, yakConfig }: {
     value: ReviewPolicy;
     onChange: (policy: ReviewPolicy) => void;
     errors: Record<string, string | undefined>;
-    repository: RepositoryDetail | null;
+    repository: RiskProfileRepository | null;
     yakConfig?: YakConfig;
 }) {
     const lockedRisk = yakConfig?.values.riskProfile;
@@ -31,10 +31,6 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
                 <TextInput type="number" min={1} max={90} value={value.profile_max_age_days} onChange={(e) => set('profile_max_age_days', Number(e.target.value))} />
             </Field>
             {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
-            <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
-            {' · '}
-            <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
-            {repository && <>{' · '}<Link className="text-[12px] text-accent-text hover:underline" href={showApprovals(repository.slug)}>Review approvals</Link></>}
             {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} repositorySlug={repository.slug} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
         </div>
     );
@@ -68,7 +64,7 @@ function LockedRiskProfile({ profile, config, branch, repositorySlug }: { profil
     );
 }
 
-function RiskProfiles({ repository }: { repository: RepositoryDetail }) {
+function RiskProfiles({ repository }: { repository: RiskProfileRepository }) {
     const { active, drafts } = repository.riskProfiles;
     const [version, setVersion] = useState(drafts[0]?.version ?? '');
     const draft = drafts.find((item) => item.version === version);

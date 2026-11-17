@@ -142,6 +142,13 @@ import XCTest
             {
                 return true
             }
+            // The system caps the size of text in its bars, which holds the thread title.
+            if let element = issue.element, element.identifier == "thread.title",
+                [.dynamicType, .textClipped].contains(issue.auditType),
+                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.frame.contains(element.frame) })
+            {
+                return true
+            }
             // An element entirely outside the screen shows no pixels to measure.
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             // Text behind a bar is covered by the bar.

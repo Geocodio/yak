@@ -125,9 +125,9 @@ class ThreadTurns
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null, bool $answersQuestion = false): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null, ?string $shownText = null, ?string $intent = null, ?Closure $storeAttachments = null, ?string $sendKey = null, bool $answersQuestion = false, ?string $effort = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey, $answersQuestion): array {
+        [$thread, $run, $account, $blocked] = ShortLockWait::threadTransaction(function () use ($task, $prompt, $driver, $model, $kind, $shownText, $intent, $storeAttachments, $sendKey, $answersQuestion, $effort): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -138,10 +138,11 @@ class ThreadTurns
             if ($thread->claude_account_id !== null) {
                 $account = ClaudeAccount::query()->findOrFail($thread->claude_account_id);
                 $thread->model = $model ?? $thread->model;
+                $thread->effort = $model !== null || $effort !== null ? $effort : $thread->effort;
             } else {
-                $resolved = $this->resolver->forNewThread($driver, $task->repo, null, $model);
+                $resolved = $this->resolver->forNewThread($driver, $task->repo, null, $model, $effort);
                 $account = $resolved->account ?? throw new \RuntimeException("No usable Claude account for thread {$thread->id}.");
-                $thread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model ?? $model ?? $thread->model]);
+                $thread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model ?? $model ?? $thread->model, 'effort' => $resolved->effort]);
             }
 
             if ($driver !== null && $thread->owner_user_id === null) {
@@ -172,6 +173,7 @@ class ThreadTurns
                 'claude_account_id' => $account->id,
                 'driver_user_id' => $driver?->id,
                 'model' => $thread->model,
+                'effort' => $thread->effort,
                 'prompt_uuid' => $uuid,
                 'prompt' => $text,
                 'turn_state' => TurnState::Pending,
@@ -263,6 +265,10 @@ class ThreadTurns
             $thread->forceFill(['fresh_session_pending' => false])->save();
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
+        }
+
+        if ($thread->runner_state !== RunnerState::None && $thread->effort !== $thread->runner_effort) {
+            $this->commands->setEffort($thread, $thread->effort);
         }
 
         // Claude pushes during the turn, so the sandbox needs a token that outlives it.
@@ -420,7 +426,7 @@ class ThreadTurns
      * answer was lost, or the bookkeeping after it failed, the message is queued
      * and Claude reads it again in the next prompt.
      */
-    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system', ?string $sendKey = null, bool $isQueueOnly = false): PendingSteeringMessage
+    public function steer(Thread $thread, string $text, ?User $sender, ?string $model, ?Closure $storeAttachments = null, string $source = 'system', ?string $sendKey = null, bool $isQueueOnly = false, ?string $effort = null): PendingSteeringMessage
     {
         app(ThreadOwnership::class)->assertYakMayRunTurns($thread->fresh() ?? $thread);
 
@@ -435,6 +441,7 @@ class ThreadTurns
             'author_user_id' => $source === 'thread' ? $sender?->id : null,
             'uuid' => (string) Str::uuid(),
             'model' => $model,
+            'effort' => $effort,
             'send_key' => $sendKey,
         ]);
 

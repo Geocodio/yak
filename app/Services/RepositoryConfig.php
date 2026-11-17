@@ -190,7 +190,8 @@ class RepositoryConfig
         }
     }
 
-    private function fromStorage(Repository $repository): ConfigSnapshot
+    /** The last stored read of the `.yak/` files; never calls GitHub. */
+    public function fromStorage(Repository $repository): ConfigSnapshot
     {
         $files = RepositoryConfigFile::where('repository_id', $repository->id)->get()
             ->mapWithKeys(fn (RepositoryConfigFile $row): array => [$row->name => new ConfigFile(

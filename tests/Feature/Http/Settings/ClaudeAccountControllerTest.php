@@ -144,6 +144,18 @@ it('validates the concurrency limit', function (int $limit, bool $accepted) {
     expect($account->fresh()->max_concurrent_turns)->toBe($accepted ? $limit : 16);
 })->with([[0, false], [65, false], [1, true], [64, true]]);
 
+it('stores a default effort on update and rejects an unknown level', function () {
+    $account = ClaudeAccount::factory()->for($this->user, 'owner')->create(['validated_at' => now()]);
+
+    $this->patch(route('settings.claude-accounts.update', $account), ['default_effort' => 'high'])->assertSessionHasNoErrors();
+    expect($account->fresh()->default_effort)->toBe('high');
+
+    $this->patch(route('settings.claude-accounts.update', $account), ['default_effort' => null]);
+    expect($account->fresh()->default_effort)->toBeNull();
+
+    $this->patch(route('settings.claude-accounts.update', $account), ['default_effort' => 'extreme'])->assertSessionHasErrors('default_effort');
+});
+
 it('moves the default when an account is updated to default', function () {
     $first = ClaudeAccount::factory()->for($this->user, 'owner')->default()->create();
     $second = ClaudeAccount::factory()->for($this->user, 'owner')->create();

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\SandboxShell;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
@@ -119,7 +120,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
      */
     private function failForUnresolvedRepository(): void
     {
-        $activeSlugs = Repository::where('is_active', true)->pluck('slug')->implode(', ');
+        $activeSlugList = Repository::where('is_active', true)->pluck('slug')->all();
+        $activeSlugs = implode(', ', $activeSlugList);
         $message = $this->task->repo === 'unknown'
             ? "Could not determine which repo to use. Add `repo: <slug>` to the task description, or mark a repo as default. Active repos: {$activeSlugs}."
             : "Repository '{$this->task->repo}' not found or not configured in Yak. Active repos: {$activeSlugs}.";
@@ -130,13 +132,12 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
         $this->task->update([
             'status' => TaskStatus::Failed,
-            'error_log' => $message,
             'completed_at' => now(),
         ]);
 
         TaskLogger::error($this->task, 'Task failed -- repo not resolved', ['repo' => $this->task->repo]);
 
-        $this->notifySourceOfFailure($message);
+        $this->notifySourceOfFailure($message, TaskStop::repositoryUnknown($activeSlugList, $message));
     }
 
     /**

@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
  *     deployment: array<string, mixed>|null,
  *     findings: array<string, mixed>|null,
  *     composer: array<string, mixed>|null,
+ *     stop: array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null,
  *     questions: list<array<string, mixed>>|null,
  *     actions: array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>},
  *     pollInterval: int,

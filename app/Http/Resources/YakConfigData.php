@@ -49,6 +49,7 @@ final class YakConfigData
      *         previewManifest: array<string, mixed>|null,
      *         previewScript: bool,
      *         riskProfile: array{areas: int, unknowns: int, commitSha: ?string}|null,
+     *         hasConcernsFile: bool,
      *     },
      * }
      */
@@ -114,6 +115,7 @@ final class YakConfigData
                     'unknowns' => count($riskProfile['unknowns'] ?? []),
                     'commitSha' => $snapshot->file('risk-profile.yml')?->validCommitSha,
                 ] : null,
+                'hasConcernsFile' => is_array($riskProfile) && ($riskProfile['version'] ?? null) === 2,
             ],
         ];
     }

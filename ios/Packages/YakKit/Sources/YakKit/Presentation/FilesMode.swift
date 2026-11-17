@@ -5,7 +5,8 @@ public enum FilesMode: String, CaseIterable, Codable, Sendable {
     /// Modes this build has, one per line; the changes feature adds `.changed`, the terminal feature `.everything`.
     public static let built: [FilesMode] = [
         // One line per built mode.
-        .everything
+        .changed,
+        .everything,
     ]
 
     /// `.changed` when there are changes and Changed is built; `.everything` when there are none and

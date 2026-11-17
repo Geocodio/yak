@@ -13,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\ThreadBuilder;
 use App\Support\AttachmentNumbering;
 use Illuminate\Http\RedirectResponse;
@@ -40,6 +41,7 @@ class TaskMessageController extends Controller
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
+            in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) && $head->pr_url === null && ! in_array($head->mode, [TaskMode::Review, TaskMode::Setup], true) => 'stopped',
             default => null,
         };
 
@@ -48,6 +50,7 @@ class TaskMessageController extends Controller
             'clarification' => ['success', $this->sendClarification($request, $head, $text)],
             'steering' => ['success', $this->sendSteering($request, $head, $text)],
             'follow_up' => $this->sendFollowUpMessage($request, $head, $text),
+            'stopped' => ['success', $this->sendToStoppedTask($request, $head, $text)],
             default => ['error', 'This conversation is closed.'],
         };
 
@@ -83,6 +86,20 @@ class TaskMessageController extends Controller
             'author' => auth()->user()?->name,
             'attachment_ids' => $attachments->pluck('id')->all(),
         ]);
+    }
+
+    /**
+     * A message on a failed or expired task retries it with the message as a note.
+     */
+    private function sendToStoppedTask(SendTaskMessageRequest $request, YakTask $head, string $text): string
+    {
+        return app(StoppedTaskReplies::class)->handle(
+            $head,
+            $text,
+            'dashboard',
+            authorName: auth()->user()?->name,
+            afterNoteQueued: fn (PendingSteeringMessage $note) => TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $note->id]),
+        );
     }
 
     private function sendSteering(SendTaskMessageRequest $request, YakTask $head, string $text): string

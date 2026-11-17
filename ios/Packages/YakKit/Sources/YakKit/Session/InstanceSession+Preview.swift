@@ -8,4 +8,9 @@ extension InstanceSession {
             threadID: threadID, client: client, clock: clock,
             allowsLoopbackHTTP: environment.allowsInsecureRealtime)
     }
+
+    /// A walkthrough video address the player may open for this instance, or nil.
+    public nonisolated func playableVideoURL(_ text: String?) -> URL? {
+        WalkthroughVideoLink.playable(text, instance: instance, allowsLoopbackHTTP: environment.allowsInsecureRealtime)
+    }
 }

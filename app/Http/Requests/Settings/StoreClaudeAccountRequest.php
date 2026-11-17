@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Enums\ClaudeAccountColor;
 use App\Enums\ClaudeAccountIcon;
+use App\Enums\EffortLevel;
 use App\Http\Concerns\ValidatesClaudeSecretFormat;
 use App\Models\ClaudeAccount;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -37,6 +38,7 @@ class StoreClaudeAccountRequest extends FormRequest
             )],
             'secret' => ['required', 'string', 'max:2000', $this->secretFormatRule()],
             'default_model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
+            'default_effort' => ['nullable', Rule::enum(EffortLevel::class)],
             'icon' => ['sometimes', Rule::enum(ClaudeAccountIcon::class)],
             'color' => ['sometimes', Rule::enum(ClaudeAccountColor::class)],
             'is_system' => ['sometimes', 'boolean'],

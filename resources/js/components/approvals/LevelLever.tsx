@@ -14,7 +14,7 @@ function verdict(n: ApprovalLevel, draftLevel: ApprovalLevel, isArmed: boolean):
     return { text: 'A human reviews', approves: false };
 }
 
-export function LevelLever({ liveLevel, draftLevel, isArmed, onPick }: { liveLevel: ApprovalLevel; draftLevel: ApprovalLevel; isArmed: boolean; onPick: (level: ApprovalLevel) => void }) {
+export function LevelLever({ liveLevel, draftLevel, isArmed, openCounts, onPick }: { liveLevel: ApprovalLevel; draftLevel: ApprovalLevel; isArmed: boolean; openCounts?: { byLevel: number[]; total: number }; onPick: (level: ApprovalLevel) => void }) {
     return (
         <section aria-labelledby="approvals-lever" className="flex min-w-0 flex-1 basis-[560px] flex-col gap-4 rounded-card border border-hair bg-panel p-5">
             <div>
@@ -53,6 +53,11 @@ export function LevelLever({ liveLevel, draftLevel, isArmed, onPick }: { liveLev
                                 </span>
                                 <span className="text-[15px] font-semibold leading-snug">{level.title}</span>
                                 <span className="text-[13px] leading-snug text-muted">{level.detail}</span>
+                                {openCounts && (
+                                    <span data-testid={`approvals-level-count-${level.n}`} className={`text-[13px] leading-snug ${checked ? '' : 'text-muted'}`}>
+                                        Would approve {openCounts.byLevel[level.n - 1]} of {openCounts.total} open {openCounts.total === 1 ? 'PR' : 'PRs'}
+                                    </span>
+                                )}
                             </span>
                             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-semibold ${result.approves ? 'border-hair bg-ok-soft text-ok' : 'border-hair bg-panel text-muted'}`}>
                                 {result.approves ? <Check size={14} aria-hidden="true" /> : level.n > 1 ? <UserRound size={14} aria-hidden="true" /> : null}

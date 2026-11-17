@@ -137,18 +137,22 @@ class ThreadBuilder
 
     /**
      * @param  array<string, mixed>  $round
-     * @return list<array{header: string, answer: string|null, other: string|null, skipped: bool}>
+     * @return list<array{header: string, question: string, answer: string|null, choices: list<array{label: string, description: string|null}>, other: string|null, skipped: bool}>
      */
     public static function answerItems(array $round): array
     {
         return array_values(collect((array) $round['questions'])->map(function (array $question) use ($round): array {
             $answer = $round['answers'][$question['id']] ?? null;
-            $choices = (array) ($answer['choices'] ?? []);
+            $choices = array_values((array) ($answer['choices'] ?? []));
             $other = is_string($answer['other'] ?? null) ? $answer['other'] : null;
+
+            $descriptions = collect((array) ($question['options'] ?? []))->pluck('description', 'label');
 
             return [
                 'header' => (string) $question['header'],
+                'question' => (string) ($question['question'] ?? $question['header']),
                 'answer' => $choices !== [] ? implode(', ', $choices) : null,
+                'choices' => array_map(fn (string $label): array => ['label' => $label, 'description' => is_string($descriptions[$label] ?? null) ? $descriptions[$label] : null], $choices),
                 'other' => $other,
                 'skipped' => $choices === [] && $other === null,
             ];

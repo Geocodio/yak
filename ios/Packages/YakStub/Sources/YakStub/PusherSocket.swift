@@ -23,6 +23,7 @@ final class PusherSocket: Sendable {
     private let isOnline: @Sendable () -> Bool
     private let fixtures: StubFixtures
     private let threads: StubThreads
+    private let onSubscribe: @Sendable (String) -> Void
     private let playbackMilliseconds: Locked<Int>
     private var playbackInterval: Duration { .milliseconds(playbackMilliseconds.get()) }
 
@@ -31,8 +32,10 @@ final class PusherSocket: Sendable {
 
     init(
         fixtures: StubFixtures, threads: StubThreads, playbackInterval: Duration,
-        scenario: @escaping @Sendable () -> Scenario, isOnline: @escaping @Sendable () -> Bool
+        scenario: @escaping @Sendable () -> Scenario, isOnline: @escaping @Sendable () -> Bool,
+        onSubscribe: @escaping @Sendable (String) -> Void = { _ in }
     ) throws {
+        self.onSubscribe = onSubscribe
         self.fixtures = fixtures
         self.threads = threads
         playbackMilliseconds = Locked(
@@ -141,7 +144,9 @@ final class PusherSocket: Sendable {
             state.mutate { $0.clients[identifier]?.channels.insert(channel) }
             send(["event": "pusher_internal:subscription_succeeded", "channel": channel, "data": "{}"], to: connection)
             if channel.hasPrefix("private-thread.") {
-                startPlayback(String(channel.dropFirst("private-thread.".count)))
+                let id = String(channel.dropFirst("private-thread.".count))
+                startPlayback(id)
+                onSubscribe(id)
             }
         case "pusher:ping":
             send(["event": "pusher:pong", "data": "{}"], to: connection)
@@ -179,7 +184,7 @@ final class PusherSocket: Sendable {
         }
     }
 
-    private func publish(_ json: String, thread id: String) {
+    func publish(_ json: String, thread id: String) {
         let channel = "private-thread.\(id)"
         let subscribed = state.mutate { state in
             state.clients.values.filter { $0.channels.contains(channel) }.map(\.connection)

@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
@@ -30,7 +33,9 @@ test('reaps a Running task with no log activity past the threshold', function ()
     expect($task->error_log)->toContain('Worker crashed mid-run');
     expect($task->completed_at)->not->toBeNull();
 
-    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error
+        && $job->personalize === false && $job->stop?->kind === StopKind::YakStopped);
 });
 
 test('spares a Running task that had log activity within the threshold', function () {
@@ -100,7 +105,9 @@ test('reaps a Retrying task with no log activity past the threshold', function (
     expect($task->error_log)->toContain('Worker crashed mid-run');
     expect($task->completed_at)->not->toBeNull();
 
-    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error);
+    expect($task->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error
+        && $job->personalize === false && $job->stop?->kind === StopKind::YakStopped);
 });
 
 test('spares a Retrying task that had log activity within the threshold', function () {
@@ -135,4 +142,28 @@ test('does not notify system-source tasks', function () {
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertNothingPushed();
+});
+
+test('a reaped setup task fails its repository setup and releases the tasks parked on it', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['slug' => 'acme/parked-setup', 'setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $setupTask = YakTask::factory()->running()->create([
+        'repo' => $repository->slug,
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+        'updated_at' => now()->subMinutes(30),
+    ]);
+    $repository->update(['setup_task_id' => $setupTask->id]);
+    $parked = YakTask::factory()->create([
+        'repo' => $repository->slug,
+        'status' => TaskStatus::Failed,
+        'source' => 'linear',
+        'resume_after_setup_at' => now(),
+    ]);
+
+    $this->artisan('yak:reap-orphaned-tasks', ['--minutes' => 15])->assertSuccessful();
+
+    expect($repository->fresh()->setup_status)->toBe('failed')
+        ->and($parked->fresh()->resume_after_setup_at)->toBeNull()
+        ->and($parked->fresh()->stop_summary)->toContain("couldn't get its workspace for acme/parked-setup ready");
 });

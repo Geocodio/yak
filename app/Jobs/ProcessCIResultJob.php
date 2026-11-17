@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Console\Commands\TimeoutAwaitingCiCommand;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\HeldEventKind;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
@@ -14,6 +15,7 @@ use App\Models\YakTask;
 use App\Services\PullRequestFinisher;
 use App\Services\Push\PullRequestPush;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StopNotifier;
 use App\Services\Teleport\HeldEvents;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Support\TaskContext;
@@ -73,14 +75,13 @@ class ProcessCIResultJob implements ShouldQueue
 
         $fresh->update([
             'status' => TaskStatus::Failed,
-            'error_log' => $errorMessage,
             'completed_at' => now(),
         ]);
 
         TaskLogger::error($fresh, 'Task failed during CI result processing', ['error' => $errorMessage]);
 
         try {
-            SendNotificationJob::dispatch($fresh, NotificationType::Error, "Task failed while finalizing: {$errorMessage}");
+            StopNotifier::notify($fresh, TaskStop::yakSideProblem($errorMessage));
         } catch (\Throwable $notifyError) {
             Log::channel('yak')->warning(self::class . ' failed() notification errored', [
                 'task_id' => $this->task->id,
@@ -304,28 +305,27 @@ class ProcessCIResultJob implements ShouldQueue
         $this->task->update([
             'status' => TaskStatus::Failed,
             'completed_at' => now(),
-            'error_log' => $failureSummary,
         ]);
 
-        SendNotificationJob::dispatch($this->task, NotificationType::Error, 'CI failed: ' . $this->failedCheckHeadings($failureSummary));
+        StopNotifier::notify($this->task, TaskStop::ciStillFailing(
+            $this->task->attempts - $this->task->attempts_at_manual_retry,
+            self::failedCheckNames($failureSummary),
+            $failureSummary,
+        ));
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
     }
 
     /**
-     * The `## <check name> (<url>)` headings of the CI output, without the
-     * log excerpts below them, so a chat notification names what failed
-     * without pasting logs into the thread. Output without headings (Drone,
-     * or the default message) passes through unchanged.
+     * The check names from the `## <name> (<url>)` headings of the CI output.
+     *
+     * @return list<string>
      */
-    private function failedCheckHeadings(string $failureSummary): string
+    public static function failedCheckNames(string $failureSummary): array
     {
-        $headings = array_values(array_filter(
-            explode("\n", $failureSummary),
-            fn (string $line): bool => str_starts_with($line, '## '),
-        ));
+        preg_match_all('/^## (.+?)(?: \(https?:\/\/\S+\))?\s*$/m', $failureSummary, $matches);
 
-        return $headings === [] ? $failureSummary : implode("\n", $headings);
+        return array_values(array_unique($matches[1]));
     }
 
     private function countLinesOfCode(Repository $repository): int

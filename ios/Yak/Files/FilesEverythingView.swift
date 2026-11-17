@@ -89,7 +89,7 @@ struct FilesEverythingView: FilesModeView {
             if snapshot.rows.isEmpty { return .problem(problem, retry: retry) }
             return nil
         case .loaded:
-            if snapshot.rows.isEmpty { return WorkspaceStateContent(title: "files.empty.title") }
+            if snapshot.rows.isEmpty { return WorkspaceStateContent(title: "files.everything.empty.title") }
             return nil
         }
     }
