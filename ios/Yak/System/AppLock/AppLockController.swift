@@ -14,6 +14,7 @@ final class AppLockController {
     @ObservationIgnored private let coversWhenActive: Bool
     @ObservationIgnored private var launchAskPending: Bool
 
+    @ObservationIgnored private var lockWindows: AnyObject?
     private(set) var policy: AppLockPolicy
     /// True while the settings store cannot be read. The content stays covered, because the lock may be on.
     private(set) var storeUnreadable: Bool
@@ -42,6 +43,11 @@ final class AppLockController {
         var policy = AppLockPolicy(isOn: settings.appLockOn, backgroundLimit: backgroundLimit)
         launchAskPending = policy.handle(.launched)
         self.policy = policy
+    }
+
+    /// Keeps the one set of lock windows alive and makes it only the first time it is asked.
+    func startWindowsOnce(_ make: () -> AnyObject) {
+        if lockWindows == nil { lockWindows = make() }
     }
 
     func coversContent(sceneIsActive: Bool) -> Bool {

@@ -12,26 +12,18 @@ extension View {
 
 private struct AppLockHost: ViewModifier {
     let controller: AppLockController
-    @State private var windows: AppLockWindows?
 
     func body(content: Content) -> some View {
         content
             .onAppear {
-                guard windows == nil else { return }
-                let created = AppLockWindows(controller: controller)
-                windows = created
-                created.start()
+                // Every scene root runs this; the windows are made once for the whole process.
+                controller.startWindowsOnce {
+                    let windows = AppLockWindows(controller: controller)
+                    windows.start()
+                    return windows
+                }
             }
             .task { await controller.launched() }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-                controller.appEnteredBackground()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                let ask = controller.relockIfDue()
-                Task { await controller.finishBecomingActive(askIfLocked: ask) }
-            }
-            .sensoryFeedback(.success, trigger: controller.unlockCount)
-            .sensoryFeedback(.error, trigger: controller.failureCount)
     }
 }
 
@@ -53,8 +45,9 @@ private struct LockWindowView: View {
     }
 }
 
-/// One `UIWindow` per window scene, above alerts, hidden unless it has something to show.
-@MainActor private final class AppLockWindows {
+/// One `UIWindow` per window scene, above alerts, hidden unless it has something to show. The process has one set of
+/// these, so it also owns the app-wide events and the haptics, which would otherwise repeat once per scene.
+@MainActor final class AppLockWindows {
     private struct Entry {
         let scene: UIWindowScene
         let window: UIWindow
@@ -66,8 +59,14 @@ private struct LockWindowView: View {
     private var entries: [ObjectIdentifier: Entry] = [:]
     private var observers: [any NSObjectProtocol] = []
     private var generation = 0
+    private var seenUnlocks: Int
+    private var seenFailures: Int
 
-    init(controller: AppLockController) { self.controller = controller }
+    init(controller: AppLockController) {
+        self.controller = controller
+        seenUnlocks = controller.unlockCount
+        seenFailures = controller.failureCount
+    }
 
     func start() {
         let center = NotificationCenter.default
@@ -83,6 +82,30 @@ private struct LockWindowView: View {
                     MainActor.assumeIsolated { self?.sceneChanged(scene, name: changed) }
                 })
         }
+        observers.append(
+            center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.controller.appEnteredBackground() }
+            })
+        observers.append(
+            center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) {
+                [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let controller = self?.controller else { return }
+                    let ask = controller.relockIfDue()
+                    Task { await controller.finishBecomingActive(askIfLocked: ask) }
+                }
+            })
+        observers.append(
+            center.addObserver(
+                forName: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let controller = self?.controller else { return }
+                    let isActive = UIApplication.shared.applicationState == .active
+                    Task { await controller.protectedDataBecameAvailable(isActive: isActive) }
+                }
+            })
         for case let scene as UIWindowScene in UIApplication.shared.connectedScenes { connect(scene) }
         render()
     }
@@ -123,6 +146,7 @@ private struct LockWindowView: View {
         let mine = generation
         withObservationTracking {
             for (key, entry) in entries { apply(scenes.shows(key, controller: controller), to: entry) }
+            playHaptics(unlocks: controller.unlockCount, failures: controller.failureCount)
         } onChange: { [weak self] in
             Task { @MainActor in
                 if let self, self.generation == mine { self.render() }
@@ -130,9 +154,18 @@ private struct LockWindowView: View {
         }
     }
 
+    private func playHaptics(unlocks: Int, failures: Int) {
+        let generator = UINotificationFeedbackGenerator()
+        if failures != seenFailures { generator.notificationOccurred(.error) }
+        if unlocks != seenUnlocks { generator.notificationOccurred(.success) }
+        seenUnlocks = unlocks
+        seenFailures = failures
+    }
+
     private func apply(_ shows: AppLockScenes<ObjectIdentifier>.Shows, to entry: Entry) {
-        let others = entry.scene.windows.filter { $0 !== entry.window }
-        for other in others { other.accessibilityElementsHidden = shows == .lockScreen }
+        for other in AppLockInput.windowsToHide(in: entry.scene.windows, lock: entry.window) {
+            other.accessibilityElementsHidden = shows == .lockScreen
+        }
         if shows != .nothing {
             // At once and without animation, so the app switcher snapshot is never taken half covered.
             entry.window.layer.removeAllAnimations()

@@ -81,7 +81,6 @@ struct SettingsPrivacySection: View {
             deviceRow
         }
         .task(id: "\(active.id)-\(app.refreshState)") { await loadDevice() }
-        .sensoryFeedback(.error, trigger: lock.toggle == .failed)
     }
 
     private func lockRow(_ lock: AppLockController) -> some View {
