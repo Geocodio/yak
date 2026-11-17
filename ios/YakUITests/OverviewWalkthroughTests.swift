@@ -482,7 +482,13 @@ import XCTest
     private func auditOverview(_ name: String) throws {
         let auditBars = AuditRules.Bars(app)
         // Read before the audit starts, because the audit removes elements from the tree while it runs.
-        let barFrames = (app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex).map(\.frame)
+        // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
+        // centre of the window free.
+        let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+        let barFrames = (
+            app.navigationBars.allElementsBoundByIndex
+                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
+        ).map(\.frame)
         try app.performAccessibilityAudit { [self, auditBars] issue in
             // The system caps the size of text in its bars.
             if let element = issue.element, barFrames.contains(where: { $0.contains(element.frame) }),
