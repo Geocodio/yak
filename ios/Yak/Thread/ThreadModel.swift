@@ -36,11 +36,6 @@ final class ThreadModel {
     private(set) var isNoticeActionRunning = false
     /// The name of the signed-in person, to tell their messages from other people's.
     private(set) var ownName: String?
-    /// The unsent message the person chose to edit. It stays in the outbox with its files; the composer takes it
-    /// with `ComposerModel.restore(_:)`. `editRequestSerial` changes with each request, so a repeated Edit on the
-    /// same message is seen.
-    private(set) var editRequest: OutboxItem?
-    private(set) var editRequestSerial = 0
 
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
@@ -323,10 +318,10 @@ extension ThreadModel {
         }
     }
 
-    /// Asks the composer to take an unsent message back for editing; nothing is removed.
-    func edit(_ item: OutboxItem) {
-        editRequest = item
-        editRequestSerial += 1
+    /// Hands an unsent message back to the composer: its text, model and files, taken out of the outbox. False when
+    /// it could not be taken; the composer then says why.
+    func edit(_ item: OutboxItem) async -> Bool {
+        await composer.restore(item)
     }
 
     /// The bytes of an attachment of an unsent message, read off the main actor.

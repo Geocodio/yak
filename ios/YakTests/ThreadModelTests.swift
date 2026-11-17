@@ -277,13 +277,17 @@ private func chatSnapshot(
         }
     }
     let item = try #require(refused)
-    #expect(model.editRequest == nil)
-    let serial = model.editRequestSerial
-    model.edit(item)
-    #expect(model.editRequest == item)
-    #expect(model.editRequestSerial == serial + 1)
-    #expect(await outbox.items().map(\.id) == [sent.id])
+    // Edit hands the refused message to the composer: its text, model and files, and it leaves the outbox.
+    #expect(await model.edit(item))
+    #expect(model.composer.text == item.text)
+    #expect(model.composer.model == item.model)
+    #expect(model.composer.attachments == item.attachments)
+    #expect(await outbox.items().map(\.id).contains(sent.id) == false)
     #expect(await fixture.session.attachmentData(attachment) != nil)
+    // A second Edit of the same message finds nothing to take and says so; the composer keeps what it has.
+    #expect(await model.edit(item) == false)
+    #expect(model.composer.text == item.text)
+    #expect(model.composer.problem == String(localized: "composer.problem.notEditable"))
     await model.stop()
     await fixture.session.stop()
 }

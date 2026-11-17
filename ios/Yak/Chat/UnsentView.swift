@@ -8,6 +8,8 @@ struct UnsentView: View {
     let item: OutboxItem
     let isOffline: Bool
     let thread: ThreadModel
+    /// The window's scene; the Debug chat gallery draws this view without one.
+    @Environment(SceneModel.self) private var scene: SceneModel?
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
@@ -59,7 +61,11 @@ struct UnsentView: View {
 
     @ViewBuilder private var buttons: some View {
         Button {
-            thread.edit(item)
+            Task {
+                guard await thread.edit(item) else { return }
+                scene?.focus(pane: .chat)
+                scene?.requestComposerFocus()
+            }
         } label: {
             Text("chat.message.edit")
         }
