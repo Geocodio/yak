@@ -45,6 +45,8 @@ final class ThreadModel {
     @ObservationIgnored private var markdownItems: [String: ConversationItem] = [:]
     @ObservationIgnored private var pendingMarkdown: [ConversationItem]?
     @ObservationIgnored private var markdownTask: Task<Void, Never>?
+    /// Which task `markdownTask` holds, so an older task cannot clear a newer one's handle.
+    @ObservationIgnored private var markdownTaskToken: UUID?
     @ObservationIgnored private var dirtyMarkdownKeys: Set<String> = []
     @ObservationIgnored private var flushTask: Task<Void, Never>?
     @ObservationIgnored private var actionLineTask: Task<Void, Never>?
@@ -234,12 +236,15 @@ extension ThreadModel {
         markdownItems = Dictionary(items.map { ($0.key, $0) }, uniquingKeysWith: { $1 })
         pendingMarkdown = items
         guard markdownTask == nil else { return }
+        let token = UUID()
+        markdownTaskToken = token
         markdownTask = Task { [weak self] in
             while let self, !Task.isCancelled, let items = self.pendingMarkdown {
                 self.pendingMarkdown = nil
                 await self.markdownCache?.update(with: items)
             }
-            self?.markdownTask = nil
+            // A task that `close()` cancelled can end after a newer one started; it clears only its own handle.
+            if self?.markdownTaskToken == token { self?.markdownTask = nil }
         }
     }
 
