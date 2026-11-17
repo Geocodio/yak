@@ -37,18 +37,25 @@ import XCTest
         }
     }
 
-    /// The thread screen's audit, with the allowances `ThreadSmokeTests` has for the same screen: the system caps
-    /// text in its own bars, and on some screens a contrast finding names no element.
+    /// The thread screen's audit, with the shared rules: the system caps text in its own bars, and what a bar
+    /// covers or the screen does not show has no contrast to measure.
     private func auditThread() throws {
-        try app.performAccessibilityAudit { [self] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, auditBars] issue in
+            // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
+            // centre of the window free.
+            let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+            let bars =
+                app.navigationBars.allElementsBoundByIndex
+                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            if issue.auditType == .contrast, issue.element == nil { return true }
-            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
-            XCTFail("audit: \(issue.compactDescription) | \(issue.detailedDescription)")
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+            XCTFail(
+                "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "none")"
+            )
             return true
         }
     }
