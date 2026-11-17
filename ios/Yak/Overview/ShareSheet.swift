@@ -204,7 +204,8 @@ private struct ShareSheetForm: View {
     private var slow: some View {
         card {
             Text("share.slow").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
-            Button("common.retry") { Task { await model.retry() } }.frame(minHeight: 44)
+            Button("common.retry") { Task { await model.retry() } }.fontWeight(.semibold).foregroundStyle(Color.primary)
+                .frame(minHeight: 44)
                 .accessibilityIdentifier("share.retry")
         }
         .accessibilityIdentifier("share.slow")
@@ -217,7 +218,8 @@ private struct ShareSheetForm: View {
             if case .server(_, let message) = problem, !message.isEmpty {
                 Text(message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
             }
-            Button("common.retry") { Task { await model.retry() } }.frame(minHeight: 44)
+            Button("common.retry") { Task { await model.retry() } }.fontWeight(.semibold).foregroundStyle(Color.primary)
+                .frame(minHeight: 44)
                 .accessibilityIdentifier("share.retry")
         }
         .accessibilityIdentifier("share.error")

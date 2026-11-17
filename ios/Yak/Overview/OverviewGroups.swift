@@ -496,24 +496,27 @@ struct SetupOutputSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(row.repo).font(.headline)
-                    if let error = row.error { Text(error).foregroundStyle(Color.yakWarning) }
-                    Text(row.output ?? "").font(.callout.monospaced()).textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("overview.setupOutput.text")
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(16)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(row.repo).font(.headline)
+                if let error = row.error { Text(error).foregroundStyle(Color.yakWarning) }
+                Text(row.output ?? "").font(.callout.monospaced()).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("overview.setupOutput.text")
             }
-            .navigationTitle(Text("overview.setupOutput.title")).navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("overview.done") { dismiss() }.accessibilityIdentifier("overview.setupOutput.done")
-                }
-            }
+            .frame(maxWidth: .infinity, alignment: .leading).padding(16)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SheetHeader(title: "overview.setupOutput.title") {
+                Color.clear.frame(width: 44, height: 44).accessibilityHidden(true)
+            } confirm: {
+                Button("overview.done") { dismiss() }.fontWeight(.semibold).foregroundStyle(Color.primary)
+                    .accessibilityIdentifier("overview.setupOutput.done")
+            }
+            .background(Color(.systemBackground))
+        }
+        .background(Color(.systemBackground))
+        .presentationBackground(Color(.systemBackground))
         .accessibilityIdentifier("overview.setupOutput")
     }
 }

@@ -102,7 +102,7 @@ struct SubThreadsGroupView: View {
                     Label("overview.addSubThread", systemImage: "plus").font(.body.weight(.medium))
                         .frame(minHeight: 44).contentShape(.rect)
                 }
-                .buttonStyle(NeutralAddButtonStyle()).disabled(isRefused)
+                .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(isRefused)
                 .accessibilityLabel(Text("overview.add")).accessibilityIdentifier("overview.addSubThread")
             }
         }
@@ -230,22 +230,23 @@ struct SubThreadsGroupView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(Color.yakWarning).padding(.horizontal, 16).padding(.vertical, 10)
+            .padding(.horizontal, 16).padding(.vertical, 10)
             .frame(minHeight: 44).contentShape(.rect)
         }
-        .buttonStyle(.plain).disabled(isStopping || model.isOffline)
+        .buttonStyle(MutedWhenDisabledButtonStyle(color: .yakWarning)).disabled(isStopping || model.isOffline)
         .accessibilityHint(model.isOffline ? Text("overview.notOffline") : Text(""))
         .accessibilityIdentifier("overview.stopAll")
     }
 }
 
-/// The summary row's Add: the primary text color, and the muted one while it is disabled. The plain style would dim
-/// the label to a contrast the accessibility audit rejects.
-private struct NeutralAddButtonStyle: ButtonStyle {
+/// A label in one color, and the muted color while the button is disabled. The plain style would dim the label to a
+/// contrast the accessibility audit rejects.
+struct MutedWhenDisabledButtonStyle: ButtonStyle {
+    let color: Color
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.foregroundStyle(isEnabled ? Color.primary : Color.yakMuted)
+        configuration.label.foregroundStyle(isEnabled ? color : Color.yakMuted)
             .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
