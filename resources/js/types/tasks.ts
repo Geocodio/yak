@@ -191,6 +191,7 @@ export type ProgressStep = {
     tooltip: string;
     done: boolean;
     current: boolean;
+    failed: boolean;
 };
 
 export type ActivityRow = {
