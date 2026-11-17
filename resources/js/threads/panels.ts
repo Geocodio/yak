@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { FilesMode, FocusRequest } from '@/threads/panels/files/filesMode';
 import type { StackData } from '@/types/stack';
-import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadNotice } from '@/types/threads';
+import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadMilestone, ThreadNotice, ThreadRequest, ThreadRunDetails } from '@/types/threads';
 import type { ThreadDiffSummary } from '@/types/thread-changes';
 
 export type PanelProps = {
@@ -10,6 +10,12 @@ export type PanelProps = {
     notice?: ThreadNotice | null;
     /** The files Claude made for the person, newest last. */
     sharedFiles?: SharedFile[];
+    /** Where the request came from and how far it got; undefined shows the group's skeleton. */
+    request?: ThreadRequest;
+    /** What the runs took; undefined shows the group's skeleton. */
+    runDetails?: ThreadRunDetails;
+    /** What each run reached, in time order; the Links group reads the latest CI result from it. */
+    milestones?: ThreadMilestone[];
     composerState?: ThreadComposer['state'];
     capacity?: ThreadCapacity | null;
     composer?: ThreadComposer;
