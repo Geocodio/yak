@@ -3,6 +3,7 @@
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\PendingSteeringMessage;
@@ -24,6 +25,38 @@ test('it requires authentication', function () {
     $task = YakTask::factory()->create();
 
     $this->get(route('tasks.show', $task))->assertRedirect(route('login'));
+});
+
+test('the CI step reads as waiting until CI passes', function () {
+    $task = YakTask::factory()->awaitingCi()->create();
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'Waiting for CI')
+            ->where('progress.steps.4.current', true));
+
+    $task->update(['status' => TaskStatus::Success]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('progress.steps.4.label', 'CI passed'));
+});
+
+test('the CI step turns red while Yak retries after a CI failure', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Retrying]);
+    TaskLog::create(['yak_task_id' => $task->id, 'level' => 'info', 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE, 'metadata' => ['passed' => false]]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'CI failed, retrying')
+            ->where('progress.steps.4.failed', true)
+            ->where('progress.steps.2.current', true));
+
+    $task->update(['status' => TaskStatus::AwaitingCi]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('progress.steps.4.label', 'Waiting for CI')
+            ->where('progress.steps.4.failed', false));
 });
 
 test('it renders the task detail page with the task fields', function () {

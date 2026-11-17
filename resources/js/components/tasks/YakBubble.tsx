@@ -35,7 +35,7 @@ export type YakBubbleContext = {
     onOpenFullLog: () => void;
 };
 
-const MILESTONE_LABELS = ['Pushed', 'CI passing', 'Pull request'];
+const MILESTONE_LABELS = ['Pushed', 'CI passed', 'Pull request'];
 
 function failureTitle({ mode, isFollowUp }: Pick<TaskDetail, 'mode' | 'isFollowUp'>): string {
     if (isFollowUp) {

@@ -95,7 +95,7 @@ test('a finished task folds its run into one line with the totals and leads with
         ->assertSeeIn('[data-testid="finished-summary"]', 'Ran 14 commands, read 6 files, 3 thinking steps')
         ->assertSee('Geocodio/website is set up')
         ->assertSeeIn('[data-testid="run-milestones"]', 'Pushed yak/sandbox-setup')
-        ->assertSeeIn('[data-testid="run-milestones"]', 'CI passing')
+        ->assertSeeIn('[data-testid="run-milestones"]', 'CI passed')
         ->assertSeeIn('[data-testid="run-milestones"]', 'Pull request #412')
         ->assertSee('Review PR #412')
         ->assertMissing('[data-testid="progress-strip"]')
