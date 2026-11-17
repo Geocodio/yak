@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHarness, start, SECRET } from './helpers/fake-sdk.mjs';
@@ -236,6 +237,29 @@ test('it sweeps leftover processes 60 seconds after the final answer without a r
   const swept = run.lines().find((line) => line.event === 'swept');
   assert.deepEqual(swept.pids, [900]);
   assert.deepEqual(swept.commands, ['node playwright run-server']);
+  await finish(run);
+});
+
+const recordedTurn = () => readFileSync(new URL('../../tests/Fixtures/runner-streams/natural-turn-end.jsonl', import.meta.url), 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)).filter((line) => ['assistant', 'result'].includes(line.type)).map(({ _ms, ...line }) => line);
+
+test('it arms the sweep on the recorded final answer when no result follows', async () => {
+  const sweeping = sweepOptions();
+  const messages = [toolUse, ...recordedTurn().filter((line) => line.type === 'assistant')];
+  assert.equal(messages.at(-1).message.stop_reason, null);
+  const run = createHarness({ messages, runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].delay, 60_000);
+  await finish(run);
+});
+
+test('it never sweeps the full recorded turn that ends with a result', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, ...recordedTurn()], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.deepEqual(sweeping.kills, []);
   await finish(run);
 });
 

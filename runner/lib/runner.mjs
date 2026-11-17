@@ -76,7 +76,8 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
     const blocks = Array.isArray(message.message?.content) ? message.message.content : [];
     if (turnStartedAtMs === null && blocks.some((block) => block?.type === 'tool_use')) turnStartedAtMs = now();
     cancelSweep();
-    if (message.message?.stop_reason === 'end_turn') sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+    // The final answer is a text-only message; the stream reports its stop_reason as null.
+    if (blocks.some((block) => block?.type === 'text') && !blocks.some((block) => block?.type === 'tool_use')) sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
   }
 
   async function* promptStream() {
