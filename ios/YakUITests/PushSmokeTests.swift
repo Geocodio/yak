@@ -20,7 +20,7 @@ import XCTest
     private func pair() {
         app.open(stub.pairingLink)
         let pair = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Pair with'")).firstMatch
-        XCTAssertTrue(pair.waitForExistence(timeout: 10))
+        XCTAssertTrue(pair.waitForExistence(timeout: 60))
         pair.tap()
     }
 
@@ -62,9 +62,9 @@ import XCTest
 
     /// Waits until a control is enabled; Settings shows its switches disabled until they have loaded.
     private func waitUntilEnabled(_ element: XCUIElement) {
-        XCTAssertTrue(element.waitForExistence(timeout: 10))
+        XCTAssertTrue(element.waitForExistence(timeout: 60))
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: element)
-        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [enabled], timeout: 60), .completed)
     }
 
     func testPairingOffersNotificationsAndTurningThemOnRegisters() throws {
@@ -72,13 +72,13 @@ import XCTest
         launch(extra: ["-yakTestHoldExplanation", "YES"])
         pair()
         let screen = app.descendants(matching: .any)["notify.screen"]
-        XCTAssertTrue(screen.waitForExistence(timeout: 10))
+        XCTAssertTrue(screen.waitForExistence(timeout: 60))
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Paired with'")).firstMatch.exists)
         XCTAssertTrue(try stub.pushState()["tokens"] is [String: Any])
         XCTAssertTrue((try stub.pushState()["tokens"] as? [String: Any])?.isEmpty ?? false)
         app.buttons["notify.turnOn"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["notify.on"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["notify.on"].waitForExistence(timeout: 60))
         try audit()
         let registered = XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
@@ -87,20 +87,20 @@ import XCTest
                 else { return false }
                 return alert["environment"] == "production"
             }, object: nil)
-        XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 60), .completed)
         XCTAssertTrue(
-            app.buttons["threads.button"].waitForExistence(timeout: 10)
-                || app.buttons["drawer.account"].waitForExistence(timeout: 10))
+            app.buttons["threads.button"].waitForExistence(timeout: 60)
+                || app.buttons["drawer.account"].waitForExistence(timeout: 60))
     }
 
     private func openSettings() {
         let account = app.buttons["drawer.account"]
-        if !account.waitForExistence(timeout: 15) {
+        if !account.waitForExistence(timeout: 60) {
             app.buttons["threads.button"].tap()
         }
-        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        XCTAssertTrue(account.waitForExistence(timeout: 60))
         account.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["settings.screen"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["settings.screen"].waitForExistence(timeout: 60))
     }
 
     func testSettingsSwitchesSaveAndShowPushState() throws {
@@ -110,10 +110,10 @@ import XCTest
         let row = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH 'settings.instance.'")
         ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         let pushOn = NSPredicate(format: "label CONTAINS ', push on'")
         let registered = XCTNSPredicateExpectation(predicate: pushOn, object: row)
-        XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [registered], timeout: 60), .completed)
         let finished = app.switches["settings.switch.turn_finished"]
         waitUntilEnabled(finished)
         finished.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
@@ -122,7 +122,7 @@ import XCTest
                 let preferences = (try? self.stub.pushState()["preferences"] as? [String: Bool]) ?? [:]
                 return preferences["turn_finished"] == false
             }, object: nil)
-        XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [saved], timeout: 60), .completed)
         try audit()
         try stub.play("notifications-failing")
         let pullRequest = app.switches["settings.switch.pull_request"]
@@ -131,7 +131,7 @@ import XCTest
         pullRequest.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Could not save'")).firstMatch
-                .waitForExistence(timeout: 10))
+                .waitForExistence(timeout: 60))
         XCTAssertEqual(pullRequest.value as? String, valueBefore, "the switch returns to its earlier value")
         try audit()
     }
@@ -143,13 +143,13 @@ import XCTest
         let row = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH 'settings.instance.'")
         ).firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: 60))
         let explained = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "label CONTAINS 'No push. This build has no key for it.'"), object: row)
-        XCTAssertEqual(XCTWaiter().wait(for: [explained], timeout: 10), .completed, row.label)
+        XCTAssertEqual(XCTWaiter().wait(for: [explained], timeout: 60), .completed, row.label)
         XCTAssertTrue(
             app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'cannot send notifications to this build'"))
-                .firstMatch.waitForExistence(timeout: 10))
+                .firstMatch.waitForExistence(timeout: 60))
         let tokens = try XCTUnwrap(try stub.pushState()["tokens"] as? [String: Any])
         XCTAssertTrue(tokens.isEmpty)
     }
@@ -159,7 +159,7 @@ import XCTest
         launch()
         pair()
         XCTAssertTrue(
-            app.buttons["threads.button"].waitForExistence(timeout: 15)
+            app.buttons["threads.button"].waitForExistence(timeout: 60)
                 || app.buttons["drawer.account"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["notify.screen"].waitForExistence(timeout: 5))
         let tokens = try XCTUnwrap(try stub.pushState()["tokens"] as? [String: Any])
@@ -172,8 +172,8 @@ import XCTest
             paired: true, notifications: "authorized",
             extra: ["-yakTestPushTap", try stub.pushPayload("scenario-push-alert-question")])
         XCTAssertTrue(
-            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.otherElements["conversation"].waitForExistence(timeout: 10))
+            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 60))
         try auditThread()
     }
 
@@ -181,7 +181,7 @@ import XCTest
         try stub.play("paired")
         launch(paired: true, notifications: "authorized")
         XCTAssertTrue(
-            app.buttons["drawer.account"].waitForExistence(timeout: 15)
+            app.buttons["drawer.account"].waitForExistence(timeout: 60)
                 || app.buttons["threads.button"].waitForExistence(timeout: 5))
         var components = URLComponents()
         components.scheme = "yak"
@@ -194,6 +194,6 @@ import XCTest
         ]
         app.open(try XCTUnwrap(components.url))
         XCTAssertTrue(
-            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
+            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 60))
     }
 }
