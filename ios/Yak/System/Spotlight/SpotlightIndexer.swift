@@ -30,6 +30,9 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private var isRunning = false
     @ObservationIgnored private var runAgain = false
+    @ObservationIgnored private var isBusy = false
+    @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored private var abandoned: Task<Void, Never>?
 
     init(
         writer: any SpotlightWriter, settings: PrivacySettings, appLock: AppLockController,
@@ -49,7 +52,8 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     // MARK: Runs
 
     /// At launch, when the app goes to the background and when either switch changes. Runs never overlap: a call
-    /// while one runs asks for one more run and returns.
+    /// while one runs asks for one more run and returns. Runs and removals take turns, so a removal never overlaps
+    /// a write in flight.
     func reindex() async {
         if isRunning {
             runAgain = true
@@ -59,7 +63,9 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
         defer { isRunning = false }
         repeat {
             runAgain = false
+            await acquire()
             await runOnce()
+            release()
         } while runAgain
     }
 
@@ -72,22 +78,32 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
 
     private func runOnce() async {
         state = .updating
-        var record = SpotlightIndexRecord.decode(store.data(forKey: Self.recordKey))
-        let paired = await pairedIDs()
-        let active = await activeLists()
+        let includePrivate = settings.spotlightIncludesPrivate
         let lockIsOn = appLock.policy.isOn
-        let privateAllowed = SpotlightIndexPlan.allowsPrivateTitles(
-            includePrivate: settings.spotlightIncludesPrivate, appLockOn: lockIsOn)
+        let privateAllowed = SpotlightIndexPlan.allowsPrivateTitles(includePrivate: includePrivate, appLockOn: lockIsOn)
         let changes = SpotlightIndexPlan.changes(
-            record: record, paired: paired, active: active, includePrivate: settings.spotlightIncludesPrivate,
-            appLockOn: lockIsOn, now: clock.now())
+            record: currentRecord(), paired: await pairedIDs(), active: await activeLists(),
+            includePrivate: includePrivate, appLockOn: lockIsOn, now: clock.now())
         for change in changes {
-            record = SpotlightIndexPlan.recordingIntent(of: change, includePrivate: privateAllowed, in: record)
-            save(record)
+            // The world may have moved while earlier changes were written: a replace goes ahead only for a domain
+            // that is still paired and while the settings it was planned under still hold.
+            if case .replace(let domain, _) = change {
+                let unchanged =
+                    settings.spotlightIncludesPrivate == includePrivate && appLock.policy.isOn == lockIsOn
+                guard unchanged else {
+                    runAgain = true
+                    return
+                }
+                guard await pairedIDs().contains(domain) else {
+                    runAgain = true
+                    return
+                }
+            }
+            update { SpotlightIndexPlan.recordingIntent(of: change, includePrivate: privateAllowed, in: $0) }
             let succeeded = await write(change, bound: Self.writeBound)
-            record = SpotlightIndexPlan.record(
-                record, after: change, succeeded: succeeded, includePrivate: privateAllowed)
-            save(record)
+            update {
+                SpotlightIndexPlan.record($0, after: change, succeeded: succeeded, includePrivate: privateAllowed)
+            }
             guard succeeded else {
                 state = .failed
                 return
@@ -106,46 +122,92 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
         return ids
     }
 
-    private func save(_ record: SpotlightIndexRecord) { store.set(record.encoded(), forKey: Self.recordKey) }
+    // MARK: The record
 
-    /// Applies one change, giving up after `bound`. The slow call is left to finish on its own.
+    private func currentRecord() -> SpotlightIndexRecord {
+        SpotlightIndexRecord.decode(store.data(forKey: Self.recordKey))
+    }
+
+    /// Reads the stored record afresh, changes it and saves it with no suspension in between, so a pending erasure
+    /// another path stored is merged into, never overwritten.
+    private func update(_ change: (SpotlightIndexRecord) -> SpotlightIndexRecord) {
+        store.set(change(currentRecord()).encoded(), forKey: Self.recordKey)
+    }
+
+    // MARK: Turns
+
+    private func acquire() async {
+        if isBusy {
+            await withCheckedContinuation { waiters.append($0) }
+        } else {
+            isBusy = true
+        }
+    }
+
+    private func release() {
+        if waiters.isEmpty {
+            isBusy = false
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+
+    // MARK: Writing
+
+    /// Applies one change, giving up after `bound`. A write that passes the bound is cancelled and marked in the
+    /// record as unfinished (the next run starts with an erase of everything); the next write waits until the
+    /// abandoned one has really ended, so it can never land after a later erase.
     private func write(_ change: SpotlightChange, bound: Duration) async -> Bool {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-            let gate = OneShot(continuation)
-            let writer = self.writer
-            let clock = self.clock
-            let timer = Task {
-                do { try await clock.sleep(for: bound) } catch { return }
-                gate.finish(false)
-            }
-            gate.onFinish = { timer.cancel() }
-            Task {
-                let succeeded: Bool
-                do {
-                    try await writer.apply(change)
-                    succeeded = true
-                } catch {
-                    #if canImport(os)
-                        Logger(subsystem: "Yak", category: "Spotlight")
-                            .error("Index change failed: \(String(describing: type(of: error)), privacy: .public)")
-                    #endif
-                    succeeded = false
-                }
-                gate.finish(succeeded)
+        if let abandoned {
+            await abandoned.value
+            self.abandoned = nil
+        }
+        let writer = self.writer
+        let clock = self.clock
+        let apply = Task { () -> Bool in
+            do {
+                try await writer.apply(change)
+                return true
+            } catch {
+                #if canImport(os)
+                    Logger(subsystem: "Yak", category: "Spotlight")
+                        .error("Index change failed: \(String(describing: type(of: error)), privacy: .public)")
+                #endif
+                return false
             }
         }
+        let finished: Bool? = await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
+            let gate = OneShot(continuation)
+            let timer = Task {
+                do { try await clock.sleep(for: bound) } catch { return }
+                gate.finish(nil)
+            }
+            gate.onFinish = { timer.cancel() }
+            Task { gate.finish(await apply.value) }
+        }
+        guard let finished else {
+            apply.cancel()
+            abandoned = Task { _ = await apply.value }
+            update {
+                var record = $0
+                record.pendingEraseAll = true
+                return record
+            }
+            return false
+        }
+        return finished
     }
 
     // MARK: Instances
 
     func instanceRemoved(_ instance: Instance, reason: InstanceRemoval) async {
-        var record = SpotlightIndexPlan.recordingRemoval(
-            of: instance.id, in: SpotlightIndexRecord.decode(store.data(forKey: Self.recordKey)))
-        save(record)
+        // Stored at once, before this call waits for a run in flight, so the erasure is never lost.
+        update { SpotlightIndexPlan.recordingRemoval(of: instance.id, in: $0) }
+        await acquire()
+        defer { release() }
         let change = SpotlightChange.erase(domains: [instance.id])
         let succeeded = await write(change, bound: Self.removalBound)
-        record = SpotlightIndexPlan.record(record, after: change, succeeded: succeeded, includePrivate: false)
-        save(record)
+        update { SpotlightIndexPlan.record($0, after: change, succeeded: succeeded, includePrivate: false) }
     }
 
     // MARK: Continuing an item
@@ -169,13 +231,13 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
 /// Lets the first of two racing tasks resume the waiting caller.
 private final class OneShot: @unchecked Sendable {
     private let lock = NSLock()
-    private var continuation: CheckedContinuation<Bool, Never>?
+    private var continuation: CheckedContinuation<Bool?, Never>?
     var onFinish: (@Sendable () -> Void)?
 
-    init(_ continuation: CheckedContinuation<Bool, Never>) { self.continuation = continuation }
+    init(_ continuation: CheckedContinuation<Bool?, Never>) { self.continuation = continuation }
 
-    func finish(_ value: Bool) {
-        let taken = lock.withLock { () -> CheckedContinuation<Bool, Never>? in
+    func finish(_ value: Bool?) {
+        let taken = lock.withLock { () -> CheckedContinuation<Bool?, Never>? in
             defer { continuation = nil }
             return continuation
         }

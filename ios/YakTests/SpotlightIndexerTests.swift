@@ -27,6 +27,10 @@ private final class RecordingWriter: SpotlightWriter, @unchecked Sendable {
     var clock: (any YakClock)?
     var probe: (@Sendable () -> SpotlightIndexRecord)?
     private(set) var probed: [SpotlightIndexRecord] = []
+    private var index: [String: Set<String>] = [:]
+
+    /// What the fake index holds for a domain.
+    func entries(in domain: UUID) -> Set<String> { lock.withLock { index[domain.uuidString] ?? [] } }
 
     var changes: [SpotlightChange] { lock.withLock { applied } }
     var isHolding: Bool { lock.withLock { held != nil } }
@@ -44,6 +48,13 @@ private final class RecordingWriter: SpotlightWriter, @unchecked Sendable {
         if hold { await withCheckedContinuation { continuation in lock.withLock { held = continuation } } }
         if let clock { try await clock.sleep(for: .seconds(3600)) }
         if failsErase, case .erase = change { throw Refused() }
+        lock.withLock {
+            switch change {
+            case .eraseAll: index = [:]
+            case .erase(let domains): for domain in domains { index[domain.uuidString] = nil }
+            case .replace(let domain, let entries): index[domain.uuidString] = Set(entries.map(\.identifier))
+            }
+        }
     }
 
     func release() {
@@ -192,6 +203,7 @@ private func titles(_ change: SpotlightChange) -> [String] {
         await run.value
         #expect(indexer.state == .failed)
         #expect(fixture.record.pendingErasures.isEmpty)
+        #expect(fixture.record.pendingEraseAll)
         fixture.clock.advance(.seconds(4000))
     }
 
@@ -248,5 +260,70 @@ private func titles(_ change: SpotlightChange) -> [String] {
         hostile.userInfo = [CSSearchableItemActivityIdentifier: "../../x"]
         #expect(await indexer.link(for: hostile) == nil)
         #expect(await indexer.link(for: NSUserActivity(activityType: "other")) == nil)
+    }
+
+    @Test func aRemovalDuringARunLeavesNoItemOfThatInstance() async throws {
+        let fixture = try await Fixture()
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        try await fixture.instances.markRevoked(fixture.first.id)
+        let removal = Task { await indexer.instanceRemoved(fixture.first, reason: .revoked) }
+        await Task.yield()
+        fixture.writer.release()
+        await run.value
+        await removal.value
+        #expect(fixture.writer.entries(in: fixture.first.id).isEmpty)
+        #expect(fixture.writer.changes.contains { titles($0).isEmpty == false })
+    }
+
+    @Test func aReplaceForADomainThatIsNoLongerPairedIsSkipped() async throws {
+        let fixture = try await Fixture()
+        fixture.store.set(nil, forKey: SpotlightIndexer.recordKey)
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        try await fixture.instances.markRevoked(fixture.first.id)
+        fixture.writer.release()
+        await run.value
+        #expect(!fixture.writer.changes.contains { titles($0).isEmpty == false })
+        #expect(fixture.writer.entries(in: fixture.first.id).isEmpty)
+    }
+
+    @Test func aPendingErasureSurvivesAConcurrentSave() async throws {
+        let fixture = try await Fixture()
+        fixture.writer.holdsFirst = true
+        fixture.writer.failsErase = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        let removal = Task { await indexer.instanceRemoved(fixture.first, reason: .unpaired) }
+        await Task.yield()
+        fixture.writer.release()
+        await run.value
+        await removal.value
+        #expect(fixture.record.pendingErasures.contains(fixture.first.id))
+    }
+
+    @Test func aWriteThatTimesOutAndFinishesLateIsErasedByTheNextErase() async throws {
+        let fixture = try await Fixture()
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        while fixture.clock.sleeperCount(waking: .seconds(10)) == 0 { await Task.yield() }
+        fixture.clock.advance(.seconds(10))
+        await run.value
+        #expect(indexer.state == .failed)
+        #expect(fixture.record.pendingEraseAll)
+        let removal = Task { await indexer.instanceRemoved(fixture.first, reason: .unpaired) }
+        await Task.yield()
+        // The abandoned write ends late, and the erase that follows still leaves nothing behind.
+        fixture.writer.release()
+        await removal.value
+        #expect(fixture.writer.entries(in: fixture.first.id).isEmpty)
+        #expect(fixture.writer.changes.contains { titles($0).isEmpty == false })
     }
 }

@@ -37,6 +37,8 @@ struct CoreSpotlightWriter: SpotlightWriter {
             try await index.deleteSearchableItems(withDomainIdentifiers: domains.map(\.uuidString))
         case .replace(let domain, let entries):
             try await index.deleteSearchableItems(withDomainIdentifiers: [domain.uuidString])
+            // A write that was abandoned for taking too long is cancelled and indexes nothing.
+            try Task.checkCancellation()
             if !entries.isEmpty { try await index.indexSearchableItems(entries.map(Self.item(for:))) }
         }
     }
