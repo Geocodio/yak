@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
 use App\Services\RepositoryConfig;
+use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\ThreadsAwaitingRepository;
 use Carbon\CarbonImmutable;
 use Database\Factories\RepositoryFactory;
@@ -71,6 +72,7 @@ class Repository extends Model
         static::updated(function (self $repository): void {
             if ($repository->wasChanged('setup_status')) {
                 app(ThreadsAwaitingRepository::class)->repositoryStatusChanged($repository);
+                app(TaskActions::class)->continueTasksAwaitingSetup($repository);
             }
         });
     }

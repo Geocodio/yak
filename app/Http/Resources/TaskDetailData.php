@@ -176,6 +176,7 @@ final class TaskDetailData
             'summary' => $task->description_summary ?: Str::limit((string) $task->description, 70),
             'repo' => $task->repo,
             'repoUrl' => $repository !== null ? route('repos.edit', $repository) : null,
+            'repositorySetup' => self::repositorySetup($task, $repository),
             'sourceLabel' => ucfirst(str_replace('-', ' ', (string) $task->source)),
             'sourceUrl' => TaskSourceUrl::resolve($task),
             'trigger' => TaskTrigger::describe($task),
@@ -231,6 +232,7 @@ final class TaskDetailData
                 $task->mode === TaskMode::Review => 'Review failed. Click Re-run review above to run it again against the current PR head.',
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
                 $task->mode === TaskMode::Setup => 'Setup failed. Fix the cause shown above, then click Retry.',
+                $task->resume_after_setup_at !== null => 'Waiting for repository setup. Yak continues this task when it finishes.',
                 in_array($task->source, ['slack', 'linear', 'email'], true) => 'Task failed. Click Retry above, or mention Yak again with more context.',
                 default => 'Task failed. Click Retry above to run it again.',
             },
@@ -367,6 +369,38 @@ final class TaskDetailData
             'meta' => $meta,
             'bodyHtml' => Markdown::toHtml($entry->text),
             'fullText' => $entry->summary,
+        ];
+    }
+
+    /**
+     * What the failure card shows when a task stopped and its repository has no ready
+     * sandbox: whether setup is running, whether this task continues after it, and the
+     * last setup task when that one failed.
+     *
+     * @return array{repo: string, settingsUrl: string, isSettingUp: bool, continuesAfterSetup: bool, failedSetup: array{at: string, url: string}|null}|null
+     */
+    private static function repositorySetup(YakTask $task, ?Repository $repository): ?array
+    {
+        if ($repository === null
+            || ! empty($repository->sandbox_snapshot)
+            || $task->mode === TaskMode::Setup
+            || ! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
+            return null;
+        }
+
+        $failedSetup = $repository->setup_status === 'failed' && $repository->setup_task_id !== null
+            ? YakTask::withoutGlobalScopes()->find($repository->setup_task_id)
+            : null;
+
+        return [
+            'repo' => $repository->slug,
+            'settingsUrl' => route('repos.edit', $repository),
+            'isSettingUp' => in_array($repository->setup_status, ['pending', 'running'], true),
+            'continuesAfterSetup' => $task->resume_after_setup_at !== null,
+            'failedSetup' => $failedSetup === null ? null : [
+                'at' => ($failedSetup->completed_at ?? $failedSetup->updated_at)->format('g:i A'),
+                'url' => route('tasks.show', $failedSetup),
+            ],
         ];
     }
 

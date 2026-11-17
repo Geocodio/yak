@@ -61,7 +61,7 @@ class EnsureRepoReady
             $this->refuse(
                 $job,
                 $task,
-                "Repository '{$task->repo}' has not been set up yet — run Setup before dispatching tasks",
+                "Repository '{$task->repo}' has not been set up yet. Run Setup from its settings, then retry: " . route('repos.edit', $repository),
             );
 
             return;
