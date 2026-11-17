@@ -13,7 +13,6 @@ use App\Services\Tasks\TaskProgressSteps;
 use App\Services\Threads\ThreadRequestStatus;
 use App\Services\Threads\ThreadTasks;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Str;
 
 /**
  * Where a thread's request came from, how far it got and what its runs cost.
@@ -30,6 +29,9 @@ use Illuminate\Support\Str;
 final class ThreadRequestData
 {
     private const int ERROR_LOG_LIMIT_BYTES = 16384;
+
+    /** The fixed key of each step slot, in order. The co-owner slot exists only when the task page shows it. */
+    private const array STEP_KEYS = ['received', 'picked_up', 'working', 'pushed', 'ci', 'co_owner', 'pull_request', 'done'];
 
     /**
      * @return array{request: ThreadRequestInfo, progress: ?ThreadProgress, runDetails: ThreadRunDetails}
@@ -60,8 +62,10 @@ final class ThreadRequestData
 
         $steps = TaskProgressSteps::for(ThreadTasks::pullRequestTask($thread) ?? $head, $head, ThreadTasks::coOwnerRequest($thread));
 
-        return ['steps' => array_values(array_map(fn (array $step): array => [
-            'key' => Str::snake($step['label']),
+        $keys = count($steps) === count(self::STEP_KEYS) ? self::STEP_KEYS : array_values(array_diff(self::STEP_KEYS, ['co_owner']));
+
+        return ['steps' => array_values(array_map(fn (array $step, int $index): array => [
+            'key' => $keys[$index],
             'label' => $step['label'],
             'tooltip' => $step['tooltip'],
             'state' => match (true) {
@@ -70,7 +74,7 @@ final class ThreadRequestData
                 $step['done'] => 'done',
                 default => 'upcoming',
             },
-        ], $steps))];
+        ], $steps, array_keys($steps)))];
     }
 
     /**

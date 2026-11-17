@@ -233,13 +233,13 @@
                 "tooltip": "Changes committed and pushed to a branch."
             },
             {
-                "key": "c_i_passed",
+                "key": "ci",
                 "label": "CI passed",
                 "state": "done",
                 "tooltip": "CI verifies the changes before the pull request opens."
             },
             {
-                "key": "waiting_for_a_co-owner",
+                "key": "co_owner",
                 "label": "Waiting for a co-owner",
                 "state": "current",
                 "tooltip": "A co-owner with write access has to approve before Yak opens the pull request."
@@ -265,8 +265,8 @@
     "request": {
         "responsibleName": null,
         "source": {
-            "key": "dashboard",
-            "label": "Dashboard",
+            "key": "slack",
+            "label": "Slack",
             "reference": null,
             "url": null
         },

@@ -17,7 +17,7 @@ $probes = [
     'co-owner/check-access' => ['POST', true, []],
     'co-owner/tag' => ['POST', true, ['user_id' => 1]],
     'co-owner/decline' => ['POST', true, []],
-    'co-owner/candidates' => ['GET', false, []],
+    'co-owner/candidates' => ['GET', true, []],
 ];
 
 $names = [];

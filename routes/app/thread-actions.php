@@ -5,9 +5,8 @@ use App\Http\Controllers\Api\App\Threads\ThreadRepositoryAnswerController;
 use App\Http\Controllers\Api\App\Threads\ThreadTaskActionController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('threads/{thread}/co-owner/candidates', [ThreadCoOwnerController::class, 'candidates'])->name('app.threads.co-owner.candidates');
-
 Route::middleware('thread.drive')->group(function (): void {
+    Route::get('threads/{thread}/co-owner/candidates', [ThreadCoOwnerController::class, 'candidates'])->name('app.threads.co-owner.candidates');
     Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('app.threads.retry');
     Route::post('threads/{thread}/setup-and-continue', [ThreadTaskActionController::class, 'setUpRepositoryAndContinue'])->name('app.threads.setup-and-continue');
     Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('app.threads.cancel');

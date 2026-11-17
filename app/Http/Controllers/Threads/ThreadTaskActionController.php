@@ -2,19 +2,15 @@
 
 namespace App\Http\Controllers\Threads;
 
-use App\Actions\RequestReReview;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Threads\Concerns\RespondsToThreadActions;
 use App\Http\Requests\Api\App\StoreThreadClarificationAnswersRequest;
-use App\Http\Requests\Tasks\RerouteTaskRequest;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClarificationAnswerSubmitter;
-use App\Services\Tasks\TaskActions;
 use App\Services\Threads\ThreadAccess;
-use App\Services\Threads\ThreadTasks;
-use App\Services\Threads\ThreadTurns;
+use App\Services\Threads\ThreadTaskActions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -27,74 +23,44 @@ class ThreadTaskActionController extends Controller
 {
     use RespondsToThreadActions;
 
-    public function retry(Thread $thread, TaskActions $actions): RedirectResponse
-    {
-        $isClosedLegacy = $thread->is_legacy && ! $thread->isOpen();
-        $head = $isClosedLegacy ? null : ThreadTasks::head($thread);
+    public function __construct(private readonly ThreadTaskActions $actions) {}
 
-        if ($head === null) {
-            $this->nothingTo('retry');
+    public function retry(Thread $thread): RedirectResponse
+    {
+        return $this->respond($thread, fn (): string => $this->actions->retry($thread)->sentence);
+    }
+
+    public function setUpRepositoryAndContinue(Request $request, Thread $thread): RedirectResponse
+    {
+        return $this->respond($thread, fn (): string => $this->actions->setUpRepositoryAndContinue($thread, $this->user($request))->sentence);
+    }
+
+    public function cancel(Request $request, Thread $thread): RedirectResponse
+    {
+        return $this->respond($thread, fn (): string => $this->actions->cancel($thread, $this->user($request))->sentence);
+    }
+
+    public function move(Request $request, Thread $thread): RedirectResponse
+    {
+        $head = $this->guard($thread, fn () => $this->actions->guardMove($thread));
+
+        if ($head instanceof RedirectResponse) {
+            return $head;
         }
+        $repo = $request->validate(ThreadTaskActions::MOVE_RULES)['repo'];
 
-        return $this->respond($thread, function () use ($thread, $head, $actions): string {
-            $this->refuseClosed($thread);
-            $this->requireRepository($thread);
+        return $this->respond($thread, function () use ($thread, $head, $repo): RedirectResponse {
+            $moved = $this->actions->move($head, $thread, $repo);
+            $redirect = redirect()->route('threads.show', $moved['thread']);
 
-            return $actions->retry($head)->sentence;
+            return $moved['outcome']->sentence === '' ? $redirect : $redirect->with('success', $moved['outcome']->sentence);
         });
     }
 
-    public function setUpRepositoryAndContinue(Request $request, Thread $thread, TaskActions $actions): RedirectResponse
+    public function requestReview(Request $request, Thread $thread, ThreadAccess $access): RedirectResponse
     {
-        $head = ThreadTasks::head($thread) ?? $this->nothingTo('retry');
-
-        return $this->respond($thread, function () use ($request, $thread, $head, $actions): string {
-            $this->refuseClosed($thread);
-            $this->requireRepository($thread);
-
-            return $actions->setUpRepositoryAndContinue($head, $this->user($request))->sentence;
-        });
-    }
-
-    public function cancel(Request $request, Thread $thread, TaskActions $actions, ThreadTurns $turns): RedirectResponse
-    {
-        $head = ThreadTasks::head($thread) ?? $this->nothingTo('cancel');
-
-        return $this->respond($thread, function () use ($request, $thread, $head, $actions, $turns): string {
-            $this->refuseClosed($thread);
-            $turns->stop($thread);
-
-            return $actions->cancel($head, $this->user($request))->sentence;
-        });
-    }
-
-    public function move(RerouteTaskRequest $request, Thread $thread, TaskActions $actions): RedirectResponse
-    {
-        $head = ThreadTasks::head($thread) ?? $this->nothingTo('move');
-
-        return $this->respond($thread, function () use ($request, $thread, $head, $actions): RedirectResponse {
-            $this->refuseClosed($thread);
-            $sentence = $actions->reroute($head, $request->validated('repo'))->sentence;
-            $current = $head->refresh()->thread;
-            $redirect = redirect()->route('threads.show', $current);
-
-            return $sentence === '' ? $redirect : $redirect->with('success', $sentence);
-        });
-    }
-
-    public function requestReview(Request $request, Thread $thread, RequestReReview $requestReReview, ThreadAccess $access): RedirectResponse
-    {
-        $task = ThreadTasks::pullRequestTask($thread);
-
-        if ($task === null || blank($task->pr_url)) {
-            $this->nothingTo('review');
-        }
-
-        return $this->respond($thread, function () use ($request, $thread, $task, $requestReReview, $access): RedirectResponse {
-            $this->refuseClosed($thread);
-            $this->requireRepository($thread);
-
-            $outcome = $requestReReview($task);
+        return $this->respond($thread, function () use ($request, $thread, $access): RedirectResponse {
+            $outcome = $this->actions->requestReview($thread);
             $reviewThread = $outcome->isNewReview ? $outcome->task->thread : null;
             $target = $reviewThread !== null && $access->canSee($request->user(), $reviewThread) ? $reviewThread : $thread;
 
@@ -102,16 +68,9 @@ class ThreadTaskActionController extends Controller
         });
     }
 
-    public function retryRender(Thread $thread, TaskActions $actions): RedirectResponse
+    public function retryRender(Thread $thread): RedirectResponse
     {
-        $task = ThreadTasks::pullRequestTask($thread) ?? $this->nothingTo('render');
-
-        return $this->respond($thread, function () use ($thread, $task, $actions): string {
-            $this->refuseClosed($thread);
-            $this->requireRepository($thread);
-
-            return $actions->retryRender($task)->sentence;
-        });
+        return $this->respond($thread, fn (): string => $this->actions->retryRender($thread)->sentence);
     }
 
     public function answerClarification(StoreThreadClarificationAnswersRequest $request, Thread $thread, ClarificationAnswerSubmitter $submitter): RedirectResponse

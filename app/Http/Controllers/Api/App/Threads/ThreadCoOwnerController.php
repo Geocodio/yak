@@ -15,7 +15,6 @@ use App\Services\Threads\ThreadTasks;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 
 /**
  * The co-owner decisions and the early warning answer, driven from the thread. The app task controllers run them, so who may take each decision is decided in the co-owner services for the task route and the thread route alike.
@@ -66,8 +65,6 @@ class ThreadCoOwnerController extends Controller
 
     public function candidates(Request $request, Thread $thread, EarlyWarningController $warning): JsonResponse
     {
-        abort_unless(Gate::allows('view', $thread), 404);
-
         return $warning->candidates($request, $this->taskFor($thread, isEarlyWarning: true));
     }
 

@@ -68,6 +68,26 @@ dataset('thread action routes', [
     'co-owner/approve', 'co-owner/request-changes', 'co-owner/reject', 'co-owner/withdraw', 'co-owner/check-access', 'co-owner/tag', 'co-owner/decline',
 ]);
 
+it('refuses a viewer who cannot drive the candidates and hides them from a stranger', function () {
+    $task = appActionTask($this->user, ['early_warning' => ['areas' => [['name' => 'Billing', 'risk' => 'high']], 'state' => 'shown']]);
+    $thread = appActionThread($task)->forceFill(['visibility' => 'private', 'owner_user_id' => $this->user->id]);
+    $thread->save();
+    $viewer = User::factory()->create();
+    ThreadShare::query()->create(['thread_id' => $thread->id, 'user_id' => $viewer->id]);
+
+    $this->getJson(appThreadPath($thread, '/co-owner/candidates'), phoneHeadersFor($viewer))->assertForbidden()->assertJsonPath('error', 'forbidden');
+    $this->getJson(appThreadPath($thread, '/co-owner/candidates'), phoneHeadersFor(User::factory()->create()))->assertNotFound();
+    $this->getJson(appThreadPath($thread, '/co-owner/candidates'), $this->headers)->assertOk()->assertJsonStructure(['candidates', 'isComplete']);
+});
+
+it('checks the thread state before the body of a move and a repository answer', function (string $route) {
+    $task = appActionTask($this->user);
+    $thread = appActionThread($task);
+    $thread->update(['status' => 'closed', 'closed_at' => now(), 'close_reason' => 'merged']);
+
+    $this->postJson(appThreadPath($thread, "/{$route}"), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'thread_closed');
+})->with(['move', 'repository-answer']);
+
 it('refuses a viewer who cannot drive and hides the thread from a stranger', function (string $route) {
     $task = appActionTask($this->user);
     $thread = appActionThread($task)->forceFill(['visibility' => 'private', 'owner_user_id' => User::factory()->create()->id]);
@@ -82,17 +102,6 @@ it('refuses a viewer who cannot drive and hides the thread from a stranger', fun
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertNothingPushed();
 })->with('thread action routes');
-
-it('lets a viewer read the candidates and hides them from a stranger', function () {
-    $task = appActionTask($this->user, ['early_warning' => ['areas' => [['name' => 'Billing', 'risk' => 'high']], 'state' => 'shown']]);
-    $thread = appActionThread($task)->forceFill(['visibility' => 'private', 'owner_user_id' => $this->user->id]);
-    $thread->save();
-    $viewer = User::factory()->create();
-    ThreadShare::query()->create(['thread_id' => $thread->id, 'user_id' => $viewer->id]);
-
-    $this->getJson(appThreadPath($thread, '/co-owner/candidates'), phoneHeadersFor($viewer))->assertOk()->assertJsonStructure(['candidates', 'isComplete']);
-    $this->getJson(appThreadPath($thread, '/co-owner/candidates'), phoneHeadersFor(User::factory()->create()))->assertNotFound();
-});
 
 it('answers a thread without a fitting task with its nothing-to code', function (string $route, string $code) {
     $thread = Thread::factory()->create(['repo' => 'web']);

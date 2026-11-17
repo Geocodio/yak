@@ -32,11 +32,35 @@ trait RespondsToThreadActions
     /**
      * @param  Closure(): (string|RedirectResponse|null)  $action  returns the sentence to flash, a redirect of its own, or null
      */
+    /**
+     * Runs the guard of an action that has a body, before the body is validated. A refusal answers like {@see respond()} does.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $guard
+     * @return T|RedirectResponse
+     */
+    private function guard(Thread $thread, Closure $guard): mixed
+    {
+        $guarded = null;
+        $redirect = $this->respond($thread, function () use ($guard, &$guarded): null {
+            $guarded = $guard();
+
+            return null;
+        });
+
+        return $guarded ?? $redirect;
+    }
+
     private function respond(Thread $thread, Closure $action): RedirectResponse
     {
         try {
             $result = $action();
         } catch (ThreadActionRefused $refused) {
+            if (str_starts_with($refused->errorCode, 'nothing_to_')) {
+                $this->nothingTo(substr($refused->errorCode, strlen('nothing_to_')));
+            }
+
             return redirect()->route('threads.show', $thread)->with('error', $refused->getMessage());
         } catch (HttpException $unavailable) {
             if ($unavailable->getStatusCode() !== 503) {

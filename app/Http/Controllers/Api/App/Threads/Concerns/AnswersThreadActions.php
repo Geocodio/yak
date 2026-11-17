@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\App\Threads\Concerns;
 
-use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Threads\Concerns\GuardsThreadActions;
 use App\Http\Resources\AppThreadData;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Threads\ThreadTaskActions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +19,7 @@ trait AnswersThreadActions
 
     private function nothingTo(string $verb): never
     {
-        throw new ThreadActionRefused("nothing_to_{$verb}", "This thread has nothing to {$verb}.", [], 422);
+        throw ThreadTaskActions::nothingTo($verb);
     }
 
     private function answer(Request $request, Thread $thread, string $status): JsonResponse

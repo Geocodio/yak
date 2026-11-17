@@ -178,7 +178,7 @@
                 "tooltip": "Changes committed and pushed to a branch."
             },
             {
-                "key": "c_i_passed",
+                "key": "ci",
                 "label": "CI passed",
                 "state": "upcoming",
                 "tooltip": "CI verifies the changes before the pull request opens."

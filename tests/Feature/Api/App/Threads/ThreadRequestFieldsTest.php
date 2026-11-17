@@ -5,8 +5,10 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
+use App\Jobs\ProcessCIResultJob;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
@@ -90,7 +92,7 @@ it('shows the repository question', function () {
 it('shows a waiting co-owner request', function () {
     $repository = Repository::factory()->create(['slug' => 'example-api', 'github_full_name' => 'example/api']);
     $coOwner = User::factory()->withGitHub()->create(['name' => 'Second person']);
-    $thread = cardThread($this->user, ['repo' => 'example-api']);
+    $thread = cardThread($this->user, ['repo' => 'example-api', 'source' => 'slack']);
     $task = YakTask::factory()->awaitingCoOwner()->create(['thread_id' => $thread->id, 'repo' => 'example-api', 'branch_name' => 'yak/retry-failed-uploads', 'description' => 'Retry failed uploads', 'source' => 'slack', 'started_by_user_id' => $this->user->id]);
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'repository_id' => $repository->id, 'asked_user_ids' => [$coOwner->id], 'status' => CoOwnerRequestStatus::Pending]);
 
@@ -125,4 +127,33 @@ it('keeps the question card key for a thread with questions', function () {
     ])], 'One decision.');
 
     $this->getJson(appThreadPath($thread), $this->headers)->assertOk()->assertJsonPath('card', 'question');
+});
+
+it('gives every CI variant of the progress row the same fixed key', function (string $state) {
+    $thread = cardThread($this->user);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/api', 'branch_name' => 'yak/x', 'started_by_user_id' => $this->user->id, 'status' => match ($state) {
+        'waiting' => TaskStatus::AwaitingCi, 'failing' => TaskStatus::Failed, 'retrying' => TaskStatus::Retrying, default => TaskStatus::Running,
+    }]);
+
+    if ($state !== 'waiting') {
+        TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE, 'metadata' => ['passed' => $state === 'passing']]);
+    }
+
+    $steps = $this->getJson(appThreadPath($thread), $this->headers)->assertOk()->json('progress.steps');
+
+    expect(collect($steps)->pluck('key')->all())->toBe(['received', 'picked_up', 'working', 'pushed', 'ci', 'pull_request', 'done'])
+        ->and(collect($steps)->firstWhere('key', 'ci')['label'])->toBe(match ($state) {
+            'waiting' => 'Waiting for CI', 'failing' => 'CI failed', 'retrying' => 'CI failed, retrying', default => 'CI passed',
+        });
+})->with(['waiting', 'failing', 'retrying', 'passing']);
+
+it('adds the co-owner slot only when the task page shows it', function () {
+    $repository = Repository::factory()->create(['slug' => 'example-api', 'github_full_name' => 'example/api']);
+    $thread = cardThread($this->user, ['repo' => 'example-api']);
+    $task = YakTask::factory()->awaitingCoOwner()->create(['thread_id' => $thread->id, 'repo' => 'example-api', 'started_by_user_id' => $this->user->id]);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'repository_id' => $repository->id]);
+
+    $keys = collect($this->getJson(appThreadPath($thread), $this->headers)->assertOk()->json('progress.steps'))->pluck('key')->all();
+
+    expect($keys)->toBe(['received', 'picked_up', 'working', 'pushed', 'ci', 'co_owner', 'pull_request', 'done']);
 });
