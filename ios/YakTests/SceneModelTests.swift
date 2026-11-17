@@ -53,11 +53,21 @@ private func instance(_ address: String) -> Instance {
 
 @MainActor @Test func aRestoredStateRoundTrips() throws {
     let state = SceneState(
-        threadID: "e5f6g7h8", focusedPane: .chat, isDrawerOpen: true, isNewThreadOpen: false, filter: .everyone)
+        threadID: "e5f6g7h8", focusedPane: .chat, isDrawerOpen: true, isNewThreadOpen: false, filter: .everyone,
+        isOverviewPanelOpen: true)
     let data = try JSONEncoder().encode(state)
     #expect(SceneModel.restoredState(from: data) == state)
     #expect(SceneModel.restoredState(from: Data("garbage".utf8)) == SceneState())
     #expect(SceneModel.restoredState(from: nil) == SceneState())
+}
+
+@MainActor @Test func aStoredStateWithoutThePanelFieldReadsAsClosed() {
+    let stored = Data(
+        #"{"threadID":"e5f6g7h8","focusedPane":"chat","isDrawerOpen":true,"isNewThreadOpen":false,"filter":"mine"}"#
+            .utf8)
+    let state = SceneModel.restoredState(from: stored)
+    #expect(state.threadID == "e5f6g7h8")
+    #expect(!state.isOverviewPanelOpen)
 }
 
 @MainActor @Test func resettingTheWindowForAnotherInstanceStartsOver() {
