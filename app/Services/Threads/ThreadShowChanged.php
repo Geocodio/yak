@@ -21,7 +21,7 @@ class ThreadShowChanged
 
         DB::afterCommit(function () use ($threadId): void {
             try {
-                app(ThreadEventPublisher::class)->appendThreadState($threadId);
+                app(ThreadEventPublisher::class)->appendThreadState($threadId, withShowKey: true);
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -35,7 +35,7 @@ class ThreadShowChanged
     public static function key(int $threadId): string
     {
         $thread = DB::table('threads')->where('id', $threadId)->first(['repo', 'status']);
-        $head = DB::table('tasks')->where('thread_id', $threadId)->orderByDesc('id')->first(['id', 'status', 'stop_kind', 'resume_after_setup_at']);
+        $head = DB::table('tasks')->where('thread_id', $threadId)->orderByDesc('id')->first(['id', 'status', 'stop_kind', 'stop_summary', 'resume_after_setup_at']);
         $root = DB::table('tasks')->where('thread_id', $threadId)->orderBy('id')->first(['early_warning', 'tagged_co_owner_user_id']);
         $request = DB::table('co_owner_requests')
             ->join('tasks', 'tasks.id', '=', 'co_owner_requests.task_id')
@@ -47,7 +47,7 @@ class ThreadShowChanged
 
         return substr(md5(json_encode([
             $thread?->repo, $thread?->status,
-            $head?->id, $head?->status, $head?->stop_kind, $head?->resume_after_setup_at !== null,
+            $head?->id, $head?->status, $head?->stop_kind, $head?->stop_summary, $head?->resume_after_setup_at !== null,
             $warning, $root?->tagged_co_owner_user_id,
             $request?->id, $request?->status, $request?->asked_user_ids,
         ], JSON_THROW_ON_ERROR)), 0, 12);

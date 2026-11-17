@@ -67,7 +67,9 @@ final class ThreadNoticeData
             $notice['repositoryUrl'] = $isRepositoryBlock ? route('repos.edit', $thread->repo) : null;
 
             if ($isRepositoryBlock) {
-                $notice = [...$notice, ...self::repositorySetup($thread, $viewer)];
+                $setup = self::repositorySetup($thread, $viewer);
+                $notice['canContinueAfterSetup'] = $setup['canContinueAfterSetup'];
+                $notice['failedSetupRunUrl'] = $setup['failedSetupRunUrl'];
             }
 
             return $notice;

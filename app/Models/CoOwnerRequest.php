@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Throwable;
 
 /**
  * A change held for a co-owner before Yak opens its pull request.
@@ -43,7 +44,11 @@ class CoOwnerRequest extends Model
     protected static function booted(): void
     {
         static::saved(function (CoOwnerRequest $request): void {
-            ThreadShowChanged::publish(YakTask::query()->withoutGlobalScopes()->whereKey($request->task_id)->value('thread_id'));
+            try {
+                ThreadShowChanged::publish(YakTask::query()->withoutGlobalScopes()->whereKey($request->task_id)->value('thread_id'));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         });
     }
 

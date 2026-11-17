@@ -85,17 +85,17 @@ class ThreadEventPublisher
     /**
      * @return array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}
      */
-    public function recordThreadState(int $lockedThreadId): array
+    public function recordThreadState(int $lockedThreadId, bool $withShowKey = false): array
     {
-        return $this->record($lockedThreadId, 'thread', $this->threadState($lockedThreadId));
+        return $this->record($lockedThreadId, 'thread', $this->threadState($lockedThreadId, $withShowKey));
     }
 
     /**
      * @return array{sequence: int, type: string, data: array<string, mixed>, createdAt: string}
      */
-    public function appendThreadState(int $threadId): array
+    public function appendThreadState(int $threadId, bool $withShowKey = false): array
     {
-        $event = DB::transaction(fn (): array => $this->recordThreadState($threadId));
+        $event = DB::transaction(fn (): array => $this->recordThreadState($threadId, $withShowKey));
 
         $this->flush();
 
@@ -153,20 +153,25 @@ class ThreadEventPublisher
     }
 
     /**
-     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null, pullRequestOpening: 'opening'|'failed'|null, ownerSide: string, showKey: string}
+     * @return array{status: string, sandboxState: string, runnerState: string, blockedReason: string|null, pullRequestOpening: 'opening'|'failed'|null, ownerSide: string, showKey?: string}
      */
-    private function threadState(int $threadId): array
+    private function threadState(int $threadId, bool $withShowKey): array
     {
         $thread = Thread::withoutGlobalScopes()->findOrFail($threadId);
 
-        return [
+        $state = [
             'status' => $thread->status->value,
             'sandboxState' => $thread->sandbox_state->value,
             'runnerState' => $thread->runner_state->value,
             'blockedReason' => $thread->blocked_reason?->value,
             'pullRequestOpening' => app(PullRequestOpening::class)->flag($threadId),
             'ownerSide' => $thread->owner_side->value,
-            'showKey' => ThreadShowChanged::key($threadId),
         ];
+
+        if ($withShowKey) {
+            $state['showKey'] = ThreadShowChanged::key($threadId);
+        }
+
+        return $state;
     }
 }

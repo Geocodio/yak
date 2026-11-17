@@ -4,10 +4,12 @@ namespace App\Http\Resources;
 
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadVisibility;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
@@ -15,6 +17,7 @@ use App\Services\Tasks\TaskStopSummary;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadTasks;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,12 +26,11 @@ use Illuminate\Support\Collection;
  * array shapes below are the source of truth for the TypeScript types.
  *
  * @phpstan-import-type Notice from EarlyWarningData
- * @phpstan-import-type Panel from CoOwnerPanelData
  *
  * @phpstan-type ThreadCards array{
  *     repositoryQuestion: array{prompt: string, options: list<string>, selected: ?string, canAnswer: bool}|null,
  *     earlyWarning: Notice|null,
- *     coOwner: Panel|null,
+ *     coOwner: array<string, mixed>|null,
  *     stopped: array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null,
  *     actions: array{canStop: bool, canRetry: bool, canCancel: bool, canMove: bool, moveTargets: list<string>, canRequestReview: bool, canRetryRender: bool},
  *     card: 'question'|'repository_question'|'early_warning'|'co_owner'|'stopped'|null,
@@ -54,11 +56,17 @@ final class ThreadCardsData
         $coOwnerRequest = ThreadTasks::coOwnerRequest($thread);
         $coOwner = CoOwnerPanelData::forRequest($coOwnerRequest, $viewer);
 
-        if ($coOwner !== null) {
-            $coOwner['connectUrl'] = GitHubAccountController::connectUrl(route('threads.show', $thread, false));
-        }
+        $coOwnerCard = $coOwner === null ? null : [
+            ...$coOwner,
+            'connectUrl' => GitHubAccountController::connectUrl(route('threads.show', $thread, false)),
+            'canDecide' => $canDrive,
+        ];
 
         $earlyWarning = EarlyWarningData::forTask($root, $coOwnerRequest, $viewer);
+
+        if ($earlyWarning !== null) {
+            $earlyWarning['canPick'] = $earlyWarning['canPick'] && $canDrive;
+        }
         $repositoryQuestion = self::repositoryQuestion($thread, $head, $canDrive);
         $stopped = self::stopped($head);
         $hasQuestion = $head->status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [];
@@ -66,8 +74,8 @@ final class ThreadCardsData
         $card = match (true) {
             $hasQuestion => 'question',
             $repositoryQuestion !== null => 'repository_question',
-            $earlyWarning !== null && $earlyWarning['state'] === 'shown' && $earlyWarning['canPick'] && $canDrive => 'early_warning',
-            $coOwner !== null && $coOwner['status'] === CoOwnerRequestStatus::Pending->value => 'co_owner',
+            $earlyWarning !== null && $earlyWarning['state'] === 'shown' && $earlyWarning['canPick'] => 'early_warning',
+            $coOwnerCard !== null && $coOwnerCard['status'] === CoOwnerRequestStatus::Pending->value => 'co_owner',
             $stopped !== null => 'stopped',
             default => null,
         };
@@ -75,7 +83,7 @@ final class ThreadCardsData
         return [
             'repositoryQuestion' => $repositoryQuestion,
             'earlyWarning' => $earlyWarning,
-            'coOwner' => $coOwner,
+            'coOwner' => $coOwnerCard,
             'stopped' => $stopped,
             'actions' => $canDrive ? self::actions($thread, $head, $coOwnerRequest) : self::NO_ACTIONS,
             'card' => $card,
@@ -91,15 +99,10 @@ final class ThreadCardsData
             return null;
         }
 
-        /** @var list<string> $options */
-        $options = array_values((array) ($head->clarification_options ?? []));
-
-        if ($options === [] && ! RepoClarificationResolver::awaitingRepoChoice($head)) {
-            return null;
-        }
+        $options = RepoClarificationResolver::offeredOptions($head);
 
         if ($options === []) {
-            $options = Repository::where('is_active', true)->orderBy('slug')->pluck('slug')->all();
+            return null;
         }
 
         $requested = request()->query('repo');
@@ -150,7 +153,7 @@ final class ThreadCardsData
 
     /**
      * Why the thread needs this viewer, as one of `co_owner`, `early_warning`
-     * and `repository_question`, or null. Two queries at most.
+     * and `repository_question`, or null. Null for a thread the viewer cannot see. Two queries for a team thread; a few more, never growing with the thread count, for sub-threads and private threads.
      *
      * @return 'co_owner'|'early_warning'|'repository_question'|null
      */
@@ -160,7 +163,10 @@ final class ThreadCardsData
     }
 
     /**
-     * The reason of every thread, keyed by thread id, in two queries however many threads there are.
+     * The reason of every thread, keyed by thread id. A thread the viewer cannot see, and one the viewer
+     * has no part in, reads null. The queries do not grow with the number of threads: the co-owner
+     * requests, the tasks, the roots of sub-threads, the viewer's shares and the active repositories,
+     * each at most once.
      *
      * @param  Collection<int, Thread>  $threads
      * @return array<int, 'co_owner'|'early_warning'|'repository_question'|null>
@@ -174,28 +180,42 @@ final class ThreadCardsData
             return $reasons;
         }
 
+        $openThreads = new EloquentCollection($openThreads->all());
+        $openThreads->loadMissing('root');
+        $sharedRootIds = self::sharedRootIds($openThreads, $viewer);
         $threadIds = $openThreads->pluck('id')->all();
 
         $requestsByThread = CoOwnerRequest::query()
             ->join('tasks', 'tasks.id', '=', 'co_owner_requests.task_id')
             ->whereIn('tasks.thread_id', $threadIds)
-            ->get(['tasks.thread_id as thread_id', 'co_owner_requests.status', 'co_owner_requests.asked_user_ids'])
+            ->get(['tasks.thread_id as thread_id', 'co_owner_requests.id', 'co_owner_requests.status', 'co_owner_requests.asked_user_ids'])
             ->groupBy('thread_id');
 
         $tasksByThread = YakTask::query()->withoutGlobalScopes()
             ->whereIn('thread_id', $threadIds)
             ->orderBy('id')
-            ->get(['id', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id'])
+            ->get(['id', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id', 'repo', 'session_id', 'clarification_options'])
             ->groupBy('thread_id');
 
+        $activeSlugs = null;
+
         foreach ($openThreads as $thread) {
-            $requests = $requestsByThread->get($thread->id, collect());
+            $root = $thread->rootThread();
+            $isOwner = $root->owner_user_id === $viewer->id;
+            $isVisible = $root->visibility === ThreadVisibility::Team || $isOwner || in_array($root->id, $sharedRootIds, true);
+
+            if (! $isVisible) {
+                continue;
+            }
+
+            $canDrive = $root->visibility === ThreadVisibility::Team || $isOwner;
+            $latestRequest = $requestsByThread->get($thread->id, collect())->sortByDesc('id')->first();
             $tasks = $tasksByThread->get($thread->id, collect());
 
             $reasons[$thread->id] = match (true) {
-                self::isAskedForCoOwner($requests, $viewer) => 'co_owner',
-                self::mustAnswerEarlyWarning($requests, $tasks, $viewer) => 'early_warning',
-                self::mustAnswerRepositoryQuestion($thread, $tasks, $viewer) => 'repository_question',
+                $latestRequest !== null && $latestRequest->status === CoOwnerRequestStatus::Pending && in_array($viewer->id, $latestRequest->asked_user_ids, true) => 'co_owner',
+                $latestRequest === null && $canDrive && self::mustAnswerEarlyWarning($tasks, $viewer) => 'early_warning',
+                self::mustAnswerRepositoryQuestion($thread, $tasks, $viewer, $canDrive, $activeSlugs) => 'repository_question',
                 default => null,
             };
         }
@@ -204,26 +224,32 @@ final class ThreadCardsData
     }
 
     /**
-     * @param  Collection<int, CoOwnerRequest>  $requests
+     * The roots of private threads the viewer has a share on, in one query.
+     *
+     * @param  Collection<int, Thread>  $threads
+     * @return list<int>
      */
-    private static function isAskedForCoOwner(Collection $requests, User $viewer): bool
+    private static function sharedRootIds(Collection $threads, User $viewer): array
     {
-        return $requests->contains(fn (CoOwnerRequest $request): bool => $request->status === CoOwnerRequestStatus::Pending
-            && in_array($viewer->id, $request->asked_user_ids, true));
+        $privateRootIds = $threads
+            ->map(fn (Thread $thread): Thread => $thread->rootThread())
+            ->filter(fn (Thread $root): bool => $root->visibility === ThreadVisibility::Private && $root->owner_user_id !== $viewer->id)
+            ->pluck('id')->unique()->all();
+
+        if ($privateRootIds === []) {
+            return [];
+        }
+
+        return ThreadShare::query()->whereIn('thread_id', $privateRootIds)->where('user_id', $viewer->id)->pluck('thread_id')->map(fn (mixed $id): int => (int) $id)->pipe(fn ($ids): array => array_values($ids->all()));
     }
 
     /**
-     * The requester owes the early warning an answer while it is shown and no co-owner request exists.
+     * The requester owes the early warning an answer while it is shown (and no co-owner request exists).
      *
-     * @param  Collection<int, CoOwnerRequest>  $requests
      * @param  Collection<int, YakTask>  $tasks
      */
-    private static function mustAnswerEarlyWarning(Collection $requests, Collection $tasks, User $viewer): bool
+    private static function mustAnswerEarlyWarning(Collection $tasks, User $viewer): bool
     {
-        if ($requests->isNotEmpty()) {
-            return false;
-        }
-
         $root = $tasks->first(fn (YakTask $task): bool => $task->early_warning !== null && $task->parent_task_id === null);
 
         if ($root === null) {
@@ -237,11 +263,32 @@ final class ThreadCardsData
     }
 
     /**
+     * Only when the page would show the repository card: the head task offers repositories or awaits the choice.
+     *
      * @param  Collection<int, YakTask>  $tasks
+     * @param  list<string>|null  $activeSlugs  loaded on first use
      */
-    private static function mustAnswerRepositoryQuestion(Thread $thread, Collection $tasks, User $viewer): bool
+    private static function mustAnswerRepositoryQuestion(Thread $thread, Collection $tasks, User $viewer, bool $canDrive, ?array &$activeSlugs): bool
     {
         if ($thread->hasRepository()) {
+            return false;
+        }
+
+        $head = $tasks->last();
+
+        if ($head === null) {
+            return false;
+        }
+
+        $offered = array_values(array_filter((array) ($head->clarification_options ?? []), 'is_string'));
+
+        if ($offered === [] && ! RepoClarificationResolver::awaitingRepoChoice($head)) {
+            return false;
+        }
+
+        $activeSlugs ??= Repository::where('is_active', true)->pluck('slug')->map(fn (mixed $slug): string => (string) $slug)->pipe(fn ($slugs): array => array_values($slugs->all()));
+
+        if (array_intersect($offered === [] ? $activeSlugs : $offered, $activeSlugs) === []) {
             return false;
         }
 
@@ -256,7 +303,7 @@ final class ThreadCardsData
             return $first->slack_user_id === $viewer->slack_user_id;
         }
 
-        return app(ThreadAccess::class)->canDrive($viewer, $thread);
+        return $canDrive;
     }
 
     private static function isRequester(YakTask $root, User $viewer): bool

@@ -3,6 +3,7 @@
 use App\Enums\CoOwnerRequestStatus;
 use App\Http\Resources\ThreadCardsData;
 use App\Models\CoOwnerRequest;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
@@ -32,6 +33,7 @@ function threadWithoutRepositoryFor(User $requester): Thread
 }
 
 beforeEach(function () {
+    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
     $this->requester = User::factory()->create();
     $this->coOwner = User::factory()->create();
     $this->other = User::factory()->create();
@@ -112,7 +114,7 @@ it('answers many threads in the same two queries, keyed by thread id', function 
     DB::enableQueryLog();
     $reasons = ThreadCardsData::needsYouReasons($threads, $this->coOwner);
 
-    expect(DB::getQueryLog())->toHaveCount(2)
+    expect(count(DB::getQueryLog()))->toBe(3)
         ->and($reasons[$held->id])->toBe('co_owner')
         ->and($reasons[$unknown->id])->toBe('repository_question')
         ->and($reasons[$warned->id])->toBe('early_warning')

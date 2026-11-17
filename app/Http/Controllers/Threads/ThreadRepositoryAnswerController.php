@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Threads;
 use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Threads\Concerns\RespondsToThreadActions;
-use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\RepoClarificationResolver;
 use App\Services\Threads\ThreadTasks;
@@ -31,14 +30,13 @@ class ThreadRepositoryAnswerController extends Controller
                 throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_ALREADY_PICKED, 'This thread already has a repository.');
             }
 
-            /** @var list<string> $options */
-            $options = array_values((array) ($head->clarification_options ?: Repository::where('is_active', true)->pluck('slug')->all()));
-
-            if (! in_array($repo, $options, true)) {
+            if (! in_array($repo, RepoClarificationResolver::offeredOptions($head), true)) {
                 throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_NOT_OFFERED, 'Pick one of the repositories Yak offered.');
             }
 
-            RepoClarificationResolver::resolve($head, $repo);
+            if (! RepoClarificationResolver::start($head, $repo) || ! $thread->fresh()?->hasRepository()) {
+                throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_NOT_OFFERED, 'Yak could not start in that repository. Pick another one.');
+            }
 
             return "Starting in {$repo}.";
         });

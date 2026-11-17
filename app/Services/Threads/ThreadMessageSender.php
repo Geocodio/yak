@@ -59,6 +59,10 @@ class ThreadMessageSender
 
     private function sendOnce(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
     {
+        if (! app(ThreadAccess::class)->canDrive($user, $thread)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CANNOT_SEND_SENTENCE);
+        }
+
         if ($thread->owner_side === ThreadOwnerSide::Device) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
         }

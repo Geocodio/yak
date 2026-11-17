@@ -7,6 +7,7 @@ use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -91,7 +92,7 @@ it('sends the thread text as a Progress notification for non-Slack sources', fun
 
 it('logs and continues when one DM fails', function () {
     Log::shouldReceive('channel->warning')->once();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
+    $this->mock(ThreadEventPublisher::class)->shouldReceive('appendThreadState')->zeroOrMoreTimes();
     Http::fake([
         'slack.com/api/*' => Http::sequence()
             ->push(['ok' => false, 'error' => 'channel_not_found'])

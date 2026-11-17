@@ -10,6 +10,7 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\RiskAreaGuesser;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Exceptions;
@@ -101,7 +102,7 @@ it('skips a task that already has a warning, is no longer running or has a co-ow
 it('logs a Slack failure and does not throw', function () {
     Http::fake(['slack.com/api/*' => Http::response(['ok' => false, 'error' => 'channel_not_found'])]);
     Log::shouldReceive('channel->warning')->once();
-    Log::shouldReceive('error')->zeroOrMoreTimes();
+    $this->mock(ThreadEventPublisher::class)->shouldReceive('appendThreadState')->zeroOrMoreTimes();
     $task = warningJobFixture();
 
     SendEarlyWarningJob::dispatchSync($task);

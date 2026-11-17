@@ -20,7 +20,7 @@ use App\Services\Threads\LegacyConversation;
 /**
  * Props of the `Threads/Show` page, shared by the web page and the app's thread show.
  *
- * @phpstan-import-type ThreadCards from ThreadCardsData
+ * @phpstan-import-type Notice from EarlyWarningData
  * @phpstan-import-type ThreadRequestInfo from ThreadRequestData
  * @phpstan-import-type ThreadProgress from ThreadRequestData
  * @phpstan-import-type ThreadRunDetails from ThreadRequestData
@@ -76,7 +76,13 @@ use App\Services\Threads\LegacyConversation;
  *     runDetails: ThreadRunDetails,
  *     milestones: list<ThreadMilestone>,
  *     question: ?array{taskId: string, expiresAt: ?string, questions: list<array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multiSelect: bool}>},
- * }&ThreadCards
+ *     repositoryQuestion: array{prompt: string, options: list<string>, selected: ?string, canAnswer: bool}|null,
+ *     earlyWarning: Notice|null,
+ *     coOwner: array<string, mixed>|null,
+ *     stopped: array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null,
+ *     actions: array{canStop: bool, canRetry: bool, canCancel: bool, canMove: bool, moveTargets: list<string>, canRequestReview: bool, canRetryRender: bool},
+ *     card: 'question'|'repository_question'|'early_warning'|'co_owner'|'stopped'|null,
+ * }
  */
 final class ThreadShowData
 {
