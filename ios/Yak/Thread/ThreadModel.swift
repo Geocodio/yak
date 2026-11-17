@@ -29,15 +29,15 @@ final class ThreadModel {
     init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
         self.threadID = threadID
         self.session = session
-        restore = SandboxRestore { [weak self] in
-            guard let engine = await self?.engine else { return .failed(.offline) }
-            return await engine.retryRestore()
-        }
         self.composer =
             composer
             ?? ComposerModel(
                 key: .thread(threadID),
                 backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        restore = SandboxRestore { [weak self] in
+            guard let engine = await self?.engine else { return .failed(.offline) }
+            return await engine.retryRestore()
+        }
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
