@@ -165,6 +165,17 @@ export type ThreadRunDetails = {
     errorLogTruncated: boolean;
 };
 
+export type ThreadMilestone = {
+    key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
+    label: string;
+    tone: 'ok' | 'warn' | 'bad';
+    url: string | null;
+    /** The run that reached it; the task id for a thread made from an old task. */
+    runId: string;
+    /** The last thread event of that run; the row sits after it. */
+    afterSequence: number;
+};
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -193,6 +204,7 @@ export type ThreadPageData = {
     /** The staged row, or null when the head task is finished or the thread is closed. */
     progress: ThreadProgress | null;
     runDetails: ThreadRunDetails;
+    milestones: ThreadMilestone[];
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */

@@ -23,6 +23,7 @@ use App\Services\Threads\LegacyConversation;
  * @phpstan-import-type ThreadRequestInfo from ThreadRequestData
  * @phpstan-import-type ThreadProgress from ThreadRequestData
  * @phpstan-import-type ThreadRunDetails from ThreadRequestData
+ * @phpstan-import-type ThreadMilestone from ThreadMilestonesData
  *
  * @phpstan-type ThreadShow array{
  *     thread: array{
@@ -72,6 +73,7 @@ use App\Services\Threads\LegacyConversation;
  *     request: ThreadRequestInfo,
  *     progress: ?ThreadProgress,
  *     runDetails: ThreadRunDetails,
+ *     milestones: list<ThreadMilestone>,
  *     question: ?array{taskId: string, expiresAt: ?string, questions: list<array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multiSelect: bool}>},
  * }
  */
@@ -98,6 +100,7 @@ final class ThreadShowData
             'modelLabels' => self::modelLabels(),
             'stackParent' => self::stackParent($thread),
             'question' => ThreadQuestionData::for($thread),
+            'milestones' => ThreadMilestonesData::for($thread),
             ...ThreadRequestData::for($thread, $viewer),
         ]);
     }
