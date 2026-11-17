@@ -3,7 +3,7 @@ import type { ThreadListRow } from '@/types/shell';
 
 /** Running accent filled, paused hollow, stopped grey hollow, blocked red, needs-you question orange. */
 export function ThreadStatusDot({ row }: { row: Pick<ThreadListRow, 'status' | 'needsYouReason'> }) {
-    const isQuestion = row.needsYouReason === 'question';
+    const isQuestion = row.needsYouReason !== null && row.needsYouReason !== 'blocked';
     const className = isQuestion
         ? 'bg-warn'
         : row.status === 'running'

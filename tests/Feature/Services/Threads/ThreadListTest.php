@@ -1,17 +1,21 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadListFilter;
 use App\Enums\ThreadSource;
 use App\Enums\TurnState;
+use App\Models\CoOwnerRequest;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadView;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadList;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 
 function listedIds(array $list): array
 {
@@ -382,4 +386,67 @@ test('hasAnyThreads is false when nothing is visible and true once a thread exis
     }
 
     expect(ThreadList::for($user, ThreadListFilter::Mine, 'no such thread')['hasAnyThreads'])->toBeTrue();
+});
+
+function threadWaitingOn(string $reason, User $viewer): Thread
+{
+    $requester = User::factory()->create();
+
+    if ($reason === 'co_owner') {
+        $task = YakTask::factory()->awaitingCoOwner()->create(['started_by_user_id' => $requester->id]);
+        CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$viewer->id], 'status' => CoOwnerRequestStatus::Pending]);
+    } elseif ($reason === 'early_warning') {
+        $task = YakTask::factory()->create(['started_by_user_id' => $viewer->id, 'early_warning' => ['areas' => [['name' => 'Billing', 'risk' => 'high']], 'state' => 'shown']]);
+    } else {
+        $task = YakTask::factory()->create(['repo' => 'unknown', 'started_by_user_id' => $viewer->id]);
+        app(ThreadFactory::class)->forRequestWithoutRepository($task);
+    }
+
+    return Thread::query()->findOrFail($task->fresh()->thread_id);
+}
+
+test('a thread waiting on a person lands under needs you with the reason', function (string $reason, string $label) {
+    $user = User::factory()->create();
+    $thread = threadWaitingOn($reason, $user);
+
+    $row = ThreadList::for($user, ThreadListFilter::Everyone)['needsYou'][0];
+
+    expect($row['id'])->toBe($thread->public_id)
+        ->and($row['needsYouReason'])->toBe($reason)
+        ->and($row['needsYouLabel'])->toBe($label);
+})->with([
+    ['co_owner', 'Waiting for your co-owner decision'],
+    ['early_warning', 'Pick a co-owner or decline'],
+    ['repository_question', 'Asked which repository'],
+]);
+
+test('a parent shows that its sub-thread needs the viewer for the new reasons', function (string $reason) {
+    $user = User::factory()->create();
+    $child = threadWaitingOn($reason, $user);
+    $parent = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $child->forceFill(['parent_thread_id' => $parent->id, 'root_thread_id' => $parent->id])->save();
+
+    $row = ThreadList::for($user, ThreadListFilter::Everyone)['needsYou'][0];
+
+    expect($row['id'])->toBe($parent->public_id)
+        ->and($row['needsYouReason'])->toBe($reason)
+        ->and($row['needsYouLabel'])->toBe('1 sub-thread needs you');
+})->with(['co_owner', 'early_warning', 'repository_question']);
+
+test('the reasons add at most two queries however many rows there are', function () {
+    $user = User::factory()->create();
+    threadWaitingOn('co_owner', $user);
+
+    DB::enableQueryLog();
+    ThreadList::for($user, ThreadListFilter::Everyone);
+    $baseline = count(DB::getQueryLog());
+
+    foreach (['co_owner', 'early_warning', 'repository_question', 'co_owner', 'early_warning'] as $reason) {
+        threadWaitingOn($reason, $user);
+    }
+
+    DB::flushQueryLog();
+    ThreadList::for($user, ThreadListFilter::Everyone);
+
+    expect(count(DB::getQueryLog()))->toBe($baseline);
 });

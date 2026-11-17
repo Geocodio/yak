@@ -11,6 +11,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSource;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
+use App\Http\Resources\ThreadCardsData;
 use App\Http\Resources\ThreadOriginData;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
@@ -92,13 +93,14 @@ class ThreadList
 
         $startOfDay = now()->startOfDay();
         $startOfWeek = now()->startOfWeek();
+        $personReasons = ThreadCardsData::needsYouReasons($all, $user);
         $rows = [];
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
             $isShared = $isPrivate && (bool) $root->getAttribute('is_shared');
-            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false))->all());
-            $row = self::row($root, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id);
+            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false, $personReasons))->all());
+            $row = self::row($root, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id, $personReasons);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));
 
@@ -304,12 +306,13 @@ class ThreadList
      * @param  Collection<int, TaskRun>  $runs
      * @param  Collection<int, mixed>  $seen
      * @param  list<array<string, mixed>>  $children
+     * @param  array<int, 'co_owner'|'early_warning'|'repository_question'|null>  $personReasons
      * @return array<string, mixed>
      */
-    private static function row(Thread $thread, Collection $runs, Collection $seen, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children, bool $isStarred, bool $canDelete): array
+    private static function row(Thread $thread, Collection $runs, Collection $seen, User $viewer, CarbonInterface $startOfDay, CarbonInterface $startOfWeek, bool $isPrivate, bool $isShared, array $children, bool $isStarred, bool $canDelete, array $personReasons): array
     {
         $run = $runs->get($thread->getAttribute('latest_run_id'));
-        [$reason, $label] = $thread->isOpen() ? self::needsYou($thread) : [null, null];
+        [$reason, $label] = $thread->isOpen() ? self::needsYou($thread, $personReasons[$thread->id] ?? null) : [null, null];
         $isUnread = $thread->isOpen() && self::isUnread($run, $seen->get($thread->id), $thread->created_by_user_id === $viewer->id);
 
         return [
@@ -357,7 +360,7 @@ class ThreadList
     /**
      * @return array{0: ?NeedsYouReason, 1: ?string}
      */
-    private static function needsYou(Thread $thread): array
+    private static function needsYou(Thread $thread, ?string $personReason): array
     {
         if ($thread->tasks->last()?->status === TaskStatus::AwaitingClarification) {
             return [NeedsYouReason::Question, 'Asked you a question'];
@@ -377,7 +380,12 @@ class ThreadList
             return [NeedsYouReason::Blocked, $isTokenProblem ? 'Your token stopped working' : 'Blocked'];
         }
 
-        return [null, null];
+        return match ($personReason) {
+            'co_owner' => [NeedsYouReason::CoOwner, 'Waiting for your co-owner decision'],
+            'early_warning' => [NeedsYouReason::EarlyWarning, 'Pick a co-owner or decline'],
+            'repository_question' => [NeedsYouReason::RepositoryQuestion, 'Asked which repository'],
+            default => [null, null],
+        };
     }
 
     /**
