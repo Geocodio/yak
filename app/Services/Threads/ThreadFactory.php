@@ -88,6 +88,7 @@ class ThreadFactory
             $locked->save();
             $this->addPrimaryRepository($locked, $locked->branch);
             $thread->setRawAttributes($locked->getAttributes(), true);
+            ThreadShowChanged::publish($locked->id);
         });
     }
 

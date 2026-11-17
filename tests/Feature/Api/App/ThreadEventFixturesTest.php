@@ -209,7 +209,7 @@ function writeScenario($test, string $scenario, string $source, array $broadcast
         'broadcasts' => $broadcasts,
         'catchUp' => $catchUp,
         'pointers' => $pointers,
-    ], ['broadcasts.*.data.turnId', 'catchUp.events.*.data.turnId']);
+    ], ['broadcasts.*.data.turnId', 'catchUp.events.*.data.turnId', 'broadcasts.*.data.showKey', 'catchUp.events.*.data.showKey']);
 
     return ['broadcasts' => $broadcasts, 'catchUp' => $catchUp, 'pointers' => $pointers];
 }

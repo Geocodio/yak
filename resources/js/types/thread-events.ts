@@ -79,7 +79,7 @@ export type ThreadEventDataMap = {
     delta: { blockKey: string; kind: 'text' | 'thinking' | 'tool_input'; text: string };
     'stream.reset': Record<string, never>;
     turn: { turnId: number; state: TurnState };
-    thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null; pullRequestOpening?: 'opening' | 'failed' | null; ownerSide?: 'yak' | 'device' };
+    thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null; pullRequestOpening?: 'opening' | 'failed' | null; ownerSide?: 'yak' | 'device'; showKey?: string };
     'message.state': { uuid: string; state: 'sent' | 'queued' | 'started' | 'completed' | 'cancelled' };
     'diff.updated': Record<string, never>;
     child: ChildCardData;

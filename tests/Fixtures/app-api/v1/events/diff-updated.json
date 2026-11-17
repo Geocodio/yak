@@ -63,10 +63,38 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
+                "blockedReason": null,
+                "ownerSide": "yak",
+                "pullRequestOpening": null,
+                "runnerState": "none",
+                "sandboxState": "none",
+                "showKey": "<volatile:string>",
+                "status": "open"
+            },
+            "sequence": 6,
+            "type": "thread"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
+                "blockedReason": null,
+                "ownerSide": "yak",
+                "pullRequestOpening": null,
+                "runnerState": "none",
+                "sandboxState": "none",
+                "showKey": "<volatile:string>",
+                "status": "open"
+            },
+            "sequence": 7,
+            "type": "thread"
+        },
+        {
+            "createdAt": "2026-11-15T12:00:00+00:00",
+            "data": {
                 "state": "completed",
                 "turnId": "<volatile:int>"
             },
-            "sequence": 6,
+            "sequence": 8,
             "type": "turn"
         },
         {
@@ -75,13 +103,13 @@
                 "state": "completed",
                 "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
             },
-            "sequence": 7,
+            "sequence": 9,
             "type": "message.state"
         },
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {},
-            "sequence": 8,
+            "sequence": 10,
             "type": "diff.updated"
         }
     ],
@@ -150,10 +178,38 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
+                    "blockedReason": null,
+                    "ownerSide": "yak",
+                    "pullRequestOpening": null,
+                    "runnerState": "none",
+                    "sandboxState": "none",
+                    "showKey": "<volatile:string>",
+                    "status": "open"
+                },
+                "sequence": 6,
+                "type": "thread"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
+                    "blockedReason": null,
+                    "ownerSide": "yak",
+                    "pullRequestOpening": null,
+                    "runnerState": "none",
+                    "sandboxState": "none",
+                    "showKey": "<volatile:string>",
+                    "status": "open"
+                },
+                "sequence": 7,
+                "type": "thread"
+            },
+            {
+                "createdAt": "2026-11-15T12:00:00+00:00",
+                "data": {
                     "state": "completed",
                     "turnId": "<volatile:int>"
                 },
-                "sequence": 6,
+                "sequence": 8,
                 "type": "turn"
             },
             {
@@ -162,17 +218,17 @@
                     "state": "completed",
                     "uuid": "f429399e-374d-5e1e-a7cc-65fce3bd2a28"
                 },
-                "sequence": 7,
+                "sequence": 9,
                 "type": "message.state"
             },
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {},
-                "sequence": 8,
+                "sequence": 10,
                 "type": "diff.updated"
             }
         ],
-        "latestSequence": 8,
+        "latestSequence": 10,
         "source": "window"
     },
     "pointers": [],

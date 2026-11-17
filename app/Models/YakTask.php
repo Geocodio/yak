@@ -16,6 +16,7 @@ use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleTaskScope;
 use App\Observers\YakTaskThreadObserver;
 use App\Services\TaskDescriptionSummary;
+use App\Services\Threads\ThreadShowChanged;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
@@ -172,6 +173,10 @@ class YakTask extends Model
         });
 
         static::updated(function (YakTask $task): void {
+            if ($task->wasChanged(['early_warning', 'tagged_co_owner_user_id', 'stop_kind', 'stop_summary', 'resume_after_setup_at'])) {
+                ThreadShowChanged::publish($task->thread_id);
+            }
+
             if ($task->wasChanged('status')) {
                 $original = $task->getOriginal('status');
 
