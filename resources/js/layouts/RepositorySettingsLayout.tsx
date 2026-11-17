@@ -18,6 +18,8 @@ type Props = {
     dirtySections?: SettingsSectionSlug[];
     /** Name shown in the `.yak/` strip; falls back to wording that needs no name. */
     branch?: string;
+    /** Buttons shown in the header bar beside the crumbs. */
+    actions?: ReactNode;
     children: ReactNode;
 };
 
@@ -28,7 +30,7 @@ type Props = {
  * (`Page.layout = (page) => <AppLayout>{page}</AppLayout>`), so the shell does
  * not remount between sections.
  */
-export function RepositorySettingsLayout({ header, yakConfig, active, dirtySections = [], branch = 'the default branch', children }: Props) {
+export function RepositorySettingsLayout({ header, yakConfig, active, dirtySections = [], branch = 'the default branch', actions, children }: Props) {
     const sectionLabel = header.sections.find((section) => section.slug === active)?.label ?? '';
     const { slug, githubUrl, prReviewEnabled, sections } = header;
     const paletteActions = useMemo<PaletteAction[]>(
@@ -48,7 +50,7 @@ export function RepositorySettingsLayout({ header, yakConfig, active, dirtySecti
     return (
         <>
             <Head title={`${sectionLabel}, ${header.slug}`} />
-            <PageHeader crumbs={['Repositories', header.slug, sectionLabel]} />
+            <PageHeader crumbs={['Repositories', header.slug, sectionLabel]} actions={actions} />
             <div className="min-h-0 flex-1 overflow-auto">
                 <div className="mx-auto w-full max-w-[1200px] px-6 py-6">
                     <SettingsTitle header={header} />

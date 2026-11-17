@@ -244,7 +244,7 @@ final class RiskProfilePageData
             'status' => $isRunning ? 'running' : 'failed',
             'task' => [
                 'id' => $task->public_id,
-                'url' => route('tasks.show', $task),
+                'url' => route('repos.runs.show', [$repository, $task]),
                 'startedAt' => $task->started_at?->toIso8601String(),
                 'completedAt' => $task->completed_at?->toIso8601String(),
                 'error' => $isRunning || $lines === [] ? null : mb_substr(end($lines), 0, 300),

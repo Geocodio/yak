@@ -1,11 +1,12 @@
 import { Link, router, usePoll } from '@inertiajs/react';
-import { Button, StatusPill, cn } from '@geocodio/console-ui';
+import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr, cn } from '@geocodio/console-ui';
 import { ArrowLeft, RefreshCw, Search } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Prose } from '@/components/Prose';
 import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { AppLayout } from '@/layouts/AppLayout';
+import { rowLinkHandlers } from '@/lib/visitRow';
 import { formatMs, formatUsd, formatWhen } from '@/lib/format';
 import { useRetained } from '@/lib/useRetained';
 import { useRouterAction } from '@/lib/useRouterAction';
@@ -19,6 +20,7 @@ type Props = PageProps<{
     runs: RepositoryRunRow[];
     totalCount: number;
     selected: RepositoryRunDetail | null;
+    selectedUrl: string | null;
     filters: { kind: string | null; status: string | null };
     isRunOpen: boolean;
     modelLabels: Record<string, string>;
@@ -39,12 +41,13 @@ const STATUS: Record<RepositoryRunStatus, { label: string; tone: 'ok' | 'fail' |
     cancelled: { label: 'Cancelled', tone: 'idle' },
 };
 
+const RECENT_RUN_POLL_MINUTES = 30;
 const KIND_LABEL: Record<RepositoryRunKind, string> = { setup: 'Setup', repository_research: 'Repository research' };
 const DOT: Record<string, string> = { ok: 'bg-ok', fail: 'bg-fail', info: 'bg-info', idle: 'bg-faint' };
 const selectClass = 'h-8 rounded-control border border-hair bg-panel px-2 text-[13px] text-body';
 const linkButtonClass = 'inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body hover:bg-panel-2';
 
-function RunList({ runs, selectedId, filters, totalCount }: { runs: RepositoryRunRow[]; selectedId: string | null; filters: Props['filters']; totalCount: number }) {
+function RunList({ onPick, runs, selectedId, filters, totalCount }: { onPick: () => void; runs: RepositoryRunRow[]; selectedId: string | null; filters: Props['filters']; totalCount: number }) {
     const setFilter = (key: 'kind' | 'status', value: string) => {
         router.get(window.location.pathname, { ...filters, [key]: value === '' ? undefined : value }, { preserveScroll: true, preserveState: true, replace: true });
     };
@@ -71,35 +74,50 @@ function RunList({ runs, selectedId, filters, totalCount }: { runs: RepositoryRu
             {runs.length === 0 ? (
                 <p className="rounded-card border border-hair bg-panel px-4 py-8 text-center text-[13px] text-muted" data-testid="run-list-empty">No runs match these filters.</p>
             ) : (
-                <ul scroll-region="" className="max-h-[70vh] divide-y divide-hair overflow-y-auto rounded-card border border-hair bg-panel shadow-card">
-                    {runs.map((run) => {
-                        const status = STATUS[run.status];
+                <div scroll-region="" className="max-h-[70vh] overflow-y-auto rounded-card border border-hair bg-panel shadow-card">
+                    <StackedTable className="w-full">
+                        <StackedThead>
+                            <Tr>
+                                <Th className="w-6" />
+                                <Th>Run</Th>
+                                <Th>Started by</Th>
+                                <Th className="text-right">Cost</Th>
+                                <Th className="text-right">When</Th>
+                            </Tr>
+                        </StackedThead>
+                        <StackedTbody>
+                            {runs.map((run) => {
+                                const status = STATUS[run.status];
 
-                        return (
-                            <li key={run.id}>
-                                <Link
-                                    href={run.url}
-                                    preserveScroll
-                                    preserveState
-                                    className={cn('flex items-start gap-3 px-4 py-3 hover:bg-panel-2', run.id === selectedId && 'bg-panel-2')}
-                                    aria-current={run.id === selectedId ? 'true' : undefined}
-                                    data-testid={`run-row-${run.id}`}
-                                    data-status={run.status}
-                                >
-                                    <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', DOT[status.tone])} role="img" aria-label={status.label} />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block text-[13px] font-semibold text-body">{KIND_LABEL[run.kind]}</span>
-                                        <span className="block truncate text-[12px] text-muted">{run.resultLine}</span>
-                                        <span className="mt-0.5 block truncate text-[12px] text-faint">
-                                            {run.startedBy}
-                                            {run.costUsd > 0 && ` · ${formatUsd(run.costUsd)}`} · {formatWhen(run.startedAt)}
-                                        </span>
-                                    </span>
-                                </Link>
-                            </li>
-                        );
-                    })}
-                </ul>
+                                return (
+                                    <StackedTr
+                                        key={run.id}
+                                        className={cn('cursor-pointer hover:bg-panel-2', run.id === selectedId && 'bg-panel-2')}
+                                        aria-current={run.id === selectedId ? 'true' : undefined}
+                                        data-testid={`run-row-${run.id}`}
+                                        data-status={run.status}
+                                        data-selected={run.id === selectedId}
+                                        onClickCapture={onPick}
+                                        {...rowLinkHandlers(run.url)}
+                                    >
+                                        <StackedTd label="Status" className="w-6">
+                                            <span className={cn('inline-block size-2 rounded-full', DOT[status.tone])} role="img" aria-label={status.label} />
+                                        </StackedTd>
+                                        <StackedTd label="Run">
+                                            <Link href={run.url} preserveScroll preserveState className="block min-w-0">
+                                                <span className="block text-[13px] font-semibold text-body">{KIND_LABEL[run.kind]}</span>
+                                                <span className="block truncate text-[12px] text-muted">{run.resultLine}</span>
+                                            </Link>
+                                        </StackedTd>
+                                        <StackedTd label="Started by" className="text-[12px] text-muted">{run.startedBy}</StackedTd>
+                                        <StackedTd label="Cost" className="tnum text-[12px] text-muted md:text-right">{run.costUsd > 0 ? formatUsd(run.costUsd) : '–'}</StackedTd>
+                                        <StackedTd label="When" className="text-[12px] text-muted md:text-right">{formatWhen(run.startedAt)}</StackedTd>
+                                    </StackedTr>
+                                );
+                            })}
+                        </StackedTbody>
+                    </StackedTable>
+                </div>
             )}
         </div>
     );
@@ -252,12 +270,17 @@ function RunDetail({ run, modelLabels, settingsUrl, onOpenLog }: { run: Reposito
     );
 }
 
-export default function Runs({ header, runs, totalCount, selected, filters, isRunOpen, modelLabels, rerunSetupUrl, researchUrl, settingsUrl, listUrl, canResearch, yakConfig: loadedYakConfig }: Props) {
+export default function Runs({ header, runs, totalCount, selected, selectedUrl, filters, isRunOpen, modelLabels, rerunSetupUrl, researchUrl, settingsUrl, listUrl, canResearch, yakConfig: loadedYakConfig }: Props) {
     const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const action = useRouterAction();
+    const [isListView, setIsListView] = useState(!isRunOpen);
     const [logTarget, setLogTarget] = useState<RunLogTarget | null>(null);
-    const isLive = runs.some((run) => run.isLive) || selected?.isLive === true;
-    const poll = usePoll(5000, { only: ['runs', 'selected', 'totalCount'] }, { autoStart: false });
+    const isLive = useMemo(() => {
+        const recentSince = Date.now() - RECENT_RUN_POLL_MINUTES * 60_000;
+
+        return selected?.isLive === true || runs.some((run) => run.isLive && new Date(run.startedAt).getTime() >= recentSince);
+    }, [runs, selected?.isLive]);
+    const poll = usePoll(5000, { only: ['runs', 'selected', 'selectedUrl', 'totalCount'] }, { autoStart: false });
 
     useEffect(() => {
         if (isLive) {
@@ -270,11 +293,18 @@ export default function Runs({ header, runs, totalCount, selected, filters, isRu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLive]);
 
+    useEffect(() => {
+        if (!isRunOpen && selectedUrl !== null) {
+            router.replace({ url: selectedUrl, preserveScroll: true, preserveState: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const hasAnyRun = totalCount > 0 || filters.kind !== null || filters.status !== null;
-    const showDetailOnPhone = isRunOpen && selected !== null;
+    const showDetailOnPhone = !isListView && selected !== null;
 
     const buttons = (
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
             <Button variant="secondary" disabled={!canResearch} pending={action.isPending('research')} pendingLabel="Starting…" onClick={() => action.run('research', 'post', researchUrl, { action: 'generate' })} data-testid="research-again">
                 Research again
             </Button>
@@ -285,8 +315,7 @@ export default function Runs({ header, runs, totalCount, selected, filters, isRu
     );
 
     return (
-        <RepositorySettingsLayout header={header} yakConfig={yakConfig} active="runs">
-            {buttons}
+        <RepositorySettingsLayout header={header} yakConfig={yakConfig} active="runs" actions={buttons}>
             {!hasAnyRun ? (
                 <div className="rounded-card border border-hair bg-panel px-5 py-12 text-center text-[13px] text-muted shadow-card" data-testid="runs-empty">
                     <Search className="mx-auto mb-2 text-faint" size={18} aria-hidden />
@@ -295,10 +324,10 @@ export default function Runs({ header, runs, totalCount, selected, filters, isRu
             ) : (
                 <div className="grid gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
                     <div className={cn(showDetailOnPhone && 'hidden lg:block')}>
-                        <RunList runs={runs} selectedId={selected?.id ?? null} filters={filters} totalCount={totalCount} />
+                        <RunList onPick={() => setIsListView(false)} runs={runs} selectedId={selected?.id ?? null} filters={filters} totalCount={totalCount} />
                     </div>
                     <div className={cn('min-w-0', !showDetailOnPhone && 'hidden lg:block')}>
-                        <Link href={listUrl} className="mb-3 inline-flex items-center gap-1 text-[13px] text-accent-text hover:underline lg:hidden" data-testid="runs-back">
+                        <Link href={listUrl} onClick={() => setIsListView(true)} className="mb-3 inline-flex items-center gap-1 text-[13px] text-accent-text hover:underline lg:hidden" data-testid="runs-back">
                             <ArrowLeft size={13} aria-hidden /> All runs
                         </Link>
                         {selected !== null ? (

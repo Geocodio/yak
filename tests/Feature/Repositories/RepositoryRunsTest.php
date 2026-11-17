@@ -212,3 +212,12 @@ test('running setup or research again lands on the new run', function () {
 
     expect($setup)->not->toBeNull();
 });
+
+test('the page names the url of the selected run so the client can keep it', function () {
+    $run = setupRun(['status' => TaskStatus::Success]);
+
+    $this->get(route('repos.runs.index', [$this->repository, 'kind' => 'setup']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('isRunOpen', false)
+            ->where('selectedUrl', route('repos.runs.show', [$this->repository, $run, 'kind' => 'setup'])));
+});

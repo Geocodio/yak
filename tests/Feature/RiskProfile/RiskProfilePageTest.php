@@ -187,7 +187,7 @@ it('reports a running generation task', function () {
         ->where('riskProfile.state', 'empty')
         ->where('riskProfile.generation.status', 'running')
         ->where('riskProfile.generation.task.id', $task->public_id)
-        ->where('riskProfile.generation.task.url', route('tasks.show', $task))
+        ->where('riskProfile.generation.task.url', route('repos.runs.show', [$repository, $task]))
         ->where('riskProfile.generation.pullRequest', null)
         ->where('riskProfile.profile', null));
 });

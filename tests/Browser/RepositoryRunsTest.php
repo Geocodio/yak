@@ -63,3 +63,17 @@ it('links a research run to its thread and a ready setup to what Yak remembers',
 
     expect($thread->public_id)->not->toBeEmpty();
 });
+
+it('keeps the opened run in the address and shows the actions in the header', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    [, , , $failed] = seedRepositoryRuns();
+
+    $page = visit('/repos/acme/site/runs')
+        ->assertPresent('[data-testid="run-setup-again"]')
+        ->assertPresent('[data-testid="research-again"]')
+        ->assertPresent('[data-testid="run-list"] table');
+
+    expect($page->script('window.location.pathname'))->toBe("/repos/acme/site/runs/{$failed->public_id}");
+    expect($page->script('document.querySelector("[data-testid=settings-main] [data-testid=run-setup-again]") === null'))->toBeTrue();
+});
