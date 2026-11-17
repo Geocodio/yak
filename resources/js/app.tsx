@@ -1,3 +1,4 @@
+import '@/lib/initialFragment';
 import { createInertiaApp, router } from '@inertiajs/react';
 import { toast } from '@geocodio/console-ui';
 import { createRoot } from 'react-dom/client';

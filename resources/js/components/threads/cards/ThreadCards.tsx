@@ -17,14 +17,19 @@ type Props = {
 export function ThreadCards({ page, onOpenChanges, onMove, onShowLog }: Props) {
     const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions } = page;
     let content = null;
+    let anchor = '';
 
     if (card === 'repository_question' && repositoryQuestion !== null) {
+        anchor = 'card-repository-question';
         content = <RepositoryQuestionCard threadId={thread.id} question={repositoryQuestion} />;
     } else if (card === 'early_warning' && earlyWarning !== null) {
+        anchor = 'card-early-warning';
         content = <EarlyWarningCard threadId={thread.id} warning={earlyWarning} />;
     } else if (card === 'co_owner' && coOwner !== null) {
+        anchor = 'card-co-owner';
         content = <CoOwnerCard threadId={thread.id} coOwner={coOwner} repoUrl={thread.repo === 'unknown' ? null : editRepository.url(thread.repo)} onOpenChanges={onOpenChanges} />;
     } else if (card === 'stopped' && stopped !== null) {
+        anchor = 'card-stop';
         content = <StopCard threadId={thread.id} stopped={stopped} actions={actions} onMove={onMove} onShowLog={onShowLog} />;
     }
 
@@ -34,7 +39,7 @@ export function ThreadCards({ page, onOpenChanges, onMove, onShowLog }: Props) {
 
     return (
         <div className="shrink-0 bg-app px-4 pt-3 sm:px-8" data-testid="thread-cards">
-            <div className="mx-auto max-w-[820px]">{content}</div>
+            <div id={anchor} className="mx-auto max-w-[820px]">{content}</div>
         </div>
     );
 }

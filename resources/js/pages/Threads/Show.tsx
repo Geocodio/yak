@@ -37,6 +37,7 @@ import { AddChildDialog } from '@/threads/panels/stack/AddChildDialog';
 import { useStack } from '@/threads/panels/stack/useStack';
 import { useThreadDiff } from '@/threads/panels/changes/useThreadDiff';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
+import { useFragmentScroll } from '@/components/threads/useFragmentScroll';
 import type { PageProps } from '@/types/shared';
 import type { ThreadPageData } from '@/types/threads';
 
@@ -48,7 +49,8 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, turnAnchors, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
+    useFragmentScroll(thread.id, turnAnchors);
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);

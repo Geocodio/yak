@@ -10,7 +10,7 @@ export function CoOwnerCard({ threadId, coOwner, repoUrl, onOpenChanges }: { thr
             coOwner={coOwner}
             repoUrl={repoUrl}
             onOpenChanges={onOpenChanges}
-            shareUrl={`${window.location.origin}/threads/${threadId}#co-owner`}
+            shareUrl={`${window.location.origin}/threads/${threadId}#card-co-owner`}
             routes={{ approve: approve.url(threadId), requestChanges: requestChanges.url(threadId), reject: reject.url(threadId), withdraw: withdraw.url(threadId), checkAccess: checkAccess.url(threadId) }}
         />
     );

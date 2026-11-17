@@ -28,6 +28,7 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
 
     return (
         <div
+            id={`message-${message.uuid ?? message.id}`}
             className="flex gap-3"
             data-testid={pending ? 'thread-message-pending' : 'thread-message'}
             title={pending ? 'Claude reads this as soon as it can.' : undefined}

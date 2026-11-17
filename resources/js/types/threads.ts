@@ -227,6 +227,8 @@ export type ThreadPageData = {
     actions: ThreadActions;
     /** The one card to show above the composer; `question` is the question form inside the conversation. */
     card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
+    /** Web only: the element id of each follow-up task's first message, by the task's public id, for old `#turn-<id>` links. */
+    turnAnchors: Record<string, string>;
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
     /** Web only: the run and entry a `?log=` link names, or null. */

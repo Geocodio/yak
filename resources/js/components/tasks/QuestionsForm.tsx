@@ -47,7 +47,7 @@ export function QuestionsForm({ taskId, threadId, questions, who = 'Yak', footer
     const title = questions.length === 1 ? `${who} has a question before it can continue` : `${who} has ${questions.length} questions before it can continue`;
 
     return (
-        <section id="questions" aria-labelledby="questions-title" className="rounded-card border border-hair-strong bg-panel shadow-card" data-testid="questions-form">
+        <section id="card-question" aria-labelledby="questions-title" className="rounded-card border border-hair-strong bg-panel shadow-card" data-testid="questions-form">
             <div className="flex items-center justify-between gap-4 border-b border-hair px-6 py-4">
                 <div>
                     <h2 id="questions-title" className="text-[15px] font-semibold">{title}</h2>
