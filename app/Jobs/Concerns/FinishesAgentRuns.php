@@ -6,6 +6,7 @@ use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\Slack\PreviewRepairMessenger;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\PreviewRepairVerdict;
 use App\Enums\TaskStatus;
@@ -63,7 +64,7 @@ trait FinishesAgentRuns
                 'duration_ms' => $result->durationMs,
             ]);
 
-            $this->handleError($errorMessage);
+            $this->handleError($errorMessage, stop: $result->stop());
 
             return;
         }
@@ -246,7 +247,7 @@ trait FinishesAgentRuns
         return $update;
     }
 
-    private function handleError(string $errorMessage): void
+    private function handleError(string $errorMessage, ?TaskStop $stop = null): void
     {
         // Don't overwrite a task that's already terminal -- cancelled
         // mid-run, force-failed by a deploy drain with an accurate
@@ -266,6 +267,6 @@ trait FinishesAgentRuns
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
 
-        $this->notifySourceOfFailure($errorMessage);
+        $this->notifySourceOfFailure($errorMessage, $stop);
     }
 }

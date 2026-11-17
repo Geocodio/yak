@@ -28,6 +28,7 @@ use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -516,10 +517,10 @@ class WebhookController extends Controller
             app(NotificationDriver::class)->postAgentActivity(
                 $sessionId,
                 type: 'response',
-                body: "I'm not working on this right now and there is no PR yet. Delegate the issue to me again and I'll start a new run.",
+                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name')),
             );
 
-            return response()->json(['ok' => true, 'skipped' => 'not_running']);
+            return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);
         }
 
         app(NotificationDriver::class)->postAgentActivity(

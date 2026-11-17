@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\DataTransferObjects\ThreadEntry;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -90,6 +91,7 @@ final class TaskDetailData
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
             'findings' => self::findings($review),
+            'stop' => self::stop($task),
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
             'actions' => self::actions($task, $head, $coOwnerRequest, $isFollowUp),
@@ -188,7 +190,8 @@ final class TaskDetailData
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
-            'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
+            // The stop block already says what to do next.
+            'nextSteps' => self::stop($task) === null ? self::nextSteps($task, $head, $coOwnerRequest) : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
                 'number' => $task->pullRequestNumber(),
@@ -215,6 +218,43 @@ final class TaskDetailData
         }
 
         return route('artifacts.viewer', ['task' => $artifact->taskPublicId(), 'filename' => $artifact->filename]);
+    }
+
+    /**
+     * Why the task stopped, in plain words, with the technical text kept apart.
+     * A task waiting on repository setup reads as paused whatever kind was stored.
+     *
+     * @return array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null
+     */
+    private static function stop(YakTask $task): ?array
+    {
+        $isWaitingForSetup = $task->resume_after_setup_at !== null;
+
+        if (! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)
+            || ($task->stop_kind === null && ! $isWaitingForSetup)) {
+            return null;
+        }
+
+        $kind = $isWaitingForSetup ? StopKind::YakRetrying : ($task->stop_kind ?? StopKind::YakStopped);
+
+        return [
+            'kind' => $kind->value,
+            'summary' => $task->stop_summary ?: "Yak is waiting for this repository's setup to finish.",
+            'detail' => $task->error_log !== null ? Str::limit($task->error_log, 2000) : null,
+            'nextStep' => self::stopNextStep($kind, $task->source),
+            'isWaitingForSetup' => $isWaitingForSetup,
+        ];
+    }
+
+    private static function stopNextStep(StopKind $kind, ?string $source): string
+    {
+        return match (true) {
+            $kind === StopKind::YakRetrying => 'Yak picks it back up on its own. Nothing needed from you.',
+            $kind === StopKind::NeedsYou && ! in_array($source, ['linear', 'slack'], true) => 'Write your answer below and send it. Yak tries again with it.',
+            $source === 'linear' => 'Reply in the Linear issue, or press Retry, and Yak will try again.',
+            $source === 'slack' => 'Reply in the Slack thread, or press Retry, and Yak will try again.',
+            default => 'Press Retry and Yak will try again.',
+        };
     }
 
     private static function nextSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?string
@@ -763,6 +803,7 @@ final class TaskDetailData
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
+            in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) && $head->pr_url === null && ! in_array($head->mode, [TaskMode::Review, TaskMode::Setup], true) => 'stopped',
             in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) => 'disabled_failed',
             default => 'disabled_closed',
         };
@@ -779,6 +820,7 @@ final class TaskDetailData
                     : 'Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…',
                 null,
             ],
+            'stopped' => ['Write a note for Yak…', 'Send a note and Yak tries again with it. Or press Retry above.'],
             'disabled_failed' => $task->mode === TaskMode::Research
                 ? ["This research failed. Click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
                 : ["This task failed. Click {$retryActionLabel} above to try again.", in_array($task->source, ['slack', 'linear', 'email'], true) && $task->mode !== TaskMode::Setup
@@ -795,7 +837,7 @@ final class TaskDetailData
             'state' => $state,
             'placeholder' => $placeholder,
             'note' => $note,
-            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
+            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up', 'stopped'], true) ? 'Send' : null,
             'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
             // Steered messages reach Yak before queued ones, so they lead.
             'queued' => PendingSteeringMessage::waitingFor($head)->sortBy([

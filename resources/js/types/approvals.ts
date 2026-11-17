@@ -50,6 +50,7 @@ export type OpenPullRequestRow = {
     headSha: string;
     status: 'pending' | 'done' | 'failed';
     waiting: boolean;
+    reviewing: boolean;
     holds: string[];
     changeKind: string | null;
     hasTestChange: boolean;

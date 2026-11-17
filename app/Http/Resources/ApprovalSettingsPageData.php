@@ -2,14 +2,19 @@
 
 namespace App\Http\Resources;
 
+use App\Actions\EnqueuePrReview;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\DataTransferObjects\RepositorySettings;
+use App\Enums\TaskMode;
 use App\Jobs\CheckOpenPullRequestApprovalsJob;
+use App\Jobs\CheckPullRequestApprovalJob;
 use App\Models\ApprovalPreview;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\YakTask;
 use App\Services\ReviewApprovalPolicy;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -156,7 +161,9 @@ final class ApprovalSettingsPageData
      * with `only: ['openPullRequests']` until it is 0. A row's `holds` are the
      * reasons it needs a human at every DEFCON level, without the repository-wide
      * ones in `repositoryHolds`. `waiting` means Yak has not reviewed the current
-     * head commit yet. `changeKind` and `hasTestChange` let the page decide per
+     * head commit yet; `reviewing` is a waiting row whose review of that commit is
+     * queued or running. A waiting row whose review has finished is checked again
+     * here, without the user asking. `changeKind` and `hasTestChange` let the page decide per
      * level; `changeKind` is null when it was not classified. A row's `error` is set
      * only when `status` is `failed`. `reviewNowUrl` requests a review of that
      * pull request; `yakReviewUrl` is Yak's review page, null while `waiting`.
@@ -164,11 +171,13 @@ final class ApprovalSettingsPageData
      * running. The top-level `error` is why the last listing of open pull requests failed,
      * null when it succeeded or never ran.
      *
-     * @return array{checkedAt: ?string, error: ?string, isChecking: bool, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string, reviewNowUrl: string, yakReviewUrl: ?string}>}
+     * @return array{checkedAt: ?string, error: ?string, isChecking: bool, pending: int, rows: list<array{number: int, title: string, author: string, url: string, headSha: string, status: 'pending'|'done'|'failed', waiting: bool, reviewing: bool, holds: list<string>, changeKind: ?string, hasTestChange: bool, error: ?string, reviewNowUrl: string, yakReviewUrl: ?string}>}
      */
     public static function openPullRequests(Repository $repository): array
     {
+        self::recheckFinishedReviews($repository);
         $previews = ApprovalPreview::where('repository_id', $repository->id)->orderBy('pr_number')->get();
+        $reviewingKeys = self::reviewingKeys($previews);
         $checkError = Cache::get(self::checkErrorCacheKey($repository));
 
         $stuckBefore = now()->subSeconds(CheckOpenPullRequestApprovalsJob::STUCK_AFTER_SECONDS);
@@ -187,6 +196,7 @@ final class ApprovalSettingsPageData
                 'headSha' => $preview->head_sha,
                 'status' => $status,
                 'waiting' => $waiting,
+                'reviewing' => $waiting && $status === 'done' && isset($reviewingKeys[$preview->url . '|' . $preview->head_sha]),
                 'holds' => $preview->result['holds'] ?? [],
                 'changeKind' => $preview->result['changeKind'] ?? null,
                 'hasTestChange' => (bool) ($preview->result['hasTestChange'] ?? false),
@@ -203,6 +213,60 @@ final class ApprovalSettingsPageData
             'pending' => $pending,
             'rows' => $rows,
         ];
+    }
+
+    /**
+     * Sets a waiting row pending and queues its check once Yak has a review at its
+     * head commit. The conditional update lets only one request claim a row.
+     */
+    private static function recheckFinishedReviews(Repository $repository): void
+    {
+        $waiting = ApprovalPreview::where('repository_id', $repository->id)->where('status', 'done')
+            ->get(['id', 'pr_number', 'head_sha', 'result'])->filter(fn (ApprovalPreview $preview): bool => (bool) ($preview->result['waiting'] ?? false));
+        if ($waiting->isEmpty()) {
+            return;
+        }
+
+        $reviewed = PrReview::where('repo', $repository->slug)
+            ->whereIn('pr_number', $waiting->pluck('pr_number'))
+            ->whereIn('commit_sha_reviewed', $waiting->pluck('head_sha'))
+            ->get(['pr_number', 'commit_sha_reviewed'])
+            ->mapWithKeys(fn (PrReview $review): array => [$review->pr_number . '|' . $review->commit_sha_reviewed => true]);
+
+        foreach ($waiting as $preview) {
+            if (isset($reviewed[$preview->pr_number . '|' . $preview->head_sha])
+                && ApprovalPreview::where('id', $preview->id)->where('status', 'done')->update(['status' => 'pending']) === 1) {
+                CheckPullRequestApprovalJob::dispatch($preview->id);
+            }
+        }
+    }
+
+    /**
+     * One query for every row: the pull request URL and head commit of each
+     * queued or running review task, as `url|sha` keys.
+     *
+     * @param  Collection<int, ApprovalPreview>  $previews
+     * @return array<string, true>
+     */
+    private static function reviewingKeys($previews): array
+    {
+        $headShas = $previews->pluck('head_sha', 'url');
+        if ($headShas->isEmpty()) {
+            return [];
+        }
+
+        $keys = [];
+        $tasks = YakTask::where('mode', TaskMode::Review)->whereIn('external_id', $headShas->keys())
+            ->whereIn('status', ['pending', 'running'])->get(['external_id', 'context']);
+        foreach ($previews as $preview) {
+            foreach ($tasks as $task) {
+                if ($task->external_id === $preview->url && EnqueuePrReview::isAtHead($task, (string) $preview->head_sha)) {
+                    $keys[$preview->url . '|' . $preview->head_sha] = true;
+                }
+            }
+        }
+
+        return $keys;
     }
 
     /**

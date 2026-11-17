@@ -20,6 +20,7 @@ it('normalises runner line names', function (array $line, ?string $event) {
     'event field' => [['type' => 'runner', 'event' => 'started'], 'started'],
     'exit after result' => [['type' => 'runner.exit_after_result'], 'exit_after_result'],
     'done' => [['type' => 'runner', 'event' => 'done'], 'done'],
+    'swept' => [['type' => 'runner', 'event' => 'swept'], 'swept'],
     'unknown runner event' => [['type' => 'runner', 'event' => 'mystery'], null],
     'broker line' => [['type' => 'broker', 'event' => 'runner_exited'], null],
     'assistant' => [['type' => 'assistant'], null],

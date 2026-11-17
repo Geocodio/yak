@@ -169,7 +169,7 @@ it('holds draft, Yak-authored and findings without calling the classifier', func
     expect($outcome['holds'])->toContain($reason);
     ConcernClassifier::assertNeverPrompted();
 })->with([
-    'draft' => [['draft' => true], null, 'Pull request is not open, is a draft, has auto-merge on, or comes from a fork.'],
+    'draft' => [['draft' => true], null, 'Pull request is a draft.'],
     'yak' => [['user' => ['login' => 'yak[bot]']], null, 'Yak opened this pull request.'],
     'findings' => [[], 'should_fix', 'Review contains findings.'],
 ]);
@@ -384,4 +384,52 @@ it('holds the repository with a distinct reason when branch protection cannot be
     $this->github->shouldReceive('hasRequiredStatusChecks')->andThrow(new RuntimeException('403'));
 
     expect(app(ReviewApprovalPolicy::class)->repositoryHolds($this->repo))->toBe(['Could not read branch protection on main.']);
+});
+
+function waitingRow(Repository $repository, int $number = 7, string $sha = 'sha7'): ApprovalPreview
+{
+    return ApprovalPreview::factory()->create([
+        'repository_id' => $repository->id, 'pr_number' => $number, 'head_sha' => $sha, 'status' => 'done', 'url' => "https://github.com/acme/api/pull/{$number}",
+        'result' => ['holds' => [], 'changeKind' => null, 'hasTestChange' => false, 'waiting' => true, 'classification' => null],
+    ]);
+}
+
+function reviewTask(string $status, string $sha, int $number = 7): YakTask
+{
+    return YakTask::factory()->create([
+        'mode' => TaskMode::Review, 'status' => $status, 'external_id' => "https://github.com/acme/api/pull/{$number}", 'context' => json_encode(['head_sha' => $sha]),
+    ]);
+}
+
+it('marks a waiting row reviewing only while a review task runs at its head commit', function (string $status, string $sha, bool $expected) {
+    waitingRow($this->repo);
+    reviewTask($status, $sha);
+
+    expect(ApprovalSettingsPageData::openPullRequests($this->repo)['rows'][0])->toMatchArray(['waiting' => true, 'reviewing' => $expected]);
+})->with([
+    'pending at head' => ['pending', 'sha7', true],
+    'running at head' => ['running', 'sha7', true],
+    'older commit' => ['pending', 'old', false],
+    'finished' => ['success', 'sha7', false],
+]);
+
+it('checks a waiting row again on its own once a review exists and only once', function () {
+    Queue::fake();
+    $row = waitingRow($this->repo);
+    previewReview();
+
+    expect(ApprovalSettingsPageData::openPullRequests($this->repo)['rows'][0]['status'])->toBe('pending');
+    ApprovalSettingsPageData::openPullRequests($this->repo);
+
+    Queue::assertPushed(CheckPullRequestApprovalJob::class, 1);
+    expect($row->refresh()->status)->toBe('pending');
+});
+
+it('leaves a waiting row without a review at its head alone', function () {
+    Queue::fake();
+    waitingRow($this->repo);
+    previewReview(['commit_sha_reviewed' => 'old']);
+
+    expect(ApprovalSettingsPageData::openPullRequests($this->repo)['rows'][0]['status'])->toBe('done');
+    Queue::assertNothingPushed();
 });
