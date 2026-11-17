@@ -62,7 +62,9 @@ private struct UnreadableTokenStore: TokenStore {
             log.events.append("b-end")
         }
         _ = await (first, second)
-        #expect(log.events == ["a-start", "a-end", "b-start", "b-end"])
+        // The two calls enter in either order; neither runs inside the other.
+        let inOrder = [["a-start", "a-end", "b-start", "b-end"], ["b-start", "b-end", "a-start", "a-end"]]
+        #expect(inOrder.contains(log.events))
     }
 
     @Test func eachInstanceHasItsOwnStore() async throws {
