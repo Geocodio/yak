@@ -192,6 +192,24 @@ private func firstLink(of controller: PushController) async -> URL? {
         #expect(outcome == .openTaskPage(URL(string: "https://yak.example.com/tasks/k3m9p2qa")!))
     }
 
+    @Test func aTaskPushForAnotherPairedInstanceSwitchesToItAndOpensTheTask() async throws {
+        let rig = try await makePushRig()
+        let payload = try PushPayload(
+            json: Data(
+                """
+                {"aps":{"alert":{"title":"A","body":"B"}},
+                 "yak":{"instance":"https://other.example.com","event":"pull_request","kind":"task","id":"k3m9p2qa"}}
+                """.utf8))
+        await rig.controller.didTap(payload)
+        let link = try #require(await firstLink(of: rig.controller))
+        let scene = SceneModel(state: SceneState())
+        let outcome = scene.handle(
+            try #require(DeepLink(url: link)), active: rig.home, instances: [rig.home, rig.other], isCompactWidth: true)
+        #expect(
+            outcome
+                == .switchInstanceThenOpenTaskPage(rig.other, URL(string: "https://other.example.com/tasks/k3m9p2qa")!))
+    }
+
     @Test func aBadPayloadDoesNothing() async throws {
         let rig = try await makePushRig()
         let payload = try PushPayload(json: Data(#"{"aps":{"alert":"Hello"}}"#.utf8))
