@@ -13,6 +13,7 @@ use App\Support\TaskPageUrl;
 final class ObservationData
 {
     /**
+     * @param  array<int, ?string>  $taskUrls  task id to page url, from {@see TaskPageUrl::forVisibleTaskIds()}
      * @return array{
      *     id: int,
      *     repo: ?string,
@@ -31,12 +32,12 @@ final class ObservationData
      *     createdTooltip: string,
      * }
      */
-    public static function from(Observation $observation): array
+    public static function from(Observation $observation, array $taskUrls = []): array
     {
         return [
             ...self::common($observation),
             'taskId' => $observation->yak_task_id,
-            'taskUrl' => TaskPageUrl::forTaskId($observation->yak_task_id),
+            'taskUrl' => $taskUrls[$observation->yak_task_id] ?? null,
         ];
     }
 

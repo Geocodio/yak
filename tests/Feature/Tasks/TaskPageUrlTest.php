@@ -5,8 +5,10 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Support\TaskPageUrl;
+use Illuminate\Support\Facades\DB;
 
 function threadedTask(array $attributes = []): array
 {
@@ -112,16 +114,35 @@ it('reads the pull request number of a review from its pull request url', functi
     expect(TaskPageUrl::for($task))->toBe(route('pr-reviews.for-pr', ['acme/widgets', 9]) . '#run-' . $task->public_id);
 });
 
-it('falls back to the pull request url of a review that has no number', function () {
+it('has no page for a review without a pull request number and never points at a stored url', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'acme/widgets', 'pr_number' => null, 'pr_url' => 'https://example.test/change/abc']);
 
-    expect(TaskPageUrl::for($task))->toBe('https://example.test/change/abc');
+    expect(TaskPageUrl::for($task))->toBeNull();
 });
 
-it('has no page for a review without a pull request', function () {
-    $task = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'acme/widgets', 'pr_number' => null, 'pr_url' => null]);
+it('drops a walkthrough time that is not a number and a repository that is not a string', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
 
-    expect(TaskPageUrl::for($task))->toBeNull();
+    expect(TaskPageUrl::for($task, query: ['t' => 'abc', 'repo' => ['a', 'b']]))->toBe(route('threads.show', $thread))
+        ->and(TaskPageUrl::for($task, query: ['t' => '42', 'repo' => 'acme/widgets']))->toBe(route('threads.show', ['thread' => $thread, 'walkthrough' => 42, 'repo' => 'acme/widgets']));
+});
+
+it('resolves the pages of several visible tasks in a fixed number of queries', function () {
+    $thread = Thread::factory()->create();
+    $tasks = YakTask::factory()->count(4)->create(['thread_id' => $thread->id]);
+    $hidden = YakTask::factory()->create(['thread_id' => Thread::factory()->private()->create()->id]);
+    auth()->login(User::factory()->create());
+
+    DB::enableQueryLog();
+    $urls = TaskPageUrl::forVisibleTaskIds([...$tasks->pluck('id')->all(), $hidden->id]);
+    $queryCount = count(DB::getQueryLog());
+    DB::flushQueryLog();
+    TaskPageUrl::forVisibleTaskIds([$tasks[0]->id]);
+    $singleCount = count(DB::getQueryLog());
+
+    expect($urls[$tasks[0]->id])->toBe(route('threads.show', $thread))->and($urls[$hidden->id])->toBeNull()
+        ->and($queryCount)->toBe($singleCount);
 });
 
 it('sends a setup run to the repository Runs tab', function () {

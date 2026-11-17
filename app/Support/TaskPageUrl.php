@@ -26,17 +26,18 @@ final class TaskPageUrl
      * `log`); a key the target cannot use is dropped.
      *
      * @param  array<string, mixed>  $query
+     * @param  array{threads?: array<int, Thread>, repositories?: array<string, Repository>, anchors?: array<int, ?string>}  $lookups  rows already loaded for a list of tasks
      */
-    public static function for(YakTask $task, ?string $anchor = null, array $query = [], bool $absolute = true): ?string
+    public static function for(YakTask $task, ?string $anchor = null, array $query = [], bool $absolute = true, array $lookups = []): ?string
     {
-        $target = self::target($task);
+        $target = self::target($task, $lookups);
 
         if ($target === null) {
             return null;
         }
 
         if ($target['kind'] === 'review') {
-            return $target['externalUrl'] ?? route('pr-reviews.for-pr', [$target['repo'], $target['number']], $absolute) . '#run-' . $task->public_id;
+            return route('pr-reviews.for-pr', [$target['repo'], $target['number']], $absolute) . '#run-' . $task->public_id;
         }
 
         if ($target['kind'] === 'run') {
@@ -46,11 +47,13 @@ final class TaskPageUrl
         $thread = $target['thread'];
         $parameters = [];
 
-        if (isset($query['t']) || isset($query['walkthrough'])) {
-            $parameters['walkthrough'] = (int) ($query['walkthrough'] ?? $query['t']);
+        $walkthrough = $query['walkthrough'] ?? $query['t'] ?? null;
+
+        if (is_numeric($walkthrough)) {
+            $parameters['walkthrough'] = (int) $walkthrough;
         }
 
-        if (filled($query['repo'] ?? null)) {
+        if (is_string($query['repo'] ?? null) && $query['repo'] !== '') {
             $parameters['repo'] = $query['repo'];
         }
 
@@ -60,7 +63,9 @@ final class TaskPageUrl
 
         $fragment = $anchor !== null
             ? (self::ANCHORS[$anchor] ?? $anchor)
-            : (! $thread->is_legacy && $task->parent_task_id !== null ? self::messageAnchor($task) : null);
+            : (! $thread->is_legacy && $task->parent_task_id !== null
+                ? (array_key_exists($task->id, $lookups['anchors'] ?? []) ? $lookups['anchors'][$task->id] : self::messageAnchor($task))
+                : null);
 
         return route('threads.show', ['thread' => $thread->public_id, ...$parameters], $absolute) . ($fragment === null ? '' : '#' . $fragment);
     }
@@ -74,7 +79,8 @@ final class TaskPageUrl
     }
 
     /**
-     * The page of the task with this primary key, whoever may see the task.
+     * The page of the task with this primary key, whoever may see the task. For server-side messages only,
+     * never for a response to a viewer.
      *
      * @param  array<string, mixed>  $query
      */
@@ -83,6 +89,50 @@ final class TaskPageUrl
         $task = $taskId === null ? null : YakTask::query()->withoutGlobalScopes()->find($taskId);
 
         return $task === null ? null : self::for($task, $anchor, $query, $absolute);
+    }
+
+    /**
+     * The pages of several tasks as the signed-in viewer may see them, in a fixed number of queries
+     * for work tasks. A task the viewer cannot see, or that has no page, maps to null.
+     *
+     * @param  list<int>  $taskIds
+     * @return array<int, ?string>
+     */
+    public static function forVisibleTaskIds(array $taskIds): array
+    {
+        $tasks = YakTask::query()->whereIn('id', array_values(array_unique($taskIds)))->get();
+        $threadIds = $tasks->pluck('thread_id')->filter()->unique()->all();
+        $anchoredIds = $tasks->whereNotNull('parent_task_id')->pluck('id')->all();
+        $anchors = [];
+
+        foreach ($anchoredIds as $id) {
+            $anchors[$id] = null;
+        }
+
+        ThreadTurnMessage::query()
+            ->select(['thread_turn_messages.uuid', 'task_runs.yak_task_id'])
+            ->join('task_runs', 'task_runs.id', '=', 'thread_turn_messages.task_run_id')
+            ->where('thread_turn_messages.kind', TurnMessageKind::Prompt)
+            ->whereIn('task_runs.yak_task_id', $anchoredIds)
+            ->orderByDesc('thread_turn_messages.id')
+            ->get()
+            ->each(function (ThreadTurnMessage $message) use (&$anchors): void {
+                $anchors[(int) $message->getAttribute('yak_task_id')] = self::messageId($message->uuid);
+            });
+
+        $lookups = [
+            'threads' => Thread::query()->withoutGlobalScopes()->whereIn('id', $threadIds)->get()->keyBy('id')->all(),
+            'repositories' => Repository::query()->whereIn('slug', $tasks->pluck('repo')->filter()->unique()->all())->get()->keyBy('slug')->all(),
+            'anchors' => $anchors,
+        ];
+
+        $urls = array_fill_keys($taskIds, null);
+
+        foreach ($tasks as $task) {
+            $urls[$task->id] = self::for($task, lookups: $lookups);
+        }
+
+        return $urls;
     }
 
     /**
@@ -95,6 +145,14 @@ final class TaskPageUrl
             'run' => 'run',
             default => 'thread',
         };
+    }
+
+    /**
+     * The text of the button that opens the task's page: "Open thread", "Open review" or "Open run".
+     */
+    public static function buttonText(YakTask $task): string
+    {
+        return 'Open ' . self::label($task);
     }
 
     /**
@@ -120,27 +178,24 @@ final class TaskPageUrl
     }
 
     /**
-     * @return array{kind: 'review', repo: string, number: int, externalUrl: ?string}|array{kind: 'run', repository: Repository}|array{kind: 'thread', thread: Thread}|null
+     * @param  array{threads?: array<int, Thread>, repositories?: array<string, Repository>, anchors?: array<int, ?string>}  $lookups
+     * @return array{kind: 'review', repo: string, number: int}|array{kind: 'run', repository: Repository}|array{kind: 'thread', thread: Thread}|null
      */
-    private static function target(YakTask $task): ?array
+    private static function target(YakTask $task, array $lookups = []): ?array
     {
         if ($task->mode === TaskMode::Review) {
             $number = $task->pullRequestNumber();
 
-            if ($task->repo === null || ($number === null && blank($task->pr_url))) {
-                return null;
-            }
-
-            return ['kind' => 'review', 'repo' => $task->repo, 'number' => (int) $number, 'externalUrl' => $number === null ? $task->pr_url : null];
+            return $task->repo === null || $number === null ? null : ['kind' => 'review', 'repo' => $task->repo, 'number' => $number];
         }
 
         if (RepositoryRunData::isRepositoryRun($task)) {
-            $repository = $task->repo === null ? null : Repository::query()->where('slug', $task->repo)->first();
+            $repository = $task->repo === null ? null : ($lookups['repositories'][$task->repo] ?? (isset($lookups['repositories']) ? null : Repository::query()->where('slug', $task->repo)->first()));
 
             return $repository === null ? null : ['kind' => 'run', 'repository' => $repository];
         }
 
-        $thread = $task->thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($task->thread_id);
+        $thread = $task->thread_id === null ? null : ($lookups['threads'][$task->thread_id] ?? Thread::query()->withoutGlobalScopes()->find($task->thread_id));
         $thread ??= Thread::query()->withoutGlobalScopes()->where('is_legacy', true)->where('legacy_root_task_id', $task->rootTask()->id)->first();
 
         return $thread === null ? null : ['kind' => 'thread', 'thread' => $thread];

@@ -4,6 +4,7 @@ use App\Enums\TaskMode;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
@@ -75,11 +76,11 @@ it('redirects a review to its pull request page at its run', function () {
         ->assertRedirect(route('pr-reviews.for-pr', ['acme/widgets', 42]) . '#run-' . $task->public_id);
 });
 
-it('redirects a review without a number to its pull request url, and has no page without one', function () {
+it('answers 404 for a review without a number, whatever url it stores', function () {
     $linked = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'acme/widgets', 'pr_number' => null, 'pr_url' => 'https://example.test/change/abc']);
     $bare = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'acme/widgets', 'pr_number' => null, 'pr_url' => null]);
 
-    $this->get(route('tasks.show', $linked))->assertStatus(301)->assertRedirect('https://example.test/change/abc');
+    $this->get(route('tasks.show', $linked))->assertNotFound();
     $this->get(route('tasks.show', $bare))->assertNotFound();
 });
 
@@ -112,16 +113,42 @@ it('answers 404 for an unknown task', function () {
     $this->get('/tasks/987654')->assertNotFound();
 });
 
-it('redirects to a private thread without revealing it, and the thread answers 404 to the viewer', function () {
+it('answers 404 without a Location for a task on another person\'s private thread, by public or numeric id', function () {
     $thread = Thread::factory()->private()->create(['title' => 'Quarterly layoff plan']);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
 
-    $response = $this->get(route('tasks.show', $task));
+    foreach ([$task->public_id, $task->id] as $key) {
+        $response = $this->get('/tasks/' . $key);
 
-    $response->assertStatus(301)->assertRedirect(route('threads.show', $thread));
-    expect($response->getContent())->not->toContain('Quarterly layoff plan');
-    expect(json_encode($response->headers->all()))->not->toContain('Quarterly layoff plan');
-    $this->get($response->headers->get('Location'))->assertNotFound();
+        $response->assertNotFound();
+        expect($response->headers->has('Location'))->toBeFalse()
+            ->and($response->getContent())->not->toContain('Quarterly layoff plan');
+    }
+});
+
+it('redirects the owner of a private thread to it', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+
+    $this->actingAs($owner)->get(route('tasks.show', $task))->assertStatus(301)->assertRedirect(route('threads.show', $thread));
+    $this->get('/tasks/' . $task->id)->assertStatus(301)->assertRedirect(route('threads.show', $thread));
+});
+
+it('redirects a person a private thread is shared with', function () {
+    $guest = User::factory()->create();
+    $thread = Thread::factory()->private()->create();
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $guest->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+
+    $this->actingAs($guest)->get(route('tasks.show', $task))->assertStatus(301)->assertRedirect(route('threads.show', $thread));
+});
+
+it('redirects any signed-in user to a team thread', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+
+    $this->actingAs(User::factory()->create())->get(route('tasks.show', $task))->assertStatus(301)->assertRedirect(route('threads.show', $thread));
 });
 
 it('sends a guest to the login page', function () {

@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
+use App\Enums\ThreadVisibility;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
@@ -437,7 +438,7 @@ class CreatePullRequestJob implements ShouldQueue
         $yakUrl = $this->yakTaskUrl();
 
         if ($yakUrl !== null) {
-            $parts[] = "**Yak thread:** [{$this->yakThreadTitle()}]({$yakUrl})";
+            $parts[] = "**Yak thread:** [{$this->yakThreadLinkText()}]({$yakUrl})";
         }
 
         $parts[] = "**Repository:** {$this->task->repo}";
@@ -484,14 +485,20 @@ class CreatePullRequestJob implements ShouldQueue
     }
 
     /**
-     * The thread title for the link text, kept to one short line.
+     * The link text of the thread line. Only a team thread shows its title, because a pull request body is
+     * readable by everyone with access to the repository; any other thread is a plain "Open the thread".
      */
-    private function yakThreadTitle(): string
+    private function yakThreadLinkText(): string
     {
         $thread = $this->task->thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($this->task->thread_id);
-        $title = trim(preg_replace('/\s+/', ' ', (string) ($thread?->title ?: $this->task->headline())) ?? '');
 
-        return str_replace(['[', ']'], ['(', ')'], mb_strimwidth($title !== '' ? $title : "#{$this->task->id}", 0, 80, '…'));
+        if ($thread === null || $thread->effectiveVisibility() !== ThreadVisibility::Team) {
+            return 'Open the thread';
+        }
+
+        $title = trim((string) ($thread->title ?: $this->task->headline()));
+
+        return MarkdownText::inline($title !== '' ? $title : "#{$this->task->id}", 80);
     }
 
     /**

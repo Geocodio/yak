@@ -106,7 +106,7 @@ test('jobs and commands see everything', function () {
 
 test('a private thread is missing from the thread log, costs, analytics and system pages for other users', function () {
     $owner = User::factory()->create();
-    $thread = Thread::factory()->private($owner)->create();
+    $thread = Thread::factory()->private($owner)->create(['title' => 'Quarterly layoff plan']);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'secret/repo', 'cost_usd' => 4.25, 'created_at' => now()]);
     YakTask::factory()->create(['repo' => 'acme/api', 'cost_usd' => 1, 'created_at' => now()]);
 
@@ -114,7 +114,8 @@ test('a private thread is missing from the thread log, costs, analytics and syst
         $this->actingAs($viewer);
 
         $this->get(route('threads.log'))->assertInertia(fn (Assert $page) => $page
-            ->where('counts.total', 1));
+            ->where('counts.total', 1)
+            ->where('rows.data', fn ($rows) => ! str_contains(json_encode($rows), $thread->public_id) && ! str_contains(json_encode($rows), 'Quarterly layoff plan')));
         $this->get('/costs')->assertInertia(fn (Assert $page) => $page
             ->where('summary.taskCount', 1)
             ->where('summary.claudeCode.amount', 1));

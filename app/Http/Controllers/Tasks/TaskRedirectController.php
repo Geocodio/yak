@@ -11,14 +11,14 @@ use Illuminate\Http\Request;
 
 /**
  * Old task links keep working for good: each one answers 301 to the page the
- * task lives on now. The redirect checks no access and names nothing; the
- * page it points at applies its own rule.
+ * task lives on now. A task the viewer may not see answers 404, like an
+ * unknown one.
  */
 class TaskRedirectController extends Controller
 {
     public function show(Request $request, string $task): RedirectResponse
     {
-        $found = YakTask::query()->withoutGlobalScopes()
+        $found = YakTask::query()
             ->where(ctype_digit($task) ? 'id' : 'public_id', $task)
             ->first() ?? abort(404);
 
