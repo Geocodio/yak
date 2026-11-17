@@ -165,11 +165,9 @@ import XCTest
         try app.performAccessibilityAudit { [self, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                // The system caps the size of text in its bars.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            if issue.auditType == .contrast, issue.element == nil { return true }
             // An element entirely outside the screen shows no pixels to measure.
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             // Text behind a bar is covered by the bar.

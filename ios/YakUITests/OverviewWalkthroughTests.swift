@@ -57,8 +57,7 @@ import XCTest
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         row.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.setupOutput.text"].waitForExistence(timeout: 10))
-        // A sheet covers the page; the audit cannot judge text under its dimming.
-        try shoot("overview-setup-output", audits: false)
+        try shootOverview("overview-setup-output")
     }
 
     func testOverviewRecipient() throws {
@@ -333,7 +332,7 @@ import XCTest
         app.buttons["share.save"].tap()
         // The first answers are the server's busy answer, so the sheet stays while the app retries.
         pause(1)
-        try shoot("share-saving", audits: false)
+        try shootOverview("share-saving")
     }
 
     private func openShare(_ scenario: String, waitsForForm: Bool = true) throws {
@@ -379,7 +378,7 @@ import XCTest
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
         XCTAssertTrue(app.buttons["Drop it"].waitForExistence(timeout: 5))
-        try shoot("drawer-child-swipe", audits: false)
+        try shootOverview("drawer-child-swipe")
     }
 
     func testDrawerChildSteps() throws {
@@ -451,19 +450,17 @@ import XCTest
     }
 
     private func auditOverview(_ name: String) throws {
-        try app.performAccessibilityAudit { [app] issue in
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
-            }
-            // A disabled control is dimmed on purpose, as in the other walkthroughs.
-            if issue.auditType == .contrast, issue.element?.debugDescription.contains("Disabled") == true {
+            // The system caps the size of text in its bars.
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }),
+                [.dynamicType, .textClipped].contains(issue.auditType)
+            {
                 return true
             }
-            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
-                return true
-            }
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
         }
