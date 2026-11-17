@@ -221,10 +221,12 @@ platform :ios do
   BUILD_SCHEME = "Yak".freeze
   BUILD_PLATFORM = "iOS Simulator".freeze
 
+  # Warnings fail the build through project.yml, which covers the app's own targets; on the command line the setting
+  # would also reach swift-markdown, whose package build suppresses warnings and rejects it.
   def xcodebuild_base(device)
     "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
       "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \
-      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+      "CODE_SIGNING_ALLOWED=NO"
   end
 
   # One `xcodebuild build-for-testing` that every test run after it reuses (test-without-building, same derived data)
