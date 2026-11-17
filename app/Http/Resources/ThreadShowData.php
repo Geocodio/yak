@@ -104,30 +104,13 @@ final class ThreadShowData
             'sharedFiles' => ThreadSharedFilesData::for($thread),
             'composer' => ThreadComposerData::for($thread, $viewer),
             'notice' => ThreadNoticeData::for($thread, $viewer),
-            'modelLabels' => self::modelLabels(),
+            'modelLabels' => app(ClaudeModelCatalog::class)->labels(),
             'stackParent' => self::stackParent($thread),
             'question' => ThreadQuestionData::for($thread),
             'milestones' => ThreadMilestonesData::for($thread),
             ...ThreadRequestData::for($thread, $viewer),
             ...ThreadCardsData::for($thread, $viewer),
         ]);
-    }
-
-    /**
-     * The catalog label of every exact model id and family alias, so a raw id reads as "Sonnet 5.5".
-     *
-     * @return array<string, string>
-     */
-    private static function modelLabels(): array
-    {
-        $catalog = app(ClaudeModelCatalog::class);
-        $labels = array_column($catalog->entries(), 'label', 'id');
-
-        foreach ($catalog->families() as $family) {
-            $labels[$family['family']] = $family['latest']['label'];
-        }
-
-        return $labels;
     }
 
     /**

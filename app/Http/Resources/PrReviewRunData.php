@@ -7,8 +7,11 @@ use App\Enums\TaskStatus;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\BranchPreviewLookup;
+use App\Support\DeploymentPresentation;
 use App\Support\Markdown;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -17,11 +20,13 @@ use Illuminate\Support\Str;
  * What the review page of one pull request shows: one card per review run (a review task of that repository and
  * pull request, with its `PrReview` row once it wrote one), newest first, and the totals of the side panel.
  *
- * @phpstan-type Run array{id: string, status: string, scope: string, startedAt: string, commit: ?string, model: ?string, stepCount: int, durationSeconds: int, costUsd: float, verdict: ?string, counts: array{mustFix: int, shouldFix: int, consider: int}, resolvedCount: int, findings: ?array<string, mixed>, error: ?string, canRerun: bool, logUrl: string, isLive: bool, latestActivity: ?string}
- * @phpstan-type Panel array{repository: string, author: ?string, state: string, branch: ?string, preview: ?array{status: string, hostname: string, url: string}, runCount: int, failedCount: int, totalCostUsd: float, helpfulCount: int, notHelpfulCount: int, thread: ?array{id: string, title: string}, source: ?array{label: string, url: string}}
+ * @phpstan-type Run array{id: string, status: string, scope: string, startedAt: string, commit: ?string, model: ?string, stepCount: int, durationSeconds: int, costUsd: float, verdict: ?string, counts: array{mustFix: int, shouldFix: int, consider: int}, resolvedCount: int, findings: ?array<string, mixed>, error: ?string, errorIsTruncated: bool, errorDetails: ?string, canRerun: bool, logUrl: string, isLive: bool, latestActivity: ?string}
+ * @phpstan-type Panel array{repository: string, author: ?string, state: string, branch: ?string, preview: ?array{status: string, statusLabel: string, tone: string, hostname: string, url: string}, runCount: int, failedCount: int, totalCostUsd: float, helpfulCount: int, notHelpfulCount: int, thread: ?array{id: string, title: string}, source: ?array{key: string, label: string, reference: ?string, url: string}}
  */
 final class PrReviewRunData
 {
+    private const int ERROR_LIMIT = 600;
+
     /**
      * @return Collection<int, YakTask>
      */
@@ -54,7 +59,9 @@ final class PrReviewRunData
     {
         $reviews = PrReview::query()->whereIn('yak_task_id', $tasks->pluck('id'))->with('comments')->get()->keyBy('yak_task_id');
 
-        $runs = $tasks->map(fn (YakTask $task): array => self::run($task, $reviews->get($task->id), $repoSlug, $prNumber))->values()->all();
+        $usages = TaskRun::query()->whereIn('yak_task_id', $tasks->pluck('id'))->whereNotNull('model_usage')->orderBy('id')->get(['yak_task_id', 'model_usage'])->pluck('model_usage', 'yak_task_id');
+
+        $runs = $tasks->map(fn (YakTask $task): array => self::run($task, $reviews->get($task->id), $usages->get($task->id), $repoSlug, $prNumber))->values()->all();
 
         return ['runs' => $runs, 'panel' => self::panel($tasks, $reviews, $runs, $repoSlug, $prNumber)];
     }
@@ -62,7 +69,7 @@ final class PrReviewRunData
     /**
      * @return Run
      */
-    private static function run(YakTask $task, ?PrReview $review, string $repoSlug, int $prNumber): array
+    private static function run(YakTask $task, ?PrReview $review, mixed $modelUsage, string $repoSlug, int $prNumber): array
     {
         /** @var TaskStatus $taskStatus */
         $taskStatus = $task->status;
@@ -78,7 +85,7 @@ final class PrReviewRunData
             'scope' => (string) ($review->review_scope ?? $context['review_scope'] ?? 'full'),
             'startedAt' => ($task->started_at ?? $task->created_at)->toIso8601String(),
             'commit' => ($sha = $review->commit_sha_reviewed ?? $context['head_sha'] ?? null) === null ? null : substr((string) $sha, 0, 7),
-            'model' => $task->resolvedModel(),
+            'model' => YakTask::mainModel(is_array($modelUsage) ? $modelUsage : null, $task->model_used),
             'stepCount' => (int) $task->num_turns,
             'durationSeconds' => intdiv((int) $task->duration_ms, 1000),
             'costUsd' => (float) $task->cost_usd,
@@ -86,11 +93,34 @@ final class PrReviewRunData
             'counts' => self::counts($comments),
             'resolvedCount' => $comments->where('resolution_status', 'fixed')->count(),
             'findings' => $review === null ? null : self::findings($review, $comments),
-            'error' => $taskStatus === TaskStatus::Failed || $taskStatus === TaskStatus::Expired ? ($task->error_log ?: 'The review stopped without a recorded reason.') : null,
+            ...self::error($task, $taskStatus),
             'canRerun' => ! in_array($taskStatus, [TaskStatus::Pending, TaskStatus::Running], true),
             'logUrl' => route('pr-reviews.for-pr.runs.log', ['repoSlug' => $repoSlug, 'prNumber' => $prNumber, 'task' => $task->public_id]),
             'isLive' => $isLive,
             'latestActivity' => $isLive ? self::latestActivity($task) : null,
+        ];
+    }
+
+    /**
+     * The reason a failed run gives, whitespace collapsed and cut at 600 characters; the whole text, cut at 16 KB, is
+     * sent only when the short one is cut.
+     *
+     * @return array{error: ?string, errorIsTruncated: bool, errorDetails: ?string}
+     */
+    private static function error(YakTask $task, TaskStatus $status): array
+    {
+        if ($status !== TaskStatus::Failed && $status !== TaskStatus::Expired) {
+            return ['error' => null, 'errorIsTruncated' => false, 'errorDetails' => null];
+        }
+
+        $full = trim((string) $task->error_log) === '' ? 'The review stopped without a recorded reason.' : trim((string) $task->error_log);
+        $short = trim((string) preg_replace('/\s+/u', ' ', $full));
+        $isTruncated = mb_strlen($short) > self::ERROR_LIMIT;
+
+        return [
+            'error' => $isTruncated ? rtrim(mb_substr($short, 0, self::ERROR_LIMIT)) . '…' : $short,
+            'errorIsTruncated' => $isTruncated,
+            'errorDetails' => $isTruncated ? mb_strcut($full, 0, 16384) : null,
         ];
     }
 
@@ -173,14 +203,30 @@ final class PrReviewRunData
             'author' => $newest === null ? null : (self::context($newest)['author'] ?? null),
             'state' => self::state($tasks, $reviews),
             'branch' => $newest?->branch_name,
-            'preview' => $newest === null ? null : TaskDetailData::deployment($newest),
+            'preview' => self::preview($newest),
             'runCount' => count($runs),
             'failedCount' => count(array_filter($runs, fn (array $run): bool => $run['status'] === 'failed')),
             'totalCostUsd' => round((float) $tasks->sum(fn (YakTask $task): float => (float) $task->cost_usd), 2),
             'helpfulCount' => (int) $comments->sum('thumbs_up'),
             'notHelpfulCount' => (int) $comments->sum('thumbs_down'),
             'thread' => $thread === null ? null : ['id' => $thread->public_id, 'title' => $thread->title],
-            'source' => $thread?->source_url === null ? null : ['label' => trim($thread->source->label() . ' ' . $thread->source_reference), 'url' => $thread->source_url],
+            'source' => $thread?->source_url === null ? null : ['key' => $thread->source->value, 'label' => $thread->source->label(), 'reference' => $thread->source_reference, 'url' => $thread->source_url],
+        ];
+    }
+
+    /**
+     * @return array{status: string, statusLabel: string, tone: string, hostname: string, url: string}|null
+     */
+    private static function preview(?YakTask $task): ?array
+    {
+        $deployment = $task === null ? null : app(BranchPreviewLookup::class)->forBranch($task->repo, $task->branch_name);
+
+        return $deployment === null ? null : [
+            'status' => $deployment->status->value,
+            'statusLabel' => DeploymentPresentation::label($deployment->status),
+            'tone' => DeploymentPresentation::tone($deployment->status),
+            'hostname' => $deployment->hostname,
+            'url' => 'https://' . $deployment->hostname,
         ];
     }
 

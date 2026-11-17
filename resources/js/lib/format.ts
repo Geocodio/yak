@@ -160,3 +160,26 @@ export function formatBytes(bytes: number): string {
 
     return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
 }
+
+/** ISO timestamp → a clock time for today, `Yesterday 4:12 PM` for yesterday, `Nov 3 4:12 PM` before that. */
+export function formatWhen(iso: string, now: Date = new Date()): string {
+    const date = new Date(iso);
+
+    if (Number.isNaN(date.getTime())) {
+        return iso;
+    }
+
+    const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    if (date.toDateString() === now.toDateString()) {
+        return time;
+    }
+
+    if (date.toDateString() === yesterday.toDateString()) {
+        return `Yesterday ${time}`;
+    }
+
+    return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
+}

@@ -77,6 +77,9 @@ export type PrReviewRun = {
     resolvedCount: number;
     findings: FindingsData;
     error: string | null;
+    errorIsTruncated: boolean;
+    /** The whole reason, sent only when `error` is cut. */
+    errorDetails: string | null;
     canRerun: boolean;
     logUrl: string;
     isLive: boolean;
@@ -88,12 +91,12 @@ export type PrReviewPullRequest = {
     author: string | null;
     state: 'open' | 'closed' | 'merged';
     branch: string | null;
-    preview: { status: string; hostname: string; url: string } | null;
+    preview: { status: string; statusLabel: string; tone: string; hostname: string; url: string } | null;
     runCount: number;
     failedCount: number;
     totalCostUsd: number;
     helpfulCount: number;
     notHelpfulCount: number;
     thread: { id: string; title: string } | null;
-    source: { label: string; url: string } | null;
+    source: { key: string; label: string; reference: string | null; url: string } | null;
 };

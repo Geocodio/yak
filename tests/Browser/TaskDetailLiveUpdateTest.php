@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 test('shadow approval is displayed as a comment with its risk assessment', function () {
     $this->actingAs(User::factory()->create());
     PrReview::factory()->create([
+        'yak_task_id' => seedReviewRun(['status' => TaskStatus::Success])->id,
         'repo' => 'geocodio/api', 'pr_number' => 50, 'verdict' => 'Approve',
         'risk_assessment' => [
             'event' => 'COMMENT', 'candidate' => 'APPROVE', 'mode' => 'shadow',
@@ -20,7 +21,8 @@ test('shadow approval is displayed as a comment with its risk assessment', funct
     ]);
 
     visit(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
-        ->assertSee('Model verdict: Approve')
+        ->assertDontSee('GitHub review: Comment only')
+        ->click('[data-testid="review-risk-details"] > summary')
         ->assertSee('GitHub review: Comment only')
         ->assertSee('Shadow mode. Policy recommendation: approve.')
         ->assertDontSee('/100')

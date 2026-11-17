@@ -63,6 +63,22 @@ class ClaudeModelCatalog
     }
 
     /**
+     * The catalog label of every exact model id and family alias, so a raw id reads as "Sonnet 5.5".
+     *
+     * @return array<string, string>
+     */
+    public function labels(): array
+    {
+        $labels = array_column($this->entries(), 'label', 'id');
+
+        foreach ($this->families() as $family) {
+            $labels[$family['family']] = $family['latest']['label'];
+        }
+
+        return $labels;
+    }
+
+    /**
      * The picker shape: one row per family with its newest model, plus the older exact versions.
      *
      * @return list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>

@@ -8,7 +8,6 @@ use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Artifact;
-use App\Models\BranchDeployment;
 use App\Models\CoOwnerRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
@@ -16,6 +15,7 @@ use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\BranchPreviewLookup;
 use App\Services\ChainMediaResolver;
 use App\Services\Tasks\TaskProgressSteps;
 use App\Services\Tasks\TaskStopSummary;
@@ -636,22 +636,9 @@ final class TaskDetailData
     /**
      * @return array{status: string, hostname: string, url: string}|null
      */
-    public static function deployment(YakTask $task): ?array
+    private static function deployment(YakTask $task): ?array
     {
-        if ($task->branch_name === null) {
-            return null;
-        }
-
-        $repository = Repository::where('slug', $task->repo)->first();
-
-        if ($repository === null) {
-            return null;
-        }
-
-        $deployment = BranchDeployment::where('repository_id', $repository->id)
-            ->where('branch_name', $task->branch_name)
-            ->whereNotIn('status', ['destroyed', 'destroying'])
-            ->first();
+        $deployment = app(BranchPreviewLookup::class)->forBranch($task->repo, $task->branch_name);
 
         if ($deployment === null) {
             return null;

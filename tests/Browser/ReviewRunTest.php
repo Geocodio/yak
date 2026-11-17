@@ -13,7 +13,7 @@ function seedThreeReviewRuns(): array
     PrReview::factory()->create(['yak_task_id' => $oldest->id, 'repo' => 'geocodio/api', 'pr_number' => 50, 'summary' => 'An older pass.']);
     $middle = seedReviewRun(['status' => TaskStatus::Success, 'created_at' => now()->subDay(), 'started_at' => now()->subDay(), 'num_turns' => 24, 'cost_usd' => 0.64, 'duration_ms' => 125000]);
     $review = PrReview::factory()->create(['yak_task_id' => $middle->id, 'repo' => 'geocodio/api', 'pr_number' => 50, 'summary' => 'The move is consistent.']);
-    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'should_fix']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'should_fix', 'category' => 'Tests', 'file_path' => 'app/Models/Subscription.php', 'line_number' => 189, 'body' => 'No test covers a negotiated price. The case this change exists for is missing.']);
     $failed = seedReviewRun(['status' => TaskStatus::Failed, 'created_at' => now(), 'started_at' => now(), 'error_log' => 'GitHub returned 404 for the pull request diff.', 'num_turns' => 3, 'cost_usd' => 0.02, 'duration_ms' => 20000]);
     TaskLog::create(['yak_task_id' => $failed->id, 'level' => 'info', 'message' => 'Reading the diff']);
 
@@ -52,5 +52,20 @@ it('expands an older run named in the address', function () {
 
     $page = visit('/pr-reviews/for/geocodio/api/50')->assertDontSee('The move is consistent.');
     $page->script("window.location.hash = '#run-{$middle->public_id}'");
-    $page->assertSee('The move is consistent.');
+    $page->assertSee('The move is consistent.')
+        ->assertSeeIn('[data-testid="findings-table"]', 'Tests')
+        ->assertSeeIn('[data-testid="findings-table"]', 'app/Models/Subscription.php:189')
+        ->assertSeeIn('[data-testid="findings-table"]', 'No test covers a negotiated price.')
+        ->assertSeeIn('[data-testid="findings-counts"]', '0 must fix')
+        ->assertSeeIn('[data-testid="findings-counts"]', '1 should fix');
+});
+
+it('keeps a failed older run expanded with its error and re-run button', function () {
+    $this->actingAs(User::factory()->create());
+    $failed = seedReviewRun(['status' => TaskStatus::Failed, 'created_at' => now()->subDay(), 'error_log' => 'Diff fetch failed.']);
+    seedReviewRun(['status' => TaskStatus::Success, 'created_at' => now(), 'started_at' => now()]);
+
+    visit('/pr-reviews/for/geocodio/api/50')
+        ->assertSeeIn("[data-testid=\"review-run-{$failed->public_id}\"]", 'Diff fetch failed.')
+        ->assertSeeIn("[data-testid=\"review-run-{$failed->public_id}\"]", 'Re-run this review');
 });

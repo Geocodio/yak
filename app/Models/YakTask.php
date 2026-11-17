@@ -322,8 +322,18 @@ class YakTask extends Model
     {
         $modelUsage = $this->runs()->reorder()->whereNotNull('model_usage')->latest('id')->value('model_usage');
 
-        if (! is_array($modelUsage) || $modelUsage === []) {
-            return $this->model_used;
+        return self::mainModel(is_array($modelUsage) ? $modelUsage : null, $this->model_used);
+    }
+
+    /**
+     * The model that wrote the most output tokens in a run's per-model usage, or the fallback without usage.
+     *
+     * @param  array<string, array<string, mixed>>|null  $modelUsage
+     */
+    public static function mainModel(?array $modelUsage, ?string $fallback): ?string
+    {
+        if ($modelUsage === null || $modelUsage === []) {
+            return $fallback;
         }
 
         $outputTokensByModel = array_map(fn (array $usage): int => (int) ($usage['output'] ?? 0), $modelUsage);

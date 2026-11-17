@@ -2,8 +2,10 @@
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskStatus;
+use App\Models\BranchDeployment;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\User;
@@ -155,4 +157,35 @@ test('a run of a private thread of someone else cannot be re-run or read', funct
 
     $this->getJson(route('pr-reviews.for-pr.runs.log', ['repoSlug' => 'geocodio/api', 'prNumber' => 50, 'task' => $task->public_id]))->assertNotFound();
     $this->post(route('pr-reviews.for-pr.runs.rerun', ['repoSlug' => 'geocodio/api', 'prNumber' => 50, 'task' => $task->public_id]))->assertNotFound();
+});
+
+test('a task that is not a review of the pull request answers 404 on the log and the re-run', function () {
+    $task = YakTask::factory()->success()->create(['repo' => 'geocodio/api', 'pr_url' => 'https://github.com/geocodio/api/pull/50']);
+
+    $this->getJson(route('pr-reviews.for-pr.runs.log', ['repoSlug' => 'geocodio/api', 'prNumber' => 50, 'task' => $task->public_id]))->assertNotFound();
+    $this->post(route('pr-reviews.for-pr.runs.rerun', ['repoSlug' => 'geocodio/api', 'prNumber' => 50, 'task' => $task->public_id]))->assertNotFound();
+});
+
+test('a long error is cut at 600 characters with whitespace collapsed and the whole text is sent separately', function () {
+    $long = "Line one\n\n   " . str_repeat('x', 900);
+    seedReviewRun(['status' => TaskStatus::Failed, 'error_log' => $long]);
+    seedReviewRun(['status' => TaskStatus::Failed, 'error_log' => "short\nreason", 'created_at' => now()->subDay()]);
+
+    $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('runs.0.errorIsTruncated', true)
+            ->where('runs.0.error', fn ($error) => mb_strlen($error) === 601 && str_starts_with($error, 'Line one xxx'))
+            ->where('runs.0.errorDetails', $long)
+            ->where('runs.1.error', 'short reason')
+            ->where('runs.1.errorIsTruncated', false)
+            ->where('runs.1.errorDetails', null));
+});
+
+test('the preview of the branch is named with its readable status', function () {
+    $repository = Repository::factory()->create(['slug' => 'geocodio/api']);
+    BranchDeployment::factory()->create(['repository_id' => $repository->id, 'branch_name' => 'feature/billing', 'status' => 'starting']);
+    seedReviewRun();
+
+    $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertInertia(fn (Assert $page) => $page->where('pullRequest.preview.statusLabel', 'Starting')->has('modelLabels'));
 });

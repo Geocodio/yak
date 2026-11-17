@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::log
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:35
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:40
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log'
 */
 export const log = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ log.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::log
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:35
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:40
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log'
 */
 log.url = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -47,7 +47,7 @@ log.url = (args: { repoSlug: string | number, prNumber: string | number, task: s
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::log
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:35
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:40
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log'
 */
 log.get = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -57,7 +57,7 @@ log.get = (args: { repoSlug: string | number, prNumber: string | number, task: s
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::log
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:35
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:40
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log'
 */
 log.head = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -67,7 +67,7 @@ log.head = (args: { repoSlug: string | number, prNumber: string | number, task: 
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:48
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:53
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/rerun'
 */
 export const rerun = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -82,7 +82,7 @@ rerun.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:48
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:53
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/rerun'
 */
 rerun.url = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -113,7 +113,7 @@ rerun.url = (args: { repoSlug: string | number, prNumber: string | number, task:
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun
-* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:48
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:53
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/rerun'
 */
 rerun.post = (args: { repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } } | [repoSlug: string | number, prNumber: string | number, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

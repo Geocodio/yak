@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePoll } from '@inertiajs/react';
-import { Badge, Button, PageHeader, cn } from '@geocodio/console-ui';
+import { Badge, Button, PageHeader, StatusPill, cn, type StatusPillTone } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
@@ -7,6 +7,8 @@ import type { PaletteAction } from '@/commandPalette/types';
 import { AppLayout } from '@/layouts/AppLayout';
 import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/shared/FindingsBlock';
+import { SourceLink } from '@/components/threads/header/SourceLink';
+import { formatWhen } from '@/lib/format';
 import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { rerun } from '@/routes/pr-reviews/for-pr';
 import { rerun as rerunRun } from '@/routes/pr-reviews/for-pr/runs';
@@ -18,6 +20,7 @@ type Props = PageProps<{
     pr: PrReviewForPrSummary;
     runs: PrReviewRun[];
     pullRequest: PrReviewPullRequest;
+    modelLabels: Record<string, string>;
 }>;
 
 const STATUS: Record<PrReviewRunStatus, { label: string; tone: 'ok' | 'fail' | 'info' | 'neutral' }> = {
@@ -28,21 +31,15 @@ const STATUS: Record<PrReviewRunStatus, { label: string; tone: 'ok' | 'fail' | '
     cancelled: { label: 'Cancelled', tone: 'neutral' },
 };
 
-function formatTime(iso: string): string {
-    const date = new Date(iso);
-    const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-    return date.toDateString() === new Date().toDateString() ? time : `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
-}
-
+const linkButtonClass = 'inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body hover:bg-panel-2';
 const formatDuration = (seconds: number) => (seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)}m`);
 const formatCost = (usd: number) => `$${usd.toFixed(2)}`;
 
-function RunMeta({ run }: { run: PrReviewRun }) {
+function RunMeta({ run, modelLabels }: { run: PrReviewRun; modelLabels: Record<string, string> }) {
     const parts = [
-        formatTime(run.startedAt),
+        formatWhen(run.startedAt),
         run.commit !== null ? <span key="c">commit <span className="font-mono">{run.commit}</span></span> : null,
-        run.model,
+        run.model === null ? null : (modelLabels[run.model] ?? run.model),
         run.stepCount > 0 ? `${run.stepCount} steps` : null,
         run.durationSeconds > 0 ? formatDuration(run.durationSeconds) : null,
         run.costUsd > 0 ? formatCost(run.costUsd) : null,
@@ -60,32 +57,36 @@ function RunMeta({ run }: { run: PrReviewRun }) {
     );
 }
 
-function RunCard({ run, pr, isExpanded, onShow, onOpenLog }: { run: PrReviewRun; pr: PrReviewForPrSummary; isExpanded: boolean; onShow: () => void; onOpenLog: () => void }) {
+function RunCard({ run, pr, modelLabels, isNewest, isShown, onToggle, onOpenLog }: { run: PrReviewRun; pr: PrReviewForPrSummary; modelLabels: Record<string, string>; isNewest: boolean; isShown: boolean; onToggle: () => void; onOpenLog: () => void }) {
     const form = useForm({});
+    const [showDetails, setShowDetails] = useState(false);
     const status = STATUS[run.status];
     const title = run.scope === 'incremental' ? 'Incremental review' : 'Full review';
     const findingCount = run.counts.mustFix + run.counts.shouldFix + run.counts.consider;
     const isFailed = run.status === 'failed';
+    const isExpanded = isNewest || isFailed || isShown;
+    const canToggle = !isNewest && !isFailed;
 
     return (
-        <div id={`run-${run.id}`} className={cn('scroll-mt-4 rounded-card border border-hair p-4 shadow-card', isFailed ? 'bg-fail-soft' : 'bg-panel')} data-testid={`review-run-${run.id}`} data-status={run.status}>
+        <div id={`run-${run.id}`} className={cn('scroll-mt-4 rounded-card border border-hair p-4 shadow-card', isFailed ? 'bg-fail-soft' : 'bg-panel')} data-testid={`review-run-${run.id}`} data-status={run.status} data-expanded={isExpanded}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <Badge tone={status.tone}>{status.label}</Badge>
                 <b className="text-[13px] text-body">{title}</b>
-                <RunMeta run={run} />
+                <RunMeta run={run} modelLabels={modelLabels} />
                 <span className="flex-1" />
                 {!isExpanded && findingCount > 0 && (
                     <span className="text-[12px] text-muted">
                         {findingCount} {findingCount === 1 ? 'finding' : 'findings'}, {run.resolvedCount} resolved
                     </span>
                 )}
-                {isExpanded ? (
+                {isExpanded && (
                     <Button variant="secondary" onClick={onOpenLog} data-testid="run-full-log">
                         Full log
                     </Button>
-                ) : (
-                    <Button variant="secondary" onClick={onShow} data-testid="run-show">
-                        Show
+                )}
+                {canToggle && (
+                    <Button variant="secondary" onClick={onToggle} data-testid={isExpanded ? 'run-hide' : 'run-show'}>
+                        {isExpanded ? 'Hide' : 'Show'}
                     </Button>
                 )}
             </div>
@@ -99,15 +100,16 @@ function RunCard({ run, pr, isExpanded, onShow, onOpenLog }: { run: PrReviewRun;
                     {run.error !== null && (
                         <div data-testid="run-error">
                             <p className="text-[13px] font-medium text-body">Review could not finish.</p>
-                            <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-muted">{run.error}</p>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-[13px] text-muted">{showDetails && run.errorDetails !== null ? run.errorDetails : run.error}</p>
+                            {run.errorIsTruncated && (
+                                <button type="button" onClick={() => setShowDetails((value) => !value)} className="mt-1 text-[12px] text-accent-text hover:underline" data-testid="run-error-toggle">
+                                    {showDetails ? 'Hide details' : 'Show details'}
+                                </button>
+                            )}
                         </div>
                     )}
                     {run.findings === null && run.verdict !== null && <Prose html={run.verdict} className="text-[13px]" />}
-                    {run.findings !== null && (
-                        <div className="-mt-3 overflow-x-auto">
-                            <FindingsBlock findings={run.findings} />
-                        </div>
-                    )}
+                    {run.findings !== null && <FindingsBlock findings={run.findings} variant="table" />}
                     {run.canRerun && (isFailed || run.status === 'cancelled') && (
                         <div>
                             <Button
@@ -146,6 +148,7 @@ function PanelGroup({ title, children }: { title: string; children: ReactNode })
 
 function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
     const stateTone = panel.state === 'open' ? 'ok' : panel.state === 'merged' ? 'accent' : 'neutral';
+    const stateLabel = panel.state.charAt(0).toUpperCase() + panel.state.slice(1);
 
     return (
         <aside className="space-y-5 rounded-card border border-hair bg-panel p-4 shadow-card lg:self-start" data-testid="review-side-panel">
@@ -153,12 +156,12 @@ function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
                 <Row label="Repository">{panel.repository}</Row>
                 {panel.author !== null && <Row label="Author">{panel.author}</Row>}
                 <Row label="State">
-                    <Badge tone={stateTone}>{panel.state}</Badge>
+                    <Badge tone={stateTone}>{stateLabel}</Badge>
                 </Row>
                 {panel.branch !== null && <Row label="Branch"><span className="font-mono">{panel.branch}</span></Row>}
                 {panel.preview !== null && (
                     <Row label="Preview">
-                        <Badge tone={panel.preview.status === 'running' ? 'ok' : 'info'}>{panel.preview.status}</Badge>
+                        <StatusPill tone={panel.preview.tone as StatusPillTone} label={panel.preview.statusLabel} />
                     </Row>
                 )}
             </PanelGroup>
@@ -185,9 +188,7 @@ function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
                     )}
                     {panel.source !== null && (
                         <Row label="Issue">
-                            <a href={panel.source.url} target="_blank" rel="noopener" className="text-accent-text hover:underline">
-                                {panel.source.label}
-                            </a>
+                            <SourceLink source={panel.source} testId="review-source-link" />
                         </Row>
                     )}
                 </PanelGroup>
@@ -196,7 +197,7 @@ function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
     );
 }
 
-export default function ForPr({ pr, runs, pullRequest }: Props) {
+export default function ForPr({ pr, runs, pullRequest, modelLabels }: Props) {
     const form = useForm({});
     const [shownIds, setShownIds] = useState<Set<string>>(() => new Set(window.location.hash.startsWith('#run-') ? [window.location.hash.slice(5)] : []));
     const [logTarget, setLogTarget] = useState<RunLogTarget | null>(null);
@@ -258,20 +259,24 @@ export default function ForPr({ pr, runs, pullRequest }: Props) {
                             {hasRuns ? 'Re-run review' : 'Review this pull request'}
                         </Button>
                         {pullRequest.preview !== null && (
-                            <Button variant="secondary" onClick={() => window.open(pullRequest.preview!.url, '_blank', 'noopener')} data-testid="review-preview">
+                            <a href={pullRequest.preview.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-preview">
                                 Preview
-                            </Button>
+                            </a>
                         )}
-                        <Button variant="secondary" onClick={() => window.open(pr.url, '_blank', 'noopener')} data-testid="review-open-pr">
+                        <a href={pr.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-open-pr">
                             Open PR #{pr.number}
-                            <ExternalLink size={11} />
-                        </Button>
+                            <ExternalLink size={11} aria-hidden />
+                        </a>
                     </div>
                 }
             />
 
             <div className="border-b border-hair px-4 py-3 sm:px-5">
                 <h1 className="truncate text-[15px] font-medium text-body">{pr.title}</h1>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[12px] text-muted" data-testid="review-subline">
+                    {pullRequest.author !== null && <span>opened by {pullRequest.author}</span>}
+                    {pullRequest.branch !== null && <span className="font-mono">{pullRequest.branch}</span>}
+                </p>
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-5">
@@ -283,14 +288,28 @@ export default function ForPr({ pr, runs, pullRequest }: Props) {
                                     key={run.id}
                                     run={run}
                                     pr={pr}
-                                    isExpanded={index === 0 || shownIds.has(run.id)}
-                                    onShow={() => setShownIds((previous) => new Set(previous).add(run.id))}
-                                    onOpenLog={() => setLogTarget({ kind: 'url', id: run.logUrl, entryId: null, headline: `${run.scope === 'incremental' ? 'Incremental' : 'Full'} review at ${formatTime(run.startedAt)}` })}
+                                    modelLabels={modelLabels}
+                                    isNewest={index === 0}
+                                    isShown={shownIds.has(run.id)}
+                                    onToggle={() =>
+                                        setShownIds((previous) => {
+                                            const next = new Set(previous);
+                                            if (!next.delete(run.id)) {
+                                                next.add(run.id);
+                                            }
+
+                                            return next;
+                                        })
+                                    }
+                                    onOpenLog={() => setLogTarget({ kind: 'url', id: run.logUrl, entryId: null, headline: `${run.scope === 'incremental' ? 'Incremental' : 'Full'} review at ${formatWhen(run.startedAt)}` })}
                                 />
                             ))
                         ) : (
                             <div className="rounded-card border border-hair bg-panel px-5 py-12 text-center text-[13px] text-muted shadow-card" data-testid="review-empty">
                                 <p>Yak has not reviewed this pull request.</p>
+                                <Button variant="primary" className="mt-4" pending={form.processing} onClick={rerunReview} data-testid="review-empty-button">
+                                    Review this pull request
+                                </Button>
                             </div>
                         )}
                     </div>

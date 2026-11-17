@@ -11,6 +11,7 @@ use App\Http\Resources\ThreadRunLogData;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Tasks\TaskActions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,12 +24,16 @@ class PrReviewForPrController extends Controller
 {
     public function show(string $repoSlug, int $prNumber): Response
     {
-        $page = fn (): array => PrReviewRunData::build(PrReviewRunData::tasks($repoSlug, $prNumber), $repoSlug, $prNumber);
+        $built = null;
+        $page = function () use (&$built, $repoSlug, $prNumber): array {
+            return $built ??= PrReviewRunData::build(PrReviewRunData::tasks($repoSlug, $prNumber), $repoSlug, $prNumber);
+        };
 
         return Inertia::render('PrReviews/ForPr', [
             'pr' => fn () => $this->prData($repoSlug, $prNumber),
             'runs' => fn () => $page()['runs'],
             'pullRequest' => fn () => $page()['panel'],
+            'modelLabels' => fn () => app(ClaudeModelCatalog::class)->labels(),
         ]);
     }
 
