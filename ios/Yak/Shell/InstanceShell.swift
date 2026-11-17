@@ -42,7 +42,11 @@ struct InstanceShell: View {
         .task(id: status) { await refreshStoredInstance() }
         .task {
             #if DEBUG
-                if let id = TestMode.taskToOpen() { model.taskToOpen = id }
+                if let id = TestMode.taskToOpen() {
+                    // A cold start selects a thread, which closes the tasks route; the task opens after that settles.
+                    try? await Task.sleep(for: .seconds(2))
+                    model.taskToOpen = id
+                }
             #endif
         }
         .onChange(of: showsAccount) { Task { await refreshStoredInstance() } }
