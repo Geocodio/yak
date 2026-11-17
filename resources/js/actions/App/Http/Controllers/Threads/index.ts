@@ -5,6 +5,7 @@ import ThreadCoOwnerController from './ThreadCoOwnerController'
 import ThreadQueuedMessageController from './ThreadQueuedMessageController'
 import ContinueTurnController from './ContinueTurnController'
 import RestoreRetryController from './RestoreRetryController'
+import ThreadLogController from './ThreadLogController'
 import NewThreadController from './NewThreadController'
 import StoreThreadController from './StoreThreadController'
 import ThreadController from './ThreadController'
@@ -40,6 +41,7 @@ const Threads = {
     ThreadQueuedMessageController: Object.assign(ThreadQueuedMessageController, ThreadQueuedMessageController),
     ContinueTurnController: Object.assign(ContinueTurnController, ContinueTurnController),
     RestoreRetryController: Object.assign(RestoreRetryController, RestoreRetryController),
+    ThreadLogController: Object.assign(ThreadLogController, ThreadLogController),
     NewThreadController: Object.assign(NewThreadController, NewThreadController),
     StoreThreadController: Object.assign(StoreThreadController, StoreThreadController),
     ThreadController: Object.assign(ThreadController, ThreadController),

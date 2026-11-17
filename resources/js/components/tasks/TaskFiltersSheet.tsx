@@ -1,6 +1,6 @@
 import { Button, Sheet } from '@geocodio/console-ui';
 import { X } from 'lucide-react';
-import { FilterMenu } from '@/components/tasks/FilterMenu';
+import { FilterMenu } from '@/components/shared/FilterMenu';
 import { STATUS, type TaskStatus } from '@/lib/status';
 import type { TaskFilters } from '@/types/tasks';
 

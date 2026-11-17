@@ -20,8 +20,9 @@ import {
     Type,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { analytics, channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, system, tasks } from '@/routes';
+import { analytics, channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, system } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
+import { log as threadLog } from '@/routes/threads';
 import { ShellSidebar } from '@/components/shell/ShellSidebar';
 import type { SharedProps } from '@/types/shared';
 
@@ -32,7 +33,7 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-    { label: 'Tasks', icon: ClipboardList, url: tasks.url() },
+    { label: 'Thread log', icon: ClipboardList, url: threadLog.url() },
     { label: 'Observations', icon: Eye, url: observations.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
@@ -104,7 +105,7 @@ export function SidebarNav({ touch = false, onNavigate }: { touch?: boolean; onN
                         >
                             <Icon size={iconSize} />
                             <span className="flex-1">{item.label}</span>
-                            {item.label === 'Tasks' && props.nav.activeTaskCount > 0 ? (
+                            {item.label === 'Thread log' && props.nav.activeTaskCount > 0 ? (
                                 <span className="tnum text-[11px] text-faint">{props.nav.activeTaskCount}</span>
                             ) : null}
                         </Link>

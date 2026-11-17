@@ -4,7 +4,7 @@ import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
-import { FilterMenu } from '@/components/tasks/FilterMenu';
+import { FilterMenu } from '@/components/shared/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
 import { openPalette } from '@/components/Sidebar';
 import { TaskCardList } from '@/components/tasks/TaskCardList';

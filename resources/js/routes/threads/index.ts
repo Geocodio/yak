@@ -485,6 +485,50 @@ continueMethod.post = (args: { thread: string | { public_id: string } } | [threa
 })
 
 /**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+export const log = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: log.url(options),
+    method: 'get',
+})
+
+log.definition = {
+    methods: ["get","head"],
+    url: '/threads/log',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.url = (options?: RouteQueryOptions) => {
+    return log.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: log.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: log.url(options),
+    method: 'head',
+})
+
+/**
 * @see \App\Http\Controllers\Threads\NewThreadController::__invoke
 * @see app/Http/Controllers/Threads/NewThreadController.php:14
 * @route '/threads/new'
@@ -1077,6 +1121,7 @@ const threads = {
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     continue: Object.assign(continueMethod, continueMethod),
     restore: Object.assign(restore, restore),
+    log: Object.assign(log, log),
     new: Object.assign(newMethod, newMethod),
     store: Object.assign(store, store),
     show: Object.assign(show, show),
