@@ -6,6 +6,7 @@ use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadKind;
+use App\Enums\ThreadSource;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
@@ -89,6 +90,7 @@ class ThreadStarter
                 'title' => Str::limit(AttachmentReferences::stripFromText((string) strtok($description, "\n")), 120, '...'),
                 'repo' => $repo,
                 'kind' => ThreadKind::General,
+                'source' => ThreadSource::Dashboard,
                 'created_by_user_id' => $starter->id,
                 'owner_user_id' => $starter->id,
                 'claude_account_id' => $resolved->account->id,

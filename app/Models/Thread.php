@@ -10,6 +10,7 @@ use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
+use App\Enums\ThreadSource;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
@@ -39,6 +40,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadStatus $status
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
+ * @property ThreadSource $source
+ * @property string|null $source_reference
+ * @property string|null $source_url
+ * @property string|null $starter_name
  * @property string|null $branch
  * @property string|null $effort
  * @property string|null $runner_effort
@@ -103,6 +108,7 @@ class Thread extends Model
         'status' => 'open',
         'visibility' => 'team',
         'kind' => 'general',
+        'source' => 'dashboard',
         'child_awake_limit' => 3,
         'claude_config_dir' => '/home/yak/.claude',
         'sandbox_state' => 'none',
@@ -122,6 +128,7 @@ class Thread extends Model
             'status' => ThreadStatus::class,
             'visibility' => ThreadVisibility::class,
             'kind' => ThreadKind::class,
+            'source' => ThreadSource::class,
             'sandbox_state' => ThreadSandboxState::class,
             'runner_state' => RunnerState::class,
             'lock_holder' => ThreadLockHolder::class,

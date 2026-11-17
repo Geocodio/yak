@@ -18,6 +18,7 @@ class ThreadFactory
     public function __construct(
         private readonly ClaudeAccountResolver $resolver,
         private readonly SessionSync $sessionSync,
+        private readonly ThreadOrigin $origin,
     ) {}
 
     /**
@@ -112,6 +113,7 @@ class ThreadFactory
             'model' => $resolved->model,
             'effort' => $resolved->effort,
             'branch' => $branch,
+            ...$this->origin->forRequest($root),
         ]);
 
         $thread->repositories()->create(['repo' => $repo, 'role' => RepositoryRole::Primary, 'sandbox_path' => (string) config('yak.sandbox.workspace_path', '/workspace'), 'branch' => $branch]);
