@@ -48,7 +48,7 @@ actor ScriptedTransport: HTTPTransport {
     }
 
     func waitForRequests(_ count: Int, on route: String) async {
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + TestTiming.defaultTimeout
         while requests(on: route).count < count {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for \(count) requests on \(route)")

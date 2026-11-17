@@ -68,7 +68,7 @@ actor FakeWebSocketServer: WebSocketConnector {
     /// The nth accepted connection, counted from 0. Records an issue and returns a closed connection
     /// instead of hanging or crashing the process.
     func waitForConnection(_ index: Int) async -> FakeConnection {
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + TestTiming.defaultTimeout
         while connections.count <= index {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for connection \(index)")
@@ -169,7 +169,7 @@ actor FakeConnection: WebSocketConnection {
     }
 
     func waitForSent(_ count: Int) async {
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + TestTiming.defaultTimeout
         while sent.count < count {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for \(count) sent frames; sent \(sent)")
@@ -180,7 +180,7 @@ actor FakeConnection: WebSocketConnection {
     }
 
     func waitUntilClosed() async {
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + TestTiming.defaultTimeout
         while !isClosed {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for the connection to close")
@@ -195,7 +195,7 @@ extension ManualClock {
     /// Waits until the only sleeper is the one ending at `offset`, so a handshake timer that is about
     /// to be cancelled cannot be mistaken for the backoff wait.
     func waitForOnlySleeper(endingAt offset: Duration) async {
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + TestTiming.defaultTimeout
         while sleeperDeadlines != [offset] {
             if ContinuousClock.now > deadline {
                 Issue.record("Timed out waiting for the only sleeper to end at \(offset); have \(sleeperDeadlines)")

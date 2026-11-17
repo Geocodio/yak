@@ -3,6 +3,7 @@ default_platform(:ios)
 
 IOS_ROOT = File.expand_path("..", __dir__)
 require_relative "lib/release_support"
+require_relative "lib/fast_lanes"
 import("Releasefile")
 
 # The classes the iPad and the Duo run (`core_only`). A new feature smoke test runs on the iPhone row only, and adds
@@ -36,15 +37,29 @@ platform :ios do
     sh("cd #{IOS_ROOT.shellescape} && xcodegen generate")
   end
 
-  desc "Format check and project rules"
-  lane :lint do
+  desc "Format check and project rules. The self-test of the rule scripts runs when they changed since it last passed; " \
+       "rules:true or CI always runs it"
+  lane :lint do |options|
     sh("cd #{IOS_ROOT.shellescape} && swift format lint --strict --recursive Yak YakTests YakUITests Packages")
     sh("#{File.join(IOS_ROOT, "scripts/check-rules.sh").shellescape}")
-    sh("#{File.join(IOS_ROOT, "scripts/test-rules.sh").shellescape}")
-    Bundler.with_unbundled_env { sh("cd #{File.join(IOS_ROOT, "fastlane").shellescape} && ruby -Ilib test/release_support_test.rb") }
+    rules_marker = File.join(IOS_ROOT, "build/test-rules.fingerprint")
+    rules_inputs = [File.join(IOS_ROOT, "scripts")] + Dir.glob(File.join(IOS_ROOT, "../.github/{workflows,dependabot.yml}"))
+    rules_fingerprint = FastLanes.tree_fingerprint(rules_inputs)
+    if ci? || truthy?(options[:rules]) || !FastLanes.unchanged?(rules_marker, rules_fingerprint)
+      FileUtils.rm_f(rules_marker)
+      sh("#{File.join(IOS_ROOT, "scripts/test-rules.sh").shellescape}")
+      FastLanes.remember(rules_marker, rules_fingerprint)
+    else
+      UI.message("Rule scripts unchanged since the last passing self-test, skipping test-rules.sh (rules:true runs it)")
+    end
+    Bundler.with_unbundled_env do
+      sh("cd #{File.join(IOS_ROOT, "fastlane").shellescape} && ruby -Ilib -e 'Dir[\"test/*_test.rb\"].sort.each { |path| require_relative path }'")
+    end
   end
 
-  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName"
+  desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName. " \
+       "Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). " \
+       "Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
     with_stub do |port, build_directory|
@@ -57,12 +72,13 @@ platform :ios do
         selection += " -skip-testing:YakUITests/ThreadSmokeTests/testSendWhileATurnRunsSteersAndLongPressQueues" \
                      " -skip-testing:YakUITests/ThreadSmokeTests/testADroppedConnectionShowsOfflineAndRecovers"
       end
-      run_ui_tests(device, port, result_path, selection, {})
+      run_ui_tests(device, port, result_path, selection, {}, options)
     end
   end
 
   desc "Quality-bar walkthrough, screenshots in build/screenshots/<device>/<appearance>/<orientation>: " \
-       "fastlane walkthrough device:\"iPhone 18 Pro\" appearance:dark|light|largest-text orientation:landscape only:testName"
+       "fastlane walkthrough device:\"iPhone 18 Pro\" appearance:dark|light|largest-text orientation:landscape only:testName. " \
+       "Builds once, takes a simulator slot and retries only on CI, like ui_smoke (rebuild:true, retry:true)"
   lane :walkthrough do |options|
     device = options[:device] || "iPhone 18 Pro"
     appearance = options[:appearance] || "light"
@@ -81,21 +97,25 @@ platform :ios do
       FileUtils.rm_rf(result_path)
       # `only:` names a test, `Class/test`, or a whole class (`ThreadWalkthroughTests`).
       selection = ui_selection(options[:only], walkthrough_classes)
-      run_ui_tests(device, port, result_path, selection, environment)
+      run_ui_tests(device, port, result_path, selection, environment, options)
     end
   end
 
-  desc "YakKit package tests and app unit tests"
+  desc "YakKit package tests and app unit tests. The app tests build once and reuse the build while ios/ is unchanged " \
+       "(rebuild:true forces a build) and take a simulator slot (YAK_SIM_SLOTS, default 4)"
   lane :test do |options|
     device = options[:device] || "iPhone 18 Pro"
     generate
     sh("cd #{File.join(IOS_ROOT, "Packages/YakKit").shellescape} && swift test -Xswiftc -warnings-as-errors")
     sh("cd #{File.join(IOS_ROOT, "Packages/YakStub").shellescape} && swift test -Xswiftc -warnings-as-errors")
-    sh(
-      "cd #{IOS_ROOT.shellescape} && xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-      "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} -only-testing:YakTests " \
-      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
-    )
+    with_sim_slot do
+      build_for_testing(device, options)
+      with_simulator(device, options) do
+        sh(
+          "cd #{IOS_ROOT.shellescape} && xcodebuild test-without-building #{xcodebuild_base(device)} -only-testing:YakTests"
+        )
+      end
+    end
   end
 
   # The UI test classes are found by file name, so a feature adds its own file and no line here.
@@ -125,8 +145,13 @@ platform :ios do
     "-only-testing:YakUITests/#{owners.first}/#{only}"
   end
 
-  # Builds and starts yak-stub on a free port, yields the port and the build directory, stops it afterwards.
-  def with_stub
+  # Takes a simulator slot, builds and starts yak-stub on a free port, yields the port and the build directory and
+  # stops the stub afterwards. The slot covers the whole run, so two runs never share the stub files or a result bundle.
+  def with_stub(&block)
+    with_sim_slot { with_stub_running(&block) }
+  end
+
+  def with_stub_running
     generate
     stub_package = File.join(IOS_ROOT, "Packages/YakStub")
     sh("cd #{stub_package.shellescape} && swift build -c release -Xswiftc -warnings-as-errors")
@@ -156,17 +181,74 @@ platform :ios do
     end
   end
 
-  def run_ui_tests(device, port, result_path, selection, environment)
-    variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
-    # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
-    sh("xcrun simctl bootstatus #{device.shellescape} -b")
-    # A hosted simulator sometimes fails to launch the app at all, so a failed test gets one more try.
-    sh(
-      "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test -project Yak.xcodeproj -scheme Yak " \
-      "-destination #{"platform=iOS Simulator,name=#{device}".shellescape} #{selection} " \
-      "-retry-tests-on-failure -test-iterations 2 " \
-      "-resultBundlePath #{result_path.shellescape} SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+  def ci?
+    !ENV["CI"].to_s.empty?
+  end
+
+  def truthy?(value)
+    value.to_s == "true"
+  end
+
+  # Runs the block holding one of YAK_SIM_SLOTS simulator slots (default 4). CI has its own machine and takes none.
+  def with_sim_slot(&block)
+    return yield if ci?
+    count = [ENV.fetch("YAK_SIM_SLOTS", "4").to_i, 1].max
+    FastLanes.with_slot(
+      count: count,
+      on_wait: ->(slots) { UI.message("waiting for a simulator slot, #{slots} of #{slots} in use") },
+      &block
     )
+  end
+
+  # Runs the block on a simulator and shuts it down afterwards, because every booted simulator costs the machine about a
+  # hundred processes and several gigabytes, idle or not. A simulator someone else already booted stays up, and so does
+  # one with keep:true. CI keeps its simulators.
+  def with_simulator(device, options)
+    booted_before = `xcrun simctl list devices booted`.lines.any? { |line| line.strip.start_with?("#{device} (") }
+    yield
+  ensure
+    unless ci? || booted_before || truthy?(options[:keep])
+      system("xcrun", "simctl", "shutdown", device, err: File::NULL)
+    end
+  end
+
+  BUILD_SCHEME = "Yak".freeze
+  BUILD_PLATFORM = "iOS Simulator".freeze
+
+  def xcodebuild_base(device)
+    "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
+      "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \
+      "SWIFT_TREAT_WARNINGS_AS_ERRORS=YES CODE_SIGNING_ALLOWED=NO"
+  end
+
+  # One `xcodebuild build-for-testing` that every test run after it reuses (test-without-building, same derived data)
+  # while nothing under ios/ changed. CI and rebuild:true always build.
+  def build_for_testing(device, options)
+    marker = File.join(IOS_ROOT, "build/build-for-testing.fingerprint")
+    fingerprint = FastLanes.build_fingerprint(IOS_ROOT, platform: BUILD_PLATFORM, scheme: BUILD_SCHEME)
+    if !ci? && !truthy?(options[:rebuild]) && FastLanes.unchanged?(marker, fingerprint)
+      UI.message("Reusing the build: nothing under ios/ changed since the last build-for-testing (rebuild:true forces a build)")
+      return
+    end
+    UI.message("Building for testing")
+    FileUtils.rm_f(marker)
+    sh("cd #{IOS_ROOT.shellescape} && xcodebuild build-for-testing #{xcodebuild_base(device)}")
+    FastLanes.remember(marker, fingerprint)
+  end
+
+  def run_ui_tests(device, port, result_path, selection, environment, options)
+    variables = environment.merge("YAK_STUB_PORT" => port).map { |name, value| "TEST_RUNNER_#{name}=#{value.shellescape}" }.join(" ")
+    build_for_testing(device, options)
+    with_simulator(device, options) do
+      # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
+      sh("xcrun simctl bootstatus #{device.shellescape} -b")
+      # A hosted simulator sometimes fails to launch the app at all, so CI (or retry:true) gives a failed test one more try.
+      retry_flags = ci? || truthy?(options[:retry]) ? "-retry-tests-on-failure -test-iterations 2 " : ""
+      sh(
+        "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
+        "#{retry_flags}-resultBundlePath #{result_path.shellescape}"
+      )
+    end
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
     UI.user_error!("No test ran for #{selection}") if summary["totalTestCount"].to_i.zero?
