@@ -84,8 +84,12 @@ struct ThreadScreen: View {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
                 }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
+                // A safe-area bar on the page's own color, from the bar's top to the bottom of the screen, so no
+                // row shows through the glass or below it; the system's edge effect would still let a row's shape
+                // through.
+                .safeAreaBar(edge: .bottom, spacing: 0) {
                     BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                        .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }

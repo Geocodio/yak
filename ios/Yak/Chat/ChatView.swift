@@ -25,6 +25,12 @@ struct ChatView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let stickDistance: CGFloat = 80
+    /// Scrolling the app does by itself moves at once; only a person's tap animates.
+    private static var still: Transaction {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        return transaction
+    }
 
     private struct Metrics: Equatable {
         var contentHeight: CGFloat
@@ -74,12 +80,12 @@ struct ChatView: View {
             .scrollTargetLayout()
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: thread.rows.count)
         }
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom, for: .initialOffset)
-        .scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
+        // The navigation bar is opaque and the bars below are on the page color, so no edge effect draws over rows.
+        .scrollEdgeEffectHidden(true, for: [.top, .bottom])
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
                 contentHeight: geometry.contentSize.height, viewportHeight: geometry.containerSize.height,
@@ -104,7 +110,8 @@ struct ChatView: View {
             }
         }
         .overlay { if thread.rows.isEmpty, thread.notice == nil, thread.snapshot?.load == .ready { EmptyChat() } }
-        .overlay(alignment: .bottom) { floatingControls }
+        // A bar of the list's own, so the edge effect also covers the rows behind the jump button and the action line.
+        .safeAreaBar(edge: .bottom, spacing: 0) { floatingControls }
         .onChange(of: thread.announcementSerial) {
             if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
         }
@@ -121,7 +128,7 @@ struct ChatView: View {
             return
         }
         if old.distanceFromBottom <= Self.stickDistance {
-            position.scrollTo(edge: .bottom)
+            withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
             isNearBottom = true
         }
     }
@@ -147,12 +154,10 @@ struct ChatView: View {
         rowCountWhenRequested = nil
         let room = anchor.viewportHeight - anchor.height
         let fraction = room > 1 ? min(max(anchor.top / room, 0), 1) : 0
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
+        withTransaction(Self.still) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
         Task {
             try? await Task.sleep(for: .milliseconds(60))
-            withTransaction(transaction) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
+            withTransaction(Self.still) { position.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0, y: fraction)) }
         }
     }
 
@@ -163,7 +168,12 @@ struct ChatView: View {
 
     // MARK: Floating controls
 
+    /// Nothing at all while there is nothing to show, so a conversation at its end keeps the full height.
     @ViewBuilder private var floatingControls: some View {
+        if thread.actionLine != nil || !isNearBottom { floatingStack }
+    }
+
+    private var floatingStack: some View {
         VStack(spacing: 8) {
             if let line = thread.actionLine {
                 Text(line)
@@ -191,6 +201,8 @@ struct ChatView: View {
             }
         }
         .padding(.horizontal, 16).padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+        .background(Color(.systemBackground))
         .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: isNearBottom)
     }
 }
