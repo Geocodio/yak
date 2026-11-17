@@ -33,6 +33,17 @@ export function requestPullRequest(threadId: string, acknowledgePrivate: boolean
     });
 }
 
+/** The header's pull request button while the change waits for a co-owner and no PR exists yet. */
+export function HeldPullRequestButton() {
+    return (
+        <span className="inline-flex h-8 shrink-0 items-center gap-2 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body" data-testid="pull-request-held">
+            <GitPullRequest size={13} aria-hidden />
+            Pull request
+            <span className="inline-flex h-[18px] items-center rounded-pill bg-warn-soft px-2 text-[11.5px] text-warn">Held for a co-owner</span>
+        </span>
+    );
+}
+
 const chevronClass = 'h-8 w-8 shrink-0 justify-center rounded-l-none rounded-r-[8px] p-0';
 
 /**
@@ -57,11 +68,7 @@ export function OpenPullRequestButton({ thread, publishWarning, variant = 'prima
     };
 
     if (thread.pullRequestOpening?.state === 'held') {
-        return (
-            <span className="inline-flex h-8 shrink-0 items-center rounded-[8px] border border-hair bg-panel px-3" data-testid="pull-request-held">
-                <span className="inline-flex h-[18px] items-center rounded-pill bg-panel-2 px-2 text-[11.5px] text-muted">Waiting for a co-owner</span>
-            </span>
-        );
+        return <HeldPullRequestButton />;
     }
 
     const triggerClass = variant === 'primary' ? 'border border-l border-accent bg-accent text-accent-ink hover:opacity-90' : 'border border-hair bg-panel text-body hover:bg-panel-2';

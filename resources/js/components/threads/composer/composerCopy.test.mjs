@@ -56,3 +56,7 @@ test('only the plain send hint is flagged as replaceable', () => {
     assert.equal(fullCopy(null, 'idle', 'waiting').isDefaultHint, false);
     assert.equal(fullCopy(notice('restoring'), 'idle', 'none').isDefaultHint, false);
 });
+
+test('stopped thread says a note retries the work, with the task page wording', () => {
+    assert.deepEqual(composerCopy(null, 'stopped', 'none'), { placeholder: 'Write a note for Yak…', hint: 'Send a note and Yak tries again with it. Or press Retry above.' });
+});

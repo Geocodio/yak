@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import messages from './messages'
+import repositoryAnswer from './repository-answer'
 import clarificationAnswers from './clarification-answers'
 import coOwner from './co-owner'
 import queuedMessages from './queued-messages'
@@ -1064,6 +1065,7 @@ repositorySetup.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =>
 const threads = {
     messages: Object.assign(messages, messages),
     stop: Object.assign(stop, stop),
+    repositoryAnswer: Object.assign(repositoryAnswer, repositoryAnswer),
     retry: Object.assign(retry, retry),
     cancel: Object.assign(cancel, cancel),
     move: Object.assign(move, move),

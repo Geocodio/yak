@@ -180,7 +180,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {question !== null && !readonly && (
                     <QuestionsForm key={question.taskId} taskId={question.taskId} threadId={threadId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
                 )}
-                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} startAt={walkthroughStartAt} />}
+                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} threadId={threadId} canRetryRender={!readonly} startAt={walkthroughStartAt} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
                 {waiting !== null && (
                     <div className="ml-9">

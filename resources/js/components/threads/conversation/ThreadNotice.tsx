@@ -17,7 +17,7 @@ export function ThreadNotice({ notice, threadId, repo, branch, readonly = false 
     }
 
     if (notice.kind === 'waiting_for_repository' || notice.kind === 'repository_setup_failed') {
-        return <RepositorySetupCard notice={notice} />;
+        return <RepositorySetupCard notice={notice} threadId={threadId} />;
     }
 
     if (notice.kind === 'waiting_for_account' || notice.kind === 'waiting_for_sandbox') {

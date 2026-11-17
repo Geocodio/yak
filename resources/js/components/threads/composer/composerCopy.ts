@@ -39,6 +39,9 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
     if (state === 'legacy') {
         return { placeholder: 'Message Claude', hint: 'This work is from before threads. Send a message to continue it in a new thread.', isDefaultHint: false };
     }
+    if (state === 'stopped') {
+        return { placeholder: 'Write a note for Yak…', hint: 'Send a note and Yak tries again with it. Or press Retry above.', isDefaultHint: false };
+    }
     if (state === 'working') {
         return { ...DEFAULT, placeholder: 'Add a message. Claude reads it as soon as it can.' };
     }

@@ -1,6 +1,7 @@
 import type { StepView } from '@/components/activity/types';
 import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData, QuestionData } from '@/types/tasks';
+import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -120,6 +121,9 @@ export type ThreadWalkthrough = {
     video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
     screenshots: { url: string; caption: string | null }[];
     isInPullRequest: boolean;
+    isRenderFailed: boolean;
+    renderError: string | null;
+    canRetryRender: boolean;
 };
 
 /** A file Claude made for the person; mirrors `App\Http\Resources\ThreadSharedFilesData`. */
@@ -178,6 +182,15 @@ export type ThreadMilestone = {
     afterSequence: number;
 };
 
+/** Why a thread stopped; mirrors `App\Services\Tasks\TaskStopSummary`. `cancelled` is a cancelled head task. */
+export type ThreadStopped = { kind: 'needs_you' | 'yak_retrying' | 'yak_stopped' | 'cancelled'; summary: string; detail: string | null; nextStep: string; isWaitingForSetup: boolean };
+
+/** What the viewer may do with the thread; mirrors `ThreadCardsData`. Every flag is false for a viewer who cannot drive the thread. */
+export type ThreadActions = { canStop: boolean; canRetry: boolean; canCancel: boolean; canMove: boolean; moveTargets: string[]; canRequestReview: boolean; canRetryRender: boolean };
+
+/** The question that gates a thread without a repository; mirrors `ThreadCardsData`. */
+export type RepositoryQuestion = { prompt: string; options: string[]; selected: string | null; canAnswer: boolean };
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -207,6 +220,13 @@ export type ThreadPageData = {
     progress: ThreadProgress | null;
     runDetails: ThreadRunDetails;
     milestones: ThreadMilestone[];
+    repositoryQuestion: RepositoryQuestion | null;
+    earlyWarning: EarlyWarningData | null;
+    coOwner: CoOwnerData | null;
+    stopped: ThreadStopped | null;
+    actions: ThreadActions;
+    /** The one card to show above the composer; `question` is the question form inside the conversation. */
+    card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
     /** Web only: the run and entry a `?log=` link names, or null. */
@@ -267,7 +287,7 @@ export type ThreadMessage = {
 };
 
 export type ThreadComposer = {
-    state: 'idle' | 'working' | 'disabled_closed' | 'legacy' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
+    state: 'idle' | 'working' | 'stopped' | 'disabled_closed' | 'legacy' | 'disabled_computer' | 'disabled_blocked' | 'readonly';
     model: string | null;
     effort: string | null;
     models: ModelFamily[];
@@ -321,6 +341,10 @@ export type ThreadNotice = {
     accountSettingsUrl: string | null;
     startOnOwnAccountUrl: string | null;
     repositoryUrl?: string | null;
+    /** The stopped task can be marked to continue once the repository's setup finishes; set on the repository setup notices. */
+    canContinueAfterSetup?: boolean;
+    /** The page of the setup run that failed, when the repository's setup failed. */
+    failedSetupRunUrl?: string | null;
     /** The repository a moved request continues in; null while it waits for one. Set with `kind: 'moved'`. */
     repo?: string | null;
     threadId?: string | null;

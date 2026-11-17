@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { FilesMode, FocusRequest } from '@/threads/panels/files/filesMode';
+import type { CoOwnerData } from '@/types/coOwner';
 import type { StackData } from '@/types/stack';
 import type { SharedFile, TeleportData, ThreadCapacity, ThreadComposer, ThreadData, ThreadMilestone, ThreadNotice, ThreadRequest, ThreadRunDetails, ThreadRunSummary } from '@/types/threads';
 import type { ThreadDiffSummary } from '@/types/thread-changes';
@@ -12,6 +13,8 @@ export type PanelProps = {
     sharedFiles?: SharedFile[];
     /** Where the request came from and how far it got; undefined shows the group's skeleton. */
     request?: ThreadRequest;
+    /** The latest co-owner request of the thread, pending or decided; null when none was made. */
+    coOwner?: CoOwnerData | null;
     /** What the runs took; undefined shows the group's skeleton. */
     runDetails?: ThreadRunDetails;
     /** The runs of the thread; whether any is active says if the thread is still running. */
