@@ -47,6 +47,8 @@ final class AppModel {
     private(set) var launchLink: DeepLink?
     /// The task page to show in the in-app browser.
     var browserURL: URL?
+    /// A task link or push waiting for the shell to open its native screen.
+    var taskToOpen: String?
     /// An instance a link named that this phone is not paired with; the shell shows the connect flow for it.
     var addressToConnect: URL?
     /// Set by the shell from the window's size class, for links that open a thread.
@@ -146,7 +148,8 @@ final class AppModel {
             do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
             await reloadRoute()
         case .unknownInstance(let address): addressToConnect = address
-        case .openTaskPage(let page): browserURL = page
+        case .openTaskPage(let page):
+            if let id = TaskLink.id(from: page) { taskToOpen = id } else { browserURL = page }
         }
     }
 
