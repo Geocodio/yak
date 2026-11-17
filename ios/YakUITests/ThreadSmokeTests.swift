@@ -156,9 +156,11 @@ import XCTest
         XCTAssertTrue(last.waitForExistence(timeout: 60))
         // The rows keep arriving and growing as their Markdown is parsed; the end stays in view through all of it.
         Thread.sleep(forTimeInterval: 3)
-        let list = app.descendants(matching: .any)["chat.list"].firstMatch
+        let list = app.descendants(matching: .any)["conversation"].firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(last.waitForExistence(timeout: 10), "the end left the screen")
         let centre = CGPoint(x: last.frame.midX, y: last.frame.midY)
-        XCTAssertTrue(last.exists && list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
+        XCTAssertTrue(list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
         XCTAssertFalse(app.descendants(matching: .any)["chat.jumpToLatest"].exists)
     }
 
@@ -171,6 +173,7 @@ import XCTest
         row.tap()
         XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 60))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
         let loading = app.staticTexts["Loading earlier messages"]
         var isLoading = false
         // The row shows for the 12 seconds the stub holds the page; on a slow machine a swipe takes long, so every
@@ -206,7 +209,7 @@ import XCTest
             timeout: 30)
         XCTAssertEqual(result, .completed)
         let moved = app.staticTexts[label]
-        XCTAssertTrue(moved.exists, "\(label) left the screen when the earlier messages arrived")
+        XCTAssertTrue(moved.waitForExistence(timeout: 10), "\(label) left the screen when the earlier messages arrived")
         print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
         XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
     }
