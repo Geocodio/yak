@@ -71,7 +71,7 @@ class TeleportEnvironmentNote
     {
         $report = $teleport->payload['sandbox_repos'] ?? [];
 
-        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->orderBy('repo')->get()
+        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->reorder('repo')->get()
             ->map(function (ThreadRepository $repository) use ($teleport, $report): string {
                 $line = "{$repository->repo}: {$repository->sandbox_path}";
 
