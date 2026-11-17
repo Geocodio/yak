@@ -55,7 +55,10 @@ struct TagCoOwnerSheet: View {
                     .foregroundStyle(.primary)
                     .accessibilityIdentifier("task.tag.decline")
                 } footer: {
-                    if let fallbackName { Text("task.tag.fallback \(fallbackName)").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted) }
+                    if let fallbackName {
+                        Text("task.tag.fallback \(fallbackName)").font(.footnote.weight(.medium)).foregroundStyle(
+                            Color.yakMuted)
+                    }
                 }
                 if let message = model.message {
                     Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
