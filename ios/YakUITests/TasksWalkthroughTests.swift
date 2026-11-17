@@ -92,7 +92,7 @@ import XCTest
         XCTAssertTrue(element("tasks.row.k3m9p2qa").waitForExistence(timeout: 15))
         try stub.setOnline(false)
         reopen("drawer.tile.tasks", leaving: "tasks.threads")
-        XCTAssertTrue(element("tasks.offlineNotice").waitForExistence(timeout: 25))
+        XCTAssertTrue(label("Offline. Showing a saved copy").waitForExistence(timeout: 25))
         try shoot("tasks-offline")
     }
 
@@ -271,7 +271,7 @@ import XCTest
         XCTAssertTrue(element("observations.row.301").waitForExistence(timeout: 15))
         try stub.setOnline(false)
         reopen("drawer.tile.observations", leaving: "observations.threads")
-        XCTAssertTrue(element("observations.offlineNotice").waitForExistence(timeout: 25))
+        XCTAssertTrue(label("Offline. Showing a saved copy").waitForExistence(timeout: 25))
         try shoot("observations-offline")
     }
 

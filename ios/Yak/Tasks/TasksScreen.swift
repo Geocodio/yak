@@ -246,6 +246,7 @@ struct TasksScreen: View {
             )
             .font(.title3).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
+        .foregroundStyle(.primary)
         .accessibilityLabel("tasks.filter")
         .accessibilityIdentifier("tasks.filter")
     }
