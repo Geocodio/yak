@@ -94,7 +94,7 @@ final class ThreadMilestonesData
      * @param  Collection<int, TaskRun>  $runs
      * @return array<int, int>
      */
-    private static function endSequences(Thread $thread, Collection $runs): array
+    public static function endSequences(Thread $thread, Collection $runs): array
     {
         $startSequences = [];
 

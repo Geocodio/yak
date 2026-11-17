@@ -11,8 +11,8 @@ import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { outbox } from '@/threads/outbox/useOutbox';
 import { stop } from '@/routes/threads';
-import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice } from '@/types/threads';
-import { composerCopy } from './composerCopy';
+import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice, ThreadRequest } from '@/types/threads';
+import { DEFAULT_HINT, channelHint, composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
 import { ContextRing } from './ContextRing';
 
@@ -25,7 +25,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
 
 const MAX_MESSAGE_LENGTH = 20000;
 
-export function ThreadComposer({ thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, onAddSubThread }: { thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
+export function ThreadComposer({ thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread }: { request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
     const form = useForm<{ message: string; model: string | null; effort: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -38,6 +38,9 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
     const copy = composerCopy(notice, composer.state, teleportState);
+    const isOwnerless = request !== null && request.starter.key === 'yak' && request.responsibleName === null && !thread.isOwner;
+    const hint = DISABLED_COPY[composer.state] ?? (copy.hint === DEFAULT_HINT && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
+    const placeholder = isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
     const draft = useAttachmentDraft({
         enabled: !disabled,
         firstNumber: composer.nextAttachmentNumber,
@@ -103,7 +106,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                         inputRef={inputRef}
                         draft={draft}
                         rows={2}
-                        placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : copy.placeholder}
+                        placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : placeholder}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
                         onKeyDown={onKeyDown}
@@ -134,7 +137,7 @@ export function ThreadComposer({ thread, composer, notice, teleportState, isOffl
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
                             <ContextRing composer={composer} model={form.data.model} />
                             <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
-                                {DISABLED_COPY[composer.state] ?? copy.hint}
+                                {hint}
                             </span>
                         </div>
                         <div className="flex shrink-0 gap-2">

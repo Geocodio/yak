@@ -165,6 +165,8 @@ export type ThreadRunDetails = {
     errorLogTruncated: boolean;
 };
 
+export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean };
+
 export type ThreadMilestone = {
     key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
     label: string;
@@ -205,6 +207,10 @@ export type ThreadPageData = {
     progress: ThreadProgress | null;
     runDetails: ThreadRunDetails;
     milestones: ThreadMilestone[];
+    /** Web only: the runs of the thread, so each answer can offer its full log. */
+    runs: ThreadRunSummary[];
+    /** Web only: the run and entry a `?log=` link names, or null. */
+    openLog: { runId: string; entryId: number } | null;
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */

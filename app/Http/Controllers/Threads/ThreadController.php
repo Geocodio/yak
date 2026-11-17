@@ -22,6 +22,7 @@ class ThreadController extends Controller
 
         return Inertia::render('Threads/Show', [
             ...ThreadShowData::build($thread, $request->user() ?? abort(401)),
+            'runs' => ThreadRunLogData::runs($thread),
             'openLog' => is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null,
         ]);
     }

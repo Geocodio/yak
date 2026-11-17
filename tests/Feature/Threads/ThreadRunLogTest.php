@@ -135,3 +135,17 @@ it('opens the page with the log at an entry of this thread and ignores any other
     $this->actingAs($user)->get("/threads/{$thread->public_id}?log=99")->assertInertia(fn (Assert $page) => $page->where('openLog', null));
     $this->actingAs($user)->get("/threads/{$thread->public_id}?log=abc")->assertInertia(fn (Assert $page) => $page->where('openLog', null));
 });
+
+it('gives the page the runs that have events with where each answer ends', function () {
+    $thread = Thread::factory()->create();
+    $first = logRun($thread, 1);
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'One']]]);
+    $second = logRun($thread, 3);
+    logEntry($thread, 4, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'Two']]]);
+    TaskRun::factory()->create(['thread_id' => $thread->id, 'yak_task_id' => $first->yak_task_id]);
+
+    $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('runs.0.runId', (string) $first->id)->where('runs.0.afterSequence', 2)
+        ->where('runs.1.runId', (string) $second->id)->where('runs.1.afterSequence', 4)
+        ->missing('runs.2'));
+});

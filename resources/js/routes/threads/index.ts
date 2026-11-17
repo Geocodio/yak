@@ -6,6 +6,8 @@ import queuedMessages from './queued-messages'
 import restore from './restore'
 import sharedFiles from './shared-files'
 import diff from './diff'
+import runs from './runs'
+import tasks from './tasks'
 import environment from './environment'
 import pullRequest from './pull-request'
 import events from './events'
@@ -561,7 +563,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:16
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -576,7 +578,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:16
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -609,7 +611,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:16
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -619,7 +621,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:16
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -1083,6 +1085,8 @@ const threads = {
     destroy: Object.assign(destroy, destroy),
     sharedFiles: Object.assign(sharedFiles, sharedFiles),
     diff: Object.assign(diff, diff),
+    runs: Object.assign(runs, runs),
+    tasks: Object.assign(tasks, tasks),
     localTurns: Object.assign(localTurns, localTurns),
     environment: Object.assign(environment, environment),
     pullRequest: Object.assign(pullRequest, pullRequest),

@@ -1,6 +1,6 @@
 import { ConfirmDialog, Menu, cn, toast } from '@geocodio/console-ui';
 import { Link } from '@inertiajs/react';
-import { Copy, GitPullRequest, MoreHorizontal, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
+import { Copy, GitPullRequest, Link2, MoreHorizontal, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
@@ -20,7 +20,7 @@ import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent'>;
+    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent' | 'request'>;
     dockPanels: Panel[];
     activeDock: Panel | null;
     diff: PanelProps['diff'];
@@ -39,9 +39,16 @@ function copyBranchName(branch: string): void {
     );
 }
 
+function copyThreadLink(threadId: string): void {
+    navigator.clipboard.writeText(new URL(show.url(threadId), window.location.origin).toString()).then(
+        () => toast.success('Copied the thread link'),
+        () => toast.error('Could not copy the thread link.'),
+    );
+}
+
 /** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
 export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview }: Props) {
-    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent } = page;
+    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request } = page;
     const [isSharing, setIsSharing] = useState(false);
     const [confirming, setConfirming] = useState<'close' | 'delete' | null>(null);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -73,6 +80,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
 
     const closeConfirm = closeThreadConfirm(subThreadCount);
     const menuItems = [
+        { key: 'copy-link', label: 'Copy thread link', icon: <Link2 size={14} />, onSelect: () => copyThreadLink(thread.id), testId: 'thread-menu-copy-link' },
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
         ...(thread.canShare && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
         ...(canDrive && isOpen ? [{ key: 'close', label: 'Close thread', icon: <XCircle size={14} />, dividerAbove: true, onSelect: () => setConfirming('close'), testId: 'thread-menu-close' }] : []),
@@ -118,7 +126,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                         <VisibilityBadge thread={thread} />
                         <StatusPill notice={notice} composerState={composer.state} />
                     </div>
-                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
+                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} source={request.source} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
                 </div>
 
                 <ThreadDockToggles thread={thread} panels={dockPanels} active={activeDock} diff={diff} onSelect={onSelectDock} />

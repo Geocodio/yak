@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { composerCopy } from './composerCopy.ts';
+import { channelHint, composerCopy } from './composerCopy.ts';
 
 const notice = (kind) => ({ kind });
 const DEFAULT = { placeholder: 'Message Claude', hint: 'Enter to send, Shift+Enter for a new line' };
@@ -33,4 +33,13 @@ test('waiting for the account and for a sandbox', () => {
 test('teleport hints win', () => {
     assert.equal(composerCopy(notice('restoring'), 'idle', 'waiting').hint, 'Yak keeps working until you run the command on your computer.');
     assert.match(composerCopy(null, 'disabled_computer', 'on_device').hint, /^This thread is on /);
+});
+
+test('the channel hint says where replies land', () => {
+    assert.equal(channelHint({ key: 'linear', label: 'Linear' }, false), 'Replies here and in the Linear issue land in this thread.');
+    assert.equal(channelHint({ key: 'github', label: 'GitHub' }, false), 'Replies here and in the GitHub issue land in this thread.');
+    assert.equal(channelHint({ key: 'slack', label: 'Slack' }, false), 'Replies here and in the Slack thread land in this thread.');
+    assert.equal(channelHint({ key: 'email', label: 'Email' }, false), 'Replies here and by email land in this thread.');
+    assert.equal(channelHint({ key: 'dashboard', label: 'Dashboard' }, false), null);
+    assert.equal(channelHint({ key: 'sentry', label: 'Sentry' }, true), 'Your first message makes you the owner.');
 });

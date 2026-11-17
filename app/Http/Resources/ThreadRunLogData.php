@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\TaskRunKind;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -73,6 +74,36 @@ final class ThreadRunLogData
             'entries' => array_values($page->map(fn (TaskLog $log): array => TranscriptData::entry($log))->all()),
             'nextCursor' => $hasMore ? $page->last()?->id : null,
         ];
+    }
+
+    /**
+     * The runs that have events, each with where its answer ends, so the page can offer a full log after it.
+     *
+     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool}>
+     */
+    public static function runs(Thread $thread): array
+    {
+        if ($thread->is_legacy) {
+            return [];
+        }
+
+        $runs = TaskRun::query()->where('thread_id', $thread->id)->orderBy('id')->get();
+        $ends = ThreadMilestonesData::endSequences($thread, $runs);
+        $summaries = [];
+
+        foreach ($runs as $run) {
+            if (isset($ends[$run->id])) {
+                $summaries[] = [
+                    'runId' => (string) $run->id,
+                    'afterSequence' => $ends[$run->id],
+                    'durationSeconds' => intdiv((int) $run->total_ms, 1000),
+                    'stepCount' => (int) $run->num_turns,
+                    'isRetry' => $run->kind === TaskRunKind::Retry,
+                ];
+            }
+        }
+
+        return $summaries;
     }
 
     /**

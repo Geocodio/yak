@@ -14,6 +14,7 @@ import ThreadCloseController from './ThreadCloseController'
 import ThreadDestroyController from './ThreadDestroyController'
 import ThreadSharedFileController from './ThreadSharedFileController'
 import ThreadDiffController from './ThreadDiffController'
+import ThreadRunLogController from './ThreadRunLogController'
 import LocalTurnsController from './LocalTurnsController'
 import ThreadEnvironmentController from './ThreadEnvironmentController'
 import ThreadPullRequestController from './ThreadPullRequestController'
@@ -47,6 +48,7 @@ const Threads = {
     ThreadDestroyController: Object.assign(ThreadDestroyController, ThreadDestroyController),
     ThreadSharedFileController: Object.assign(ThreadSharedFileController, ThreadSharedFileController),
     ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
+    ThreadRunLogController: Object.assign(ThreadRunLogController, ThreadRunLogController),
     LocalTurnsController: Object.assign(LocalTurnsController, LocalTurnsController),
     ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),
     ThreadPullRequestController: Object.assign(ThreadPullRequestController, ThreadPullRequestController),
