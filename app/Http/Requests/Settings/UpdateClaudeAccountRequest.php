@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Enums\ClaudeAccountColor;
 use App\Enums\ClaudeAccountIcon;
+use App\Enums\EffortLevel;
 use App\Models\ClaudeAccount;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Illuminate\Foundation\Http\FormRequest;
@@ -31,6 +32,7 @@ class UpdateClaudeAccountRequest extends FormRequest
                 fn ($query) => $account->owner_user_id === null ? $query->whereNull('owner_user_id') : $query->where('owner_user_id', $account->owner_user_id),
             )],
             'default_model' => ['sometimes', 'nullable', 'string', ClaudeModelCatalog::rule()],
+            'default_effort' => ['sometimes', 'nullable', Rule::enum(EffortLevel::class)],
             'icon' => ['sometimes', Rule::enum(ClaudeAccountIcon::class)],
             'color' => ['sometimes', Rule::enum(ClaudeAccountColor::class)],
             'is_default' => ['sometimes', 'boolean'],

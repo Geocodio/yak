@@ -1,9 +1,9 @@
 import { Popover } from '@base-ui/react/popover';
 import { Check, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import type { ModelFamily } from '@/types/claudeAccounts';
+import type { EffortLevel, ModelFamily } from '@/types/claudeAccounts';
 import { CHIP_TAG, CHIP_TRIGGER } from '@/components/threads/start/chipStyles';
-import { findModel } from './accountAppearance';
+import { EFFORT_LEVELS, effortLabel, findModel } from './accountAppearance';
 
 type Props = {
     models: ModelFamily[];
@@ -12,6 +12,12 @@ type Props = {
     onChange: (value: string) => void;
     /** Adds a first row that selects '' and is shown while `value` is empty, e.g. "Account default (Opus 5.5)". */
     defaultLabel?: string;
+    /** The chosen effort level, or null to let the model decide. */
+    effort?: string | null;
+    /** When provided, the menu shows the effort control and calls this on change. */
+    onEffortChange?: (effort: string | null) => void;
+    /** The model whose supported efforts apply; defaults to `value`. Pass the effective model when `value` is empty. */
+    effortModel?: string | null;
     disabled?: boolean;
     ariaLabel?: string;
     /** `field` is a bordered control for forms, `inline` is plain text for toolbars and table rows, `chip` is the raised composer chip. */
@@ -22,12 +28,31 @@ type Props = {
 
 const ROW_BASE = 'flex min-w-0 flex-1 items-start gap-2 rounded-control px-2 py-1.5 text-left outline-none hover:bg-panel-2 focus-visible:bg-panel-2';
 const SELECTED = 'bg-[var(--accent-soft)]';
+const SEGMENTS: { level: EffortLevel | null; label: string }[] = [
+    { level: null, label: 'Default' },
+    { level: 'low', label: 'Low' },
+    { level: 'medium', label: 'Med' },
+    { level: 'high', label: 'High' },
+    { level: 'xhigh', label: 'XHigh' },
+    { level: 'max', label: 'Max' },
+];
+
+/** The chosen effort if the model supports it, else the highest supported level below it, else null. */
+function clampEffort(effort: string, supported: EffortLevel[]): string | null {
+    if (supported.includes(effort as EffortLevel)) {
+        return effort;
+    }
+
+    const below = EFFORT_LEVELS.slice(0, EFFORT_LEVELS.indexOf(effort as EffortLevel)).filter((level) => supported.includes(level));
+
+    return below[below.length - 1] ?? null;
+}
 
 /**
  * The one place a model is chosen. A family row selects the family alias, which follows the newest
  * version; its chevron opens the older versions, and a sub-row pins that exact id.
  */
-export function ModelPicker({ models, value, onChange, defaultLabel, disabled, ariaLabel = 'Model', variant = 'field', className = '', testId = 'model-picker' }: Props) {
+export function ModelPicker({ models, value, onChange, defaultLabel, effort = null, onEffortChange, effortModel, disabled, ariaLabel = 'Model', variant = 'field', className = '', testId = 'model-picker' }: Props) {
     const pinnedFamily = (current: string | null) => models.find((family) => family.older.some((entry) => entry.value === current))?.family ?? null;
     const [isOpen, setIsOpen] = useState(false);
     const [expanded, setExpanded] = useState<string | null>(pinnedFamily(value));
@@ -41,8 +66,22 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
     const triggerLabel = !value && defaultLabel ? defaultLabel : (found?.label ?? value ?? 'Model');
     const isPinned = found?.isPinned ?? false;
 
+    const effortSource = effortModel ?? value;
+    const supportedEfforts = (effortSource ? findModel(models, effortSource)?.efforts : null) ?? EFFORT_LEVELS;
+    const hasEffortControl = onEffortChange !== undefined && supportedEfforts.length > 0;
+    const effortSuffix = effort && !(!value && defaultLabel) ? effortLabel(effort) : null;
+
     const pick = (next: string) => {
         onChange(next);
+
+        if (onEffortChange && effort && next) {
+            const clamped = clampEffort(effort, findModel(models, next)?.efforts ?? EFFORT_LEVELS);
+
+            if (clamped !== effort) {
+                onEffortChange(clamped);
+            }
+        }
+
         setIsOpen(false);
     };
 
@@ -71,6 +110,19 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
         }
     };
 
+    const onEffortKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (!onEffortChange || (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft')) {
+            return;
+        }
+
+        event.preventDefault();
+        const enabled = SEGMENTS.filter((segment) => segment.level === null || supportedEfforts.includes(segment.level));
+        const index = enabled.findIndex((segment) => segment.level === (effort as EffortLevel | null));
+        const next = enabled[(index + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length];
+        onEffortChange(next.level);
+        requestAnimationFrame(() => event.currentTarget.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+    };
+
     const triggerClass = variant === 'field'
         ? 'flex h-9 w-full items-center justify-between gap-2 rounded-control border border-hair-strong bg-panel px-3 text-[13px] text-body shadow-card hover:border-faint disabled:opacity-50'
         : variant === 'chip'
@@ -85,7 +137,10 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
                         <span className="grid size-5 shrink-0 place-items-center rounded-[6px] bg-[var(--accent-tint-strong)] text-accent-text" aria-hidden="true">
                             <Sparkles size={12} />
                         </span>
-                        <span className="truncate pl-0.5">{triggerLabel}</span>
+                        <span className="truncate pl-0.5">
+                            {triggerLabel}
+                            {effortSuffix && <span className="font-normal text-muted"> · {effortSuffix}</span>}
+                        </span>
                         {isPinned && <span className={CHIP_TAG}>Pinned</span>}
                         <ChevronDown size={13} className="shrink-0 text-faint" aria-hidden="true" />
                     </>
@@ -93,6 +148,7 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
                     <>
                         <span className="truncate">
                             {triggerLabel}
+                            {effortSuffix && <span className="text-muted"> · {effortSuffix}</span>}
                             {isPinned && <span className="text-muted"> · pinned</span>}
                         </span>
                         <ChevronDown size={12} className="shrink-0 text-faint" aria-hidden="true" />
@@ -148,6 +204,33 @@ export function ModelPicker({ models, value, onChange, defaultLabel, disabled, a
                                 );
                             })}
                         </div>
+                        {hasEffortControl && (
+                            <div className="mt-1 grid gap-1.5 border-t border-hair px-2 pt-2 pb-1.5" data-testid={`${testId}-effort`}>
+                                <span className="text-[11px] font-medium uppercase tracking-wide text-faint">Effort</span>
+                                <div role="radiogroup" aria-label="Effort" onKeyDown={onEffortKeyDown} className="grid grid-cols-6 gap-0.5 rounded-control border border-hair bg-panel-2 p-0.5">
+                                    {SEGMENTS.map((segment) => {
+                                        const isChecked = (effort ?? null) === segment.level;
+                                        const isSupported = segment.level === null || supportedEfforts.includes(segment.level);
+
+                                        return (
+                                            <button
+                                                key={segment.label}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={isChecked}
+                                                disabled={!isSupported}
+                                                tabIndex={isChecked ? 0 : -1}
+                                                onClick={() => onEffortChange(segment.level)}
+                                                className={`rounded-[6px] py-1 text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 ${isChecked ? 'bg-panel font-medium text-body shadow-card' : 'text-muted hover:text-body'}`}
+                                                data-testid={`${testId}-effort-${segment.level ?? 'default'}`}
+                                            >
+                                                {segment.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </Popover.Popup>
                 </Popover.Positioner>
             </Popover.Portal>

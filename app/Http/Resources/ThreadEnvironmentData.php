@@ -26,6 +26,7 @@ final class ThreadEnvironmentData
      *     deployment: ?array{url: string, status: string},
      *     account: ?array{name: string, kind: value-of<ClaudeAccountKind>, isYours: bool},
      *     model: ?string,
+     *     effort: ?string,
      *     startedBy: ?array{name: string, at: string},
      *     stoppedAfterMinutes: int,
      *     repositories: list<array{id: int, repo: string, role: value-of<RepositoryRole>, path: string, setupStatus: value-of<RepositorySetupStatus>, setupError: ?string, setupOutput: ?string, addedBy: ?string, addedAt: ?string, isDatasetAttached: bool, canMakeContextOnly: bool}>,
@@ -71,6 +72,7 @@ final class ThreadEnvironmentData
                 'isYours' => $viewer !== null && $account->owner_user_id === $viewer->id,
             ],
             'model' => $thread->model,
+            'effort' => $thread->effort,
             'startedBy' => $creator === null || $startedAt === null ? null : [
                 'name' => $creator->name,
                 'at' => $startedAt,

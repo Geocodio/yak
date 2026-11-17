@@ -7,10 +7,11 @@ private struct StartThreadBody: Encodable, Sendable {
     let repositories: [NewThreadDraft.ExtraRepository]
     let claudeAccountId: Int?
     let model: String?
+    let effort: EffortLevel?
     let sendKey: String
 
     enum CodingKeys: String, CodingKey {
-        case repo, mode, description, repositories, model
+        case repo, mode, description, repositories, model, effort
         case claudeAccountId = "claude_account_id"
         case sendKey = "send_key"
     }
@@ -19,12 +20,13 @@ private struct StartThreadBody: Encodable, Sendable {
 private struct SendMessageBody: Encodable, Sendable {
     let message: String
     let model: String?
+    let effort: EffortLevel?
     let sendKey: String
     let delivery: MessageDelivery
     let intent: MessageIntent?
 
     enum CodingKeys: String, CodingKey {
-        case message, model, delivery, intent
+        case message, model, effort, delivery, intent
         case sendKey = "send_key"
     }
 }
@@ -115,7 +117,8 @@ extension Endpoint where Response == ThreadCreated {
         if attachments.isEmpty {
             let body = StartThreadBody(
                 repo: draft.repo, mode: draft.mode, description: description, repositories: draft.repositories,
-                claudeAccountId: draft.claudeAccountId, model: draft.model, sendKey: sendKey.uuidString)
+                claudeAccountId: draft.claudeAccountId, model: draft.model, effort: draft.effort,
+                sendKey: sendKey.uuidString)
             return Endpoint(method: .post, path: "threads", body: body)
         }
         var parts: [MultipartBody.Part] = [
@@ -131,6 +134,7 @@ extension Endpoint where Response == ThreadCreated {
             parts.append(.field(name: "claude_account_id", value: String(accountID)))
         }
         if let model = draft.model { parts.append(.field(name: "model", value: model)) }
+        if let effort = draft.effort { parts.append(.field(name: "effort", value: effort.rawValue)) }
         parts.append(.field(name: "send_key", value: sendKey.uuidString))
         parts += attachmentParts(attachments, references: references)
         return Endpoint(
@@ -158,18 +162,20 @@ extension Endpoint where Response == ThreadEvent {
 
 extension Endpoint where Response == MessageSendResult {
     public static func sendMessage(
-        _ id: String, text: String, model: String?, delivery: MessageDelivery, sendKey: UUID,
+        _ id: String, text: String, model: String?, effort: EffortLevel? = nil, delivery: MessageDelivery,
+        sendKey: UUID,
         attachments: [MultipartBody.Part], references: [String], intent: MessageIntent? = nil
     ) -> Endpoint<MessageSendResult> {
         let path = "threads/\(segment(id))/messages"
         if attachments.isEmpty {
             let body = SendMessageBody(
-                message: text, model: model, sendKey: sendKey.uuidString, delivery: delivery,
+                message: text, model: model, effort: effort, sendKey: sendKey.uuidString, delivery: delivery,
                 intent: intent)
             return Endpoint(method: .post, path: path, body: body)
         }
         var parts: [MultipartBody.Part] = [.field(name: "message", value: text)]
         if let model { parts.append(.field(name: "model", value: model)) }
+        if let effort { parts.append(.field(name: "effort", value: effort.rawValue)) }
         parts.append(.field(name: "send_key", value: sendKey.uuidString))
         parts.append(.field(name: "delivery", value: delivery.rawValue))
         if let intent { parts.append(.field(name: "intent", value: intent.rawValue)) }

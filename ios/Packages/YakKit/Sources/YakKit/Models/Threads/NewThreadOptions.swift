@@ -67,6 +67,7 @@ public struct ClaudeAccount: Codable, Equatable, Sendable {
     public let kind: String
     public let isDefault: Bool
     public let defaultModel: String?
+    public let defaultEffort: EffortLevel?
     public let usable: Bool
     public let status: String
 
@@ -76,6 +77,7 @@ public struct ClaudeAccount: Codable, Equatable, Sendable {
         kind: String,
         isDefault: Bool,
         defaultModel: String? = nil,
+        defaultEffort: EffortLevel? = nil,
         usable: Bool,
         status: String
     ) {
@@ -84,6 +86,7 @@ public struct ClaudeAccount: Codable, Equatable, Sendable {
         self.kind = kind
         self.isDefault = isDefault
         self.defaultModel = defaultModel
+        self.defaultEffort = defaultEffort
         self.usable = usable
         self.status = status
     }
@@ -92,9 +95,11 @@ public struct ClaudeAccount: Codable, Equatable, Sendable {
 public struct RepositoryDefaults: Codable, Equatable, Sendable {
     public let accountId: LenientID?
     public let model: String?
+    public let effort: EffortLevel?
 
-    public init(accountId: LenientID? = nil, model: String? = nil) {
+    public init(accountId: LenientID? = nil, model: String? = nil, effort: EffortLevel? = nil) {
         self.accountId = accountId
         self.model = model
+        self.effort = effort
     }
 }

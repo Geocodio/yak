@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Repositories;
 
+use App\Enums\EffortLevel;
 use App\Models\ClaudeAccount;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SaveRepositoryClaudeAccountRequest extends FormRequest
 {
@@ -38,6 +40,7 @@ class SaveRepositoryClaudeAccountRequest extends FormRequest
                 }
             }],
             'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
+            'effort' => ['nullable', Rule::enum(EffortLevel::class)],
         ];
     }
 }

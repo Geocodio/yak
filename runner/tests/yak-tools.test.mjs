@@ -82,6 +82,8 @@ test('it validates inputs with zod', () => {
   assert.throws(() => spawn.parse({ name: 'n', brief: 'b', kind: 'bogus' }));
   assert.throws(() => spawn.parse({ name: 'n' }));
   assert.equal(spawn.parse({ name: 'n', brief: 'b', model: 'm', repo: 'r' }).repo, 'r');
+  assert.equal(spawn.parse({ name: 'n', brief: 'b', effort: 'max' }).effort, 'max');
+  assert.throws(() => spawn.parse({ name: 'n', brief: 'b', effort: 'extreme' }));
   assert.throws(() => byName('send_message').schema.parse({ to: 'a' }));
   assert.throws(() => byName('add_repository').schema.parse({}));
   assert.deepEqual(byName('list_threads').schema.parse({}), {});

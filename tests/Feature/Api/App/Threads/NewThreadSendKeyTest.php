@@ -63,11 +63,11 @@ it('starts one thread for two requests at once', function () {
             parent::__construct($resolver, $dispatcher, $access);
         }
 
-        public function start(User $starter, string $repo, TaskMode $mode, string $description, ?int $accountId, ?string $model, Collection $attachments = new Collection, array $extraRepositories = [], ?string $sendKey = null): Thread
+        public function start(User $starter, string $repo, TaskMode $mode, string $description, ?int $accountId, ?string $model, Collection $attachments = new Collection, array $extraRepositories = [], ?string $sendKey = null, ?string $effort = null): Thread
         {
             ($this->beforeStart)();
 
-            return parent::start($starter, $repo, $mode, $description, $accountId, $model, $attachments, $extraRepositories, $sendKey);
+            return parent::start($starter, $repo, $mode, $description, $accountId, $model, $attachments, $extraRepositories, $sendKey, $effort);
         }
     });
 

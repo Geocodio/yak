@@ -105,7 +105,7 @@ public actor Outbox {
         let item = OutboxItem(
             id: draft.sendKey ?? makeID(), target: draft.target, text: draft.text, model: draft.model,
             delivery: draft.delivery,
-            attachments: draft.attachments, createdAt: clock.now(), intent: draft.intent)
+            attachments: draft.attachments, createdAt: clock.now(), intent: draft.intent, effort: draft.effort)
         stored.append(item)
         do {
             try persist()
@@ -571,8 +571,8 @@ public actor Outbox {
         case .thread(let threadID):
             let result = try await client.send(
                 .sendMessage(
-                    threadID, text: item.text, model: item.model, delivery: item.delivery, sendKey: item.id,
-                    attachments: attachments, references: references, intent: item.intent))
+                    threadID, text: item.text, model: item.model, effort: item.effort, delivery: item.delivery,
+                    sendKey: item.id, attachments: attachments, references: references, intent: item.intent))
             return OutboxDelivery(
                 sendKey: item.id, target: item.target, status: result.status, messageUUID: result.uuid,
                 threadID: result.threadId ?? threadID, text: item.text, sentAt: clock.now())

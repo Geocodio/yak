@@ -17,6 +17,7 @@ export function buildOptions(start, environment, extraMcpServers = {}) {
     disallowedTools: [...new Set([...DEFAULT_DISALLOWED_TOOLS, ...(start.disallowedTools ?? [])])],
     settings: buildSettings(start),
   };
+  if (start.effort) options.effort = start.effort;
   if (options.permissionMode === 'bypassPermissions') options.allowDangerouslySkipPermissions = true;
   if (start.appendSystemPrompt) {
     options.systemPrompt = { type: 'preset', preset: 'claude_code', append: start.appendSystemPrompt };

@@ -32,6 +32,15 @@ it('upserts and clears my setting', function () {
     expect(UserRepositorySetting::query()->count())->toBe(0);
 });
 
+it('stores my effort with the setting and rejects an unknown level', function () {
+    $mine = checkedAccount(owner: $this->user);
+
+    $this->put(route('repos.claude-account.update', $this->repository), ['claude_account_id' => $mine->id, 'model' => 'opus', 'effort' => 'xhigh'])->assertSessionHasNoErrors();
+    expect(UserRepositorySetting::query()->first()->effort)->toBe('xhigh');
+
+    $this->put(route('repos.claude-account.update', $this->repository), ['claude_account_id' => $mine->id, 'effort' => 'extreme'])->assertSessionHasErrors('effort');
+});
+
 it('lets me pick a system account but not another person account', function () {
     $system = checkedAccount();
     $theirs = checkedAccount(owner: User::factory()->create());
@@ -68,5 +77,5 @@ it('shares the repository section props on the edit page', function () {
         ->where('claudeAccounts.unattendedAccountId', $system->id)
         ->where('claudeAccounts.canChangeUnattended', false)
         ->has('claudeAccounts.accounts', 1)
-        ->where('claudeAccounts.mySetting', ['accountId' => null, 'model' => null]));
+        ->where('claudeAccounts.mySetting', ['accountId' => null, 'model' => null, 'effort' => null]));
 });

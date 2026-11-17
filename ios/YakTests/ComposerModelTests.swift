@@ -281,7 +281,10 @@ private func imageData() -> Data {
     }
 }
 
-private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: String = "[]", canDrive: Bool = true) throws
+private func snapshot(
+    state: String, nextAttachmentNumber: Int = 1, models: String = "[]", canDrive: Bool = true,
+    effort: String = "null"
+) throws
     -> ConversationSnapshot
 {
     let json = """
@@ -289,7 +292,7 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         "kind":"root","status":"open","visibility":"team","branch":null,"sandboxState":"running","runnerState":"idle",
         "blockedReason":null,"parentThreadId":null,"rootThreadId":null,"lastActivityAt":"2026-11-15T09:30:00Z",
         "pullRequestCount":0,"isOwner":true,"isStarred":false},"canDrive":\(canDrive),"messages":[],
-        "composer":{"state":"\(state)","model":"sonnet","accountName":"Test account","nextAttachmentNumber":\(nextAttachmentNumber),"models":\(models)},
+        "composer":{"state":"\(state)","model":"sonnet","effort":\(effort),"accountName":"Test account","nextAttachmentNumber":\(nextAttachmentNumber),"models":\(models)},
         "notice":null,"panes":{"chat":true,"preview":false,"terminal":true,"changes":true,"files":true},
         "question":null,"latestSequence":14}
         """
@@ -622,6 +625,45 @@ private func snapshot(state: String, nextAttachmentNumber: Int = 1, models: Stri
         await composer.send(delivery: .steer)
         #expect(backend.sentDrafts.first?.model == "opus")
         #expect(composer.effectiveModel == "sonnet")
+    }
+
+    private static let effortModels = """
+        [{"family":"opus","latest":{"value":"opus","label":"Opus 5.5","description":"","efforts":["low","medium","high","xhigh","max"]},"older":[]},
+        {"family":"sonnet","latest":{"value":"sonnet","label":"Sonnet 5","description":"","efforts":["low","medium","high"]},"older":[]},
+        {"family":"haiku","latest":{"value":"haiku","label":"Haiku","description":"","efforts":[]},"older":[]}]
+        """
+
+    @Test func theThreadsEffortIsShownAndSwitchingModelClampsIt() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", models: Self.effortModels, effort: "\"high\""))
+        #expect(composer.effectiveEffort == .high)
+        #expect(composer.modelLabel == "Sonnet 5 · High")
+        composer.selectEffort(.low)
+        composer.selectModel("opus")
+        composer.selectEffort(.max)
+        #expect(composer.modelLabel == "Opus 5.5 · Max")
+        composer.selectModel("sonnet")
+        #expect(composer.effectiveEffort == .high)
+        composer.selectModel("haiku")
+        #expect(composer.effectiveEffort == nil && composer.modelLabel == "Haiku")
+        #expect(composer.supportedEfforts.isEmpty)
+    }
+
+    @Test func aPickedEffortIsSentWithItsModelAndAutoSendsNone() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", models: Self.effortModels, effort: "\"high\""))
+        composer.text = "Think harder"
+        composer.selectEffort(.medium)
+        await composer.flush()
+        #expect(backend.savedDraft(.thread("d0e515ef"))?.effort == .medium)
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.first?.model == "sonnet" && backend.sentDrafts.first?.effort == .medium)
+        #expect(composer.effectiveEffort == .high)
+        composer.text = "Back to the default"
+        composer.selectEffort(nil)
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.last?.model == "sonnet" && backend.sentDrafts.last?.effort == nil)
     }
 
     // MARK: One draft, one in-flight send

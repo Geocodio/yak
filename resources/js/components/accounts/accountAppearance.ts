@@ -1,5 +1,5 @@
 import { Bot, Briefcase, Building2, Code2, Coffee, FlaskConical, Globe, GraduationCap, Heart, Home, Rocket, Shield, Sparkles, Terminal, User, Zap, type LucideIcon } from 'lucide-react';
-import type { AccountColorName, AccountIconName, ModelFamily } from '@/types/claudeAccounts';
+import type { AccountColorName, AccountIconName, EffortLevel, ModelFamily } from '@/types/claudeAccounts';
 
 export const ACCOUNT_ICONS: Record<AccountIconName, { icon: LucideIcon; label: string }> = {
     briefcase: { icon: Briefcase, label: 'Briefcase' },
@@ -34,20 +34,34 @@ export const ACCOUNT_COLORS: Record<AccountColorName, { label: string; fg: strin
 export const KIND_LABEL = { setup_token: 'Setup token', api_key: 'API key' } as const;
 
 /** The family or older version behind a model value, or null when the catalog does not know it. */
-export function findModel(models: ModelFamily[], model: string): { label: string; isPinned: boolean } | null {
+export function findModel(models: ModelFamily[], model: string): { label: string; isPinned: boolean; efforts: EffortLevel[] } | null {
     for (const family of models) {
         if (family.latest.value === model) {
-            return { label: family.latest.label, isPinned: false };
+            return { label: family.latest.label, isPinned: false, efforts: family.latest.efforts ?? EFFORT_LEVELS };
         }
 
         const older = family.older.find((entry) => entry.value === model);
 
         if (older) {
-            return { label: older.label, isPinned: true };
+            return { label: older.label, isPinned: true, efforts: older.efforts ?? EFFORT_LEVELS };
         }
     }
 
     return null;
+}
+
+export const EFFORT_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+const EFFORT_NAMES: Record<EffortLevel, string> = { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max' };
+
+/** The display name of an effort level; an unknown value keeps its raw text. */
+export function effortLabel(level: string): string {
+    return EFFORT_NAMES[level as EffortLevel] ?? level;
+}
+
+/** "Opus 5.5 · High", or just the model label when no effort is set. */
+export function modelWithEffortLabel(model: string | null, effort: string | null, models: ModelFamily[]): string {
+    return effort ? `${modelLabel(model, models)} · ${effortLabel(effort)}` : modelLabel(model, models);
 }
 
 /** A family alias reads as its current version, an exact id as that version, anything unknown as the raw value. */

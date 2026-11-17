@@ -64,6 +64,17 @@ test('it calls setModel on set_model', async () => {
   await finish(run);
 });
 
+test('it applies the effort level on set_effort and resets it on null', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'set_effort', effort: 'high' });
+  run.send({ type: 'set_effort', effort: null });
+  await run.tick();
+  assert.deepEqual(run.calls.applyFlagSettings, [{ effortLevel: 'high' }, { effortLevel: null }]);
+  await finish(run);
+});
+
 test('it calls interrupt and writes runner interrupted', async () => {
   const run = createHarness();
   run.send(start());

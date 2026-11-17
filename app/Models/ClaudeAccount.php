@@ -32,6 +32,7 @@ use Throwable;
  * @property int $max_concurrent_turns
  * @property int|null $owner_user_id
  * @property string|null $default_model
+ * @property string|null $default_effort
  * @property string|null $last_error
  * @property CarbonImmutable|null $validated_at
  * @property CarbonImmutable|null $expires_at
