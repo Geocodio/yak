@@ -63,6 +63,13 @@ class FakeSandboxManager extends IncusSandboxManager
      */
     private int $commitCount = 1;
 
+    /**
+     * Value returned for `git rev-list --count origin/<branch>...HEAD`, the
+     * check for a retry that left its branch unchanged. Null falls back to
+     * the commit count.
+     */
+    private ?int $branchDiffCount = null;
+
     public string $containerIp = '10.0.0.7';
 
     public function setHasSnapshot(bool $value): self
@@ -77,6 +84,13 @@ class FakeSandboxManager extends IncusSandboxManager
     public function setHeadSha(string $sha): self
     {
         $this->headSha = $sha;
+
+        return $this;
+    }
+
+    public function setBranchDiffCount(int $count): self
+    {
+        $this->branchDiffCount = $count;
 
         return $this;
     }
@@ -130,6 +144,10 @@ class FakeSandboxManager extends IncusSandboxManager
 
         if ($command === SandboxAddress::command()) {
             return Process::result("4: eth0    inet {$this->containerIp}/24 brd 10.100.0.255 scope global eth0");
+        }
+
+        if ($this->branchDiffCount !== null && str_contains($command, '...HEAD')) {
+            return Process::result((string) $this->branchDiffCount);
         }
 
         if (str_contains($command, 'git rev-list --count origin/')) {
