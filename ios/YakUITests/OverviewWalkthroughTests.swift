@@ -146,9 +146,9 @@ import XCTest
         XCTAssertTrue(app.buttons["Drop it"].firstMatch.waitForNonExistence(timeout: 5))
         pause(1)
         // The lower groups are brought up for the audit and put back for the screenshot.
-        nudgePage(by: 120)
+        nudgePage(by: 250)
         try auditOverview("overview-refused")
-        nudgePage(by: -120)
+        nudgePage(by: -250)
         try shoot("overview-refused", audits: false)
     }
 
