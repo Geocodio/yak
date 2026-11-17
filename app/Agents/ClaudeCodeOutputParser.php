@@ -85,6 +85,12 @@ class ClaudeCodeOutputParser
         return $reason !== '' ? mb_substr($reason, 0, 500) : 'The setup agent reported that it could not finish.';
     }
 
+    /** A test command is safe to render into a prompt when it is at most 500 characters on a single line, without backticks or control characters. */
+    public static function isSafeTestCommand(string $command): bool
+    {
+        return mb_strlen($command) <= 500 && preg_match('/[\x{0000}-\x{001F}\x{007F}\x{0085}\x{2028}\x{2029}`]/u', $command) !== 1;
+    }
+
     /**
      * Extract the command a ready setup used to run the tests from the last fenced setup_result block,
      * or null when the block is missing, malformed, failed, or names no command.
@@ -103,7 +109,7 @@ class ClaudeCodeOutputParser
 
         $command = trim($decoded['test_command']);
 
-        return $command !== '' && mb_strlen($command) <= 500 && preg_match('/[\x00-\x1F\x7F`]/', $command) !== 1 ? $command : null;
+        return $command !== '' && self::isSafeTestCommand($command) ? $command : null;
     }
 
     /**

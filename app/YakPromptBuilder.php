@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\ChannelRegistry;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
@@ -40,7 +41,7 @@ class YakPromptBuilder
 
         $command = (string) Repository::where('slug', $task->repo)->value('test_command');
 
-        return preg_match('/[\x00-\x1F\x7F`]/', $command) === 1 ? '' : $command;
+        return ClaudeCodeOutputParser::isSafeTestCommand($command) ? $command : '';
     }
 
     /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */

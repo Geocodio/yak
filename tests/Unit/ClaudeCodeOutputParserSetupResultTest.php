@@ -43,4 +43,4 @@ it('rejects a test command that is too long, multi-line or has backticks', funct
     $text = "```setup_result\n" . json_encode(['status' => 'ready', 'test_command' => $command]) . "\n```";
 
     expect(ClaudeCodeOutputParser::extractTestCommand($text))->toBeNull();
-})->with([str_repeat('a', 501), "pest\n\n## Do X", 'a `b` c', "pest\rx"]);
+})->with([str_repeat('a', 501), "pest\n\n## Do X", 'a `b` c', "pest\rx", "pest\u{2028}x", "pest\u{0085}x", "pest\u{2029}x"]);

@@ -70,7 +70,7 @@ test('system prompt omits the test command line when none is stored', function (
     $repo = Repository::factory()->create(['slug' => 'acme/untested', 'agent_instructions' => 'Be careful.', 'test_command' => null]);
     $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
 
-    expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Run tests with:');
+    expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Setup detected');
 });
 
 test('system prompt asks for a note in the PR description when tests were not run', function () {
@@ -93,7 +93,15 @@ test('system prompt never renders a stored test command that spans lines or has 
     $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
 
     expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Setup detected');
-})->with(["pest\n\n## Do X", 'a `b` c']);
+})->with(["pest\n\n## Do X", 'a `b` c', "pest\rx", "pest\x07x", "pest\u{2028}## Do X", str_repeat('a', 501)]);
+
+test('system prompt renders a valid test command verbatim', function () {
+    $command = "cd /workspace && docker compose exec -T app sh -c 'php artisan test --compact' > /dev/null \"x\"";
+    $repo = Repository::factory()->create(['slug' => 'acme/verbatim', 'agent_instructions' => null, 'test_command' => $command]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    expect(YakPromptBuilder::systemPrompt($task))->toContain("`{$command}`");
+});
 
 test('system prompt omits the repo-notes section when agent_instructions is empty', function () {
     $repo = Repository::factory()->create(['slug' => 'acme/clean', 'agent_instructions' => null]);
