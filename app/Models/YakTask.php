@@ -12,10 +12,12 @@ use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleTaskScope;
+use App\Observers\YakTaskThreadObserver;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -66,6 +68,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
  */
 #[ScopedBy(VisibleTaskScope::class)]
+#[ObservedBy(YakTaskThreadObserver::class)]
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */

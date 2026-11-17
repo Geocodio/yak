@@ -73,7 +73,7 @@ test('a signed-in user does not load other people private threads or their tasks
     $private = Thread::factory()->private($owner)->create();
     $child = Thread::factory()->create(['parent_thread_id' => $private->id, 'root_thread_id' => $private->id]);
     $privateTask = YakTask::factory()->create(['thread_id' => $child->id]);
-    $plainTask = YakTask::factory()->create();
+    $plainTask = YakTask::factory()->create(['thread_id' => null]);
 
     $this->actingAs($other);
     expect(Thread::count())->toBe(0)

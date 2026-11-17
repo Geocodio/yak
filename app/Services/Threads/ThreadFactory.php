@@ -40,7 +40,7 @@ class ThreadFactory
         $threadId = $this->openThreadIdOf($task->rootTask());
 
         if ($task->thread_id !== $threadId) {
-            $task->forceFill(['thread_id' => $threadId])->save();
+            $task->withoutTimestamps(fn () => $task->forceFill(['thread_id' => $threadId])->save());
         }
 
         return Thread::query()->findOrFail($threadId);
@@ -55,7 +55,7 @@ class ThreadFactory
     {
         return DB::transaction(function () use ($root): Thread {
             $thread = $this->create(Thread::UNKNOWN_REPOSITORY, $root, null, null);
-            $root->forceFill(['thread_id' => $thread->id])->save();
+            $root->withoutTimestamps(fn () => $root->forceFill(['thread_id' => $thread->id])->save());
 
             return $thread;
         });
@@ -133,7 +133,7 @@ class ThreadFactory
                 }
             }
 
-            $locked->forceFill(['thread_id' => $thread->id])->save();
+            $locked->withoutTimestamps(fn () => $locked->forceFill(['thread_id' => $thread->id])->save());
 
             return $thread->id;
         });

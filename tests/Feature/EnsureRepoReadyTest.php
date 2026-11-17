@@ -53,7 +53,7 @@ test('passes through when the repo has a sandbox snapshot', function () {
 
 test('refuses when the repo has no sandbox snapshot', function () {
     Repository::factory()->pendingSetup()->create(['slug' => 'acme/unready']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/unready']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/unready', 'thread_id' => null]);
 
     $called = false;
     $job = makeTestJobDouble();
@@ -114,7 +114,7 @@ test('dispatches a fresh setup task and fails the current task when base_version
         'sandbox_snapshot' => 'yak-tpl-acme-drifted/ready',
         'sandbox_base_version' => 1,
     ]);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/drifted']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/drifted', 'thread_id' => null]);
 
     $called = false;
     $job = makeTestJobDouble();
@@ -141,7 +141,7 @@ test('dispatches a setup task when template predates the versioning system (null
         'sandbox_snapshot' => 'yak-tpl-acme-legacy/ready',
         'sandbox_base_version' => null,
     ]);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/legacy']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/legacy', 'thread_id' => null]);
 
     $called = false;
     $job = makeTestJobDouble();
@@ -201,6 +201,7 @@ test('dispatches a failure notification when a non-system task is refused', func
     Repository::factory()->pendingSetup()->create(['slug' => 'acme/notify-me']);
     $task = YakTask::factory()->pending()->create([
         'repo' => 'acme/notify-me',
+        'thread_id' => null,
         'source' => 'slack',
     ]);
 
@@ -251,7 +252,7 @@ test('all agent-running jobs wire up EnsureRepoReady before the agent runs', fun
 test('a refused agent job notifies the source exactly once', function () {
     Queue::fake([SendNotificationJob::class]);
     Repository::factory()->pendingSetup()->create(['slug' => 'acme/no-snapshot']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/no-snapshot', 'source' => 'linear']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/no-snapshot', 'thread_id' => null, 'source' => 'linear']);
     $job = new RunYakJob($task);
 
     (new EnsureRepoReady)->handle($job, fn () => null);

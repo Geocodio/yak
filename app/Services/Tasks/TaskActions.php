@@ -32,6 +32,7 @@ use App\Services\AgentJobDispatcher;
 use App\Services\Devices\ShortLockWait;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadRetryReset;
 use Closure;
 use Illuminate\Support\Arr;
@@ -349,6 +350,12 @@ class TaskActions
                 'completed_at' => null,
                 'updated_at' => now(),
             ]);
+
+            $thread = $locked->thread;
+
+            if ($thread !== null && ! $thread->hasRepository()) {
+                app(ThreadFactory::class)->attachRepository($thread, $newRepo->slug);
+            }
 
             return [
                 'from' => $from,

@@ -10,6 +10,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadFactory;
 
 /**
  * Resolves a repo-clarification reply into a concrete repository and
@@ -114,6 +115,12 @@ class RepoClarificationResolver
             'responsible_name' => $task->responsible_name
                 ?? app(ResponsiblePersonResolver::class)->resolve(null, $task->author_name, $repository->slug),
         ]);
+
+        $thread = $task->thread;
+
+        if ($thread !== null && ! $thread->hasRepository()) {
+            app(ThreadFactory::class)->attachRepository($thread, $repository->slug);
+        }
 
         TaskLogger::info($task, "Repo resolved to {$repository->slug}");
 
