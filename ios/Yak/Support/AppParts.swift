@@ -53,7 +53,8 @@ final class AppParts {
                 await push.refreshInstances(budget: budget)
             }
         ]
-        return AppParts(storage: storage, isTestMode: isTestMode, push: push, steps: steps,
+        return AppParts(
+            storage: storage, isTestMode: isTestMode, push: push, steps: steps,
             previewData: previewData, observers: [push, previewData])
     }
 

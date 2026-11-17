@@ -61,7 +61,8 @@
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
             let defaults = MemoryDefaults()
-            let instances = InstanceStore(defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
+            let instances = InstanceStore(
+                defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
