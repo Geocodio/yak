@@ -67,7 +67,7 @@ import XCTest
     func testTasksFilter() throws {
         try openTilesScreen("drawer.tile.tasks", scenario: "changes")
         XCTAssertTrue(element("tasks.row.k3m9p2qa").waitForExistence(timeout: 15))
-        element("tasks.filter").tap()
+        app.buttons["Filter tasks"].tap()
         XCTAssertTrue(app.buttons["Repository"].waitForExistence(timeout: 5))
         try shoot("tasks-filter", audits: false)
     }
@@ -242,7 +242,7 @@ import XCTest
     func testObservationsDeclined() throws {
         try openTilesScreen("drawer.tile.observations", scenario: "changes")
         XCTAssertTrue(element("observations.row.301").waitForExistence(timeout: 15))
-        element("observations.filter.declined").tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Declined")).firstMatch.tap()
         XCTAssertTrue(element("observations.row.302").waitForExistence(timeout: 10))
         try shoot("observations-declined")
     }
