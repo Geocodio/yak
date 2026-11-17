@@ -44,6 +44,7 @@ extension PushPayload {
         guard JSONSerialization.isValidJSONObject(object),
             let data = try? JSONSerialization.data(withJSONObject: object)
         else { return nil }
+        // A payload that does not decode is not a Yak push, so it maps to nil.
         return try? PushPayload(json: data)
     }
 }
