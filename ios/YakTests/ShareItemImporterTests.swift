@@ -21,7 +21,7 @@ private final class InFlight: @unchecked Sendable {
 
 private struct FakeProvider: ShareItemProvider {
     enum Behavior: Sendable {
-        case image, tooLarge, unreadable, hangs
+        case image, tooLarge, unreadable, hangs, stubborn
         case text(Data)
     }
     let behavior: Behavior
@@ -42,6 +42,9 @@ private struct FakeProvider: ShareItemProvider {
                 data: Data([1, 2, 3]), fileName: "p.jpg", contentType: "image/jpeg", isImage: true)
         case .tooLarge: throw AttachmentProblem.tooLarge(maximumBytes: maximumBytes)
         case .hangs: try await Task.sleep(for: .seconds(3600))
+        case .stubborn:
+            // Ignores cancellation, like a system provider decoding a large photo.
+            await Task.detached { try? await Task.sleep(for: .milliseconds(300)) }.value
         default: throw AttachmentProblem.unreadable
         }
         throw AttachmentProblem.unreadable
@@ -94,6 +97,21 @@ struct ShareItemImporterTests {
         #expect(slow.value)
         clock.advance(.seconds(22))
         let result = await loading.value
+        #expect(result.unreadable == 1)
+        #expect(result.inputs.count == 1)
+    }
+
+    @Test func aTimedOutLoadEndsBeforeTheNextOneStarts() async throws {
+        let clock = ManualClock()
+        let counter = InFlight()
+        let providers = [
+            FakeProvider(behavior: .stubborn, counter: counter), FakeProvider(behavior: .image, counter: counter),
+        ]
+        let loading = Task { await importer(clock).load(providers) { _ in } }
+        for _ in 0..<400 where clock.sleeperCount < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        clock.advance(.seconds(30))
+        let result = await loading.value
+        #expect(counter.peak == 1)
         #expect(result.unreadable == 1)
         #expect(result.inputs.count == 1)
     }

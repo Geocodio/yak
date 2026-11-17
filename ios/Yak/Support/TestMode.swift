@@ -68,6 +68,7 @@
             let uploads = UploadSessions(
                 appBundleID: "com.example.yak", appGroup: nil, files: kept.files, clock: SystemClock(),
                 instances: instances, tokens: lockable, appVersion: version, systemDescription: system)
+            uploads.failsFirstUpload = Self.flag("yakTestUploadFailure")
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(
                     version: version, system: system, files: kept.files, allowsInsecureRealtime: true,

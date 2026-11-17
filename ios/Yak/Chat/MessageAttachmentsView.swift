@@ -81,8 +81,18 @@ private struct AttachmentTile: View {
         .disabled(state == .notAvailable || state == .loading || isOpening)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("chat.attachment.image.speech \(row.reference ?? "") \(row.title)"))
+        .accessibilityValue(stateSpeech)
         .accessibilityHint(Text("chat.attachment.hint"))
         .task(id: LoadKey(link: row.openURL, reloads: reloads, isOffline: thread.isOffline)) { await load() }
+    }
+
+    /// What the picture shows when it is not the picture: spoken, because the visible text is hidden from VoiceOver.
+    private var stateSpeech: Text {
+        switch state {
+        case .failed: Text("common.retry")
+        case .offline: Text("chat.attachment.offline")
+        default: Text(verbatim: "")
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -208,6 +218,7 @@ private struct AttachmentFileRow: View {
         .disabled(row.openURL == nil || isOpening)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "\(row.title), \(row.detail)"))
+        .accessibilityValue(failed ? Text("chat.attachment.failed") : Text(verbatim: ""))
         .accessibilityHint(Text("chat.attachment.hint"))
     }
 }

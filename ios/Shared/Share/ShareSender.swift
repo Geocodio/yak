@@ -25,19 +25,33 @@ struct ShareSender: ShareSending {
     {
         let now = clock.now()
         guard let key = draft.sendKey else { throw .notSaved }
+        var moved: [OutboxAttachment] = []
+        let ledger = UploadLedger(instance: instance, files: files, clock: clock)
+        /// Puts the files back into staging and drops the record, so the sheet can send again with everything kept.
+        func undo() async {
+            for attachment in moved.reversed() {
+                do { try files.move(attachment.path, to: "\(stagingFolder)/\(attachment.fileName)") } catch {
+                    log("staged file not restored: \(type(of: error))")
+                }
+            }
+            await ledger.remove(key)
+        }
         do {
             for attachment in draft.attachments {
                 try files.move("\(stagingFolder)/\(attachment.fileName)", to: attachment.path)
+                moved.append(attachment)
             }
         } catch {
             log("staged files not moved: \(type(of: error))")
+            await undo()
             throw .notSaved
         }
+        var didStart = false
         if !draft.attachments.isEmpty {
-            let ledger = UploadLedger(instance: instance, files: files, clock: clock)
             let item = OutboxInbox.item(for: draft, id: key, now: now)
             do { _ = try await ledger.prepare(item, origin: .share) } catch {
                 log("upload not prepared: \(type(of: error))")
+                await undo()
                 throw .notSaved
             }
             let identifier = UploadSessionID.share(invocation: UUID()).identifier(appBundleID: appBundleID)
@@ -45,13 +59,17 @@ struct ShareSender: ShareSending {
                 ledger
             }
             if let client = await makeClient(instance, token) {
-                _ = await ledger.start(key, session: session, client: client)
+                let record = await ledger.start(key, session: session, client: client)
+                if case .uploading? = record?.phase { didStart = true }
             }
         }
         do { try OutboxInbox.add(draft, instance: instance, files: files, id: key, now: now) } catch {
-            // The upload, if it started, still delivers; the app drops the answered record of an unknown item.
             log("inbox item not written: \(type(of: error))")
-            throw .notSaved
+            // A started upload delivers the message whatever the inbox says, so a second share would duplicate it.
+            if !didStart {
+                await undo()
+                throw .notSaved
+            }
         }
     }
 

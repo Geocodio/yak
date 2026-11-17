@@ -133,8 +133,8 @@ actor AttachmentImageLoader {
         guard let link = row.openURL else { return .notAvailable }
         let manager = FileManager.default
         let root = caches.appendingPathComponent("quicklook")
-        try? manager.removeItem(at: root)
         let folder = root.appendingPathComponent(Self.folderName(row.id))
+        try? manager.removeItem(at: folder)
         let location = folder.appendingPathComponent(Self.fileName(row.title))
         do { try manager.createDirectory(at: folder, withIntermediateDirectories: true) } catch { return .failed }
         guard manager.createFile(atPath: location.path, contents: nil),

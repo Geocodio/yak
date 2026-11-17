@@ -58,12 +58,9 @@ import XCTest
     }
 
     func testAFailedUploadGoesAgainOnTheNextLaunch() throws {
-        // Open: the failure line never showed in the first run (the background session may resend a dropped request
-        // itself, so no transport failure reaches the ledger). Unskip once the cause is known.
-        try XCTSkipIf(true, "open: the dropped upload is not reported as a failure")
         let runID = UUID().uuidString
         let keep = ["-yakTestKeepFiles", runID]
-        try launch(scenario: "upload-fails", arguments: keep)
+        try launch(scenario: "chat-attachments", arguments: keep + ["-yakTestUploadFailure", "YES"])
         openThreadAndSend("This one fails first")
         let failed = app.staticTexts["Not sent. Tap Retry, or it tries again later."]
         XCTAssertTrue(failed.waitForExistence(timeout: Wait.firstLoad))
@@ -104,14 +101,28 @@ import XCTest
             NSPredicate(format: "identifier ENDSWITH %@", ".attachment.41")
         ).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: Wait.firstLoad))
+        // A tile that is still loading is disabled; a failed one says "Retry" as its value.
+        let loaded = NSPredicate(format: "isEnabled == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: loaded, object: tile)], timeout: Wait.firstLoad)
+        XCTAssertTrue((tile.value as? String ?? "").isEmpty, "the tile did not load its image: \(tile.value ?? "")")
         let file = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier ENDSWITH %@", ".attachment.42")
         ).firstMatch
         XCTAssertTrue(file.waitForExistence(timeout: Wait.appear))
         file.tap()
-        // Open: the tile and the file row show, but Quick Look was not seen opening in the first run. The unit tests
-        // cover the download; the presentation needs a look at a screenshot.
-        try XCTSkipIf(!app.buttons["Done"].waitForExistence(timeout: Wait.firstLoad), "open: Quick Look did not appear")
+        let preview = app.descendants(matching: .any)["QLPreviewControllerView"]
+        let opened = preview.waitForExistence(timeout: Wait.firstLoad)
+        if !opened {
+            XCTAssertFalse(
+                (file.value as? String ?? "").contains("could not be loaded"), "the file did not download")
+        }
+        XCTAssertTrue(opened, "Quick Look did not appear")
+        // Quick Look's close control is a button named "close" with this identifier on the current SDK.
+        let close = app.buttons["QLOverlayDoneButtonAccessibilityIdentifier"]
+        XCTAssertTrue(close.waitForExistence(timeout: Wait.appear))
+        close.tap()
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: preview)], timeout: Wait.appear)
     }
 
     func testTheShareSheetShowsItsChipsAndSend() throws {

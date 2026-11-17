@@ -44,7 +44,7 @@ enum AttachmentPreparer {
     ) throws(AttachmentProblem) -> PreparedAttachment {
         let first = min(pixelLongEdge(of: source) ?? longestDecodedEdge, longestDecodedEdge)
         for edge in [first] + longEdges.filter({ $0 < first }) {
-            guard let encoded = jpeg(from: source, longEdge: edge) else { throw .unreadable }
+            guard !Task.isCancelled, let encoded = jpeg(from: source, longEdge: edge) else { throw .unreadable }
             if encoded.count <= maximumBytes {
                 return PreparedAttachment(
                     data: encoded, fileName: jpegName(fileName), contentType: "image/jpeg", isImage: true)

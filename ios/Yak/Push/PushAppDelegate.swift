@@ -12,6 +12,8 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
     private var controller: PushController?
     private var earlyResponses: [PushPayload] = []
     private var uploads: UploadSessions?
+    /// Set by `YakApp.init`, which runs for every launch including a background relaunch with no scene.
+    nonisolated(unsafe) private static var launchUploads: UploadSessions?
     private var earlyUploadEvents: [(identifier: String, completion: @Sendable () -> Void)] = []
 
     /// Responses that arrived before the controller existed are handed over here.
@@ -28,12 +30,15 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
         completionHandler: @escaping @Sendable () -> Void
     ) {
-        guard let uploads else {
+        guard let uploads = uploads ?? Self.launchUploads else {
             earlyUploadEvents.append((identifier, completionHandler))
             return
         }
         uploads.handleEvents(identifier: identifier, completion: completionHandler)
     }
+
+    /// Makes the sessions known to every delegate of this process before any scene exists.
+    static func register(launchUploads: UploadSessions?) { self.launchUploads = launchUploads }
 
     /// Events that came before the sessions existed are handed over here; with no sessions they are completed.
     func attach(uploads: UploadSessions?) {

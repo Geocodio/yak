@@ -23,6 +23,10 @@ final class UploadSessions: @unchecked Sendable {
     private let appVersion: String
     private let systemDescription: String
     private let state = OSAllocatedUnfairLock(initialState: State())
+    #if DEBUG
+        /// Set by test mode: the first completion of each app session is reported as failed.
+        var failsFirstUpload = false
+    #endif
 
     init(
         appBundleID: String, appGroup: String?, files: DiskFileStore, clock: any YakClock, instances: InstanceStore,
@@ -50,17 +54,22 @@ final class UploadSessions: @unchecked Sendable {
     }
 
     /// The same link on every call for one instance, so the outbox and the summaries share one ledger.
-    func link(for instance: UUID) -> UploadLink {
+    func link(for instance: UUID, finishedEvents: (@Sendable () -> Void)? = nil) -> UploadLink {
         let ledger = ledger(for: instance)
         return state.withLock { state in
             if let existing = state.links[instance] { return existing }
             let identifier = UploadSessionID.app(instance: instance).identifier(appBundleID: appBundleID)
-            let session = BackgroundUploadSession(identifier: identifier, appGroup: appGroup, files: files) {
+            let session = BackgroundUploadSession(
+                identifier: identifier, appGroup: appGroup, files: files, finishedEvents: finishedEvents
+            ) {
                 [weak self] description in
                 guard let self else { return nil }
                 let owner = self.ledger(for: instance)
                 return await owner.owns(description) ? owner : nil
             }
+            #if DEBUG
+                if failsFirstUpload { session.failNextCompletions(1) }
+            #endif
             let link = UploadLink(ledger: ledger, session: session)
             state.links[instance] = link
             return link
@@ -75,16 +84,19 @@ final class UploadSessions: @unchecked Sendable {
         let finish: @Sendable () -> Void = { Task { @MainActor in completion() } }
         switch UploadSessionID(identifier, appBundleID: appBundleID) {
         case .app(let instance)?:
-            (link(for: instance).session as? BackgroundUploadSession)?.finishedEvents = finish
+            let link = link(for: instance, finishedEvents: finish)
+            (link.session as? BackgroundUploadSession)?.finishedEvents = finish
         case .share?:
-            let session = BackgroundUploadSession(identifier: identifier, appGroup: appGroup, files: files) {
-                [weak self] description in await self?.ledgerOwningShare(description)
-            }
-            session.finishedEvents = { [weak self, weak session] in
-                finish()
-                session?.finishAndInvalidate()
-                self?.forgetShareSession(identifier)
-            }
+            let holder = SessionHolder()
+            let session = BackgroundUploadSession(
+                identifier: identifier, appGroup: appGroup, files: files,
+                finishedEvents: { [weak self, holder] in
+                    finish()
+                    holder.session?.finishAndInvalidate()
+                    self?.forgetShareSession(identifier)
+                }
+            ) { [weak self] description in await self?.ledgerOwningShare(description) }
+            holder.session = session
             state.withLock { $0.shareSessions[identifier] = session }
         case nil:
             #if canImport(os)
@@ -93,6 +105,13 @@ final class UploadSessions: @unchecked Sendable {
             finish()
         }
     }
+
+    /// The share session made for `identifier` while its events are delivered; nil before and after.
+    func shareSession(_ identifier: String) -> BackgroundUploadSession? {
+        state.withLock { $0.shareSessions[identifier] }
+    }
+
+    var shareSessionCount: Int { state.withLock { $0.shareSessions.count } }
 
     private func forgetShareSession(_ identifier: String) {
         state.withLock { _ = $0.shareSessions.removeValue(forKey: identifier) }
@@ -154,6 +173,10 @@ final class UploadSessions: @unchecked Sendable {
         }
     }
 
+}
+
+private final class SessionHolder: @unchecked Sendable {
+    weak var session: BackgroundUploadSession?
 }
 
 extension UploadSessions: InstanceLifecycleObserver {

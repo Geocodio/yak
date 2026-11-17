@@ -125,7 +125,7 @@ struct AttachmentImageLoaderTests {
         #expect(fetcher.requestCount == 0)
     }
 
-    @Test func quickLookFilesKeepTheirNameAndReplaceEachOther() async throws {
+    @Test func quickLookFilesKeepTheirNameAndAnotherAttachmentIsLeftAlone() async throws {
         let fetcher = ScriptedFetcher(body: Data("pdf".utf8))
         let (loader, _, caches) = makeLoader(fetcher)
         guard case .ready(let first) = await loader.file(row: row(id: "42", title: "report.pdf")) else {
@@ -139,7 +139,8 @@ struct AttachmentImageLoaderTests {
             Issue.record("not ready")
             return
         }
-        #expect(!FileManager.default.fileExists(atPath: first.path))
+        // A file Quick Look may still be showing stays; only the same attachment's folder is replaced.
+        #expect(FileManager.default.fileExists(atPath: first.path))
         #expect(second.deletingLastPathComponent().path.hasSuffix("quicklook/43"))
         #expect(second.pathExtension == "pdf")
         #expect(second.lastPathComponent.count <= 120)

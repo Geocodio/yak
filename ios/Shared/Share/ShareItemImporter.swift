@@ -132,17 +132,25 @@ struct ShareItemImporter: Sendable {
         return String(decoding: bytes, as: UTF8.self)
     }
 
-    /// The first of the load and the timeout wins; the loser is cancelled and not waited for, because a system
-    /// provider can ignore cancellation.
+    /// How long a cancelled load may take to stop before the importer goes on regardless.
+    static let cancelGrace: Duration = .seconds(5)
+
+    /// The first of the load and the timeout wins. The loser is cancelled and waited for up to `cancelGrace`, so two
+    /// full-size decodes never run at once in the extension's small memory.
     private static func race<Value: Sendable>(
         timeout: Duration, clock: any YakClock, _ work: @escaping @Sendable () async -> Value
     ) async -> Value? {
         await withCheckedContinuation { (continuation: CheckedContinuation<Value?, Never>) in
             let once = Once<Value?>(continuation)
-            let loading = Task { once.finish(await work()) }
+            let loading = Task {
+                let value = await work()
+                once.finish(once.hasTimedOut ? nil : value)
+            }
             Task {
                 do { try await clock.sleep(for: timeout) } catch { return }
+                once.markTimedOut()
                 loading.cancel()
+                do { try await clock.sleep(for: cancelGrace) } catch {}
                 once.finish(nil)
             }
         }
@@ -151,6 +159,9 @@ struct ShareItemImporter: Sendable {
     private final class Once<Value: Sendable>: @unchecked Sendable {
         private let lock = NSLock()
         private var continuation: CheckedContinuation<Value, Never>?
+        private var timedOut = false
+        var hasTimedOut: Bool { lock.withLock { timedOut } }
+        func markTimedOut() { lock.withLock { timedOut = true } }
         init(_ continuation: CheckedContinuation<Value, Never>) { self.continuation = continuation }
         func finish(_ value: Value) {
             let taken = lock.withLock { () -> CheckedContinuation<Value, Never>? in

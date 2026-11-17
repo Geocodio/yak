@@ -125,7 +125,7 @@ private struct PersonMessageView: View {
 
     @ViewBuilder private var attachments: some View {
         if let list = message.attachments, !list.isEmpty {
-            let made = MessageAttachmentRows.make(list, instance: thread.instanceURL, canonical: nil)
+            let made = MessageAttachmentRows.make(list, instance: thread.instanceURL, canonical: thread.session.instance.canonicalURL)
             MessageAttachmentsView(
                 messageKey: message.uuid ?? message.id, rows: made.rows, hiddenCount: made.hiddenCount, thread: thread)
         }

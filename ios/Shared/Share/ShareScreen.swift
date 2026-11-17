@@ -31,7 +31,7 @@ struct ShareScreen: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .background(Color(.systemBackground))
-        .sensoryFeedback(.error, trigger: model.phase == .failed)
+        .sensoryFeedback(.error, trigger: model.saveFailureCount)
         .interactiveDismissDisabled(model.phase == .saving)
     }
 
@@ -83,7 +83,7 @@ struct ShareScreen: View {
                 title: Text(ShareText.resource("share.signedOut.title \(name)")),
                 detail: ShareText.text("share.signedOut.body"))
         case .loading: ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-        case .ready, .saving, .failed: sheet
+        case .ready, .saving: sheet
         }
     }
 
@@ -154,7 +154,7 @@ struct ShareScreen: View {
 
     @ViewBuilder private var lines: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if model.phase == .failed {
+            if model.didFailToSave {
                 ShareText.text("share.saveFailed").foregroundStyle(.orange)
             }
             ForEach(Array(model.notices.enumerated()), id: \.offset) { _, notice in

@@ -10,9 +10,13 @@ enum UploadLineState: Equatable {
     case failedInBackground
 
     /// Nil when the item has no upload to talk about; the row then shows the outbox's own line.
-    static func make(item: UUID, summary: UploadSummary, stalled: Set<UUID>, isOffline: Bool) -> UploadLineState? {
+    static func make(
+        item: UUID, summary: UploadSummary, stalled: Set<UUID>, isOffline: Bool, hasAttachments: Bool = false
+    ) -> UploadLineState? {
         if summary.failed.contains(item) { return .failedInBackground }
-        guard let progress = summary.progress[item] else { return nil }
+        guard let progress = summary.progress[item] else {
+            return isOffline && hasAttachments ? .waitingForNetwork : nil
+        }
         let percent = min(max(Int(progress * 100), 0), 100)
         if isOffline { return .waitingForNetwork }
         return stalled.contains(item) ? .stalled(percent: percent) : .uploading(percent: percent)
@@ -81,7 +85,8 @@ extension ThreadModel {
 
     func uploadLine(for item: OutboxItem) -> UploadLineState? {
         UploadLineState.make(
-            item: item.id, summary: uploadWatch.summary, stalled: uploadWatch.stalled, isOffline: isOffline)
+            item: item.id, summary: uploadWatch.summary, stalled: uploadWatch.stalled, isOffline: isOffline,
+            hasAttachments: !item.attachments.isEmpty)
     }
 }
 

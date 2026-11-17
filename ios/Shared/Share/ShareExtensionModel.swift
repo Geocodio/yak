@@ -8,10 +8,14 @@ final class ShareExtensionModel {
     enum Phase: Equatable {
         case noInstance
         case signedOut(String)
-        case loading, ready, saving, failed
+        case loading, ready, saving
     }
 
     private(set) var phase: Phase = .loading
+    /// True after a send that could not be saved; the sheet is ready again with everything kept.
+    private(set) var didFailToSave = false
+    /// Counts failed sends, so the error haptic fires once per failure.
+    private(set) var saveFailureCount = 0
     private(set) var context: ShareContext?
     private(set) var progress: ShareImportProgress?
     private(set) var isOffline = false
@@ -32,6 +36,8 @@ final class ShareExtensionModel {
     private let fetchOptions: @Sendable (Instance, String) async throws -> NewThreadOptions
     private var token: String?
     private let stagingFolder: String
+    /// One key for every attempt to send this share, so a retry never becomes a second message.
+    private let sendKey = UUID()
     private var importTask: Task<Void, Never>?
 
     init(
@@ -115,10 +121,16 @@ final class ShareExtensionModel {
         do {
             let options = try await fetchOptions(chosen, token)
             isOffline = false
-            if var current = context {
-                current.options = options
-                current.updatedAt = clock.now()
-                context = current
+            let isSaved = context != nil
+            var current =
+                context
+                ?? ShareContext(
+                    instanceName: chosen.name, limits: ShareLimits(maxFiles: 8, maxFileBytes: 10_485_760),
+                    updatedAt: clock.now())
+            current.options = options
+            current.updatedAt = clock.now()
+            context = current
+            if isSaved {
                 do { try ShareContextStore.write(current, instance: chosen.id, files: files) } catch {
                     // The sheet still works from memory.
                 }
@@ -162,7 +174,7 @@ final class ShareExtensionModel {
     /// True: the sheet may close.
     func send() async -> Bool {
         guard canSend, let instance, let token, let draft else { return false }
-        let key = UUID()
+        let key = sendKey
         guard
             let outbox = draft.outboxDraft(
                 sendKey: key,
@@ -171,17 +183,17 @@ final class ShareExtensionModel {
                 })
         else { return false }
         phase = .saving
+        didFailToSave = false
         do {
             try await sender.send(outbox, stagingFolder: stagingFolder, instance: instance.id, token: token)
             return true
         } catch {
-            phase = .failed
+            phase = .ready
+            didFailToSave = true
+            saveFailureCount += 1
             return false
         }
     }
-
-    /// Back to the ready sheet after a failed send, with everything kept.
-    func dismissFailure() { if phase == .failed { phase = .ready } }
 
     func cancel() {
         importTask?.cancel()

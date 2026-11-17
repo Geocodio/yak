@@ -23,7 +23,15 @@ final class BackgroundUploadSession: NSObject, UploadSession, URLSessionDataDele
     private nonisolated(unsafe) var session: URLSession!
     private let eventStream: AsyncStream<Event>.Continuation
     private let consumer: Task<Void, Never>
-    private let finished = OSAllocatedUnfairLock<(@Sendable () -> Void)?>(initialState: nil)
+    private let finished: OSAllocatedUnfairLock<(@Sendable () -> Void)?>
+
+    #if DEBUG
+        private let failures = OSAllocatedUnfairLock(initialState: 0)
+
+        /// `-yakTestUploadFailure YES`: the next completions reported are reported as failed in transport, so a test
+        /// reaches the failure line without depending on how the system daemon retries a dropped request.
+        func failNextCompletions(_ count: Int) { failures.withLock { $0 = count } }
+    #endif
 
     /// Set by `handleEvents`; called once when the system has delivered every event of a wake.
     var finishedEvents: (@Sendable () -> Void)? {
@@ -33,8 +41,10 @@ final class BackgroundUploadSession: NSObject, UploadSession, URLSessionDataDele
 
     init(
         identifier: String, appGroup: String?, files: DiskFileStore,
+        finishedEvents: (@Sendable () -> Void)? = nil,
         route: @escaping @Sendable (UploadTaskDescription) async -> UploadLedger?
     ) {
+        self.finished = OSAllocatedUnfairLock(initialState: finishedEvents)
         self.identifier = identifier
         self.files = files
         self.route = route
@@ -126,10 +136,19 @@ final class BackgroundUploadSession: NSObject, UploadSession, URLSessionDataDele
         for (key, value) in response?.allHeaderFields ?? [:] {
             if let key = key as? String, let value = value as? String { headers[key] = value }
         }
+        var failed = error != nil
+        #if DEBUG
+            let isForced = failures.withLock { remaining -> Bool in
+                guard remaining > 0 else { return false }
+                remaining -= 1
+                return true
+            }
+            if isForced { failed = true }
+        #endif
         eventStream.yield(
             .completed(
                 description, session: identifier, task: task.taskIdentifier, status: response?.statusCode,
-                headers: headers, failed: error != nil))
+                headers: headers, failed: failed))
     }
 
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {

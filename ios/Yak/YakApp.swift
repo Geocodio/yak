@@ -18,6 +18,7 @@ struct YakApp: App {
             if let testMode = TestMode.current() {
                 let made = testMode.make(version: version, system: system)
                 self.parts = made.parts
+                Self.attachLaunchWork(made.parts)
                 _model = State(initialValue: made.model)
                 return
             }
@@ -51,6 +52,7 @@ struct YakApp: App {
                 instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults,
                 uploads: uploads))
         self.parts = parts
+        Self.attachLaunchWork(parts)
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
         _model = State(
             initialValue: AppModel(
@@ -61,6 +63,13 @@ struct YakApp: App {
                         systemDescription: system)
                 },
                 makeEnvironment: environment, observers: parts.observers, push: parts.push))
+    }
+
+    /// Runs for every launch, with or without a scene, so a background relaunch for an upload session reaches the
+    /// sessions.
+    private static func attachLaunchWork(_ parts: AppParts) {
+        PushAppDelegate.register(launchUploads: parts.uploads)
+        parts.uploads?.removeExpiredStaging()
     }
 
     var body: some Scene {
@@ -90,7 +99,6 @@ struct YakApp: App {
             .task {
                 delegate.attach(parts.push)
                 delegate.attach(uploads: parts.uploads)
-                parts.uploads?.removeExpiredStaging()
                 await parts.push.start()
             }
     }
