@@ -9,6 +9,7 @@ use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use App\Services\RepoClarificationResolver;
 use App\Services\Threads\ThreadFactory;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -119,4 +120,15 @@ it('does not create a second thread for a task created with its thread', functio
     YakTask::factory()->create(['thread_id' => $thread->id]);
 
     expect(Thread::query()->count())->toBe(1);
+});
+
+it('keeps the task when its thread cannot be created', function () {
+    Exceptions::fake();
+    $this->mock(ThreadFactory::class)->shouldReceive('forTask')->andThrow(new RuntimeException('no thread'));
+
+    $task = YakTask::factory()->create(['mode' => TaskMode::Fix]);
+
+    expect(YakTask::query()->whereKey($task->id)->exists())->toBeTrue()
+        ->and(YakTask::query()->findOrFail($task->id)->thread_id)->toBeNull();
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getMessage() === 'no thread');
 });

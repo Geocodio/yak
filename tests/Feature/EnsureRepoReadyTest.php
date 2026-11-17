@@ -3,6 +3,7 @@
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -11,6 +12,7 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\SetupScriptHash;
 use Illuminate\Support\Facades\Http;
@@ -321,3 +323,29 @@ test('an unchanged or missing setup script does not', function (?string $remote)
     'unchanged' => ["composer install\n"],
     'missing' => [null],
 ]);
+
+test('a thread task on a repository that is still being set up waits and starts when setup finishes', function () {
+    Queue::fake();
+    $repository = Repository::factory()->pendingSetup()->create(['slug' => 'acme/building', 'setup_status' => 'running']);
+    $thread = Thread::factory()->create(['repo' => $repository->slug]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repository->slug, 'thread_id' => $thread->id]);
+
+    $job = makeTestJobDouble();
+    $job->task = $task;
+    $called = false;
+
+    (new EnsureRepoReady)->handle($job, function () use (&$called) {
+        $called = true;
+    });
+
+    expect($called)->toBeFalse()
+        ->and($job->failed)->toBeFalse()
+        ->and($task->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+    Queue::assertNotPushed(SendNotificationJob::class);
+
+    $repository->update(['setup_status' => 'ready', 'sandbox_snapshot' => 'yak-tpl/ready']);
+
+    expect($thread->fresh()->blocked_reason)->toBeNull();
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $queued): bool => $queued->task->is($task));
+});
