@@ -228,6 +228,7 @@ extension XCUIApplication {
             screenshot.lifetime = .keepAlways
             screenshot.name = "audit-failure"
             add(screenshot)
+            add(XCTAttachment(string: app.debugDescription))
             XCTFail(
                 "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "none")"
             )

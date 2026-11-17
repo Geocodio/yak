@@ -153,9 +153,13 @@ struct FileViewerBarRow: View {
             .buttonStyle(.plain).accessibilityIdentifier("files.viewer.back")
             Spacer(minLength: 0)
             if document.canViewDiff {
-                Button("files.viewer.diff") { document.requestDiff() }
-                    .font(.subheadline.weight(.semibold)).padding(.horizontal, 10).frame(minHeight: 44)
-                    .accessibilityIdentifier("files.viewer.diff")
+                Button {
+                    document.requestDiff()
+                } label: {
+                    Text("files.viewer.diff").font(.subheadline.weight(.semibold)).padding(.horizontal, 10)
+                        .frame(minHeight: 44).contentShape(.rect)
+                }
+                .accessibilityIdentifier("files.viewer.diff")
             }
             if document.canEdit, model.canDrive {
                 Button {
