@@ -1,17 +1,28 @@
 import Foundation
 import Observation
+import UIKit
 import YakKit
 
-/// The two privacy choices, kept in the key-value store. Both read as off when never set. A store that cannot be read
-/// (the app group's defaults before the first unlock after a reboot) is told apart from a missing value by a probe
-/// key written the first time the store works, so the app can cover its content until the store can be read.
+/// Whether the system has the app's protected files open. App group defaults answer empty, and keep unwritten
+/// values in memory only, until the device is unlocked once after a restart.
+protocol ProtectedDataAvailability: Sendable {
+    @MainActor var isAvailable: Bool { get }
+}
+
+struct SystemProtectedData: ProtectedDataAvailability {
+    @MainActor var isAvailable: Bool { UIApplication.shared.isProtectedDataAvailable }
+}
+
+/// The two privacy choices, kept in the key-value store. Both read as off when never set. While protected data is
+/// unavailable the store is unreadable: the values are only defaults, nothing is written, and the app covers its
+/// content until `reload()` finds the data available.
 @MainActor @Observable
 final class PrivacySettings {
     static let appLockKey = "privacy.appLockOn"
     static let spotlightPrivateKey = "privacy.spotlightIncludesPrivate"
-    static let probeKey = "privacy.storeProbe"
 
     @ObservationIgnored private let store: any KeyValueStore
+    @ObservationIgnored private let protectedData: any ProtectedDataAvailability
 
     var appLockOn: Bool { didSet { save(appLockOn, forKey: Self.appLockKey) } }
     var spotlightIncludesPrivate: Bool { didSet { save(spotlightIncludesPrivate, forKey: Self.spotlightPrivateKey) } }
@@ -19,9 +30,10 @@ final class PrivacySettings {
     /// False while the store cannot be read; the values above are then only defaults.
     @ObservationIgnored private(set) var isReadable: Bool
 
-    init(store: any KeyValueStore) {
+    init(store: any KeyValueStore, protectedData: any ProtectedDataAvailability = SystemProtectedData()) {
         self.store = store
-        isReadable = Self.probe(store)
+        self.protectedData = protectedData
+        isReadable = protectedData.isAvailable
         appLockOn = Self.read(store, Self.appLockKey)
         spotlightIncludesPrivate = Self.read(store, Self.spotlightPrivateKey)
     }
@@ -29,19 +41,13 @@ final class PrivacySettings {
     /// Reads both choices again. Returns whether the store could be read; when it could not, nothing changes.
     @discardableResult
     func reload() -> Bool {
-        isReadable = Self.probe(store)
+        isReadable = protectedData.isAvailable
         guard isReadable else { return false }
         let lock = Self.read(store, Self.appLockKey)
         if lock != appLockOn { appLockOn = lock }
         let spotlight = Self.read(store, Self.spotlightPrivateKey)
         if spotlight != spotlightIncludesPrivate { spotlightIncludesPrivate = spotlight }
         return true
-    }
-
-    private static func probe(_ store: any KeyValueStore) -> Bool {
-        if store.data(forKey: probeKey) != nil { return true }
-        store.set(Data("1".utf8), forKey: probeKey)
-        return store.data(forKey: probeKey) != nil
     }
 
     private static func read(_ store: any KeyValueStore, _ key: String) -> Bool {
@@ -52,6 +58,7 @@ final class PrivacySettings {
     }
 
     private func save(_ value: Bool, forKey key: String) {
+        guard isReadable else { return }
         store.set(Data((value ? "true" : "false").utf8), forKey: key)
     }
 }

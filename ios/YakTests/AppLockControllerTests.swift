@@ -64,17 +64,26 @@ private final class FakeAuthenticator: DeviceOwnerAuthenticator, @unchecked Send
     var isHolding: Bool { lock.withLock { held != nil } }
 }
 
-private final class Store: KeyValueStore, @unchecked Sendable {
+private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: Data] = [:]
+    private var cache: [String: Data] = [:]
     private var readable = true
-    /// Like app group defaults before the first unlock: reads come back empty and writes are lost.
+    /// Like app group defaults before the first unlock: reads see only what this process wrote, in memory, and
+    /// nothing reaches the file.
     var isReadable: Bool {
         get { lock.withLock { readable } }
         set { lock.withLock { readable = newValue } }
     }
-    func data(forKey key: String) -> Data? { lock.withLock { readable ? values[key] : nil } }
-    func set(_ value: Data?, forKey key: String) { lock.withLock { if readable { values[key] = value } } }
+    var isAvailable: Bool { isReadable }
+    var writes = 0
+    func data(forKey key: String) -> Data? { lock.withLock { readable ? values[key] : cache[key] } }
+    func set(_ value: Data?, forKey key: String) {
+        lock.withLock {
+            writes += 1
+            if readable { values[key] = value } else { cache[key] = value }
+        }
+    }
 }
 
 @MainActor @Suite struct AppLockControllerTests {
@@ -302,12 +311,12 @@ private final class Store: KeyValueStore, @unchecked Sendable {
 
     @Test func anUnreadableStoreCoversUntilItCanBeReadThenLocks() async {
         let store = Store()
-        let before = PrivacySettings(store: store)
+        let before = PrivacySettings(store: store, protectedData: store)
         before.appLockOn = true
         store.isReadable = false
         let fake = FakeAuthenticator([.success])
         let controller = AppLockController(
-            settings: PrivacySettings(store: store), authenticator: fake, clock: ManualClock())
+            settings: PrivacySettings(store: store, protectedData: store), authenticator: fake, clock: ManualClock())
         #expect(!controller.isLocked)
         #expect(controller.coversContent(sceneIsActive: true))
         store.isReadable = true
@@ -322,7 +331,7 @@ private final class Store: KeyValueStore, @unchecked Sendable {
         store.isReadable = false
         let fake = FakeAuthenticator([.success])
         let controller = AppLockController(
-            settings: PrivacySettings(store: store), authenticator: fake, clock: ManualClock())
+            settings: PrivacySettings(store: store, protectedData: store), authenticator: fake, clock: ManualClock())
         #expect(controller.coversContent(sceneIsActive: true))
         store.isReadable = true
         await controller.protectedDataBecameAvailable(isActive: true)
@@ -332,22 +341,33 @@ private final class Store: KeyValueStore, @unchecked Sendable {
 
     @Test func relockAndLaunchReadTheStoreAgain() async {
         let store = Store()
-        let before = PrivacySettings(store: store)
+        let before = PrivacySettings(store: store, protectedData: store)
         before.appLockOn = true
         store.isReadable = false
         let controller = AppLockController(
-            settings: PrivacySettings(store: store), authenticator: FakeAuthenticator(), clock: ManualClock())
+            settings: PrivacySettings(store: store, protectedData: store), authenticator: FakeAuthenticator(), clock: ManualClock())
         store.isReadable = true
         #expect(controller.relockIfDue())
         #expect(controller.isLocked)
         let second = Store()
-        PrivacySettings(store: second).appLockOn = true
+        PrivacySettings(store: second, protectedData: second).appLockOn = true
         second.isReadable = false
         let launched = AppLockController(
-            settings: PrivacySettings(store: second), authenticator: FakeAuthenticator(), clock: ManualClock())
+            settings: PrivacySettings(store: second, protectedData: second), authenticator: FakeAuthenticator(), clock: ManualClock())
         second.isReadable = true
         await launched.launched()
         #expect(!launched.isLocked)
         #expect(launched.policy.isOn)
+    }
+
+    @Test func anUnreadableStoreStaysUnknownEvenAfterAWrite() {
+        let store = Store()
+        store.isReadable = false
+        let settings = PrivacySettings(store: store, protectedData: store)
+        settings.appLockOn = false
+        #expect(store.writes == 0)
+        #expect(!settings.isReadable)
+        let controller = AppLockController(settings: settings, authenticator: FakeAuthenticator(), clock: ManualClock())
+        #expect(controller.coversContent(sceneIsActive: true))
     }
 }
