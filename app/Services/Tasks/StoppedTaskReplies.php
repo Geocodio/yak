@@ -8,6 +8,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
+use Closure;
 use Throwable;
 
 /**
@@ -23,9 +24,10 @@ class StoppedTaskReplies
     public function __construct(private readonly TaskActions $taskActions) {}
 
     /**
+     * @param  Closure(PendingSteeringMessage): mixed|null  $afterNoteQueued  runs once the reply is queued as a note, so a caller can attach files to it
      * @return string the reply to post back to the starter
      */
-    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null): string
+    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null, ?Closure $afterNoteQueued = null): string
     {
         if ($task->status === TaskStatus::Cancelled) {
             return $source === 'slack'
@@ -43,6 +45,10 @@ class StoppedTaskReplies
         $isAlreadyActive = in_array($task->status, [TaskStatus::Pending, TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi], true);
 
         $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName);
+
+        if ($afterNoteQueued !== null) {
+            $afterNoteQueued($note);
+        }
 
         try {
             $this->taskActions->retry($task);

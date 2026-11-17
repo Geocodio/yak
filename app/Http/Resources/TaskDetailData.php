@@ -249,7 +249,7 @@ final class TaskDetailData
     {
         return match (true) {
             $kind === StopKind::YakRetrying => 'Yak picks it back up on its own. Nothing needed from you.',
-            $kind === StopKind::NeedsYou => 'Add your answer below, then press Retry. Yak picks it up from there.',
+            $kind === StopKind::NeedsYou && ! in_array($source, ['linear', 'slack'], true) => 'Write your answer below and send it. Yak tries again with it.',
             $source === 'linear' => 'Reply in the Linear issue, or press Retry, and Yak will try again.',
             $source === 'slack' => 'Reply in the Slack thread, or press Retry, and Yak will try again.',
             default => 'Press Retry and Yak will try again.',
@@ -802,6 +802,7 @@ final class TaskDetailData
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
+            in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) && $head->pr_url === null && ! in_array($head->mode, [TaskMode::Review, TaskMode::Setup], true) => 'stopped',
             in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) => 'disabled_failed',
             default => 'disabled_closed',
         };
@@ -818,6 +819,7 @@ final class TaskDetailData
                     : 'Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…',
                 null,
             ],
+            'stopped' => ['Write a note for Yak…', 'Send a note and Yak tries again with it. Or press Retry above.'],
             'disabled_failed' => $task->mode === TaskMode::Research
                 ? ["This research failed. Click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
                 : ["This task failed. Click {$retryActionLabel} above to try again.", in_array($task->source, ['slack', 'linear', 'email'], true) && $task->mode !== TaskMode::Setup
@@ -834,7 +836,7 @@ final class TaskDetailData
             'state' => $state,
             'placeholder' => $placeholder,
             'note' => $note,
-            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
+            'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up', 'stopped'], true) ? 'Send' : null,
             'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
             // Steered messages reach Yak before queued ones, so they lead.
             'queued' => PendingSteeringMessage::waitingFor($head)->sortBy([

@@ -304,7 +304,7 @@ export type FindingsData = {
 } | null;
 
 export type ComposerData = {
-    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
+    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'stopped' | 'disabled_failed' | 'disabled_closed';
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;

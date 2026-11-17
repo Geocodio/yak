@@ -26,6 +26,7 @@ class StopMessage
         $nextStep = match (true) {
             $stop->kind === StopKind::YakRetrying => self::retryingStep(),
             self::acceptsReplies($task) && $stop->kind === StopKind::YakStopped => "Reply here and Yak will try again. Details: {$url}",
+            self::acceptsReplies($task) && $stop->canContinueAsIs => 'Reply here to let Yak continue from where it stopped, or with a narrower scope.',
             self::acceptsReplies($task) => "Reply here with {$stop->ask} and Yak will try again.",
             default => self::taskPageStep($stop, $url),
         };
@@ -39,6 +40,7 @@ class StopMessage
 
         $nextStep = match (true) {
             $stop->kind === StopKind::YakRetrying => self::retryingStep(),
+            $task->source === 'linear' && $task->external_url !== null && $stop->kind === StopKind::NeedsYou => "Reply in the Linear issue with {$stop->ask} to try again: {$task->external_url}",
             $task->source === 'linear' && $task->external_url !== null => "Reply in the Linear issue to try again: {$task->external_url}",
             default => self::taskPageStep($stop, $url),
         };
@@ -54,7 +56,7 @@ class StopMessage
     private static function taskPageStep(TaskStop $stop, string $url): string
     {
         return $stop->kind === StopKind::NeedsYou
-            ? "Add {$stop->ask} on the task page, then press Retry: {$url}"
-            : "Press Retry on the task page: {$url}";
+            ? "Write {$stop->ask} on the task page and Yak will try again: {$url}"
+            : "Press Retry on the task page, or write a note there, and Yak will try again: {$url}";
     }
 }

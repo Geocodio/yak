@@ -12,6 +12,7 @@ final readonly class TaskStop
         public string $summary,
         public string $detail,
         public ?string $ask = null,
+        public bool $canContinueAsIs = false,
     ) {}
 
     public static function refreshingWorkspace(string $repositorySlug, string $detail): self
@@ -79,7 +80,8 @@ final readonly class TaskStop
             StopKind::NeedsYou,
             "This turned out bigger than Yak's limit for a single task.",
             $detail,
-            'a narrower scope, or just a reply to let Yak continue from where it stopped',
+            'a narrower scope',
+            true,
         );
     }
 
@@ -92,7 +94,7 @@ final readonly class TaskStop
             StopKind::NeedsYou,
             "Yak couldn't tell which repository this is for.",
             $detail,
-            'the repository name (one of: ' . implode(', ', $activeRepositorySlugs) . ')',
+            'the repository name' . ($activeRepositorySlugs === [] ? '' : ' (one of: ' . implode(', ', $activeRepositorySlugs) . ')'),
         );
     }
 

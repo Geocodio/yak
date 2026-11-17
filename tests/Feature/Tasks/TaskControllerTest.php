@@ -335,8 +335,15 @@ test('the follow-up placeholder names this PR when no number is known', function
         ->assertInertia(fn (Assert $page) => $page->where('composer.placeholder', 'Reply to Yak. It will push changes to this PR…'));
 });
 
-test('composer state is disabled_failed for a failed task', function () {
-    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+test('composer is enabled for a failed or expired task with no pr', function (TaskStatus $status) {
+    $task = YakTask::factory()->create(['status' => $status, 'pr_url' => null]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'stopped')->where('composer.buttonLabel', 'Send'));
+})->with([TaskStatus::Failed, TaskStatus::Expired]);
+
+test('composer stays disabled_failed for a failed task whose pr was closed', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'pr_url' => 'https://github.com/a/b/pull/1', 'pr_closed_at' => now()]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'disabled_failed'));
@@ -1175,6 +1182,7 @@ test('a failed task with a stop leads with the plain summary and keeps the techn
 test('a needs-you stop points at the answer below', function () {
     $task = YakTask::factory()->create([
         'status' => TaskStatus::Failed,
+        'source' => 'dashboard',
         'stop_kind' => StopKind::NeedsYou,
         'stop_summary' => 'Yak asked a question and did not hear back.',
     ]);
@@ -1182,7 +1190,7 @@ test('a needs-you stop points at the answer below', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('stop.kind', 'needs_you')
-            ->where('stop.nextStep', 'Add your answer below, then press Retry. Yak picks it up from there.')
+            ->where('stop.nextStep', 'Write your answer below and send it. Yak tries again with it.')
         );
 });
 

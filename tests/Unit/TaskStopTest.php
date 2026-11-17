@@ -66,7 +66,8 @@ it('describes the size limit', function () {
 
     expect($stop->kind)->toBe(StopKind::NeedsYou)
         ->and($stop->summary)->toBe("This turned out bigger than Yak's limit for a single task.")
-        ->and($stop->ask)->toBe('a narrower scope, or just a reply to let Yak continue from where it stopped')
+        ->and($stop->ask)->toBe('a narrower scope')
+        ->and($stop->canContinueAsIs)->toBeTrue()
         ->and($stop->detail)->toBe('d');
 });
 
@@ -77,6 +78,10 @@ it('describes an unknown repository', function () {
         ->and($stop->summary)->toBe("Yak couldn't tell which repository this is for.")
         ->and($stop->ask)->toBe('the repository name (one of: a/b, c/d)')
         ->and($stop->detail)->toBe('d');
+});
+
+it('drops the repository list when no repository is active', function () {
+    expect(TaskStop::repositoryUnknown([], 'd')->ask)->toBe('the repository name');
 });
 
 it('describes an unanswered question', function () {
