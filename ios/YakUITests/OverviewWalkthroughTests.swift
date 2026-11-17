@@ -15,9 +15,13 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["overview.skeleton"].waitForExistence(timeout: 5))
         try shootOverview("overview-loading")
         XCTAssertTrue(app.descendants(matching: .any)["overview.slow"].waitForExistence(timeout: 12))
+        // The late answers arrive a few seconds after the slow notice and change the page while an audit runs, so the
+        // audit waits for them and covers the settled page.
+        XCTAssertTrue(app.staticTexts["Pull request"].waitForExistence(timeout: 30))
+        pause(1)
         // The page is taller than the screen; the lower groups are brought up so the audit sees them on screen.
         nudgePage(by: 380)
-        try shootOverview("overview-slow")
+        try shootOverview("overview-slow-answered")
     }
 
     func testOverviewEmpty() throws {
