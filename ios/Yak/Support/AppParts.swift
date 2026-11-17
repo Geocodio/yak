@@ -15,6 +15,7 @@ struct AppPartsContext {
     var authenticator: any DeviceOwnerAuthenticator = LocalDeviceOwnerAuthenticator()
     var appLockBackgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit
     var coversWhenActive = false
+    var buildKind: any BuildKindSource = BuildKindReader()
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -59,7 +60,10 @@ final class AppParts {
         let appLock = AppLockController(
             settings: settings, authenticator: context.authenticator, clock: SystemClock(),
             backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive)
-        let system = SystemFeatures(settings: settings, appLock: appLock, faults: context.faults, modelBox: ModelBox())
+        let system = SystemFeatures(
+            settings: settings, appLock: appLock, spotlight: SpotlightIndexer(),
+            debug: DebugMenuModel(faults: context.faults, buildKind: context.buildKind), faults: context.faults,
+            modelBox: ModelBox())
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)

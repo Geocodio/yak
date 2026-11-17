@@ -78,4 +78,37 @@ import XCTest
         XCTAssertFalse(element("lock.screen").waitForExistence(timeout: 2))
         XCTAssertTrue(element("settings.screen").isHittable)
     }
+
+    /// Scrolls Settings until the row shows.
+    private func reveal(_ identifier: String) {
+        let row = element(identifier)
+        for _ in 0..<8 where !row.exists || !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.isHittable, identifier)
+    }
+
+    /// Taps the switch itself, at the right edge of its row, not the label in the middle.
+    private func flip(_ toggle: XCUIElement) {
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+    }
+
+    func testTurningOnAppLockNeedsTheOwner() throws {
+        try launch(["-yakTestBiometry", "touchID", "-yakTestAuthentication", "cancel,succeed"])
+        openSettings()
+        reveal("settings.appLock")
+        let toggle = app.switches["settings.appLock"]
+        XCTAssertTrue(toggle.label.contains("Require Touch ID"), toggle.label)
+        flip(toggle)
+        // The first answer is a cancel: the switch goes through "confirming" and returns to off.
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertEqual(toggle.value as? String, "0")
+        XCTAssertTrue(toggle.isEnabled)
+        XCTAssertFalse(element("settings.appLock.failed").exists)
+        flip(toggle)
+        let on = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '1'"), object: toggle)
+        XCTAssertEqual(XCTWaiter().wait(for: [on], timeout: 10), .completed)
+        XCTAssertFalse(element("lock.screen").waitForExistence(timeout: 2))
+        // Spotlight's switch shows off and disabled while the lock is on.
+        let spotlight = app.switches["settings.spotlightPrivate"]
+        XCTAssertFalse(spotlight.isEnabled)
+    }
 }

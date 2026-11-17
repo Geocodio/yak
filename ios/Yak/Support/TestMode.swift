@@ -80,7 +80,8 @@
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
                     faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
                     appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
-                    coversWhenActive: options.coverWhenActive))
+                    coversWhenActive: options.coverWhenActive,
+                    buildKind: TestBuildKind(value: options.buildKind)))
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(

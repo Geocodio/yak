@@ -15,6 +15,7 @@ struct SettingsScreen: View {
     @State private var turnedOn = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(SystemFeatures.self) private var system
 
     init(app: AppModel, push: PushController, active: Instance, onClose: @escaping () -> Void) {
         self.app = app
@@ -33,6 +34,8 @@ struct SettingsScreen: View {
                 NotificationSwitchesView(model: model)
                 permission
                 if model.canPush { TestNotificationRow(model: model) }
+                SettingsPrivacySection(app: app, active: model.active)
+                SettingsAboutSection()
             }
             .tint(Color.yakAction)
             .frame(maxWidth: 640)
@@ -46,7 +49,10 @@ struct SettingsScreen: View {
         }
         .accessibilityIdentifier("settings.screen")
         .task(id: model.active.id) { await model.start() }
-        .onDisappear { model.stop() }
+        .onDisappear {
+            model.stop()
+            system.appLock.acknowledgeTurnedOff()
+        }
         .task(id: app.refreshState == .loading) {
             guard app.refreshState == .loading else {
                 showsRefreshing = false

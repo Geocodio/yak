@@ -32,3 +32,14 @@ fi
 
 # The "This device" copy never names the device model.
 check 'UIDevice.current.model' 'UIDevice.current.model'
+
+# Every package the app links (other than YakKit) has its license text and a line in the list, and every text file
+# is named in the list.
+for package in $(awk '/^packages:/{on=1;next} on && /^[^ ]/{on=0} on && /^  [A-Za-z0-9_.-]+:/{gsub(/[ :]/,"");print}' project.yml); do
+    [ "$package" = YakKit ] && continue
+    [ -f "Yak/Settings/Licenses/$package.txt" ] || fail "Yak/Settings/Licenses/$package.txt is missing"
+    grep -qF "\"$package\"" Yak/Settings/LicenseList.swift || fail "LicenseList.swift does not name $package"
+done
+for text in Yak/Settings/Licenses/*.txt; do
+    grep -qF "\"$(basename "$text" .txt)\"" Yak/Settings/LicenseList.swift || fail "$text is not named in LicenseList.swift"
+done

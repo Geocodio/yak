@@ -21,6 +21,66 @@
         }
       }
     },
+    "about.debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug"
+          }
+        }
+      }
+    },
+    "about.debug.requests %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requests: %@"
+          }
+        }
+      }
+    },
+    "about.licenses" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licenses"
+          }
+        }
+      }
+    },
+    "about.version %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (%@)"
+          }
+        }
+      }
+    },
+    "about.version.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "about.version.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version unknown"
+          }
+        }
+      }
+    },
     "activity.fetching %@" : {
       "localizations" : {
         "en" : {
@@ -1438,6 +1498,96 @@
         }
       }
     },
+    "debug.build.debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug build"
+          }
+        }
+      }
+    },
+    "debug.build.testFlight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TestFlight build"
+          }
+        }
+      }
+    },
+    "debug.fault.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        }
+      }
+    },
+    "debug.fault.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        }
+      }
+    },
+    "debug.fault.serverError" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server error"
+          }
+        }
+      }
+    },
+    "debug.fault.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slow (4 seconds)"
+          }
+        }
+      }
+    },
+    "debug.fault.verySlow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very slow (10 seconds)"
+          }
+        }
+      }
+    },
+    "debug.requests.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to API requests until Yak restarts. The live connection and the terminal are not affected."
+          }
+        }
+      }
+    },
+    "debug.requests.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requests"
+          }
+        }
+      }
+    },
     "drawer.accountLabel %@" : {
       "localizations" : {
         "en" : {
@@ -2506,6 +2656,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Viewed"
+          }
+        }
+      }
+    },
+    "licenses.missing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This license text is missing from this build."
+          }
+        }
+      }
+    },
+    "licenses.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licenses"
           }
         }
       }
@@ -5276,6 +5446,186 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waking the preview"
+          }
+        }
+      }
+    },
+    "privacy.device.beforeMe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.noDate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired. Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.paired %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired %@. Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device"
+          }
+        }
+      }
+    },
+    "privacy.lock.device" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require device unlock"
+          }
+        }
+      }
+    },
+    "privacy.lock.faceID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Face ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not confirm it is you. Try again."
+          }
+        }
+      }
+    },
+    "privacy.lock.noPasscode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a device passcode in iOS Settings to use this."
+          }
+        }
+      }
+    },
+    "privacy.lock.opticID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Optic ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.passcode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require passcode"
+          }
+        }
+      }
+    },
+    "privacy.lock.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To open Yak"
+          }
+        }
+      }
+    },
+    "privacy.lock.touchID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Touch ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.turnedOff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock turned off because this device has no passcode."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight could not be updated. Yak tries again when it next closes."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.locked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off while app lock is on. Search shows the titles of other threads only."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search shows the titles of other threads only."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search also shows private thread titles."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private threads in Spotlight"
           }
         }
       }
