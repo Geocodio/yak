@@ -20,8 +20,6 @@ final class FileDocumentModel {
     private(set) var text = ""
     /// Long lines wrap instead of scrolling sideways.
     var wrapsLines = false
-    /// The file whose diff the person asked for; the Changed mode reads it when it is built.
-    private(set) var diffRequested = false
 
     @ObservationIgnored private let document: YakKit.FileDocument
     @ObservationIgnored private var reading: Task<Void, Never>?
@@ -173,8 +171,6 @@ final class FileDocumentModel {
     func copyText() {
         UIPasteboard.general.string = text
     }
-
-    func requestDiff() { diffRequested = true }
 
     func copyFile() { UIPasteboard.general.string = viewedText ?? "" }
 }

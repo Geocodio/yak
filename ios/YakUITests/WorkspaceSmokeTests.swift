@@ -146,6 +146,25 @@ extension XCUIApplication {
         try audit()
     }
 
+    func testChangedKeepsItsBarAfterEverythingWasOpened() throws {
+        try openFile()
+        app.buttons["Changed"].tap()
+        XCTAssertTrue(element("files.openPullRequest").waitForExistence(timeout: 60))
+        XCTAssertTrue(element("files.bar").exists)
+        XCTAssertFalse(element("files.find").exists)
+        XCTAssertFalse(element("files.viewer.bar").exists)
+    }
+
+    /// The tree's marks and the thread's change list are separate reads, so the file may not be in the list yet; the
+    /// button still takes the person to Changed, and the list shows the file once it has it.
+    func testViewDiffShowsChangedMode() throws {
+        try openFile()
+        element("files.viewer.diff").tap()
+        XCTAssertTrue(element("files.changed").waitForExistence(timeout: 60))
+        XCTAssertTrue(element("files.bar").waitForExistence(timeout: 60))
+        XCTAssertFalse(element("files.viewer.bar").exists)
+    }
+
     func testFilesEverythingKeepsItsStateAcrossPanes() throws {
         try openFile()
         app.openPane("Chat")
@@ -214,22 +233,25 @@ extension XCUIApplication {
     }
 
     private func audit() throws {
-        try app.performAccessibilityAudit { [self] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+        let auditBars = AuditRules.Bars(app)
+        try app.performAccessibilityAudit { [self, auditBars] issue in
+            // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
+            // centre of the window free.
+            let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+            let bars =
+                app.navigationBars.allElementsBoundByIndex
+                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                // The system caps the size of text in its bars, and draws its glass under the threads badge.
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
             }
-            // On a wide screen the audit reports contrast on the thread screen without naming an element.
-            if issue.auditType == .contrast, issue.element == nil { return true }
-            // A search field is one line by design.
-            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.lifetime = .keepAlways
             screenshot.name = "audit-failure"
             add(screenshot)
-            add(XCTAttachment(string: app.debugDescription))
             XCTFail(
                 "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "none")"
             )

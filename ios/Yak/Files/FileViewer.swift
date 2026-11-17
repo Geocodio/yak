@@ -154,7 +154,7 @@ struct FileViewerBarRow: View {
             Spacer(minLength: 0)
             if document.canViewDiff {
                 Button {
-                    document.requestDiff()
+                    model.thread.files.requestedDiffPath = document.path
                 } label: {
                     Text("files.viewer.diff").font(.subheadline.weight(.semibold)).padding(.horizontal, 10)
                         .frame(minHeight: 44).contentShape(.rect)

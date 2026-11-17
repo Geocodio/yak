@@ -17,7 +17,7 @@ final class FilesEverythingModel {
     private(set) var restoreMessage: String?
     private(set) var isStarted = false
 
-    @ObservationIgnored private let thread: ThreadModel
+    @ObservationIgnored let thread: ThreadModel
     @ObservationIgnored private let restoreCoordinator: SandboxRestore
     @ObservationIgnored private let makeTree: () async -> FileTree?
     @ObservationIgnored private let makeDocument: (String) async -> YakKit.FileDocument?
