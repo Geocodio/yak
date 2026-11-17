@@ -45,6 +45,13 @@ enum AuditRules {
         return bars.bars.contains { isBehind(frame, bar: $0.frame) && !isOwn(frame, ownFrames: $0.ownFrames) }
     }
 
+    /// A contrast finding about an element the keyboard covers; what is behind the keyboard cannot be judged. The
+    /// keyboard frame is read before the audit starts, and is nil when no keyboard is up.
+    static func isContrastBehindTheKeyboard(_ issue: XCUIAccessibilityAuditIssue, keyboard: CGRect?) -> Bool {
+        guard issue.auditType == .contrast, let element = issue.element, let keyboard else { return false }
+        return keyboard.intersects(element.frame)
+    }
+
     /// True when the frame equals one of the bar's own elements' frames, within a point.
     static func isOwn(_ frame: CGRect, ownFrames: [CGRect]) -> Bool {
         ownFrames.contains {

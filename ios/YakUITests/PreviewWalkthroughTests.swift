@@ -18,9 +18,10 @@ import XCTest
     /// The shot, then an audit with the narrow rules the thread screen uses; the page's own content is the page's.
     private func shootPreview(_ name: String) throws {
         try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
         let auditBars = AuditRules.Bars(app)
         let page = AuditRules.Page(app)
-        try app.performAccessibilityAudit { [app, auditBars, page] issue in
+        try app.performAccessibilityAudit { [app, auditBars, page, keyboard] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars.
@@ -29,7 +30,12 @@ import XCTest
             if AuditRules.isInsidePage(issue, page: page) { return true }
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            if AuditRules.isContrastBehindTheKeyboard(issue, keyboard: keyboard) { return true }
+            // The system keyboard's prediction bar is not ours to label.
+            if (issue.compactDescription + issue.detailedDescription).contains("TUIPredictionViewCell") { return true }
+            XCTFail(
+                "audit [\(name)]: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
+            )
             return true
         }
     }
@@ -205,8 +211,7 @@ import XCTest
         XCTAssertTrue(app.webViews.staticTexts["Path: /"].waitForExistence(timeout: 15))
         app.buttons["preview.address"].tap()
         XCTAssertTrue(app.textFields["preview.address.field"].waitForExistence(timeout: 5))
-        // The keyboard is up over the page; the audit cannot judge what it covers.
-        try shoot("preview-address", audits: false)
+        try shootPreview("preview-address")
     }
 
     func testPreviewLoading() throws {

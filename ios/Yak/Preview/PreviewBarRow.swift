@@ -101,7 +101,7 @@ struct PreviewBarRow: View {
     private var field: some View {
         HStack(spacing: 4) {
             TextField("preview.address.placeholder", text: $draft)
-                .font(.system(.subheadline, design: .monospaced))
+                .font(.system(.body, design: .monospaced))
                 .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .submitLabel(.go).focused($isFocused).frame(minHeight: 44)
                 .onSubmit {
