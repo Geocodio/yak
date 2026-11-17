@@ -117,8 +117,8 @@ final class ThreadShowData
     }
 
     /**
-     * The element id of each follow-up task's first message, by the task's public id, so the old `#turn-<id>`
-     * fragment finds its message. Only the thread's own tasks appear.
+     * The element id of each task's first message, by the task's public id, so the old `#turn-<id>` fragment
+     * finds its message; the root task maps to the thread's first message. Only the thread's own tasks appear.
      *
      * @return array<string, string>
      */
@@ -128,7 +128,6 @@ final class ThreadShowData
             ->join('task_runs', 'task_runs.id', '=', 'thread_turn_messages.task_run_id')
             ->join('tasks', 'tasks.id', '=', 'task_runs.yak_task_id')
             ->where('tasks.thread_id', $thread->id)
-            ->whereNotNull('tasks.parent_task_id')
             ->where('thread_turn_messages.kind', TurnMessageKind::Prompt)
             ->orderBy('thread_turn_messages.id')
             ->get(['tasks.public_id as task_public_id', 'thread_turn_messages.uuid as message_uuid'])

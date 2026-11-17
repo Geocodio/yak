@@ -25,7 +25,7 @@ it('words the held thread reply with the areas, rationale and who was asked', fu
     expect($text)
         ->toContain('Your change is built and CI passed. It needs a co-owner before I open a PR.')
         ->toContain('It touches API response pipeline (high risk). It shapes every response. Changes to areas like this get a second person with write access to acme/web, whoever asks for them.')
-        ->toContain("I've asked Sam Lee and Ada Ray. Anyone with write access to acme/web can pick it up, so feel free to share the task link.")
+        ->toContain("I've asked Sam Lee and Ada Ray. Anyone with write access to acme/web can pick it up, so feel free to share the thread link.")
         ->toContain('CI passed on yak/fix-login')
         ->toContain('Held since 14:05 · expires in 7 days')
         ->toContain('https://github.com/acme/web/compare/main...yak/fix-login');
@@ -57,7 +57,7 @@ it('explains a hold where files could not be checked', function () {
 it('says so when nobody could be asked', function () {
     $request = heldRequest(['asked_user_ids' => []]);
 
-    expect(allText(CoOwnerBlocks::threadHeld($request)))->toContain('Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to acme/web can approve from the task page.');
+    expect(allText(CoOwnerBlocks::threadHeld($request)))->toContain('Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to acme/web can approve from the thread.');
 });
 
 it('builds the direct message with the details and three buttons', function () {
@@ -104,7 +104,7 @@ it('builds the reminder with the one-line summary and the buttons', function () 
         ->toContain('API response pipeline ● High  ·  Requested by Jane Doe  ·  ✓ CI passed  ·  +42 −3')
         ->toContain('Expires in 5 days');
     expect(actionIds(CoOwnerBlocks::reminder($request)))->toBe(['yak_coowner_approve', 'yak_link_request_changes', 'yak_coowner_reject']);
-    expect(CoOwnerBlocks::reminderNoteText($request))->toBe('Still waiting for a co-owner. Nobody could be asked yet, so anyone with write access to acme/web can approve from the task page. The request expires in 5 days.');
+    expect(CoOwnerBlocks::reminderNoteText($request))->toBe('Still waiting for a co-owner. Nobody could be asked yet, so anyone with write access to acme/web can approve from the thread. The request expires in 5 days.');
 
     $asked = User::factory()->create(['name' => 'Sam Lee']);
     $request->update(['asked_user_ids' => [$asked->id]]);

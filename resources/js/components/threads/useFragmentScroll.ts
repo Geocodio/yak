@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { initialFragment } from '@/lib/initialFragment';
+import { decodeFragment, openingFragment } from '@/lib/initialFragment';
 
 const OLD_FRAGMENTS: Record<string, string> = { questions: 'card-question', 'co-owner': 'card-co-owner' };
 
@@ -41,12 +41,12 @@ export function useFragmentScroll(threadId: string, turnAnchors: Record<string, 
             stop();
 
             if (fragment !== '') {
-                stop = scrollToElement(resolveFragment(decodeURIComponent(fragment), turnAnchors));
+                stop = scrollToElement(resolveFragment(decodeFragment(fragment), turnAnchors));
             }
         };
         const onHashChange = () => follow(window.location.hash.slice(1));
 
-        follow(window.location.hash.slice(1) || initialFragment);
+        follow(window.location.hash.slice(1) || openingFragment(threadId));
         window.addEventListener('hashchange', onHashChange);
 
         return () => {

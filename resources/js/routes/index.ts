@@ -383,7 +383,7 @@ repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 export const observations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -398,7 +398,7 @@ observations.definition = {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.url = (options?: RouteQueryOptions) => {
@@ -407,7 +407,7 @@ observations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -417,7 +417,7 @@ observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

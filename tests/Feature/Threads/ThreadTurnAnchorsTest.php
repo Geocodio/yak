@@ -20,3 +20,13 @@ it('maps each follow-up task to the element id of its first message for old turn
     $this->withoutVite()->actingAs(User::factory()->create())->get(route('threads.show', $thread))
         ->assertInertia(fn (Assert $page) => $page->where('turnAnchors', [$followUp->public_id => 'message-' . $message->uuid]));
 });
+
+it('maps the root task to the first message of the thread', function () {
+    $thread = Thread::factory()->create();
+    $root = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $root->id, 'thread_id' => $thread->id]);
+    $first = ThreadTurnMessage::factory()->create(['task_run_id' => $run->id]);
+
+    $this->withoutVite()->actingAs(User::factory()->create())->get(route('threads.show', $thread))
+        ->assertInertia(fn (Assert $page) => $page->where('turnAnchors', [$root->public_id => 'message-' . $first->uuid]));
+});

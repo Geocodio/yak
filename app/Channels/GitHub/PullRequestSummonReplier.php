@@ -59,6 +59,6 @@ class PullRequestSummonReplier
     {
         $url = TaskPageUrl::for($task);
 
-        return $url === null ? '' : '[View task](' . $url . ')';
+        return $url === null ? '' : '[' . TaskPageUrl::buttonText($task) . '](' . $url . ')';
     }
 }
