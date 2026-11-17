@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * @property SteeringMode $mode
  * @property string|null $send_key
+ * @property string|null $effort
  */
 class PendingSteeringMessage extends Model
 {

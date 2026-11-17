@@ -392,14 +392,15 @@ final class TaskDetailData
         $failedSetup = $repository->setup_status === 'failed' && $repository->setup_task_id !== null
             ? YakTask::withoutGlobalScopes()->find($repository->setup_task_id)
             : null;
+        $failedSetupAt = $failedSetup->completed_at ?? $failedSetup?->updated_at;
 
         return [
             'repo' => $repository->slug,
             'settingsUrl' => route('repos.edit', $repository),
             'isSettingUp' => in_array($repository->setup_status, ['pending', 'running'], true),
             'continuesAfterSetup' => $task->resume_after_setup_at !== null,
-            'failedSetup' => $failedSetup === null ? null : [
-                'at' => ($failedSetup->completed_at ?? $failedSetup->updated_at)->format('g:i A'),
+            'failedSetup' => $failedSetup === null || $failedSetupAt === null ? null : [
+                'at' => $failedSetupAt->format('g:i A'),
                 'url' => route('tasks.show', $failedSetup),
             ],
         ];

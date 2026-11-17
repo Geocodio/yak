@@ -97,6 +97,7 @@
         },
         "repo": "example/api",
         "repoUrl": "https://yak.example.com/repos/example/api/edit",
+        "repositorySetup": null,
         "researchArtifactUrl": null,
         "responsible": null,
         "runId": "k3m9p2qa",

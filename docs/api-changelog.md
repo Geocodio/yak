@@ -40,6 +40,8 @@ New field on task show, so the protocol stays 1: `task.isFollowUp`, true when th
 
 New field on task show, so the protocol stays 1: `progress.steps.*.failed`, true on the CI step while Yak retries after a CI failure. The CI step's `label` now follows the task: "Waiting for CI" while CI runs, "CI failed, retrying" during a retry, and "CI passed" otherwise.
 
+New field on task show, so the protocol stays 1: `task.repositorySetup`, null unless the task failed or expired on a repository that has no sandbox snapshot. It then carries `repo`, `settingsUrl`, `isSettingUp`, `continuesAfterSetup` and `failedSetup` (`at` and `url` of the last failed setup, or null), so the client can offer to set the repository up.
+
 New fields on thread show, so the protocol stays 1: `localTurnStints`, every stretch of turns run on a computer (`localTurns` keeps the first one), and `teleport.environmentSwitches`, every move between Yak and a computer (`teleport.environmentSwitch` keeps the latest one).
 
 Queued messages go out when a turn completes, without the person sending anything else. A switch to Steer during a running turn hands the message to that turn at once.
