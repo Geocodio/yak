@@ -53,8 +53,9 @@ final class AppLockController {
     }
 
     func coversContent(sceneIsActive: Bool) -> Bool {
-        storeUnreadable || AppLockPolicy.coversContent(
-            isOn: policy.isOn, isLocked: policy.isLocked, sceneIsActive: coversWhenActive ? false : sceneIsActive)
+        storeUnreadable
+            || AppLockPolicy.coversContent(
+                isOn: policy.isOn, isLocked: policy.isLocked, sceneIsActive: coversWhenActive ? false : sceneIsActive)
     }
 
     /// Reads what the device can do; a lock that is on with no passcode now turns itself off.

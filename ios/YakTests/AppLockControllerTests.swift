@@ -345,7 +345,8 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         before.appLockOn = true
         store.isReadable = false
         let controller = AppLockController(
-            settings: PrivacySettings(store: store, protectedData: store), authenticator: FakeAuthenticator(), clock: ManualClock())
+            settings: PrivacySettings(store: store, protectedData: store), authenticator: FakeAuthenticator(),
+            clock: ManualClock())
         store.isReadable = true
         #expect(controller.relockIfDue())
         #expect(controller.isLocked)
@@ -353,7 +354,8 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         PrivacySettings(store: second, protectedData: second).appLockOn = true
         second.isReadable = false
         let launched = AppLockController(
-            settings: PrivacySettings(store: second, protectedData: second), authenticator: FakeAuthenticator(), clock: ManualClock())
+            settings: PrivacySettings(store: second, protectedData: second), authenticator: FakeAuthenticator(),
+            clock: ManualClock())
         second.isReadable = true
         await launched.launched()
         #expect(!launched.isLocked)
