@@ -13,7 +13,7 @@ import XCTest
         app.launchArguments = ["-yakTestInstance", stub.url]
         if skipsWebSession { app.launchArguments += ["-yakTestSkipWebSession", "YES"] }
         if paired { app.launchArguments += ["-yakTestToken", "stub-token"] }
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     /// Opens the account sheet from the drawer, opening the drawer first when the thread screen shows.
@@ -22,7 +22,7 @@ import XCTest
         if !account.waitForExistence(timeout: 10) {
             app.buttons["threads.button"].tap()
         }
-        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        XCTAssertTrue(account.waitForExistence(timeout: Wait.firstLoad))
         account.tap()
     }
 
@@ -35,9 +35,9 @@ import XCTest
         launch()
         app.open(stub.pairingLink)
         let pair = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Pair with'")).firstMatch
-        XCTAssertTrue(pair.waitForExistence(timeout: 10))
+        XCTAssertTrue(pair.waitForExistence(timeout: Wait.appear))
         pair.tap()
-        XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: 10))
+        XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: Wait.appear))
         try audit()
     }
 
@@ -46,19 +46,19 @@ import XCTest
         launch(paired: true)
         let offline = label(containing: "You are offline")
         openAccount()
-        XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: 10))
+        XCTAssertTrue(label(containing: "Signed in as Test Person").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(offline.exists)
         try stub.setOnline(false)
-        XCTAssertTrue(offline.waitForExistence(timeout: 15))
+        XCTAssertTrue(offline.waitForExistence(timeout: Wait.appear))
         try stub.setOnline(true)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: offline)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 15), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: Wait.appear), .completed)
     }
 
     func testARevokedPhoneIsAskedToPairAgain() throws {
         try stub.play("revoked")
         launch(paired: true)
-        XCTAssertTrue(app.buttons["Pair again"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Pair again"].waitForExistence(timeout: Wait.appear))
         try audit()
     }
 
@@ -66,7 +66,7 @@ import XCTest
         try stub.play("server-too-new")
         launch()
         try typeAddressOnConnectScreen()
-        XCTAssertTrue(app.staticTexts["The app needs an update"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["The app needs an update"].waitForExistence(timeout: Wait.appear))
         try audit()
     }
 
@@ -74,7 +74,7 @@ import XCTest
         try stub.play("not-yak")
         launch()
         try typeAddressOnConnectScreen()
-        XCTAssertTrue(app.staticTexts["No Yak at this address"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["No Yak at this address"].waitForExistence(timeout: Wait.appear))
         XCTAssertEqual(app.textFields.firstMatch.value as? String, stub.address)
         try audit()
     }
@@ -89,9 +89,9 @@ import XCTest
         try typeAddressOnConnectScreen()
         openLink()
         let cancel = app.buttons["Cancel pairing"]
-        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        XCTAssertTrue(cancel.waitForExistence(timeout: Wait.appear))
         cancel.tap()
-        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: Wait.appear))
         XCTAssertEqual(app.textFields.firstMatch.value as? String, stub.address)
     }
 
@@ -100,13 +100,13 @@ import XCTest
         launch(skipsWebSession: true)
         try typeAddressOnConnectScreen()
         app.textFields.firstMatch.typeText("\n")
-        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: 10))
+        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: Wait.appear))
         // The stub keeps answering "approval pending", so the sign-in cannot finish while the link is open.
         openLink()
         let cancel = app.buttons["Cancel pairing"]
-        XCTAssertTrue(cancel.waitForExistence(timeout: 10))
+        XCTAssertTrue(cancel.waitForExistence(timeout: Wait.appear))
         cancel.tap()
-        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: 5))
+        XCTAssertTrue(label(containing: "Waiting for you to approve").waitForExistence(timeout: Wait.appear))
     }
 
     /// The accessibility audit; a failure names the element and what is wrong with it.
@@ -132,10 +132,10 @@ import XCTest
 
     private func typeAddressOnConnectScreen() throws {
         let enterAddress = app.buttons["Enter an address"]
-        XCTAssertTrue(enterAddress.waitForExistence(timeout: 10))
+        XCTAssertTrue(enterAddress.waitForExistence(timeout: Wait.appear))
         enterAddress.tap()
         let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
         field.tap()
         field.typeText(stub.address)
     }

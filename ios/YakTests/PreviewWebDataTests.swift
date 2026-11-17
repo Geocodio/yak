@@ -49,6 +49,24 @@ private struct UnreadableTokenStore: TokenStore {
             ?? []
     }
 
+    @Test func serializedWorkNeverOverlaps() async {
+        final class Log: @unchecked Sendable { var events: [String] = [] }
+        let log = Log()
+        async let first: Void = PreviewWebData.serialized {
+            log.events.append("a-start")
+            try? await Task.sleep(for: .milliseconds(100))
+            log.events.append("a-end")
+        }
+        async let second: Void = PreviewWebData.serialized {
+            log.events.append("b-start")
+            log.events.append("b-end")
+        }
+        _ = await (first, second)
+        // The two calls enter in either order; neither runs inside the other.
+        let inOrder = [["a-start", "a-end", "b-start", "b-end"], ["b-start", "b-end", "a-start", "a-end"]]
+        #expect(inOrder.contains(log.events))
+    }
+
     @Test func eachInstanceHasItsOwnStore() async throws {
         let defaults = PreviewDefaults()
         let first = UUID()
@@ -113,18 +131,18 @@ private struct UnreadableTokenStore: TokenStore {
         await setCookie("gone", for: gone, defaults: defaults)
         let foreignID = UUID()
         await WKWebsiteDataStore(forIdentifier: foreignID).httpCookieStore.setCookie(cookie("foreign"))
-        // WebKit lets go of a released store a moment later, so a store still in use is swept again.
+        // WebKit lets go of a released store a moment later, so a store still in use is swept again until it is gone.
         var existing: [UUID] = []
-        for _ in 0..<20 {
+        let deadline = ContinuousClock.now + .seconds(60)
+        repeat {
             await PreviewWebData.sweep(instances: instances, defaults: defaults)
             existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-            if !existing.contains(PreviewDataStoreID.for(instanceID: gone)),
-                !existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id))
-            {
-                break
-            }
+            let isSwept =
+                !existing.contains(PreviewDataStoreID.for(instanceID: gone))
+                && !existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id))
+            if isSwept { break }
             try await Task.sleep(for: .milliseconds(300))
-        }
+        } while ContinuousClock.now < deadline
         #expect(existing.contains(PreviewDataStoreID.for(instanceID: kept.id)))
         #expect(!existing.contains(PreviewDataStoreID.for(instanceID: gone)))
         #expect(!existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id)))

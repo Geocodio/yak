@@ -128,7 +128,11 @@ struct ChatView: View {
             Task { await thread.loadOlder() }
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
-        .onChange(of: thread.documents.count) { applyHeldPlace() }
+        .onChange(of: thread.documents.count) {
+            // Documents still arriving mean the page is still settling, however slow the device is.
+            if let held = placeHeld, held.until > .now { placeHeld?.until = .now + 3 }
+            applyHeldPlace()
+        }
         .onScrollPhaseChange { _, phase in
             isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
             if [.tracking, .interacting].contains(phase) {
@@ -191,7 +195,8 @@ struct ChatView: View {
     /// read before the new ones are laid out. The anchor lines the point `f * height` of the row up with the point
     /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`.
     /// The new rows show as plain text until their Markdown is parsed, and the rendered text can be taller, so the
-    /// same placement is applied again as their documents arrive, until the person scrolls or the time is up.
+    /// same placement is applied again as their documents arrive, until the person scrolls or no document has
+    /// arrived for three seconds.
     private func restorePlace(rowCount: Int) {
         guard let requested = rowCountWhenRequested, rowCount > requested, let anchor = anchorBeforePage else { return }
         rowCountWhenRequested = nil
