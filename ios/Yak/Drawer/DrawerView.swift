@@ -282,7 +282,7 @@ struct DrawerView: View {
 
     private func notice(_ text: Text, systemImage: String) -> some View {
         Label {
-            text.font(.footnote).fixedSize(horizontal: false, vertical: true)
+            text.font(.footnote.weight(.medium)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: systemImage).accessibilityHidden(true)
         }

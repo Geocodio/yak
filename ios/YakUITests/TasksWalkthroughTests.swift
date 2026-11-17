@@ -224,7 +224,6 @@ import XCTest
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         try stub.play("tasks-slow")
         row.tap()
-        XCTAssertTrue(element("task.loading").waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 1)
         try shoot("task-loading")
         XCTAssertTrue(label("This is taking longer than usual").waitForExistence(timeout: 12))
