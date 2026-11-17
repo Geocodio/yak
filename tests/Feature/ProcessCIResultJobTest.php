@@ -664,6 +664,23 @@ test('second failure marks task as failed', function () {
         ->and($task->stop_summary)->toBe("Yak's change still fails the automated checks after 2 tries.");
 });
 
+test('the still-failing message counts only the tries since the last dashboard retry', function () {
+    Queue::fake([SendNotificationJob::class]);
+    config()->set('yak.max_attempts', 2);
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'source' => 'manual',
+        'attempts' => 4,
+        'attempts_at_manual_retry' => 2,
+    ]);
+
+    (new ProcessCIResultJob($task, false, "## Tests (https://github.com/org/my-repo/runs/1)\n\nlog"))->handle();
+
+    expect($task->refresh()->stop_summary)->toBe("Yak's change still fails the automated checks after 2 tries (failing: Tests).");
+});
+
 test('failedCheckNames lists the check names from the headings', function () {
     $output = "## Tests (https://github.com/org/r/runs/1)\n\nlog\n\n## Lint (https://github.com/org/r/runs/2)\nlog";
 

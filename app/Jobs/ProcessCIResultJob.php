@@ -308,7 +308,7 @@ class ProcessCIResultJob implements ShouldQueue
         ]);
 
         StopNotifier::notify($this->task, TaskStop::ciStillFailing(
-            $this->task->attempts,
+            $this->task->attempts - $this->task->attempts_at_manual_retry,
             self::failedCheckNames($failureSummary),
             $failureSummary,
         ));
