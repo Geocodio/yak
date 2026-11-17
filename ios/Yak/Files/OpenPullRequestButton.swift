@@ -8,10 +8,10 @@ struct OpenPullRequestButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Color.yakOnRust)
+            .foregroundStyle(isEnabled ? Color.yakOnRust : Color.yakMuted)
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(Color.yakRust, in: .capsule)
-            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
+            .background(isEnabled ? Color.yakRust : Color(.systemGray5), in: .capsule)
+            .opacity(isEnabled && configuration.isPressed ? 0.85 : 1)
     }
 }
 
@@ -38,7 +38,7 @@ struct OpenPullRequestButton: View {
             Button {
             } label: {
                 HStack(spacing: 8) {
-                    ProgressView().tint(Color.yakOnRust)
+                    ProgressView()
                     Text("files.open.opening")
                 }
             }
