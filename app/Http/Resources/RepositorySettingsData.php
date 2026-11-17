@@ -232,7 +232,7 @@ final class RepositorySettingsData
 
     /**
      * @param  array<int, string>|null  $only  Option groups to build, all when null.
-     * @return array{ciSystems: array<int, array{value: string, label: string}>, sentryProjects: array<int, array{value: string, label: string}>, defaultPathExcludes: array<int, string>, users: array<int, array{value: string, label: string}>, defaultReviewPolicy: array<string, mixed>}
+     * @return array{ciSystems?: array<int, array{value: string, label: string}>, sentryProjects?: array<int, array{value: string, label: string}>, defaultPathExcludes?: array<int, string>, users?: array<int, array{value: string, label: string}>, defaultReviewPolicy?: array<string, mixed>}
      */
     public static function options(?array $only = null): array
     {
