@@ -115,7 +115,7 @@ function RepositorySetupCard({ task, setup }: { task: TaskDetail; setup: NonNull
 
 const STOP_STYLES = {
     yak_retrying: { label: 'Paused', block: 'bg-info-soft', tone: 'text-info', dot: 'bg-info' },
-    yak_stopped: { label: 'Stopped', block: 'bg-orange-100 dark:bg-orange-950/40', tone: 'text-orange-700 dark:text-orange-300', dot: 'bg-orange-600 dark:bg-orange-400' },
+    yak_stopped: { label: 'Stopped', block: 'bg-fail-soft', tone: 'text-fail', dot: 'bg-fail' },
     needs_you: { label: 'Yak needs you', block: 'bg-warn-soft', tone: 'text-warn', dot: 'bg-warn' },
 } as const;
 
@@ -163,6 +163,15 @@ function StopBlock({ stop, retryAction, step }: { stop: NonNullable<StopData>; r
     );
 }
 
+function retryActionFor(task: TaskDetail, actions: ActionsData) {
+    return actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+}
+
+/** The stop block for a task whose final run has no bubble carrying an error (an expired clarification, for one). */
+export function StandaloneStop({ task, actions, stop }: { task: TaskDetail; actions: ActionsData; stop: NonNullable<StopData> }) {
+    return <StopBlock stop={stop} retryAction={retryActionFor(task, actions)} step={null} />;
+}
+
 function ErrorCard({ entry, context, rows, focused }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[]; focused: boolean }) {
     const { task, actions } = context;
 
@@ -173,7 +182,7 @@ function ErrorCard({ entry, context, rows, focused }: { entry: ThreadEntryData; 
     }
 
     const step = stoppedAt(rows);
-    const retryAction = actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+    const retryAction = retryActionFor(task, actions);
 
     if (stop && focused) {
         return <StopBlock stop={stop} retryAction={retryAction} step={step} />;

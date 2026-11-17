@@ -202,3 +202,34 @@ test('a stopped task leads with the plain sentence and folds the technical text 
     expect($page->script('document.querySelector(\'[data-testid="task-stop"] > details\').open'))->toBeFalse();
     $page->click('[data-testid="task-stop"] > details > summary')->assertSeeIn('[data-testid="task-stop"]', 'CI timed out after 30 minutes');
 });
+
+test('an expired needs-you task shows exactly one stop block even without a reply entry', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->expired()->create([
+        'source' => 'linear',
+        'stop_kind' => StopKind::NeedsYou,
+        'stop_summary' => 'Yak asked a question and did not hear back, so it stopped.',
+        'error_log' => 'Clarification expired, no response received',
+    ]);
+
+    visit(route('tasks.show', $task))
+        ->assertPresent('[data-testid="task-stop"]')
+        ->assertCount('[data-testid="task-stop"]', 1)
+        ->assertSeeIn('[data-testid="task-stop"]', 'Yak needs you')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a failed stopped task shows exactly one stop block', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->failed()->create([
+        'source' => 'linear',
+        'stop_kind' => StopKind::YakStopped,
+        'stop_summary' => 'Yak stopped waiting for the checks.',
+        'error_log' => 'CI timed out after 30 minutes',
+    ]);
+    seedInlineRun($task, 'failed');
+
+    visit(route('tasks.show', $task))
+        ->assertCount('[data-testid="task-stop"]', 1)
+        ->assertNoJavaScriptErrors();
+});

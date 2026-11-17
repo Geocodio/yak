@@ -1223,6 +1223,21 @@ test('a stopped task with a stop block has no separate next steps', function () 
         ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null)->has('stop'));
 });
 
+test('an expired task with a needs-you stop carries the stop prop and no errored reply entry', function () {
+    $task = YakTask::factory()->expired()->create([
+        'source' => 'linear',
+        'stop_kind' => StopKind::NeedsYou,
+        'stop_summary' => 'Yak asked a question and did not hear back, so it stopped.',
+        'error_log' => 'Clarification expired, no response received',
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('stop.kind', 'needs_you')
+            ->where('thread', fn ($thread) => collect($thread)->every(fn ($entry) => ($entry['error'] ?? null) === null))
+        );
+});
+
 test('a running task has no stop', function () {
     $task = YakTask::factory()->running()->create();
 
