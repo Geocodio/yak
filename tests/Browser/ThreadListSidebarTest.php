@@ -16,7 +16,7 @@ test('the empty state shows when there are no threads', function () {
         ->assertNoJavaScriptErrors();
 });
 
-test('a finished unseen thread sits in the needs you group', function () {
+test('a finished unseen thread stays in its date group with an unread mark', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Fix the cache']);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
@@ -29,9 +29,21 @@ test('a finished unseen thread sits in the needs you group', function () {
     $this->actingAs($user);
 
     visit('/threads/new')
-        ->assertVisible('[data-testid="thread-group-needs-you"]')
+        ->assertMissing('[data-testid="thread-group-needs-you"]')
         ->assertVisible('[data-testid="thread-row-' . $thread->public_id . '"]')
-        ->assertVisible('[data-testid="rail-threads-badge"]')
+        ->assertVisible('[data-testid="thread-unread-' . $thread->public_id . '"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a row shows its source tag and who started it', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => null, 'source' => 'slack', 'starter_name' => 'Jane Doe', 'repo' => 'Geocodio/geocodio']);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter-everyone"]')
+        ->assertSeeIn('[data-testid="thread-source-' . $thread->public_id . '"]', 'Slack')
+        ->assertSeeIn('[data-testid="thread-starter-' . $thread->public_id . '"]', 'JD')
         ->assertNoJavaScriptErrors();
 });
 
@@ -96,15 +108,29 @@ test('a blocked thread label is red', function () {
         ->assertNoJavaScriptErrors();
 });
 
-test('a teammate thread shows the owner chip under everyone', function () {
+test('a teammate thread shows the teammate avatar under everyone', function () {
     $user = User::factory()->create();
-    $teammate = User::factory()->create(['name' => 'Tina Teammate']);
+    $teammate = User::factory()->create(['name' => 'Tina Teammate', 'avatar_url' => 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==']);
     $thread = Thread::factory()->create(['created_by_user_id' => $teammate->id]);
     $this->actingAs($user);
 
     visit('/threads/new')
         ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
-        ->assertSeeIn('[data-testid="thread-owner-' . $thread->public_id . '"]', 'TT')
+        ->assertVisible('[data-testid="thread-starter-' . $thread->public_id . '"] img')
+        ->assertNoJavaScriptErrors();
+});
+
+test('a profile picture that fails to load falls back to initials', function () {
+    $user = User::factory()->create();
+    $teammate = User::factory()->create(['name' => 'Tina Teammate', 'avatar_url' => 'http://127.0.0.1:9/missing.png']);
+    $thread = Thread::factory()->create(['created_by_user_id' => $teammate->id]);
+    $this->actingAs($user);
+
+    visit('/threads/new')
+        ->click('[data-testid="thread-filter"] button[data-testid="thread-filter-everyone"]')
+        ->wait(1)
+        ->assertSeeIn('[data-testid="thread-starter-' . $thread->public_id . '"]', 'TT')
+        ->assertMissing('[data-testid="thread-starter-' . $thread->public_id . '"] img')
         ->assertNoJavaScriptErrors();
 });
 
@@ -118,6 +144,10 @@ test('picking a source narrows the list, shows a chip, and clear restores it', f
         ->click('[data-testid="thread-filter-everyone"]')
         ->click('[data-testid="thread-filter-menu-button"]')
         ->click('[data-testid="thread-filter-source-slack"]')
+        ->assertVisible('[data-testid="thread-filter-source-slack"] [role="checkbox"][aria-checked="true"]')
+        ->click('[data-testid="thread-filter-source-slack-count"]')
+        ->assertVisible('[data-testid="thread-filter-source-slack"] [role="checkbox"][aria-checked="false"]')
+        ->click('[data-testid="thread-filter-source-slack-count"]')
         ->click('[data-testid="thread-filter-menu-button"]')
         ->assertSee('Slack request')
         ->assertDontSee('Linear ticket')

@@ -25,7 +25,15 @@ function Group({ title, options, picked, onChange, testIdPrefix }: { title: stri
         <div role="group" aria-label={title} className="py-1">
             <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint">{title}</div>
             {options.map((option) => (
-                <div key={option.key} className="flex items-center gap-2 rounded-control px-2 py-1 hover:bg-panel-2">
+                <div
+                    key={option.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-control px-2 py-1 hover:bg-panel-2"
+                    onClick={(event) => {
+                        if (!(event.target as Element).closest('label, input, [role="checkbox"]')) {
+                            onChange(toggled(picked, option.key));
+                        }
+                    }}
+                >
                     <Checkbox
                         checked={picked.includes(option.key)}
                         onCheckedChange={() => onChange(toggled(picked, option.key))}
@@ -33,7 +41,7 @@ function Group({ title, options, picked, onChange, testIdPrefix }: { title: stri
                         className="min-w-0 flex-1"
                         data-testid={`${testIdPrefix}-${option.key}`}
                     />
-                    <span className="text-[12px] tabular-nums text-muted">{option.count}</span>
+                    <span className="text-[12px] tabular-nums text-muted" data-testid={`${testIdPrefix}-${option.key}-count`}>{option.count}</span>
                 </div>
             ))}
         </div>
