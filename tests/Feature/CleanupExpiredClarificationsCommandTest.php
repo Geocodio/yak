@@ -52,6 +52,31 @@ test('derives the asked date from the expiry when no rounds were recorded', func
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === "Yak asked a question on Nov 5 and didn't hear back, so it stopped.");
 });
 
+test('falls back to the expiry when a round has an unreadable asked time and still processes later tasks', function () {
+    $this->travelTo(Carbon\Carbon::parse('2026-11-12 10:00:00'));
+    config(['yak.clarification_ttl_days' => 7]);
+    $malformed = YakTask::factory()->awaitingClarification()->create([
+        'clarification_expires_at' => now()->subHour(),
+        'clarification_rounds' => [['questions' => [], 'summary' => 's', 'asked_at' => 'not a date', 'answers' => null]],
+    ]);
+    $missing = YakTask::factory()->awaitingClarification()->create([
+        'clarification_expires_at' => now()->subHour(),
+        'clarification_rounds' => [['questions' => [], 'summary' => 's', 'answers' => null]],
+    ]);
+    $empty = YakTask::factory()->awaitingClarification()->create([
+        'clarification_expires_at' => now()->subHour(),
+        'clarification_rounds' => [['questions' => [], 'summary' => 's', 'asked_at' => '', 'answers' => null]],
+    ]);
+
+    $this->artisan('yak:cleanup')->assertSuccessful();
+
+    foreach ([$malformed, $missing, $empty] as $task) {
+        expect($task->refresh()->status)->toBe(TaskStatus::Expired);
+    }
+    Queue::assertPushed(SendNotificationJob::class, 3);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === "Yak asked a question on Nov 5 and didn't hear back, so it stopped.");
+});
+
 test('leaves non-expired tasks alone', function () {
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_expires_at' => now()->addDay(),

@@ -11,6 +11,7 @@ use App\Services\ClarificationMessage;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StopNotifier;
 use Carbon\CarbonInterface;
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -57,14 +58,21 @@ class CleanupExpiredClarificationsCommand extends Command
 
     /**
      * The latest round's asked_at, or the expiry minus the clarification TTL
-     * for a question that recorded no rounds.
+     * for a question whose latest round has no readable asked time.
      */
     private function askedAt(YakTask $task): CarbonInterface
     {
         $rounds = $task->clarificationRounds();
+        $recorded = $rounds === [] ? null : ($rounds[array_key_last($rounds)]['asked_at'] ?? null);
 
-        if ($rounds !== []) {
-            return Carbon::parse($rounds[array_key_last($rounds)]['asked_at']);
+        try {
+            $askedAt = is_string($recorded) && $recorded !== '' ? Carbon::parse($recorded) : null;
+        } catch (InvalidFormatException) {
+            $askedAt = null;
+        }
+
+        if ($askedAt !== null) {
+            return $askedAt;
         }
 
         return $task->clarification_expires_at->subDays((int) config('yak.clarification_ttl_days', 7));
