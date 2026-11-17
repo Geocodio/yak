@@ -8,6 +8,7 @@ use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadTurns;
 
@@ -28,7 +29,7 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'disabled_closed'|'legacy'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
+     * @return array{state: 'idle'|'working'|'stopped'|'disabled_closed'|'legacy'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
@@ -39,6 +40,7 @@ final class ThreadComposerData
             $thread->owner_side === ThreadOwnerSide::Device => 'disabled_computer',
             in_array($thread->blocked_reason, self::DISABLING_BLOCKS, true) => 'disabled_blocked',
             ThreadTurns::activeTurn($thread) !== null => 'working',
+            self::isStopped($thread) => 'stopped',
             default => 'idle',
         };
 
@@ -58,6 +60,16 @@ final class ThreadComposerData
             'context' => self::context($thread),
             'contextWindows' => self::contextWindows(),
         ];
+    }
+
+    /**
+     * Whether the head task stopped without a pull request, so a message retries it with the message as a note.
+     */
+    private static function isStopped(Thread $thread): bool
+    {
+        $head = $thread->headTask();
+
+        return $head !== null && StoppedTaskReplies::appliesTo($head);
     }
 
     /**

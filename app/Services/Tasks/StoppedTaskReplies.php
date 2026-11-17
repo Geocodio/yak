@@ -2,6 +2,7 @@
 
 namespace App\Services\Tasks;
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Exceptions\ThreadActionRefused;
 use App\Models\PendingSteeringMessage;
@@ -22,6 +23,18 @@ class StoppedTaskReplies
     private const TRY_AGAIN_LATER = "Yak couldn't restart this right now. Reply again in a moment.";
 
     public function __construct(private readonly TaskActions $taskActions) {}
+
+    /**
+     * Whether a reply to this task retries it with the reply as a note: it failed or expired without a
+     * pull request and is not a review or a setup run.
+     */
+    public static function appliesTo(YakTask $task): bool
+    {
+        return in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)
+            && $task->pr_url === null
+            && ! in_array($task->mode, [TaskMode::Review, TaskMode::Setup], true)
+            && ! $task->acceptsFollowUp();
+    }
 
     /**
      * @param  Closure(PendingSteeringMessage): mixed|null  $afterNoteQueued  runs once the reply is queued as a note, so a caller can attach files to it

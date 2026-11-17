@@ -18,6 +18,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\YakPromptBuilder;
 use Illuminate\Support\Collection;
@@ -86,7 +87,31 @@ class ThreadMessageSender
             ThreadPublishGuard::assertAcknowledged($thread, $input->acknowledgedPrivatePublish);
         }
 
+        $head = $input->intent === null && ! ClearCommand::matches($input->text) ? $thread->headTask() : null;
+
+        if ($head !== null && StoppedTaskReplies::appliesTo($head)) {
+            return $this->replyToStoppedTask($head, $user, $input);
+        }
+
         return $this->deliver($thread, $user, $input);
+    }
+
+    /**
+     * A message to a thread whose head task stopped retries that task with the message as a note, as a reply on the old task page did.
+     */
+    private function replyToStoppedTask(YakTask $head, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        $storeAttachments = $input->storeAttachments;
+        $sentence = app(StoppedTaskReplies::class)->handle(
+            $head,
+            $input->text,
+            'dashboard',
+            authorName: $user->name,
+            afterNoteQueued: $storeAttachments === null ? null : fn (PendingSteeringMessage $note): mixed => $storeAttachments($note),
+            authorUserId: $user->id,
+        );
+
+        return new ThreadMessageResult('sent', null, null, $sentence);
     }
 
     /**

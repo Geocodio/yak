@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Enums\EvictionReason;
 use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
@@ -13,6 +14,7 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SandboxCapacity;
@@ -27,7 +29,7 @@ use Illuminate\Support\Str;
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, canContinueAfterSetup?: bool, failedSetupRunUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -64,6 +66,10 @@ final class ThreadNoticeData
             $isRepositoryBlock = in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true);
             $notice['repositoryUrl'] = $isRepositoryBlock ? route('repos.edit', $thread->repo) : null;
 
+            if ($isRepositoryBlock) {
+                $notice = [...$notice, ...self::repositorySetup($thread, $viewer)];
+            }
+
             return $notice;
         }
 
@@ -82,6 +88,32 @@ final class ThreadNoticeData
         }
 
         return null;
+    }
+
+    /**
+     * What the repository setup notice offers: continuing the stopped head task once setup finishes,
+     * and the failed setup run to read.
+     *
+     * @return array{canContinueAfterSetup: bool, failedSetupRunUrl: ?string}
+     */
+    private static function repositorySetup(Thread $thread, ?User $viewer): array
+    {
+        $repository = Repository::query()->where('slug', $thread->repo)->first();
+        $head = $thread->headTask();
+        $failedSetupTask = $repository?->setup_status === 'failed' && $repository->setup_task_id !== null
+            ? YakTask::query()->withoutGlobalScopes()->find($repository->setup_task_id)
+            : null;
+
+        return [
+            'canContinueAfterSetup' => $repository !== null
+                && empty($repository->sandbox_snapshot)
+                && $head !== null
+                && in_array($head->status, [TaskStatus::Failed, TaskStatus::Expired], true)
+                && $head->resume_after_setup_at === null
+                && app(ThreadAccess::class)->canDrive($viewer, $thread),
+            // The repository Runs page does not exist yet; the setup task's own page stands in for it.
+            'failedSetupRunUrl' => $failedSetupTask === null ? null : route('tasks.show', $failedSetupTask),
+        ];
     }
 
     /**

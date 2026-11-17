@@ -3,15 +3,21 @@
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\StopKind;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Http\Resources\TaskDetailData;
 use App\Http\Resources\ThreadCardsData;
+use App\Http\Resources\ThreadNoticeData;
+use App\Http\Resources\ThreadWalkthroughData;
 use App\Jobs\RunYakJob;
+use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadFactory;
 use Illuminate\Support\Facades\Queue;
@@ -232,4 +238,52 @@ it('refuses a viewer who cannot drive the thread and hides it from a stranger', 
 
     expect($thread->fresh()->hasRepository())->toBeFalse();
     Queue::assertNothingPushed();
+});
+
+it('shows a failed walkthrough render with its error and the retry flag', function () {
+    $task = YakTask::factory()->create(['repo' => 'web']);
+    $thread = cardsThread($task);
+    Artifact::factory()->video()->create(['yak_task_id' => $task->id]);
+    VideoMetric::factory()->failed()->create(['yak_task_id' => $task->id, 'error' => 'ffmpeg exited with 1']);
+
+    $walkthrough = ThreadWalkthroughData::for($thread);
+
+    expect($walkthrough)->toMatchArray(['isRenderFailed' => true, 'renderError' => 'ffmpeg exited with 1', 'canRetryRender' => true, 'video' => null]);
+});
+
+it('offers continuing after setup and the failed setup run on the repository notice', function () {
+    $setupTask = YakTask::factory()->create(['repo' => 'web', 'mode' => TaskMode::Setup]);
+    $repository = Repository::factory()->create(['slug' => 'fresh', 'is_active' => true, 'setup_status' => 'failed', 'setup_task_id' => $setupTask->id, 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->failed()->create(['repo' => $repository->slug, 'started_by_user_id' => $this->requester->id]);
+    $thread = cardsThread($task);
+    $thread->forceFill(['blocked_reason' => ThreadBlockReason::RepositorySetupFailed])->save();
+
+    $notice = ThreadNoticeData::for($thread->fresh(), $this->requester);
+
+    expect($notice)->toMatchArray(['kind' => 'repository_setup_failed', 'canContinueAfterSetup' => true, 'failedSetupRunUrl' => route('tasks.show', $setupTask)]);
+
+    $task->update(['resume_after_setup_at' => now()]);
+
+    expect(ThreadNoticeData::for($thread->fresh(), $this->requester)['canContinueAfterSetup'])->toBeFalse();
+});
+
+it('sends a thread message to a stopped head task as a note and retries it', function () {
+    $task = YakTask::factory()->failed()->create(['repo' => 'web', 'stop_kind' => StopKind::YakStopped, 'stop_summary' => 'Stopped.', 'started_by_user_id' => $this->requester->id]);
+    $thread = cardsThread($task);
+
+    $this->actingAs($this->requester)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page->where('composer.state', 'stopped'));
+
+    $this->post(route('threads.messages.store', $thread), ['message' => 'use the helper'])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Trying again with your note.');
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($task->fresh()->description)->toContain('use the helper');
+    Queue::assertPushed(RunYakJob::class, 1);
+});
+
+it('keeps a thread with a pull request out of the stopped composer', function () {
+    $task = YakTask::factory()->failed()->create(['repo' => 'web', 'pr_url' => 'https://github.com/o/r/pull/9']);
+
+    $this->actingAs($this->requester)->get('/threads/' . cardsThread($task)->public_id)->assertInertia(fn (Assert $page) => $page->where('composer.state', 'idle'));
 });
