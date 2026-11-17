@@ -86,6 +86,14 @@
                 makeEnvironment: environment,
                 prepare: { instances in
                     if let token = seed.token {
+                        // `-yakTestExtraInstances YES`: two more paired instances, added first so the seed stays active.
+                        if UserDefaults.standard.bool(forKey: "yakTestExtraInstances") {
+                            for (name, path) in [("Example staging", "second"), ("Side project", "third")] {
+                                _ = try? await instances.add(
+                                    url: seed.instance.appending(path: path), name: name, userName: "Test Person",
+                                    token: token)
+                            }
+                        }
                         do {
                             _ = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",

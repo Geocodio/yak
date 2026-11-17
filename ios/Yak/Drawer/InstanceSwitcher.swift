@@ -20,7 +20,6 @@ struct InstanceSwitcher: View {
     @State private var instances: [Instance] = []
     @State private var showsAdd = false
     @State private var switcher: InstanceSwitchModel
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
@@ -87,12 +86,7 @@ struct InstanceSwitcher: View {
             }
         } label: {
             HStack(spacing: 12) {
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text(String(instance.name.prefix(1)).uppercased()).font(.headline).foregroundStyle(Color.primary)
-                        .frame(width: 40, height: 40)
-                        .background(Color.primary.opacity(0.1), in: .rect(cornerRadius: 10))
-                        .accessibilityHidden(true)
-                }
+                InstanceTintTile(instance: instance)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(instance.name).font(.body).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)

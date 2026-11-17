@@ -177,6 +177,7 @@ struct SettingsScreen: View {
             Task { if await model.switchTo(instance) { onClose() } }
         } label: {
             HStack(spacing: 12) {
+                InstanceTintTile(instance: instance).opacity(isRemoving ? 0.5 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(instance.name).font(.body).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
