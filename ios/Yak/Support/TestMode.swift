@@ -60,19 +60,26 @@
 
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
-            let defaults = MemoryDefaults()
+            let kept = Self.keptStores()
+            let defaults = kept.defaults
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
+            let uploads = UploadSessions(
+                appBundleID: "com.example.yak", appGroup: nil, files: kept.files, clock: SystemClock(),
+                instances: instances, tokens: lockable, appVersion: version, systemDescription: system)
             let environment: @Sendable () -> SessionEnvironment = {
-                .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+                .app(
+                    version: version, system: system, files: kept.files, allowsInsecureRealtime: true,
+                    uploads: { uploads.link(for: $0) })
             }
             let doubles = Self.makePushDoubles()
             let parts = AppParts.make(
                 storage: nil, isTestMode: true,
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
-                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
+                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
+                    uploads: uploads))
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(
@@ -85,7 +92,9 @@
                 normalizeAddress: Self.normalize, parseLink: Self.parse, normalizeLinkAddress: Self.normalize,
                 makeEnvironment: environment,
                 prepare: { instances in
-                    if let token = seed.token {
+                    if let token = seed.token, let known = await instances.all().first {
+                        try? lockable.setToken(token, for: known.id)
+                    } else if let token = seed.token {
                         do {
                             _ = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",

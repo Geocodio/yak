@@ -3,13 +3,14 @@ import YakKit
 
 extension SessionEnvironment {
     /// The real network, the given files, the system clock and random ids.
-    static func app(version: String, system: String, files: any FileStore, allowsInsecureRealtime: Bool)
-        -> SessionEnvironment
-    {
+    static func app(
+        version: String, system: String, files: any FileStore, allowsInsecureRealtime: Bool,
+        uploads: (@Sendable (UUID) -> UploadLink?)? = nil
+    ) -> SessionEnvironment {
         SessionEnvironment(
             http: URLSessionTransport(), webSockets: URLSessionWebSocketConnector(), files: files,
             clock: SystemClock(), makeID: UUID.init, appVersion: version, systemDescription: system,
-            allowsInsecureRealtime: allowsInsecureRealtime)
+            allowsInsecureRealtime: allowsInsecureRealtime, uploads: uploads)
     }
 
     /// The files of a release build: the app group container named by the `YakAppGroup` Info.plist key, or the

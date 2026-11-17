@@ -11,6 +11,7 @@ struct AppPartsContext {
     var center: any NotificationCenterClient = SystemNotificationCenter()
     var activityHost: any ActivityHost = SystemActivityHost()
     var normalizeAddress: @Sendable (String) -> URL? = InstanceAddress.normalize
+    var uploads: UploadSessions?
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -20,6 +21,8 @@ final class AppParts {
     let storage: SharedStorage?
     let isTestMode: Bool
     let push: PushController
+    /// The background upload sessions; nil when the app has no files folder to keep them in.
+    let uploads: UploadSessions?
     /// The pieces of the background refresh, one line per feature in `make`; their budgets stay inside
     /// `BackgroundRefresh.totalBudget`.
     private(set) var backgroundRefreshSteps: [BackgroundRefreshStep]
@@ -29,12 +32,14 @@ final class AppParts {
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
-        storage: SharedStorage?, isTestMode: Bool, push: PushController, steps: [BackgroundRefreshStep],
+        storage: SharedStorage?, isTestMode: Bool, push: PushController, uploads: UploadSessions?,
+        steps: [BackgroundRefreshStep],
         previewData: PreviewWebDataObserver, observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
         self.push = push
+        self.uploads = uploads
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
         self.observers = observers
@@ -51,11 +56,14 @@ final class AppParts {
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
-            }
+            },
+            BackgroundRefreshStep(name: "uploads", budget: .seconds(8)) { budget in
+                await context.uploads?.retryFailed(budget: budget)
+            },
         ]
         return AppParts(
-            storage: storage, isTestMode: isTestMode, push: push, steps: steps,
-            previewData: previewData, observers: [push, previewData])
+            storage: storage, isTestMode: isTestMode, push: push, uploads: context.uploads, steps: steps,
+            previewData: previewData, observers: [push, previewData] + (context.uploads.map { [$0] } ?? []))
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -73,6 +81,7 @@ extension View {
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
+                .overlay(alignment: .topLeading) { TestInstanceID(model: model) }
                 .onOpenURL { url in
                     if let payload = TestMode.pushTap(url: url) { Task { await parts.push.didTap(payload) } }
                 }

@@ -35,13 +35,21 @@ struct YakApp: App {
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
+        let uploads = storage.map {
+            UploadSessions(
+                appBundleID: $0.appBundleID, appGroup: $0.appGroup, files: $0.files, clock: SystemClock(),
+                instances: instances, tokens: tokens, appVersion: version, systemDescription: system)
+        }
         let environment: @Sendable () -> SessionEnvironment = {
-            .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
+            .app(
+                version: version, system: system, files: files, allowsInsecureRealtime: false,
+                uploads: uploads.map { sessions in { @Sendable (instance: UUID) in sessions.link(for: instance) } })
         }
         let parts = AppParts.make(
             storage: storage, isTestMode: false,
             context: AppPartsContext(
-                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults))
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults,
+                uploads: uploads))
         self.parts = parts
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
         _model = State(
@@ -79,6 +87,8 @@ struct YakApp: App {
             .appRoot(parts, model: model)
             .task {
                 delegate.attach(parts.push)
+                delegate.attach(uploads: parts.uploads)
+                parts.uploads?.removeExpiredStaging()
                 await parts.push.start()
             }
     }
