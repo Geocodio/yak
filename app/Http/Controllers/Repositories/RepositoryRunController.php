@@ -46,6 +46,7 @@ class RepositoryRunController extends Controller
             'runs' => fn () => $page()['rows'],
             'totalCount' => fn () => $page()['totalCount'],
             'selected' => fn () => $page()['selected'],
+            'shouldPoll' => fn () => RepositoryRunData::shouldPoll($repository, $page()['selected']),
             'selectedUrl' => fn () => ($selectedId = $page()['selected']['id'] ?? null) === null ? null : route('repos.runs.show', ['repository' => $repository, 'task' => $selectedId, ...array_filter($filters)]),
             'filters' => $filters,
             'isRunOpen' => $task !== null,

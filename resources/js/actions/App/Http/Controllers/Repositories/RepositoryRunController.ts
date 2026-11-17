@@ -144,7 +144,7 @@ export const show = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::log
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:62
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
 export const log = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -159,7 +159,7 @@ log.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::log
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:62
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
 log.url = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -189,7 +189,7 @@ log.url = (args: { repository: string | number | { slug: string | number }, task
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::log
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:62
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
 log.get = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -199,7 +199,7 @@ log.get = (args: { repository: string | number | { slug: string | number }, task
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::log
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:62
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
 log.head = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -209,7 +209,7 @@ log.head = (args: { repository: string | number | { slug: string | number }, tas
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::retry
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:75
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
 export const retry = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -224,7 +224,7 @@ retry.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::retry
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:75
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
 retry.url = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -254,7 +254,7 @@ retry.url = (args: { repository: string | number | { slug: string | number }, ta
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryRunController::retry
-* @see app/Http/Controllers/Repositories/RepositoryRunController.php:75
+* @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
 retry.post = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

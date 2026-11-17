@@ -32,6 +32,8 @@ final class RepositoryRunData
 
     private const int WAITING_THREAD_LIMIT = 20;
 
+    private const int RECENT_RUN_POLL_MINUTES = 30;
+
     private const array STATUS_FILTERS = [
         'queued' => [TaskStatus::Pending],
         'running' => [TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi, TaskStatus::AwaitingClarification, TaskStatus::AwaitingCoOwner],
@@ -162,6 +164,24 @@ final class RepositoryRunData
             'threadUrl' => $thread === null ? null : route('threads.show', $thread),
             'riskProfileUrl' => $isSetup ? null : route('repos.risk-profile.show', $repository),
         ];
+    }
+
+    /**
+     * True while the selected run is live, or a live run of the repository started within the last 30 minutes.
+     * An old run stuck as queued does not keep the page polling.
+     *
+     * @param  Detail|null  $selected
+     */
+    public static function shouldPoll(Repository $repository, ?array $selected): bool
+    {
+        if ($selected !== null && $selected['isLive']) {
+            return true;
+        }
+
+        return self::query($repository)
+            ->whereIn('status', [...self::STATUS_FILTERS['queued'], ...self::STATUS_FILTERS['running']])
+            ->whereRaw('coalesce(started_at, created_at) >= ?', [now()->subMinutes(self::RECENT_RUN_POLL_MINUTES)])
+            ->exists();
     }
 
     public static function kind(YakTask $task): string

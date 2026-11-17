@@ -77,3 +77,21 @@ it('keeps the opened run in the address and shows the actions in the header', fu
     expect($page->script('window.location.pathname'))->toBe("/repos/acme/site/runs/{$failed->public_id}");
     expect($page->script('document.querySelector("[data-testid=settings-main] [data-testid=run-setup-again]") === null'))->toBeTrue();
 });
+
+it('keeps the list scroll when a lower row is clicked outside the run cell', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    seedRepositoryRuns();
+    $runs = collect(range(1, 30))->map(fn (int $index) => YakTask::factory()->create(['repo' => 'acme/site', 'mode' => TaskMode::Setup, 'external_id' => "setup-bulk-{$index}", 'status' => TaskStatus::Success, 'created_at' => now()->subDays(3)->subMinutes($index)]));
+    $target = $runs->last();
+
+    $page = visit('/repos/acme/site/runs');
+    $page->script('document.querySelector("[scroll-region]").scrollTop = 400');
+    $before = $page->script('document.querySelector("[scroll-region]").scrollTop');
+    $page->script("document.querySelector('[data-testid=\"run-row-{$target->public_id}\"] td:nth-child(4)').click()");
+    $page->wait(1);
+
+    expect($before)->toBeGreaterThan(0);
+    expect($page->script('document.querySelector("[scroll-region]").scrollTop'))->toBe($before);
+    $page->assertPresent("[data-testid=\"run-detail\"][data-run-id=\"{$target->public_id}\"]");
+});

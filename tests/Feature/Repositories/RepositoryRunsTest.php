@@ -221,3 +221,15 @@ test('the page names the url of the selected run so the client can keep it', fun
             ->where('isRunOpen', false)
             ->where('selectedUrl', route('repos.runs.show', [$this->repository, $run, 'kind' => 'setup'])));
 });
+
+test('the server decides when the page polls', function () {
+    $this->get(route('repos.runs.index', $this->repository))->assertInertia(fn (Assert $page) => $page->where('shouldPoll', false));
+
+    $old = setupRun(['status' => TaskStatus::Pending, 'created_at' => now()->subHours(2)]);
+    $done = setupRun(['status' => TaskStatus::Success, 'created_at' => now()->subHour()]);
+    $this->get(route('repos.runs.show', [$this->repository, $done]))->assertInertia(fn (Assert $page) => $page->where('shouldPoll', false));
+    $this->get(route('repos.runs.show', [$this->repository, $old]))->assertInertia(fn (Assert $page) => $page->where('shouldPoll', true));
+
+    setupRun(['status' => TaskStatus::Running, 'created_at' => now()->subMinutes(10)]);
+    $this->get(route('repos.runs.show', [$this->repository, $done]))->assertInertia(fn (Assert $page) => $page->where('shouldPoll', true));
+});

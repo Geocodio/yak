@@ -1,7 +1,7 @@
 import { Link, router, usePoll } from '@inertiajs/react';
 import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr, cn } from '@geocodio/console-ui';
 import { ArrowLeft, RefreshCw, Search } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Prose } from '@/components/Prose';
 import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
@@ -21,6 +21,7 @@ type Props = PageProps<{
     totalCount: number;
     selected: RepositoryRunDetail | null;
     selectedUrl: string | null;
+    shouldPoll: boolean;
     filters: { kind: string | null; status: string | null };
     isRunOpen: boolean;
     modelLabels: Record<string, string>;
@@ -41,7 +42,6 @@ const STATUS: Record<RepositoryRunStatus, { label: string; tone: 'ok' | 'fail' |
     cancelled: { label: 'Cancelled', tone: 'idle' },
 };
 
-const RECENT_RUN_POLL_MINUTES = 30;
 const KIND_LABEL: Record<RepositoryRunKind, string> = { setup: 'Setup', repository_research: 'Repository research' };
 const DOT: Record<string, string> = { ok: 'bg-ok', fail: 'bg-fail', info: 'bg-info', idle: 'bg-faint' };
 const selectClass = 'h-8 rounded-control border border-hair bg-panel px-2 text-[13px] text-body';
@@ -97,19 +97,18 @@ function RunList({ onPick, runs, selectedId, filters, totalCount }: { onPick: ()
                                         data-testid={`run-row-${run.id}`}
                                         data-status={run.status}
                                         data-selected={run.id === selectedId}
-                                        onClickCapture={onPick}
-                                        {...rowLinkHandlers(run.url)}
+                                        {...rowLinkHandlers(run.url, { preserveScroll: true, preserveState: true }, onPick)}
                                     >
                                         <StackedTd label="Status" className="w-6">
                                             <span className={cn('inline-block size-2 rounded-full', DOT[status.tone])} role="img" aria-label={status.label} />
                                         </StackedTd>
                                         <StackedTd label="Run">
-                                            <Link href={run.url} preserveScroll preserveState className="block min-w-0">
+                                            <Link href={run.url} preserveScroll preserveState onClick={(event) => !(event.metaKey || event.ctrlKey || event.shiftKey) && onPick()} className="block min-w-0">
                                                 <span className="block text-[13px] font-semibold text-body">{KIND_LABEL[run.kind]}</span>
                                                 <span className="block truncate text-[12px] text-muted">{run.resultLine}</span>
                                             </Link>
                                         </StackedTd>
-                                        <StackedTd label="Started by" className="text-[12px] text-muted">{run.startedBy}</StackedTd>
+                                        <StackedTd label="Started by" className="max-w-[140px] truncate text-[12px] text-muted" title={run.startedBy}>{run.startedBy}</StackedTd>
                                         <StackedTd label="Cost" className="tnum text-[12px] text-muted md:text-right">{run.costUsd > 0 ? formatUsd(run.costUsd) : '–'}</StackedTd>
                                         <StackedTd label="When" className="text-[12px] text-muted md:text-right">{formatWhen(run.startedAt)}</StackedTd>
                                     </StackedTr>
@@ -270,20 +269,15 @@ function RunDetail({ run, modelLabels, settingsUrl, onOpenLog }: { run: Reposito
     );
 }
 
-export default function Runs({ header, runs, totalCount, selected, selectedUrl, filters, isRunOpen, modelLabels, rerunSetupUrl, researchUrl, settingsUrl, listUrl, canResearch, yakConfig: loadedYakConfig }: Props) {
+export default function Runs({ header, runs, totalCount, selected, selectedUrl, shouldPoll, filters, isRunOpen, modelLabels, rerunSetupUrl, researchUrl, settingsUrl, listUrl, canResearch, yakConfig: loadedYakConfig }: Props) {
     const yakConfig = useRetained(`yak-config:${header.slug}`, loadedYakConfig);
     const action = useRouterAction();
     const [isListView, setIsListView] = useState(!isRunOpen);
     const [logTarget, setLogTarget] = useState<RunLogTarget | null>(null);
-    const isLive = useMemo(() => {
-        const recentSince = Date.now() - RECENT_RUN_POLL_MINUTES * 60_000;
-
-        return selected?.isLive === true || runs.some((run) => run.isLive && new Date(run.startedAt).getTime() >= recentSince);
-    }, [runs, selected?.isLive]);
-    const poll = usePoll(5000, { only: ['runs', 'selected', 'selectedUrl', 'totalCount'] }, { autoStart: false });
+    const poll = usePoll(5000, { only: ['runs', 'selected', 'selectedUrl', 'shouldPoll', 'totalCount'] }, { autoStart: false });
 
     useEffect(() => {
-        if (isLive) {
+        if (shouldPoll) {
             poll.start();
         } else {
             poll.stop();
@@ -291,7 +285,7 @@ export default function Runs({ header, runs, totalCount, selected, selectedUrl, 
 
         return () => poll.stop();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isLive]);
+    }, [shouldPoll]);
 
     useEffect(() => {
         if (!isRunOpen && selectedUrl !== null) {
@@ -322,7 +316,7 @@ export default function Runs({ header, runs, totalCount, selected, selectedUrl, 
                     <p>No runs yet. Run setup to prepare this repository.</p>
                 </div>
             ) : (
-                <div className="grid gap-6 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
+                <div className="grid gap-6 lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
                     <div className={cn(showDetailOnPhone && 'hidden lg:block')}>
                         <RunList onPick={() => setIsListView(false)} runs={runs} selectedId={selected?.id ?? null} filters={filters} totalCount={totalCount} />
                     </div>
