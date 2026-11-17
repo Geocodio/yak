@@ -35,24 +35,26 @@ struct YakApp: App {
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
+        let faults = DebugFaultSwitch()
         let environment: @Sendable () -> SessionEnvironment = {
-            .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
+            .app(version: version, system: system, files: files, allowsInsecureRealtime: false, faults: faults)
         }
         let parts = AppParts.make(
             storage: storage, isTestMode: false,
             context: AppPartsContext(
-                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults))
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults, faults: faults))
         self.parts = parts
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
-        _model = State(
-            initialValue: AppModel(
-                instances: instances, tokens: tokens,
-                makeClient: { url in
-                    APIClient(
-                        baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
-                        systemDescription: system)
-                },
-                makeEnvironment: environment, observers: parts.observers, push: parts.push))
+        let model = AppModel(
+            instances: instances, tokens: tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
+                    systemDescription: system)
+            },
+            makeEnvironment: environment, observers: parts.observers, push: parts.push)
+        parts.system.modelBox.model = model
+        _model = State(initialValue: model)
     }
 
     var body: some Scene {

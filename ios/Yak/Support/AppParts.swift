@@ -11,6 +11,7 @@ struct AppPartsContext {
     var center: any NotificationCenterClient = SystemNotificationCenter()
     var activityHost: any ActivityHost = SystemActivityHost()
     var normalizeAddress: @Sendable (String) -> URL? = InstanceAddress.normalize
+    var faults = DebugFaultSwitch()
 }
 
 /// App-wide parts, built once per process, by the app and by test mode in the same way. A feature adds one stored
@@ -25,18 +26,21 @@ final class AppParts {
     private(set) var backgroundRefreshSteps: [BackgroundRefreshStep]
     /// Erases an instance's preview web data when it is unpaired or revoked, and sweeps leftovers at launch.
     let previewData: PreviewWebDataObserver
+    /// App lock, Spotlight, the debug menu and the privacy choices behind them.
+    let system: SystemFeatures
     /// One line per observer; `AppModel` tells each after a pairing, a removal and a revoke.
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
         storage: SharedStorage?, isTestMode: Bool, push: PushController, steps: [BackgroundRefreshStep],
-        previewData: PreviewWebDataObserver, observers: [any InstanceLifecycleObserver]
+        previewData: PreviewWebDataObserver, system: SystemFeatures, observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
         self.push = push
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
+        self.system = system
         self.observers = observers
     }
 
@@ -48,6 +52,8 @@ final class AppParts {
             instances: context.instances, registrar: registrar, permission: context.permission,
             center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let previewData = PreviewWebDataObserver(defaults: context.defaults)
+        let system = SystemFeatures(
+            settings: PrivacySettings(store: context.defaults), faults: context.faults, modelBox: ModelBox())
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
@@ -55,7 +61,7 @@ final class AppParts {
         ]
         return AppParts(
             storage: storage, isTestMode: isTestMode, push: push, steps: steps,
-            previewData: previewData, observers: [push, previewData])
+            previewData: previewData, system: system, observers: [push, previewData])
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -69,6 +75,7 @@ extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
+            .environment(parts.system)
             .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }

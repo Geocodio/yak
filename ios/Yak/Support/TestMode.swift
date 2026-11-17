@@ -64,15 +64,19 @@
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
+            let faults = DebugFaultSwitch()
             let environment: @Sendable () -> SessionEnvironment = {
-                .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+                .app(
+                    version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true,
+                    faults: faults)
             }
             let doubles = Self.makePushDoubles()
             let parts = AppParts.make(
                 storage: nil, isTestMode: true,
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
-                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
+                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
+                    faults: faults))
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(
@@ -102,6 +106,7 @@
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
                 observers: parts.observers, push: parts.push)
             model.skipsWebSession = skipsWebSession
+            parts.system.modelBox.model = model
             return (model, parts)
         }
 
