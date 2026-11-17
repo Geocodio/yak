@@ -13,6 +13,8 @@ export type RepositorySummary = {
     tasks7d: number;
     prReviewEnabled: boolean;
     prReviews30d: number;
+    approvalLevel: number;
+    approvalMode: 'off' | 'shadow' | 'enforce';
 };
 
 export type RepositoryDetail = {

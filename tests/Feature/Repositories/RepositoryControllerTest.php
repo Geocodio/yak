@@ -54,6 +54,19 @@ test('index shows task counts and setup status', function () {
                 ->etc()));
 });
 
+test('index carries the approval level and mode on each repo', function () {
+    $repo = Repository::factory()->create(['slug' => 'approval-repo']);
+    $repo->setApproval(3, 'shadow', null);
+
+    $this->get(route('repos'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('repositories', 1, fn (Assert $row) => $row
+                ->where('slug', 'approval-repo')
+                ->where('approvalLevel', 3)
+                ->where('approvalMode', 'shadow')
+                ->etc()));
+});
+
 test('index includes a 30-day review count on each repo', function () {
     $repo = Repository::factory()->create(['pr_review_enabled' => true, 'slug' => 'geocodio/api']);
 
