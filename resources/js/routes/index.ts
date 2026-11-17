@@ -122,7 +122,7 @@ install.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:139
+* @see routes/web.php:140
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -136,7 +136,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:139
+* @see routes/web.php:140
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -144,7 +144,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:139
+* @see routes/web.php:140
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -153,7 +153,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:139
+* @see routes/web.php:140
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -339,7 +339,7 @@ analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:21
 * @route '/repos'
 */
 export const repos = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -354,7 +354,7 @@ repos.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:21
 * @route '/repos'
 */
 repos.url = (options?: RouteQueryOptions) => {
@@ -363,7 +363,7 @@ repos.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:21
 * @route '/repos'
 */
 repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -373,7 +373,7 @@ repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:21
 * @route '/repos'
 */
 repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

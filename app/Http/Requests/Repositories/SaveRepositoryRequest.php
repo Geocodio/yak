@@ -42,9 +42,7 @@ class SaveRepositoryRequest extends FormRequest
             'selected_github_repo' => ['nullable', 'string', 'max:255'],
             'selected_github_repo_id' => ['nullable', 'integer'],
 
-            // Preview manifest, submitted alongside the repository fields
-            // from the same "Save repository" button. Present only when the
-            // edit page rendered the branch-deployments section.
+            // Preview manifest, submitted from the Previews section.
             'manifest' => ['sometimes', 'nullable', 'array'],
             'manifest.port' => ['required_with:manifest', 'integer', 'min:1', 'max:65535'],
             'manifest.health_probe_path' => ['required_with:manifest', 'string', 'starts_with:/'],
@@ -54,8 +52,12 @@ class SaveRepositoryRequest extends FormRequest
         ];
 
         if ($repository instanceof Repository) {
-            $rules['slug'] = ['required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)];
-            $rules['path'] = ['required', 'string', 'max:500', 'starts_with:/'];
+            $rules = array_map(
+                fn (array $fieldRules): array => in_array('sometimes', $fieldRules, true) ? $fieldRules : ['sometimes', ...$fieldRules],
+                $rules,
+            );
+            $rules['slug'] = ['sometimes', 'required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)];
+            $rules['path'] = ['sometimes', 'required', 'string', 'max:500', 'starts_with:/'];
         }
 
         return $rules;

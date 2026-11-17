@@ -25,7 +25,7 @@ beforeEach(function () {
 test('repository form saves the profile validity and exposes only that policy setting', function () {
     $this->patch(route('repos.update', $this->repo), $this->payload)->assertSessionHasNoErrors();
     expect($this->repo->fresh()->reviewPolicy()['profile_max_age_days'])->toBe(30);
-    $this->get(route('repos.edit', $this->repo))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('repos.settings.show', ['repository' => $this->repo, 'section' => 'review']))->assertInertia(fn (Assert $page) => $page
         ->where('repository.reviewPolicy', ['profile_max_age_days' => 30])
         ->has('repository.riskProfiles.drafts', 0)
         ->where('repository.riskProfiles.active', null)

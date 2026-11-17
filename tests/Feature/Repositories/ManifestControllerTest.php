@@ -18,7 +18,7 @@ test('edit exposes the existing manifest values', function () {
         ],
     ]);
 
-    $this->get(route('repos.edit', $repo))
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'previews']))
         ->assertInertia(fn (Assert $page) => $page
             ->where('manifest.port', 3000)
             ->where('manifest.healthProbePath', '/healthz'));

@@ -140,7 +140,11 @@ class Repository extends Model
         return $level >= 1 && $level <= 5 ? $level : 1;
     }
 
-    /** `off` at level 1, otherwise `shadow` or `enforce`. */
+    /**
+     * `off` at level 1, otherwise `shadow` or `enforce`.
+     *
+     * @return 'off'|'shadow'|'enforce'
+     */
     public function approvalMode(): string
     {
         if ($this->approvalLevel() === 1) {

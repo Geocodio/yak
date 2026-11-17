@@ -73,8 +73,7 @@ test('create renders the form with github and sentry options', function () {
     $this->get(route('repos.create'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Repositories/Form')
-            ->where('repository', null)
+            ->component('Repositories/Create')
             ->has('options.ciSystems')
             ->has('options.defaultPathExcludes'));
 });
@@ -208,7 +207,7 @@ test('edit renders the form pre-filled with repository data', function () {
     $this->get(route('repos.edit', $repo))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Repositories/Form')
+            ->component('Repositories/Settings/General')
             ->where('repository.slug', 'edit-test')
             ->where('repository.name', 'Edit Test')
             ->where('repository.path', '/home/yak/repos/edit-test')
@@ -250,7 +249,7 @@ test('edit exposes setup history limited to 10 most recent setup tasks for the r
         'external_id' => 'setup-ccc',
     ]);
 
-    $this->get(route('repos.edit', $repo))
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'sandbox']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('setupHistory', 1, fn (Assert $row) => $row
                 ->where('id', 'setup-aaa')
@@ -343,7 +342,7 @@ test('canDelete is false when the repository has tasks', function () {
     $repo = Repository::factory()->create(['slug' => 'has-tasks']);
     YakTask::factory()->create(['repo' => 'has-tasks']);
 
-    $this->get(route('repos.edit', $repo))
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'danger']))
         ->assertInertia(fn (Assert $page) => $page
             ->where('canDelete', false)
             ->whereNot('deleteBlockedReason', null));
@@ -614,7 +613,7 @@ test('keeps the preview repair switch when the payload leaves it out', function 
 test('the settings page exposes the preview repair switch', function () {
     $repo = Repository::factory()->create(['preview_repair_enabled' => false]);
 
-    $this->get(route('repos.edit', $repo))
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'previews']))
         ->assertInertia(fn (Assert $page) => $page->where('repository.previewRepairEnabled', false));
 });
 
@@ -651,7 +650,7 @@ test('setup history is limited to the 10 most recent setup tasks', function () {
         'mode' => TaskMode::Setup,
     ]);
 
-    $this->get(route('repos.edit', $repo))
+    $this->get(route('repos.settings.show', ['repository' => $repo, 'section' => 'sandbox']))
         ->assertInertia(fn (Assert $page) => $page
             ->has('setupHistory', 10)
             ->where('setupHistory.0.id', 'setup-limit-11')
