@@ -166,7 +166,8 @@ struct DrawerIndicator: View {
                     .frame(width: 14, height: 14)
                     .rotationEffect(.degrees(isSpinning ? 360 : 0))
                     .animation(
-                        reduceMotion ? nil : .linear(duration: 1.1).repeatForever(autoreverses: false),
+                        StillMotion.isOn(reduceMotion: reduceMotion)
+                            ? nil : .linear(duration: 1.1).repeatForever(autoreverses: false),
                         value: isSpinning
                     )
                     .onAppear { isSpinning = true }

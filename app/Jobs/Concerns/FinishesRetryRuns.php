@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\TaskStop;
@@ -20,6 +21,8 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\PullRequests\ThreadRepositoryPullRequests;
 use App\Services\YakPersonality;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 trait FinishesRetryRuns
 {
@@ -96,6 +99,12 @@ trait FinishesRetryRuns
                 return;
             }
 
+            if ($repository->settings()->ciSystem() !== 'none' && ! $this->branchDiffersFromRemote($sandbox, $containerName, $workspacePath)) {
+                $this->rerunCiOnUnchangedBranch($repository, $result);
+
+                return;
+            }
+
             // Counted against the branch as it was fetched; the rebase above
             // rewrites hashes, so the commit count can include replayed ones.
             $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, $workspacePath, "origin/{$this->task->branch_name}"));
@@ -123,6 +132,70 @@ trait FinishesRetryRuns
         } else {
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed retry on branch {$this->task->branch_name} -- waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
+        }
+    }
+
+    private function branchDiffersFromRemote(SandboxShell $sandbox, string $containerName, string $workspacePath): bool
+    {
+        $diff = $sandbox->run($containerName, "cd {$workspacePath} && git rev-list --count origin/{$this->task->branch_name}...HEAD", timeout: 15);
+
+        return $diff->exitCode() !== 0 || (int) trim($diff->output()) > 0;
+    }
+
+    /**
+     * The agent left the branch as CI last saw it, so a push starts no new CI
+     * run. The failed GitHub Actions jobs on that commit run again instead, and
+     * the task fails now when they cannot, so it never waits on a CI result
+     * that is not coming.
+     */
+    private function rerunCiOnUnchangedBranch(Repository $repository, AgentRunResult $result): void
+    {
+        $this->task->update($this->postAgentUpdate($repository, $result));
+
+        if (! $this->rerunFailedCiJobs($repository)) {
+            $this->handleError('Retry made no changes to the branch, so CI could not run again on it.');
+
+            return;
+        }
+
+        TaskLogger::info($this->task, 'No new changes -- rerunning failed CI jobs', ['branch' => $this->task->branch_name]);
+
+        $message = YakPersonality::generate(NotificationType::Progress, "Retry made no changes on {$this->task->branch_name} -- rerunning the failed CI jobs before opening a PR.");
+        SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
+    }
+
+    private function rerunFailedCiJobs(Repository $repository): bool
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($repository->settings()->ciSystem() !== 'github_actions' || $installationId === 0) {
+            return false;
+        }
+
+        $gitHub = app(GitHubAppService::class);
+
+        try {
+            $failedRuns = array_filter(
+                $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name),
+                fn (array $run): bool => ! GitHubAppService::isUnfinishedWorkflowRun($run)
+                    && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true),
+            );
+
+            if ($failedRuns === []) {
+                return false;
+            }
+
+            foreach ($failedRuns as $run) {
+                if (! $gitHub->rerunFailedJobs($installationId, $repository->github_full_name, $run['id'])) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            Log::channel('yak')->warning('Could not rerun failed CI jobs after an unchanged retry', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+
+            return false;
         }
     }
 
