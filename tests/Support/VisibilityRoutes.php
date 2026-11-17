@@ -177,7 +177,7 @@ class VisibilityRoutes
             'repos.update', 'repos.destroy', 'repos.toggle-active', 'repos.rerun-setup', 'repos.config.refresh',
             'repos.config.migrate', 'repos.review-open-prs', 'repos.risk-profile', 'repos.risk-profile.show',
             'repos.rebuild-deployments', 'repos.manifest.update',
-            'repos.claude-account.update', 'repos.unattended-claude-account.update', 'repos.approvals.show', 'repos.approvals.update', 'repos.settings.show',
+            'repos.claude-account.update', 'repos.unattended-claude-account.update', 'repos.approvals.show', 'repos.approvals.update', 'repos.approvals.check', 'repos.approvals.review', 'repos.settings.show',
             'skills', 'skills.install', 'skills.update', 'skills.upgrade', 'skills.destroy',
             'marketplaces.store', 'marketplaces.refresh', 'marketplaces.destroy',
             'mcp', 'mcp.store', 'mcp.destroy', 'mcp.login.start', 'mcp.login.cancel', 'mcp.login.redirect', 'mcp.logout',
