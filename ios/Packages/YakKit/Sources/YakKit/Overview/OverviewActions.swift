@@ -28,6 +28,8 @@ public enum SubThreadAddOutcome: Equatable, Sendable {
     case added(SubThreadCreated)
     /// `.refused` keeps the server's code, message and field errors.
     case notAdded(ThreadActionOutcome)
+    /// 409 `sub_thread_cannot_spawn`: the thread is a sub-thread. `parentID` is the server's `details.parentId`.
+    case cannotSpawn(message: String, parentID: String?)
 }
 
 /// Every action the Overview sends. Each is safe to repeat: a double tap sends once, a busy thread is asked
@@ -385,6 +387,9 @@ public actor OverviewActions {
                 sending.sendKey = nil
                 sending.sendKeyIsInFlight = false
                 await cache.saveSubThreadDraft(sending, parentID: parentID)
+                if error.status == 409, error.code == "sub_thread_cannot_spawn" {
+                    return .cannotSpawn(message: error.message, parentID: error.details["parentId"]?.stringValue)
+                }
                 return .notAdded(outcome(for: failure))
             }
         }

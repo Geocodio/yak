@@ -146,7 +146,7 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
     await model.start(initialTitle: nil)
     #expect(await fixture.eventually { model.snapshot?.show != nil })
     #expect(model.snapshot?.show?.panes.preview == false)
-    #expect(model.panes == [.chat, .files])
+    #expect(model.panes == [.chat, .files, .overview])
     await model.stop()
     await fixture.session.stop()
 }
