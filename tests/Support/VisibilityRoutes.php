@@ -124,6 +124,9 @@ class VisibilityRoutes
         'pr-reviews.for-pr' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}'],
         'pr-reviews.for-pr.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}/rerun'],
         'pr-reviews.for-pr.runs.log' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/log', [], 404],
+        'repos.runs.show' => ['GET', '/repos/' . VisibilityWorld::REPO . '/runs/{task}', [], 404],
+        'repos.runs.log' => ['GET', '/repos/' . VisibilityWorld::REPO . '/runs/{task}/log', [], 404],
+        'repos.runs.retry' => ['POST', '/repos/' . VisibilityWorld::REPO . '/runs/{task}/retry', [], 404],
         'pr-reviews.for-pr.runs.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/rerun', [], 404],
     ];
 
@@ -196,7 +199,7 @@ class VisibilityRoutes
             'auth.google', 'auth.google.callback', 'auth.linear.redirect', 'auth.linear.callback',
             // Deploy-wide configuration screens: repositories, skills, MCP, prompts, channels, health, settings.
             'channels', 'health', 'health.refresh', 'health.check.refresh',
-            'repos', 'repos.create', 'repos.store', 'repos.github-search', 'repos.github-detect', 'repos.edit',
+            'repos', 'repos.create', 'repos.store', 'repos.github-search', 'repos.github-detect', 'repos.edit', 'repos.runs.index',
             'repos.update', 'repos.destroy', 'repos.toggle-active', 'repos.rerun-setup', 'repos.config.refresh',
             'repos.config.migrate', 'repos.review-open-prs', 'repos.risk-profile', 'repos.risk-profile.show',
             'repos.rebuild-deployments', 'repos.manifest.update',

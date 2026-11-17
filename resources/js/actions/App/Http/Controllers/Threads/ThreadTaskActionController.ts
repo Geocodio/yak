@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:30
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
 * @route '/threads/{thread}/retry'
 */
 export const retry = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ retry.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:30
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
 * @route '/threads/{thread}/retry'
 */
 retry.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ retry.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:30
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
 * @route '/threads/{thread}/retry'
 */
 retry.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ retry.post = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:59
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
 * @route '/threads/{thread}/cancel'
 */
 export const cancel = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:59
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
 * @route '/threads/{thread}/cancel'
 */
 cancel.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ cancel.url = (args: { thread: string | { public_id: string } } | [thread: string
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:59
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
 * @route '/threads/{thread}/cancel'
 */
 cancel.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ cancel.post = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
 * @route '/threads/{thread}/move'
 */
 export const move = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -132,7 +132,7 @@ move.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
 * @route '/threads/{thread}/move'
 */
 move.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ move.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
 * @route '/threads/{thread}/move'
 */
 move.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -175,7 +175,7 @@ move.post = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::setUpRepositoryAndContinue
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:47
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
 * @route '/threads/{thread}/setup-and-continue'
 */
 export const setUpRepositoryAndContinue = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -190,7 +190,7 @@ setUpRepositoryAndContinue.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::setUpRepositoryAndContinue
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:47
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
 * @route '/threads/{thread}/setup-and-continue'
 */
 setUpRepositoryAndContinue.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ setUpRepositoryAndContinue.url = (args: { thread: string | { public_id: string }
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::setUpRepositoryAndContinue
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:47
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
 * @route '/threads/{thread}/setup-and-continue'
 */
 setUpRepositoryAndContinue.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ setUpRepositoryAndContinue.post = (args: { thread: string | { public_id: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:85
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
 * @route '/threads/{thread}/request-review'
 */
 export const requestReview = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -248,7 +248,7 @@ requestReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:85
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
 * @route '/threads/{thread}/request-review'
 */
 requestReview.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -281,7 +281,7 @@ requestReview.url = (args: { thread: string | { public_id: string } } | [thread:
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:85
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
 * @route '/threads/{thread}/request-review'
 */
 requestReview.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -291,7 +291,7 @@ requestReview.post = (args: { thread: string | { public_id: string } } | [thread
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:105
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
 * @route '/threads/{thread}/retry-render'
 */
 export const retryRender = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -306,7 +306,7 @@ retryRender.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:105
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
 * @route '/threads/{thread}/retry-render'
 */
 retryRender.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -339,7 +339,7 @@ retryRender.url = (args: { thread: string | { public_id: string } } | [thread: s
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:105
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
 * @route '/threads/{thread}/retry-render'
 */
 retryRender.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -349,7 +349,7 @@ retryRender.post = (args: { thread: string | { public_id: string } } | [thread: 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::answerClarification
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 export const answerClarification = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -364,7 +364,7 @@ answerClarification.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::answerClarification
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 answerClarification.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -397,7 +397,7 @@ answerClarification.url = (args: { thread: string | { public_id: string } } | [t
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::answerClarification
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 answerClarification.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

@@ -16,6 +16,9 @@ import ThreadRepositoryController from './ThreadRepositoryController'
 import Preview from './Preview'
 import TerminalSessionController from './TerminalSessionController'
 import ThreadFileController from './ThreadFileController'
+import ThreadCoOwnerController from './ThreadCoOwnerController'
+import ThreadTaskActionController from './ThreadTaskActionController'
+import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
 
 const Threads = {
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
@@ -36,6 +39,9 @@ const Threads = {
     Preview: Object.assign(Preview, Preview),
     TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
     ThreadFileController: Object.assign(ThreadFileController, ThreadFileController),
+    ThreadCoOwnerController: Object.assign(ThreadCoOwnerController, ThreadCoOwnerController),
+    ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
+    ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
 }
 
 export default Threads

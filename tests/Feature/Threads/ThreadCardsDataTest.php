@@ -260,7 +260,7 @@ it('offers continuing after setup and the failed setup run on the repository not
 
     $notice = ThreadNoticeData::for($thread->fresh(), $this->requester);
 
-    expect($notice)->toMatchArray(['kind' => 'repository_setup_failed', 'canContinueAfterSetup' => true, 'failedSetupRunUrl' => route('tasks.show', $setupTask)]);
+    expect($notice)->toMatchArray(['kind' => 'repository_setup_failed', 'canContinueAfterSetup' => true, 'failedSetupRunUrl' => route('repos.runs.show', [$repository, $setupTask])]);
 
     $task->update(['resume_after_setup_at' => now()]);
 

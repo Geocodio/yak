@@ -107,13 +107,13 @@ final class PrReviewRunData
      *
      * @return array{error: ?string, errorIsTruncated: bool, errorDetails: ?string}
      */
-    private static function error(YakTask $task, TaskStatus $status): array
+    public static function error(YakTask $task, TaskStatus $status, string $fallback = 'The review stopped without a recorded reason.'): array
     {
         if ($status !== TaskStatus::Failed && $status !== TaskStatus::Expired) {
             return ['error' => null, 'errorIsTruncated' => false, 'errorDetails' => null];
         }
 
-        $full = trim((string) $task->error_log) === '' ? 'The review stopped without a recorded reason.' : trim((string) $task->error_log);
+        $full = trim((string) $task->error_log) === '' ? $fallback : trim((string) $task->error_log);
         $short = trim((string) preg_replace('/\s+/u', ' ', $full));
         $isTruncated = mb_strlen($short) > self::ERROR_LIMIT;
 

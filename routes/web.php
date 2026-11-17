@@ -69,6 +69,7 @@ use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Repositories\RepositoryRunController;
 use App\Http\Controllers\Repositories\RepositorySettingsController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
@@ -218,6 +219,19 @@ Route::middleware(['auth'])->group(function () {
         ->name('repos.approvals.review')
         ->where('repository', '.+')
         ->whereNumber('number');
+    Route::get('repos/{repository}/runs', [RepositoryRunController::class, 'show'])
+        ->name('repos.runs.index')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/runs/{task}', [RepositoryRunController::class, 'show'])
+        ->name('repos.runs.show')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/runs/{task}/log', [RepositoryRunController::class, 'log'])
+        ->name('repos.runs.log')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/runs/{task}/retry', [RepositoryRunController::class, 'retry'])
+        ->name('repos.runs.retry')
+        ->middleware('task.drive')
+        ->where('repository', '.+');
     Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
         ->name('repos.settings.show')
         ->where('repository', '.+')

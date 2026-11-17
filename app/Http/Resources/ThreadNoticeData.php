@@ -113,8 +113,7 @@ final class ThreadNoticeData
                 && in_array($head->status, [TaskStatus::Failed, TaskStatus::Expired], true)
                 && $head->resume_after_setup_at === null
                 && app(ThreadAccess::class)->canDrive($viewer, $thread),
-            // The repository Runs page does not exist yet; the setup task's own page stands in for it.
-            'failedSetupRunUrl' => $failedSetupTask === null ? null : route('tasks.show', $failedSetupTask),
+            'failedSetupRunUrl' => $failedSetupTask === null ? null : route('repos.runs.show', [$repository, $failedSetupTask]),
         ];
     }
 

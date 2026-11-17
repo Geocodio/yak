@@ -10,7 +10,7 @@ it('shows the section nav and the DEFCON pill, and navigates to Auto-approval', 
 
     visit(route('repos.edit', $repository))
         ->assertVisible('[data-testid="section-nav"]')
-        ->assertScript('document.querySelectorAll(\'[data-testid^="section-nav-"]\').length', 7)
+        ->assertScript('document.querySelectorAll(\'[data-testid^="section-nav-"]\').length', 8)
         ->assertSeeIn('[data-testid="header-defcon"]', 'DEFCON 1 · review only')
         ->click('[data-testid="section-nav-approvals"]')
         ->wait(1)

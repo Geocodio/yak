@@ -59,7 +59,7 @@ class ThreadOrigin
         };
     }
 
-    private function isRiskProfileResearch(YakTask $request): bool
+    public function isRiskProfileResearch(YakTask $request): bool
     {
         return $request->mode === TaskMode::Research
             && str_starts_with((string) $request->external_id, 'risk-profile-');

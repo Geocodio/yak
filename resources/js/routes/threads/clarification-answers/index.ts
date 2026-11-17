@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::store
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 export const store = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::store
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 store.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { thread: string | { public_id: string } } | [thread: string 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadTaskActionController::store
-* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:117
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:76
 * @route '/threads/{thread}/clarification-answers'
 */
 store.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

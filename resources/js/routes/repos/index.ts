@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import approvals from './approvals'
+import runs from './runs'
 import settings from './settings'
 import config from './config'
 import manifest from './manifest'
@@ -653,6 +654,7 @@ const repos = {
     edit: Object.assign(edit, edit),
     riskProfile: Object.assign(riskProfile, riskProfile),
     approvals: Object.assign(approvals, approvals),
+    runs: Object.assign(runs, runs),
     settings: Object.assign(settings, settings),
     update: Object.assign(update, update),
     destroy: Object.assign(destroy, destroy),
