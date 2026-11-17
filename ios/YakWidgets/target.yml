@@ -18,6 +18,13 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: $(YAK_DISPLAY_NAME)
         SKIP_INSTALL: YES
+      configs:
+        Debug:
+          YAK_PUSH_ENVIRONMENT: sandbox
+          YAK_APS_ENVIRONMENT: development
+        Release:
+          YAK_PUSH_ENVIRONMENT: production
+          YAK_APS_ENVIRONMENT: production
     info:
       path: YakWidgets/Info.plist
       properties:

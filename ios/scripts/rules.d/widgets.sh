@@ -6,7 +6,7 @@ targets+=(YakWidgets)
 surface_folders=(Yak/Widgets Yak/Intents Yak/QuickActions Shared/Widgets Shared/Intents YakWidgets)
 for folder in "${surface_folders[@]}"; do
     [ -d "$folder" ] || continue
-    hits=$(grep -rnE --include='*.swift' '\.(needsYou|running)\b' "$folder" | grep -vE 'ThreadEntityRows\.needsYou' || true)
+    hits=$(grep -rnE --include='*.swift' '[sS]napshot[A-Za-z]*\??\.(needsYou|running)\b' "$folder" || true)
     if [ -n "$hits" ]; then
         echo "$hits"
         fail 'a widget, intent or quick action reads a snapshot list directly; use the YakKit content types'

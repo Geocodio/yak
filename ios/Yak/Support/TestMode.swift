@@ -100,7 +100,7 @@
                     if let tap = Self.launchPushTap() { await push.didTap(tap) }
                 },
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
-                observers: parts.observers, push: parts.push)
+                observers: parts.observers, push: parts.push, widgets: parts.widgets)
             model.skipsWebSession = skipsWebSession
             return (model, parts)
         }

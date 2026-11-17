@@ -23,8 +23,10 @@ final class StubWidgets: StubFeature, @unchecked Sendable {
         let path = parts[1].split(separator: "/").map(String.init)
         if parts[0] == "GET", path == ["threads"] {
             switch context.scenario {
-            case "widgets-busy": return json(context.fixtures.scenario("scenario-widgets-thread-list-busy", baseURL: context.baseURL))
-            case "widgets-empty": return json(context.fixtures.scenario("scenario-widgets-thread-list-empty", baseURL: context.baseURL))
+            case "widgets-busy":
+                return json(context.fixtures.scenario("scenario-widgets-thread-list-busy", baseURL: context.baseURL))
+            case "widgets-empty":
+                return json(context.fixtures.scenario("scenario-widgets-thread-list-empty", baseURL: context.baseURL))
             default: return nil
             }
         }

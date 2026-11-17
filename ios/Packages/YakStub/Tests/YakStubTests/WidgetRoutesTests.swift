@@ -70,6 +70,17 @@ private let hexToken = String(repeating: "0123456789abcdef", count: 4)
     @Test func pushStillOwnsTheOtherKinds() throws {
         let alert = "{\"token\":\"\(hexToken)\",\"environment\":\"production\"}"
         #expect(try call("PUT", "push-tokens/alert", alert).0 == -1)
-        #expect(StubPush().answer(route: "PUT push-tokens/alert", request: StubRequest(method: "PUT", path: Scenario.apiPrefix + "push-tokens/alert", headers: [:], body: Data(alert.utf8)), context: StubContext(scenario: "paired", baseURL: "http://127.0.0.1", fixtures: try StubFixtures(directory: iosDirectory.appendingPathComponent("fixtures"), scenariosDirectory: iosDirectory.appendingPathComponent("Packages/YakKit/Tests/YakKitTests/Scenarios")), threads: StubThreads(), core: { .reply(status: 200, contentType: "application/json", body: Data()) })) != nil)
+        #expect(
+            StubPush().answer(
+                route: "PUT push-tokens/alert",
+                request: StubRequest(
+                    method: "PUT", path: Scenario.apiPrefix + "push-tokens/alert", headers: [:], body: Data(alert.utf8)),
+                context: StubContext(
+                    scenario: "paired", baseURL: "http://127.0.0.1",
+                    fixtures: try StubFixtures(
+                        directory: iosDirectory.appendingPathComponent("fixtures"),
+                        scenariosDirectory: iosDirectory.appendingPathComponent(
+                            "Packages/YakKit/Tests/YakKitTests/Scenarios")), threads: StubThreads(),
+                    core: { .reply(status: 200, contentType: "application/json", body: Data()) })) != nil)
     }
 }
