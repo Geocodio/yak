@@ -20,5 +20,6 @@ final readonly class ThreadMessageInput
         public MessageDelivery $delivery,
         public ?Closure $storeAttachments,
         public bool $acknowledgedPrivatePublish = false,
+        public ?string $effort = null,
     ) {}
 }

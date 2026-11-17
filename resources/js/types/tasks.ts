@@ -80,6 +80,14 @@ export type TaskDetail = {
     summary: string;
     repo: string | null;
     repoUrl: string | null;
+    /** Set when the task stopped and its repository has no ready sandbox. */
+    repositorySetup: {
+        repo: string;
+        settingsUrl: string;
+        isSettingUp: boolean;
+        continuesAfterSetup: boolean;
+        failedSetup: { at: string; url: string } | null;
+    } | null;
     sourceLabel: string;
     sourceUrl: string | null;
     /** The Sentry issue or flaky tests that started the task. */
@@ -138,7 +146,14 @@ export type QuestionData = {
     options: QuestionOptionData[];
 };
 
-export type ClarificationAnswerItem = { header: string; answer: string | null; other: string | null; skipped: boolean };
+export type ClarificationAnswerItem = {
+    header: string;
+    question: string;
+    answer: string | null;
+    choices: { label: string; description: string | null }[];
+    other: string | null;
+    skipped: boolean;
+};
 
 export type ThreadEntryData = {
     kind: 'user' | 'yak' | 'clarification' | 'clarification-answers' | 'system' | 'review-context';
@@ -176,6 +191,7 @@ export type ProgressStep = {
     tooltip: string;
     done: boolean;
     current: boolean;
+    failed: boolean;
 };
 
 export type ActivityRow = {

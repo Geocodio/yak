@@ -196,11 +196,12 @@ class WebhookController extends Controller
     {
         $description = app(InputDriver::class)->parse($request);
 
-        $existing = YakTask::where('source', 'linear')
+        $hasActiveTask = YakTask::where('source', 'linear')
             ->where('external_id', $description->externalId)
-            ->first();
+            ->whereIn('status', TaskStatus::activeValues())
+            ->exists();
 
-        if ($existing !== null) {
+        if ($hasActiveTask) {
             return response()->json(['ok' => true]);
         }
 

@@ -50,7 +50,7 @@ it('reports the default account per active repository', function () {
     $mine = checked(ClaudeAccount::factory()->for($me, 'owner')->default()->create(['default_model' => 'haiku']));
     $repository = Repository::factory()->create(['is_active' => true]);
 
-    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug])->toBe(['accountId' => $mine->id, 'brokenDefaultAccountId' => null, 'model' => 'haiku']);
+    expect(AccountPickerData::forUser($me)['defaultsByRepo'][$repository->slug])->toBe(['accountId' => $mine->id, 'brokenDefaultAccountId' => null, 'model' => 'haiku', 'effort' => null]);
 });
 
 it('reports brokenDefaultAccountId when the repository default is unusable', function () {

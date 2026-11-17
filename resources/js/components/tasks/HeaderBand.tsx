@@ -26,8 +26,8 @@ function ProgressBand({ steps }: { steps: ProgressStep[] }) {
 
                     return (
                         <li key={step.label} className="min-w-0 flex-1" title={step.tooltip} data-testid={`progress-step-${index}`} aria-current={isCurrent ? 'step' : undefined}>
-                            <i className={cn('block h-[3px] rounded-xs', isCurrent ? 'activity-fill' : isDone ? 'bg-accent' : 'bg-hair')} />
-                            <span className={cn('mt-[5px] hidden truncate text-[11px] lg:block', isCurrent ? 'font-semibold text-body' : isDone ? 'text-muted' : 'text-faint')}>{step.label}</span>
+                            <i className={cn('block h-[3px] rounded-xs', step.failed ? 'bg-fail' : isCurrent ? 'activity-fill' : isDone ? 'bg-accent' : 'bg-hair')} />
+                            <span className={cn('mt-[5px] hidden truncate text-[11px] lg:block', step.failed ? 'font-semibold text-fail' : isCurrent ? 'font-semibold text-body' : isDone ? 'text-muted' : 'text-faint')}>{step.label}</span>
                         </li>
                     );
                 })}

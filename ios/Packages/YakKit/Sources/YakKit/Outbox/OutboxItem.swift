@@ -50,6 +50,7 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     /// The message, or the new thread's description.
     public var text: String
     public var model: String?
+    public var effort: EffortLevel?
     public var delivery: MessageDelivery
     public var attachments: [OutboxAttachment]
     /// What the message asks Yak to do about the preview; nil for an ordinary message.
@@ -64,8 +65,9 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
     public init(
         id: UUID, target: OutboxTarget, text: String, model: String?, delivery: MessageDelivery,
         attachments: [OutboxAttachment], state: OutboxState = .queued, attemptCount: Int = 0,
-        mayHaveReachedServer: Bool = false, createdAt: Date, intent: MessageIntent? = nil
+        mayHaveReachedServer: Bool = false, createdAt: Date, intent: MessageIntent? = nil, effort: EffortLevel? = nil
     ) {
+        self.effort = effort
         self.intent = intent
         self.id = id
         self.target = target
@@ -86,6 +88,7 @@ public struct OutboxItem: Codable, Equatable, Identifiable, Sendable {
         target = try container.decode(OutboxTarget.self, forKey: .target)
         text = try container.decode(String.self, forKey: .text)
         model = try container.decodeIfPresent(String.self, forKey: .model)
+        effort = try container.decodeIfPresent(EffortLevel.self, forKey: .effort)
         delivery = try container.decode(MessageDelivery.self, forKey: .delivery)
         attachments = try container.decode([OutboxAttachment].self, forKey: .attachments)
         intent = try container.decodeIfPresent(MessageIntent.self, forKey: .intent)
@@ -120,6 +123,7 @@ public struct OutboxDraft: Equatable, Sendable {
     public var target: OutboxTarget
     public var text: String
     public var model: String?
+    public var effort: EffortLevel?
     public var delivery: MessageDelivery
     public var attachments: [OutboxAttachment]
     public var intent: MessageIntent?
@@ -128,8 +132,10 @@ public struct OutboxDraft: Equatable, Sendable {
 
     public init(
         target: OutboxTarget, text: String, model: String? = nil, delivery: MessageDelivery = .steer,
-        attachments: [OutboxAttachment] = [], intent: MessageIntent? = nil, sendKey: UUID? = nil
+        attachments: [OutboxAttachment] = [], intent: MessageIntent? = nil, sendKey: UUID? = nil,
+        effort: EffortLevel? = nil
     ) {
+        self.effort = effort
         self.intent = intent
         self.target = target
         self.text = text

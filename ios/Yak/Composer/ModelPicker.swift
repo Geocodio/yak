@@ -47,8 +47,19 @@ struct ModelPicker: View {
                         withAnimation(.smooth(duration: 0.25)) { toggle(familyName(of: row)) }
                     } pick: {
                         composer.selectModel(row.id)
-                        dismiss()
                     }
+                }
+            }
+            if !composer.supportedEfforts.isEmpty {
+                Section("newThread.effort.label") {
+                    Picker("newThread.effort.label", selection: effortSelection) {
+                        Text("newThread.effort.auto").tag(EffortLevel?.none)
+                        ForEach(composer.supportedEfforts, id: \.self) {
+                            Text(verbatim: $0.displayName).tag(EffortLevel?.some($0))
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("model.effort")
                 }
             }
             Section {
@@ -58,6 +69,10 @@ struct ModelPicker: View {
             }
         }
         .listSectionSpacing(.compact)
+    }
+
+    private var effortSelection: Binding<EffortLevel?> {
+        Binding(get: { composer.effectiveEffort }, set: { composer.selectEffort($0) })
     }
 
     /// The family a row belongs to: a family row by its own id, an older version by the family that lists it.

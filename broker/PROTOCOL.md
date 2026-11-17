@@ -29,6 +29,7 @@ One field, `command`, holding a JSON object with a `type`:
 | `steer` | `uuid`, `text`, optional `priority` (`next` or `now`) | Same wire effect as `turn`; the driver tracks them differently. |
 | `interrupt` | none | Writes an `interrupt` line. |
 | `set_model` | `model` | Writes a `set_model` line. |
+| `set_effort` | `effort` (string or null) | Writes a `set_effort` line; null resets to the model default. |
 | `end` | none | Writes an `end` line: finish the current work and exit. |
 | `kill` | none | Kills this channel's runner process tree with the full kill script. Other runners in the same container are untouched. |
 | `tool_result` | `call_id`, `is_error`, `content` | Writes the answer to a `yak.tool_call` (section 4) to the runner's stdin. |
@@ -68,10 +69,11 @@ JSON lines on the runner's stdin and stdout. The runner lives in `/opt/yak-runne
 
 In (broker to runner):
 
-- `start`: `model`, `appendSystemPrompt`, `permissionMode` (`bypassPermissions`), `cwd`, `additionalDirectories`, `mcpServers`, `settingSources`, `resume` (session id or null), `placeholder` (the thread's auth proxy placeholder), `disallowedTools` (`ScheduleWakeup`, `CronCreate`, `CronDelete`, `CronList`). The runner builds the child environment explicitly and never inherits its own: `ANTHROPIC_BASE_URL` is the auth proxy, `CLAUDE_CODE_OAUTH_TOKEN` is the placeholder, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` are unset, `HOME=/home/yak`, `CLAUDE_CONFIG_DIR` comes from the thread, `CLAUDE_STREAM_IDLE_TIMEOUT_MS=1800000` and `CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS=1800000`.
+- `start`: `model`, `effort` (optional), `appendSystemPrompt`, `permissionMode` (`bypassPermissions`), `cwd`, `additionalDirectories`, `mcpServers`, `settingSources`, `resume` (session id or null), `placeholder` (the thread's auth proxy placeholder), `disallowedTools` (`ScheduleWakeup`, `CronCreate`, `CronDelete`, `CronList`). The runner builds the child environment explicitly and never inherits its own: `ANTHROPIC_BASE_URL` is the auth proxy, `CLAUDE_CODE_OAUTH_TOKEN` is the placeholder, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` are unset, `HOME=/home/yak`, `CLAUDE_CONFIG_DIR` comes from the thread, `CLAUDE_STREAM_IDLE_TIMEOUT_MS=1800000` and `CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS=1800000`.
 - `user`: `uuid`, `text`, optional `priority` (`next` or `now`). PHP assigns and stores every UUID.
 - `interrupt`
 - `set_model`: `model`
+- `set_effort`: `effort` (string or null)
 - `end`: finish the current work and exit.
 - `tool_result`: see section 4.
 

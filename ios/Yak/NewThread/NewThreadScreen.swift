@@ -378,7 +378,9 @@ private struct NewThreadContent: View {
 
     private var modelText: Text {
         guard let value = model.form.model else { return Text("newThread.model.default") }
-        return Text(verbatim: ModelChoices.label(for: value, in: model.options?.models ?? []) ?? value)
+        let families = model.options?.models ?? []
+        return Text(
+            verbatim: ModelChoices.label(for: value, effort: model.form.effort, in: families) ?? value)
     }
 
     // MARK: Composer
@@ -718,8 +720,7 @@ private struct NewThreadModelPicker: View {
                 ForEach(rows) { row in
                     HStack {
                         Button {
-                            model.form.selectModel(row.id)
-                            dismiss()
+                            model.form.selectModel(row.id, families: model.options?.models ?? [])
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -756,6 +757,17 @@ private struct NewThreadModelPicker: View {
                     }
                     .padding(.leading, row.kind == .pinned ? 16 : 0)
                 }
+                let efforts = ModelChoices.efforts(for: model.form.model, in: model.options?.models ?? [])
+                if !efforts.isEmpty {
+                    Section("newThread.effort.label") {
+                        Picker("newThread.effort.label", selection: effortSelection) {
+                            Text("newThread.effort.auto").tag(EffortLevel?.none)
+                            ForEach(efforts, id: \.self) { Text(verbatim: $0.displayName).tag(EffortLevel?.some($0)) }
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("newThread.effort")
+                    }
+                }
             }
             .navigationTitle("newThread.model.label")
             .navigationBarTitleDisplayMode(.inline)
@@ -765,6 +777,10 @@ private struct NewThreadModelPicker: View {
         }
         .presentationDetents([.medium, .large])
         .accessibilityIdentifier("newThread.modelPicker")
+    }
+
+    private var effortSelection: Binding<EffortLevel?> {
+        Binding(get: { model.form.effort }, set: { model.form.selectEffort($0) })
     }
 
     private func familyID(of row: ModelChoiceRow) -> String {

@@ -28,42 +28,49 @@
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Received",
                 "tooltip": "Task landed in the queue."
             },
             {
                 "current": false,
                 "done": true,
+                "failed": false,
                 "label": "Picked up",
                 "tooltip": "An agent has claimed the task and started setup."
             },
             {
                 "current": true,
                 "done": true,
+                "failed": false,
                 "label": "Working",
                 "tooltip": "Agent is investigating the codebase and implementing the fix."
             },
             {
                 "current": false,
                 "done": false,
+                "failed": false,
                 "label": "Pushed",
                 "tooltip": "Changes committed and pushed to a branch."
             },
             {
                 "current": false,
                 "done": false,
-                "label": "CI passing",
-                "tooltip": "Waiting for CI to verify the changes."
+                "failed": false,
+                "label": "CI passed",
+                "tooltip": "CI verifies the changes before the pull request opens."
             },
             {
                 "current": false,
                 "done": false,
+                "failed": false,
                 "label": "Pull request",
                 "tooltip": "Pull request opened for human review."
             },
             {
                 "current": false,
                 "done": false,
+                "failed": false,
                 "label": "Done",
                 "tooltip": "Task complete."
             }

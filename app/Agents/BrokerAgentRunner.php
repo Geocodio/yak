@@ -47,6 +47,7 @@ class BrokerAgentRunner implements AgentRunner
             'source' => $task->source,
             'mode' => $task->mode->value,
             'model' => $request->model,
+            'effort' => $request->effort,
             'started_at' => now(),
         ]);
 

@@ -21,16 +21,18 @@ public struct NewThreadDraft: Codable, Equatable, Hashable, Sendable {
     public let repositories: [ExtraRepository]
     public let claudeAccountId: Int?
     public let model: String?
+    public let effort: EffortLevel?
 
     public init(
         repo: String, mode: String, repositories: [ExtraRepository] = [], claudeAccountId: Int? = nil,
-        model: String? = nil
+        model: String? = nil, effort: EffortLevel? = nil
     ) {
         self.repo = repo
         self.mode = mode
         self.repositories = repositories
         self.claudeAccountId = claudeAccountId
         self.model = model
+        self.effort = effort
     }
 }
 

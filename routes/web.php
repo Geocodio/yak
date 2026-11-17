@@ -160,6 +160,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tasks/{task}/log-entries', [TaskController::class, 'logEntries'])->name('tasks.log-entries');
     Route::middleware('task.drive')->group(function (): void {
         Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
+        Route::post('tasks/{task}/setup-and-continue', [TaskActionController::class, 'setUpRepositoryAndContinue'])->name('tasks.setup-and-continue');
         Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
         Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
         Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');

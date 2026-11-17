@@ -28,7 +28,7 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
+     * @return array{state: 'idle'|'working'|'disabled_closed'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
@@ -50,6 +50,7 @@ final class ThreadComposerData
         return [
             'state' => $state,
             'model' => $thread->model,
+            'effort' => $thread->effort,
             'models' => app(ClaudeModelCatalog::class)->families(),
             'accountName' => $thread->claudeAccount?->name,
             'nextAttachmentNumber' => $attachments + 1,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Threads\Stack;
 
+use App\Enums\EffortLevel;
 use App\Enums\ThreadKind;
 use App\Http\Requests\Concerns\AuthorizesThreadDriving;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -22,6 +23,7 @@ class StoreStackChildRequest extends FormRequest
             'brief' => ['required', 'string', 'max:20000'],
             'kind' => ['required', Rule::in([ThreadKind::Research->value, ThreadKind::Implement->value, ThreadKind::Mockup->value, ThreadKind::General->value])],
             'model' => ['nullable', 'string', ClaudeModelCatalog::rule()],
+            'effort' => ['nullable', Rule::enum(EffortLevel::class)],
         ];
     }
 }

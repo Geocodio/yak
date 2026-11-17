@@ -10,6 +10,7 @@ export type StackChild = {
     title: string;
     kind: string;
     model: string | null;
+    effort: string | null;
     state: StackChildState;
     step: string | null;
     resultSummary: string | null;

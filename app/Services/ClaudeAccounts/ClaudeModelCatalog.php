@@ -2,6 +2,7 @@
 
 namespace App\Services\ClaudeAccounts;
 
+use App\Enums\EffortLevel;
 use App\Models\ClaudeAccount;
 use App\Services\Threads\AuthProxyPlaceholders;
 use Illuminate\Support\Facades\Cache;
@@ -21,7 +22,7 @@ use Throwable;
  * which means the newest model of that family, or an exact model id, which
  * pins that version.
  *
- * @phpstan-type CatalogEntry array{id: string, family: string, label: string, description: string, isLatestInFamily: bool, createdAt: ?string}
+ * @phpstan-type CatalogEntry array{id: string, family: string, label: string, description: string, isLatestInFamily: bool, createdAt: ?string, efforts: list<string>}
  */
 class ClaudeModelCatalog
 {
@@ -57,14 +58,14 @@ class ClaudeModelCatalog
             $isLatest = ! isset($seen[$model['family']]);
             $seen[$model['family']] = true;
 
-            return ['id' => $model['id'], 'family' => $model['family'], 'label' => $model['label'], 'description' => self::DESCRIPTIONS[$model['family']], 'isLatestInFamily' => $isLatest, 'createdAt' => $model['createdAt']];
+            return ['id' => $model['id'], 'family' => $model['family'], 'label' => $model['label'], 'description' => self::DESCRIPTIONS[$model['family']], 'isLatestInFamily' => $isLatest, 'createdAt' => $model['createdAt'], 'efforts' => $model['efforts'] ?? EffortLevel::ascending()];
         }, $models);
     }
 
     /**
      * The picker shape: one row per family with its newest model, plus the older exact versions.
      *
-     * @return list<array{family: string, latest: array{value: string, label: string, description: string}, older: list<array{value: string, label: string}>}>
+     * @return list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>
      */
     public function families(): array
     {
@@ -80,8 +81,8 @@ class ClaudeModelCatalog
 
             $families[] = [
                 'family' => $family,
-                'latest' => ['value' => $family, 'label' => $inFamily[0]['label'], 'description' => self::DESCRIPTIONS[$family]],
-                'older' => array_map(fn (array $entry): array => ['value' => $entry['id'], 'label' => $entry['label']], array_slice($inFamily, 1)),
+                'latest' => ['value' => $family, 'label' => $inFamily[0]['label'], 'description' => self::DESCRIPTIONS[$family], 'efforts' => $inFamily[0]['efforts']],
+                'older' => array_map(fn (array $entry): array => ['value' => $entry['id'], 'label' => $entry['label'], 'efforts' => $entry['efforts']], array_slice($inFamily, 1)),
             ];
         }
 
@@ -156,7 +157,7 @@ class ClaudeModelCatalog
      * The proxy swaps the bearer placeholder for the account secret. The OAuth beta flag is
      * needed for setup tokens and the proxy drops it again for API keys.
      *
-     * @return list<array{id: string, family: string, label: string, createdAt: ?string}>
+     * @return list<array{id: string, family: string, label: string, createdAt: ?string, efforts: list<string>}>
      */
     private function fetch(string $placeholder): array
     {
@@ -189,7 +190,7 @@ class ClaudeModelCatalog
 
     /**
      * @param  array<mixed>  $item
-     * @return array{id: string, family: string, label: string, createdAt: ?string}|null
+     * @return array{id: string, family: string, label: string, createdAt: ?string, efforts: list<string>}|null
      */
     private function parse(array $item): ?array
     {
@@ -202,15 +203,70 @@ class ClaudeModelCatalog
         $name = is_string($item['display_name'] ?? null) && $item['display_name'] !== '' ? $item['display_name'] : $id;
         $createdAt = is_string($item['created_at'] ?? null) ? $item['created_at'] : null;
 
-        return ['id' => $id, 'family' => $match[1], 'label' => Str::chopStart($name, 'Claude '), 'createdAt' => $createdAt];
+        return ['id' => $id, 'family' => $match[1], 'label' => Str::chopStart($name, 'Claude '), 'createdAt' => $createdAt, 'efforts' => $this->parseEfforts($item)];
     }
 
     /**
-     * @return list<array{id: string, family: string, label: string, createdAt: ?string}>
+     * The supported effort levels, lowest first. A model without a capabilities block gets every level.
+     *
+     * @param  array<mixed>  $item
+     * @return list<string>
+     */
+    private function parseEfforts(array $item): array
+    {
+        $effort = is_array($item['capabilities'] ?? null) ? ($item['capabilities']['effort'] ?? null) : null;
+
+        if (! is_array($effort)) {
+            return EffortLevel::ascending();
+        }
+
+        if (($effort['supported'] ?? false) !== true) {
+            return [];
+        }
+
+        return array_values(array_filter(EffortLevel::ascending(), fn (string $level): bool => is_array($effort[$level] ?? null) && ($effort[$level]['supported'] ?? false) === true));
+    }
+
+    /**
+     * The requested effort, or the highest level the model supports below it; null when nothing fits.
+     */
+    public function clampEffort(string $model, ?string $effort): ?string
+    {
+        if ($effort === null) {
+            return null;
+        }
+
+        $supported = null;
+
+        foreach ($this->entries() as $entry) {
+            if ($entry['id'] === $model || ($entry['family'] === $model && $entry['isLatestInFamily'])) {
+                $supported = $entry['efforts'];
+                break;
+            }
+        }
+
+        if ($supported === null) {
+            return $effort;
+        }
+
+        $levels = EffortLevel::ascending();
+        $clamped = null;
+
+        foreach ($levels as $level) {
+            if (in_array($level, $supported, true) && array_search($level, $levels, true) <= array_search($effort, $levels, true)) {
+                $clamped = $level;
+            }
+        }
+
+        return $clamped;
+    }
+
+    /**
+     * @return list<array{id: string, family: string, label: string, createdAt: ?string, efforts: list<string>}>
      */
     private function seed(): array
     {
-        return array_values(array_map(fn (array $model): array => ['id' => $model['id'], 'family' => $model['family'], 'label' => $model['label'], 'createdAt' => null], (array) config('claude-accounts.seed_models')));
+        return array_values(array_map(fn (array $model): array => ['id' => $model['id'], 'family' => $model['family'], 'label' => $model['label'], 'createdAt' => null, 'efforts' => EffortLevel::ascending()], (array) config('claude-accounts.seed_models')));
     }
 
     private function account(): ?ClaudeAccount

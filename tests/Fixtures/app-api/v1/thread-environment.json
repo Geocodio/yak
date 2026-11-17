@@ -6,6 +6,7 @@
     },
     "branch": "yak/move-search",
     "deployment": null,
+    "effort": null,
     "model": "opus",
     "notUploadedDirectories": [],
     "pullRequest": {

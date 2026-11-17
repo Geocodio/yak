@@ -17,7 +17,7 @@ class ClaudeAccountResolver
      * the global system account. Unusable candidates are skipped, and
      * another person's account is never used.
      */
-    public function forNewThread(?User $starter, string $repo, ?int $chosenAccountId, ?string $chosenModel): ResolvedAccount
+    public function forNewThread(?User $starter, string $repo, ?int $chosenAccountId, ?string $chosenModel, ?string $chosenEffort = null): ResolvedAccount
     {
         $setting = $starter === null ? null : UserRepositorySetting::query()
             ->where('user_id', $starter->id)->where('repo', $repo)->first();
@@ -51,7 +51,11 @@ class ClaudeAccountResolver
         $settingModel = $account !== null && $account->id === $setting?->claude_account_id ? $setting->model : null;
         $model = $chosenModel ?? $settingModel ?? $accountModel ?? (string) config('yak.default_model');
 
-        return new ResolvedAccount($account, $model);
+        $accountEffort = $account === null ? null : $account->default_effort;
+        $settingEffort = $account !== null && $account->id === $setting?->claude_account_id ? $setting->effort : null;
+        $effort = $chosenEffort ?? $settingEffort ?? $accountEffort;
+
+        return new ResolvedAccount($account, $model, $effort);
     }
 
     /**

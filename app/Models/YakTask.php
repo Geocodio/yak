@@ -63,6 +63,7 @@ use Illuminate\Support\Str;
  * @property int|null $responsible_user_id
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
+ * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
  */
 #[ScopedBy(VisibleTaskScope::class)]
 class YakTask extends Model
@@ -125,6 +126,7 @@ class YakTask extends Model
             'pr_closed_at' => 'datetime',
             'pr_opened_at' => 'datetime',
             'pr_state_checked_at' => 'datetime',
+            'resume_after_setup_at' => 'datetime',
         ];
     }
 

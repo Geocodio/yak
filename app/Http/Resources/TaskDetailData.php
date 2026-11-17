@@ -7,6 +7,7 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
@@ -176,6 +177,7 @@ final class TaskDetailData
             'summary' => $task->description_summary ?: Str::limit((string) $task->description, 70),
             'repo' => $task->repo,
             'repoUrl' => $repository !== null ? route('repos.edit', $repository) : null,
+            'repositorySetup' => self::repositorySetup($task, $repository),
             'sourceLabel' => ucfirst(str_replace('-', ' ', (string) $task->source)),
             'sourceUrl' => TaskSourceUrl::resolve($task),
             'trigger' => TaskTrigger::describe($task),
@@ -231,6 +233,7 @@ final class TaskDetailData
                 $task->mode === TaskMode::Review => 'Review failed. Click Re-run review above to run it again against the current PR head.',
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
                 $task->mode === TaskMode::Setup => 'Setup failed. Fix the cause shown above, then click Retry.',
+                $task->resume_after_setup_at !== null => 'Waiting for repository setup. Yak continues this task when it finishes.',
                 in_array($task->source, ['slack', 'linear', 'email'], true) => 'Task failed. Click Retry above, or mention Yak again with more context.',
                 default => 'Task failed. Click Retry above to run it again.',
             },
@@ -367,6 +370,38 @@ final class TaskDetailData
             'meta' => $meta,
             'bodyHtml' => Markdown::toHtml($entry->text),
             'fullText' => $entry->summary,
+        ];
+    }
+
+    /**
+     * What the failure card shows when a task stopped and its repository has no ready
+     * sandbox: whether setup is running, whether this task continues after it, and the
+     * last setup task when that one failed.
+     *
+     * @return array{repo: string, settingsUrl: string, isSettingUp: bool, continuesAfterSetup: bool, failedSetup: array{at: string, url: string}|null}|null
+     */
+    private static function repositorySetup(YakTask $task, ?Repository $repository): ?array
+    {
+        if ($repository === null
+            || ! empty($repository->sandbox_snapshot)
+            || $task->mode === TaskMode::Setup
+            || ! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
+            return null;
+        }
+
+        $failedSetup = $repository->setup_status === 'failed' && $repository->setup_task_id !== null
+            ? YakTask::withoutGlobalScopes()->find($repository->setup_task_id)
+            : null;
+
+        return [
+            'repo' => $repository->slug,
+            'settingsUrl' => route('repos.edit', $repository),
+            'isSettingUp' => in_array($repository->setup_status, ['pending', 'running'], true),
+            'continuesAfterSetup' => $task->resume_after_setup_at !== null,
+            'failedSetup' => $failedSetup === null ? null : [
+                'at' => ($failedSetup->completed_at ?? $failedSetup->updated_at)->format('g:i A'),
+                'url' => route('tasks.show', $failedSetup),
+            ],
         ];
     }
 
@@ -516,7 +551,7 @@ final class TaskDetailData
     }
 
     /**
-     * @return array<int, array{label: string, tooltip: string, done: bool, current: bool}>
+     * @return array<int, array{label: string, tooltip: string, done: bool, current: bool, failed: bool}>
      */
     private static function progressSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
     {
@@ -535,12 +570,21 @@ final class TaskDetailData
             TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 + $waitingShift : ($task->branch_name ? 3 : 2),
         };
 
+        $isRetryingAfterCiFailure = in_array($status, [TaskStatus::Running, TaskStatus::Retrying], true)
+            && ($head->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->latest('id')->value('metadata')['passed'] ?? null) === false;
+
+        $ciStep = match (true) {
+            $isRetryingAfterCiFailure => ['label' => 'CI failed, retrying', 'tooltip' => 'CI failed on the last push, so Yak is fixing the changes and will push again.', 'failed' => true],
+            $reachedStep === 4 => ['label' => 'Waiting for CI', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
+            default => ['label' => 'CI passed', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
+        };
+
         $steps = [
             ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
             ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
             ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
             ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
-            ['label' => 'CI passing', 'tooltip' => 'Waiting for CI to verify the changes.'],
+            $ciStep,
             ...($hasCoOwnerRequest ? [['label' => 'Waiting for a co-owner', 'tooltip' => 'A co-owner with write access has to approve before Yak opens the pull request.']] : []),
             ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
             ['label' => 'Done', 'tooltip' => 'Task complete.'],
@@ -551,6 +595,7 @@ final class TaskDetailData
             'tooltip' => $step['tooltip'],
             'done' => $index <= $reachedStep,
             'current' => $index === $reachedStep,
+            'failed' => $step['failed'] ?? false,
         ], $steps, array_keys($steps));
     }
 

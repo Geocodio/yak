@@ -35,6 +35,15 @@ it('spawns a child from a thread tool call', function () {
     Queue::assertPushed(StartChildThreadJob::class, fn (StartChildThreadJob $job): bool => $job->childThreadId === $child->id);
 });
 
+it('gives the child the effort the tool call names', function () {
+    Queue::fake();
+    $parent = spawningParent();
+
+    app(YakToolRouter::class)->handle($parent, spawnCall(['name' => 'docs', 'brief' => 'Find the docs.', 'kind' => 'research', 'effort' => 'xhigh']));
+
+    expect(Thread::query()->where('parent_thread_id', $parent->id)->sole()->effort)->toBe('xhigh');
+});
+
 it('answers a child spawn attempt with an error result', function () {
     Queue::fake();
     $child = Thread::factory()->child(spawningParent())->create();
