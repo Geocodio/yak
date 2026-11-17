@@ -100,6 +100,10 @@ import XCTest
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         title.tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.child.n3wch11d"].waitForExistence(timeout: 15))
+        // The page is brought up so that no text is cut by the floating bar or the top edge.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
         try audit()
     }
 
