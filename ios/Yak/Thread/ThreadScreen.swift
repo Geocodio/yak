@@ -17,6 +17,8 @@ struct ThreadScreen: View {
     let isCoveredByDrawer: Bool
     let isCompactWidth: Bool
     let openWeb: (URL) -> Void
+    /// Push stays quiet for the thread while it shows.
+    var push: PushController?
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
@@ -82,7 +84,15 @@ struct ThreadScreen: View {
         // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
         // it, stays the only one for that thread.
         let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
-        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
+        let next = ThreadModel(
+            threadID: threadID, session: session, composer: sameThreadComposer,
+            onVisibilityChange: { [push, instanceURL, threadID] isVisible in
+                push?.setVisible(thread: threadID, instance: instanceURL, isVisible: isVisible)
+            },
+            onSnapshot: { [push, instanceURL, threadID] snapshot in
+                // The start may wait on the network, so the snapshot loop does not wait for it.
+                Task { await push?.observe(thread: threadID, instanceURL: instanceURL, snapshot: snapshot) }
+            })
         model = next
         // Drafts are local files, so the field shows the saved text before the session is active.
         await next.composer.load()

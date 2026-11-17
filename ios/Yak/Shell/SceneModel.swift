@@ -38,6 +38,7 @@ enum LinkOutcome: Equatable {
     case switchInstance(Instance)
     case unknownInstance(URL)
     case openTaskPage(URL)
+    case switchInstanceThenOpenTaskPage(Instance, URL)
 }
 
 /// Where one window is: the open thread, the focused pane, the drawer and the new-thread screen.
@@ -147,7 +148,14 @@ final class SceneModel {
         case .pair:
             return .handled
         case .task(let address, let id):
-            return .openTaskPage(address.appending(path: "tasks").appending(path: id))
+            guard let target = Self.instance(at: address, active: active, instances: instances) else {
+                return .unknownInstance(address)
+            }
+            let page = target.url.appending(path: "tasks").appending(path: id)
+            if target.id == active.id { return .openTaskPage(page) }
+            hasAppliedColdStart = true
+            state.instanceID = target.id
+            return .switchInstanceThenOpenTaskPage(target, page)
         case .thread(let address, let id):
             guard let target = Self.instance(at: address, active: active, instances: instances) else {
                 return .unknownInstance(address)
