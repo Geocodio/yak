@@ -104,8 +104,7 @@ class ReviewApprovalPolicy
         if ($concerns === null) {
             return [self::CONCERNS_MISSING];
         }
-        $repositoryHold = $this->requiredChecksHold($repository, $github, $baseRef, $decision['observed']['required_checks_present'])
-            ?? $this->staleDismissalHold($repository, $github, $baseRef, $decision['observed']['dismisses_stale_reviews']);
+        $repositoryHold = $this->requiredChecksHold($repository, $github, $baseRef, $decision['observed']['required_checks_present']);
         if ($repositoryHold !== null) {
             return [$repositoryHold];
         }
@@ -237,10 +236,8 @@ class ReviewApprovalPolicy
 
         $github = app(AppService::class);
         $unused = null;
-        $holds = array_values(array_filter([
-            $this->requiredChecksHold($repository, $github, $baseRef, $unused),
-            $this->staleDismissalHold($repository, $github, $baseRef, $unused),
-        ]));
+        $hold = $this->requiredChecksHold($repository, $github, $baseRef, $unused);
+        $holds = $hold === null ? [] : [$hold];
         Cache::put($key, $holds, 60);
 
         return $holds;
@@ -267,33 +264,22 @@ class ReviewApprovalPolicy
     }
 
     /**
-     * @param-out bool $observed
+     * `$observed` stays null when GitHub could not be read.
+     *
+     * @param-out bool|null $observed
      */
     private function requiredChecksHold(Repository $repository, AppService $github, string $baseRef, ?bool &$observed): ?string
     {
         try {
             $hasChecks = $github->hasRequiredStatusChecks((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseRef);
         } catch (\Throwable) {
-            $hasChecks = false;
+            $observed = null;
+
+            return "Could not read branch protection on {$baseRef}.";
         }
         $observed = $hasChecks;
 
         return $hasChecks ? null : "Branch protection on {$baseRef} has no required status checks.";
-    }
-
-    /**
-     * @param-out bool $observed
-     */
-    private function staleDismissalHold(Repository $repository, AppService $github, string $baseRef, ?bool &$observed): ?string
-    {
-        try {
-            $dismissesStale = $github->dismissesStaleReviews((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseRef);
-        } catch (\Throwable) {
-            $dismissesStale = false;
-        }
-        $observed = $dismissesStale;
-
-        return $dismissesStale ? null : "Branch protection on {$baseRef} must dismiss stale approvals.";
     }
 
     /**

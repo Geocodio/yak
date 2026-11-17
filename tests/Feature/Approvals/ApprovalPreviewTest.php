@@ -56,7 +56,6 @@ beforeEach(function () {
     $this->github = mock(AppService::class);
     $this->github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
     $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
-    $this->github->shouldReceive('dismissesStaleReviews')->andReturn(true)->byDefault();
     app()->instance(AppService::class, $this->github);
 });
 
@@ -379,4 +378,10 @@ it('serves the repository holds from a deferred group and remembers them briefly
 
     expect($policy->repositoryHolds($this->repo))->toBe(['Branch protection on main has no required status checks.'])
         ->and($policy->repositoryHolds($this->repo))->toBe(['Branch protection on main has no required status checks.']);
+});
+
+it('holds the repository with a distinct reason when branch protection cannot be read', function () {
+    $this->github->shouldReceive('hasRequiredStatusChecks')->andThrow(new RuntimeException('403'));
+
+    expect(app(ReviewApprovalPolicy::class)->repositoryHolds($this->repo))->toBe(['Could not read branch protection on main.']);
 });

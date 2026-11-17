@@ -9,8 +9,8 @@ function fakeApprovalGitHub(bool $hasRequiredChecks = true): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
-        'api.github.com/repos/*/branches/*/protection' => Http::response($hasRequiredChecks ? ['required_status_checks' => ['checks' => [['context' => 'ci']], 'contexts' => []], 'required_pull_request_reviews' => ['dismiss_stale_reviews' => true]] : []),
         'api.github.com/repos/*/rules/branches/*' => Http::response([]),
+        'api.github.com/repos/*/branches/*' => Http::response(['protection' => $hasRequiredChecks ? ['enabled' => true, 'required_status_checks' => ['enforcement_level' => 'everyone', 'checks' => [['context' => 'ci']], 'contexts' => ['ci']]] : ['enabled' => false]]),
         'api.github.com/repos/*/pulls*' => Http::response([]),
     ]);
 }

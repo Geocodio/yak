@@ -58,7 +58,6 @@ beforeEach(function () {
     ];
     $this->github->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn () => $this->livePullRequest)->byDefault();
     $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
-    $this->github->shouldReceive('dismissesStaleReviews')->andReturn(true)->byDefault();
     app()->instance(AppService::class, $this->github);
 });
 
@@ -83,39 +82,44 @@ it('holds without a concerns file', function () {
         ->toBe(['No concerns file (risk-profile.yml version 2) on the default branch.']);
 });
 
-it('holds without required status checks, including when the lookup throws', function (bool $throws) {
-    $this->github->shouldReceive('hasRequiredStatusChecks')->andReturnUsing(fn () => $throws ? throw new RuntimeException('403') : false);
+it('holds without required status checks', function () {
+    $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(false);
     $decision = policyEvaluate(policyFiles(), policyReview());
     expect($decision['reasons'])->toBe(['Branch protection on main has no required status checks.'])
         ->and($decision['observed']['required_checks_present'])->toBeFalse();
-})->with([false, true]);
+});
 
-it('holds unless the base branch dismisses stale approvals, including when the lookup throws', function (bool $throws) {
-    $this->github->shouldReceive('dismissesStaleReviews')->andReturnUsing(fn () => $throws ? throw new RuntimeException('403') : false);
+it('holds with a distinct reason when branch protection cannot be read', function () {
+    $this->github->shouldReceive('hasRequiredStatusChecks')->andThrow(new RuntimeException('403'));
     $decision = policyEvaluate(policyFiles(), policyReview());
-    expect($decision['reasons'])->toBe(['Branch protection on main must dismiss stale approvals.'])
-        ->and($decision['observed']['dismisses_stale_reviews'])->toBeFalse();
-})->with([false, true]);
+    expect($decision['reasons'])->toBe(['Could not read branch protection on main.'])
+        ->and($decision['observed']['required_checks_present'])->toBeNull();
+});
 
-it('holds supply-chain and authorization paths, including removed and renamed ones', function (array $file) {
+it('never asks about stale approval dismissal', function () {
+    fakePolicyClassifier();
+    $decision = policyEvaluate(policyFiles(), policyReview());
+    expect(implode(' ', $decision['reasons']))->not->toContain('stale')
+        ->and($decision['observed'])->not->toHaveKey('dismisses_stale_reviews');
+});
+
+it('holds Yak config, CI and migrations, including removed and renamed ones', function (array $file) {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
     $reasons = policyEvaluate([$file + ['patch' => '+x']], policyReview())['reasons'];
     expect($reasons)->not->toBe([])->and($reasons[0])->toStartWith('Always needs a human: ');
     ConcernClassifier::assertNeverPrompted();
 })->with([
-    'lockfile' => [['filename' => 'composer.lock', 'status' => 'modified']],
-    'composer.json' => [['filename' => 'composer.json', 'status' => 'modified']],
-    'package.json' => [['filename' => 'package.json', 'status' => 'modified']],
-    'routes' => [['filename' => 'routes/web.php', 'status' => 'modified']],
-    'config' => [['filename' => 'config/services.php', 'status' => 'modified']],
-    'bootstrap' => [['filename' => 'bootstrap/app.php', 'status' => 'modified']],
-    'auth class' => [['filename' => 'app/Http/AuthGuard.php', 'status' => 'modified']],
-    'policy class' => [['filename' => 'app/Support/InvoicePolicy.php', 'status' => 'modified']],
-    'permission class' => [['filename' => 'app/Support/Permissions.php', 'status' => 'modified']],
+    'yak config' => [['filename' => '.yak/risk-profile.yml', 'status' => 'modified']],
+    'migration' => [['filename' => 'database/migrations/2026_01_01_000000_x.php', 'status' => 'added']],
     'workflow' => [['filename' => '.github/workflows/ci.yml', 'status' => 'modified']],
-    'removed' => [['filename' => 'routes/api.php', 'status' => 'removed']],
+    'removed' => [['filename' => '.github/workflows/old.yml', 'status' => 'removed']],
     'renamed away' => [['filename' => 'app/Other.php', 'previous_filename' => 'config/auth.php', 'status' => 'renamed']],
 ]);
+
+it('lets business and dependency paths through the floor', function (string $path) {
+    fakePolicyClassifier();
+    expect(policyEvaluate(policyFiles($path), policyReview())['reasons'])->toBe([]);
+})->with(['config/billing.php', 'composer.json', 'routes/web.php', 'app/Support/InvoicePolicy.php']);
 
 it('holds a floor path and never calls the classifier', function () {
     Ai::fakeAgent(ConcernClassifier::class, [policyAnswer()]);
