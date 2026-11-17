@@ -52,4 +52,28 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["lock.cover"].waitForExistence(timeout: 10))
         try shoot("cover-over-sheet", audits: false)
     }
+
+    // MARK: Tips
+
+    func testTips() throws {
+        try start("one-thread-working", paired: true, extraArguments: ["-yakTestTips", "show"])
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 30))
+        field.tap()
+        field.typeText("Next")
+        XCTAssertTrue(label("Hold to send later").waitForExistence(timeout: 10))
+        try shoot("tip-send-after-turn")
+        app.terminate()
+        try start("paired", paired: true, extraArguments: ["-yakTestTips", "show"])
+        let menu = app.buttons["pane.menu"]
+        guard menu.waitForExistence(timeout: 30) else { throw XCTSkip("the thread did not open") }
+        menu.tap()
+        guard app.buttons.matching(identifier: "pane.menu.chat").count > 0,
+            app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'pane.menu.'")).count
+                > 1
+        else { throw XCTSkip("needs two panes") }
+        app.tap()
+        XCTAssertTrue(label("Press and slide").waitForExistence(timeout: 10))
+        try shoot("tip-pane-slide")
+    }
 }

@@ -16,6 +16,7 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
+                GestureTips.configure(TestSystemOptions.current().tips == .show ? .shown : .hidden)
                 let made = testMode.make(version: version, system: system)
                 self.parts = made.parts
                 _model = State(initialValue: made.model)
@@ -23,6 +24,7 @@ struct YakApp: App {
             }
         #endif
         let storage = SharedStorage.open()
+        GestureTips.configure(.normal)
         if let storage {
             _ = storage.migrateFromStandardStores()
         } else {

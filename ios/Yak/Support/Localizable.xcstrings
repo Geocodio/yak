@@ -8657,6 +8657,46 @@
           }
         }
       }
+    },
+    "tip.paneSlide.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold the pane button, slide to a pane and let go."
+          }
+        }
+      }
+    },
+    "tip.paneSlide.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press and slide"
+          }
+        }
+      }
+    },
+    "tip.sendAfterTurn.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold Send to send after this turn instead of steering now."
+          }
+        }
+      }
+    },
+    "tip.sendAfterTurn.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to send later"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

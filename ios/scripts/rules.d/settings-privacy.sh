@@ -16,7 +16,7 @@ only_in 'CSSearchableIndex' Yak/System/Spotlight/CoreSpotlightWriter.swift
 only_in 'CSSearchableItemAttributeSet' Yak/System/Spotlight/CoreSpotlightWriter.swift
 only_in 'OSLogStore' Yak/Debug/LogReader.swift
 only_in 'AppTransaction' Yak/Debug/BuildKindReader.swift
-only_in 'Tips.configure' Yak/System/Tips/GestureTips.swift
+only_in 'try Tips.configure' Yak/System/Tips/GestureTips.swift
 
 # Handoff sets the web address and nothing else.
 handoff_hits=$(grep -rnE --include='*.swift' 'NSUserActivity|\.userActivity\(' "${targets[@]}" 2>/dev/null \

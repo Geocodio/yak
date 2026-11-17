@@ -92,7 +92,14 @@ struct ComposerBar: View {
         .accessibilityAction(named: Text("composer.sendAfterTurn")) {
             if composer.bar.offersSendAfterTurn { send(.afterTurn) }
         }
+        .popoverTip(SendAfterTurnTip())
+        .onChange(of: tipIsEligible, initial: true) { SendAfterTurnTip.isEligible = tipIsEligible }
         .accessibilityIdentifier("composer.send")
+    }
+
+    private var tipIsEligible: Bool {
+        GestureTips.eligibleForSendAfterTurn(
+            offersSendAfterTurn: composer.bar.offersSendAfterTurn, hasText: !composer.text.isEmpty)
     }
 
     private var stopButton: some View {
@@ -115,6 +122,7 @@ struct ComposerBar: View {
     }
 
     private func send(_ delivery: MessageDelivery) {
+        if delivery == .afterTurn { SendAfterTurnTip.recordUse() }
         Task { await composer.send(delivery: delivery) }
     }
 
