@@ -342,18 +342,19 @@ private func chatSnapshot(
     let fixture = try await Fixture(clock: clock)
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     await model.start(initialTitle: nil)
-    await model.apply(try chatSnapshot(.completed, items: [textItem("m1:0", "First")]))
-    // A parse has finished and its publication waits for the flush delay.
-    #expect(await fixture.eventually { clock.sleeperCount(waking: .milliseconds(50)) >= 1 })
-    await model.retry()
-    let second = try chatSnapshot(.completed, items: [textItem("m2:0", "Second")])
-    var isScheduled = false
-    for _ in 0..<600 where !isScheduled {
-        await model.apply(second)
-        isScheduled = clock.sleeperCount(waking: .milliseconds(50)) >= 1
-        if !isScheduled { try await Task.sleep(for: .milliseconds(5)) }
+    /// The engine's own snapshots can arrive after a canned one and replace the items waiting for a parse, so the
+    /// canned snapshot is applied until a parse has finished and its publication waits for the flush delay.
+    func applyUntilAFlushWaits(_ snapshot: ConversationSnapshot) async throws -> Bool {
+        for _ in 0..<600 {
+            await model.apply(snapshot)
+            if clock.sleeperCount(waking: .milliseconds(50)) >= 1 { return true }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        return false
     }
-    #expect(isScheduled)
+    #expect(try await applyUntilAFlushWaits(chatSnapshot(.completed, items: [textItem("m1:0", "First")])))
+    await model.retry()
+    #expect(try await applyUntilAFlushWaits(chatSnapshot(.completed, items: [textItem("m2:0", "Second")])))
     clock.advance(.milliseconds(50))
     #expect(await fixture.eventually { model.documents["m2:0"] != nil })
     await model.stop()
