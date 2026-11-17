@@ -410,3 +410,37 @@ private final class Counter: @unchecked Sendable {
     #expect(UIPasteboard.general.string == "kept")
     #expect(!String(decoding: sent, as: UTF8.self).contains("]52;"))
 }
+
+/// Holds a `makeConnection` until the test releases it.
+private actor ConnectionGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    var isWaiting: Bool { continuation != nil }
+    func wait() async { await withCheckedContinuation { continuation = $0 } }
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+@MainActor @Test func aShellDoesNotOpenAfterTheModelStopped() async throws {
+    let fixture = try await Fixture()
+    let gate = ConnectionGate()
+    let session = fixture.session
+    let connector = fixture.connector
+    let model = TerminalPaneModel(
+        thread: fixture.thread, restore: fixture.thread.restore,
+        makeConnection: { state in
+            await gate.wait()
+            return await session.terminalConnection(
+                thread: "d0e515ef", sandboxState: state, connector: connector, timings: .shortWaits)
+        },
+        makeSurface: { FakeSurface() })
+    let starting = Task { await model.start() }
+    for _ in 0..<600 where !(await gate.isWaiting) { try? await Task.sleep(for: .milliseconds(5)) }
+    await model.stop()
+    await gate.release()
+    await starting.value
+    #expect(model.focusedShell == nil)
+    #expect(connector.sockets.isEmpty)
+    await fixture.finish()
+}

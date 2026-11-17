@@ -261,6 +261,11 @@ final class TerminalPaneModel {
         isOpening = true
         defer { isOpening = false }
         guard let facts, let connection = await makeConnection(facts.sandboxState) else { return }
+        // The model stopped while the connection was being made, so nothing may start it.
+        guard isStarted else {
+            await connection.close()
+            return
+        }
         let id = UUID()
         guard shells.add(id: id, hasPreviewPort: facts.preview?.port != nil) != nil else {
             await connection.close()
