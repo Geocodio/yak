@@ -5,6 +5,7 @@ use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Jobs\RunFollowUpJob;
+use App\Models\ClaudeAccount;
 use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\ThreadShare;
@@ -16,6 +17,7 @@ use App\Services\Threads\LegacyConversation;
 use App\Services\Threads\LegacyTaskThreads;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadList;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Queue;
 
 function oldConversation(?User $user = null): YakTask
@@ -188,4 +190,93 @@ it('refuses a viewer without drive rights and a closed thread that is not legacy
 
     $closed = Thread::factory()->closed()->create();
     $this->actingAs($owner)->post(route('threads.messages.store', $closed), ['message' => 'Hi'])->assertSessionHas('error');
+});
+
+function privateContinuation(): array
+{
+    Queue::fake();
+    test()->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andReturn(false);
+    $owner = User::factory()->create();
+    ClaudeAccount::factory()->create(['owner_user_id' => $owner->id, 'is_default' => true]);
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($owner));
+    $head = YakTask::query()->where('thread_id', $legacy->id)->get()->last();
+    $head = $head->conversation()->last();
+    $child = app(FollowUpTaskFactory::class)->create($head, 'Continue', 'linear');
+    $continuation = app(ThreadFactory::class)->forTask($child);
+    $continuation->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => $owner->id])->save();
+
+    return [$legacy, $continuation, $owner];
+}
+
+it('refuses a team member whose message would land in a private continuation', function () {
+    [$legacy, $continuation] = privateContinuation();
+    $member = User::factory()->create();
+    $tasks = YakTask::query()->withoutGlobalScopes()->count();
+
+    $response = $this->actingAs($member)->postJson(route('threads.messages.store', $legacy), ['message' => 'Sneaky']);
+
+    $response->assertStatus(422)->assertJsonPath('message', 'You cannot send messages to this thread.');
+    expect($response->getContent())->not->toContain($continuation->public_id)
+        ->and(YakTask::query()->withoutGlobalScopes()->count())->toBe($tasks)
+        ->and(Thread::query()->withoutGlobalScopes()->count())->toBe(2);
+});
+
+it('lets the owner of a private continuation send through the legacy thread', function () {
+    [$legacy, $continuation, $owner] = privateContinuation();
+
+    $this->actingAs($owner)->post(route('threads.messages.store', $legacy), ['message' => 'Go on'])
+        ->assertRedirect(route('threads.show', $continuation));
+});
+
+it('answers sent and keeps one follow-up when opening the new thread fails', function () {
+    Queue::fake();
+    $this->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andThrow(new RuntimeException('transcript unreadable'));
+    $user = User::factory()->create();
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($user));
+    $before = YakTask::query()->count();
+    $reported = [];
+    $this->app->make(ExceptionHandler::class)->reportable(function (RuntimeException $e) use (&$reported) {
+        $reported[] = $e->getMessage();
+
+        return false;
+    });
+
+    $this->actingAs($user)->post(route('threads.messages.store', $legacy), ['message' => 'Please continue'])
+        ->assertRedirect(route('threads.show', $legacy))->assertSessionHas('success');
+
+    expect(YakTask::query()->count())->toBe($before + 1)->and($reported)->toBe(['transcript unreadable']);
+});
+
+it('gives an active old task an open thread and a finished one a legacy thread in the migration', function () {
+    $waiting = YakTask::factory()->awaitingClarification()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $done = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+
+    (require base_path('database/migrations/2026_12_09_020004_convert_legacy_tasks_to_threads.php'))->up();
+
+    $open = Thread::query()->withoutGlobalScopes()->find($waiting->fresh()->thread_id);
+    $closed = Thread::query()->withoutGlobalScopes()->find($done->fresh()->thread_id);
+    expect($open->isOpen())->toBeTrue()->and($open->is_legacy)->toBeFalse()
+        ->and($closed->is_legacy)->toBeTrue()->and($closed->isOpen())->toBeFalse();
+});
+
+it('reports a failing conversion and converts the others', function () {
+    $bad = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $good = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $this->mock(LegacyTaskThreads::class, fn ($mock) => $mock->shouldReceive('convert')->andReturnUsing(function (YakTask $task) use ($bad) {
+        if ($task->id === $bad->id) {
+            throw new RuntimeException('boom');
+        }
+
+        return Thread::factory()->create();
+    }));
+    $reported = [];
+    $this->app->make(ExceptionHandler::class)->reportable(function (RuntimeException $e) use (&$reported) {
+        $reported[] = $e->getMessage();
+
+        return false;
+    });
+
+    (require base_path('database/migrations/2026_12_09_020004_convert_legacy_tasks_to_threads.php'))->up();
+
+    expect($reported)->toBe(['boom']);
 });

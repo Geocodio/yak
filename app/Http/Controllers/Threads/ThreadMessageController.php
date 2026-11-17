@@ -54,10 +54,11 @@ class ThreadMessageController extends Controller
 
         if ($result->threadId !== null) {
             $continued = route('threads.show', $result->threadId);
+            $notice = $result->threadId === $thread->public_id ? 'Sent. The work continues in a new thread shortly.' : 'Started a new thread continued from this one.';
 
             return $request->expectsJson()
                 ? response()->json(['status' => 'sent', 'redirect' => $continued])
-                : redirect()->to($continued)->with('success', 'Started a new thread continued from this one.');
+                : redirect()->to($continued)->with('success', $notice);
         }
 
         return $this->sent($request);

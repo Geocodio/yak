@@ -22,6 +22,7 @@ use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\YakPromptBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Sends a person's message into a thread: starts a turn, steers the running
@@ -30,6 +31,8 @@ use Illuminate\Support\Facades\DB;
 class ThreadMessageSender
 {
     private const DEVICE_SENTENCE = 'Your computer is working on this thread. Hand it back to Yak before sending a message.';
+
+    private const CANNOT_SEND_SENTENCE = 'You cannot send messages to this thread.';
 
     private const NOT_STARTED_SENTENCE = 'This thread has not started yet. It starts when its repository is set up.';
 
@@ -92,7 +95,12 @@ class ThreadMessageSender
      */
     private function continueLegacy(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
     {
-        $continuing = Thread::query()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+        $access = app(ThreadAccess::class);
+        $continuing = Thread::query()->withoutVisibilityScope()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+
+        if ($continuing !== null && ! $access->canDrive($user, $continuing)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CANNOT_SEND_SENTENCE);
+        }
 
         if ($continuing?->isOpen() === true) {
             return new ThreadMessageResult($this->sendOnce($continuing, $user, $input)->status, null, $continuing->public_id);
@@ -101,6 +109,14 @@ class ThreadMessageSender
         $root = YakTask::query()->withoutGlobalScopes()->find($thread->legacy_root_task_id)
             ?? throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, 'This thread is closed.');
         $head = $root->conversation()->last() ?? $root;
+        $headThread = $head->thread_id === null || $head->thread_id === $thread->id
+            ? null
+            : Thread::query()->withoutVisibilityScope()->find($head->thread_id);
+
+        if ($headThread !== null && ! $access->canDrive($user, $headThread)) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, self::CANNOT_SEND_SENTENCE);
+        }
+
         $closedMessage = $head->mode === TaskMode::Research ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
         $stored = $input->storeAttachments === null ? null : ($input->storeAttachments)(new PendingSteeringMessage);
         $attachments = $stored instanceof Collection ? $stored : collect();
@@ -112,7 +128,15 @@ class ThreadMessageSender
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_CLOSED, $closedMessage);
         }
 
-        return new ThreadMessageResult('sent', null, app(ThreadFactory::class)->forTask($child)->public_id);
+        // The worker's `forTask` opens the thread when this one cannot, so a failure here never loses the sent follow-up.
+        try {
+            $threadId = app(ThreadFactory::class)->forTask($child)->public_id;
+        } catch (Throwable $exception) {
+            report($exception);
+            $threadId = $thread->public_id;
+        }
+
+        return new ThreadMessageResult('sent', null, $threadId);
     }
 
     private function deliver(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
