@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Resources\ApprovalSettingsPageData;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
@@ -7,12 +8,12 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 
-function fakeBranchProtection(bool $hasChecks, bool $dismissesStale = true): void
+function fakeBranchProtection(bool $hasChecks): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
-        'api.github.com/repos/*/branches/*/protection' => Http::response($hasChecks ? ['required_status_checks' => ['checks' => [['context' => 'ci']], 'contexts' => []], 'required_pull_request_reviews' => ['dismiss_stale_reviews' => $dismissesStale]] : []),
         'api.github.com/repos/*/rules/branches/*' => Http::response([]),
+        'api.github.com/repos/*/branches/*' => Http::response(['protection' => $hasChecks ? ['enabled' => true, 'required_status_checks' => ['enforcement_level' => 'everyone', 'checks' => [['context' => 'ci']], 'contexts' => ['ci']]] : ['enabled' => false]]),
         'api.github.com/repos/*/pulls*' => Http::response([]),
     ]);
 }
@@ -119,14 +120,23 @@ it('refuses to arm without required checks', function () {
         ->and($repository->approval_changed_at)->toBeNull();
 });
 
-it('refuses to arm when the branch keeps approvals after new commits', function () {
+it('arms without requiring stale approval dismissal', function () {
     $repository = Repository::factory()->create();
-    fakeBranchProtection(true, dismissesStale: false);
+    fakeBranchProtection(true);
 
     $this->actingAs(User::factory()->create())->put(route('repos.approvals.update', $repository), ['level' => 2, 'mode' => 'enforce'])
-        ->assertSessionHasErrors('mode');
+        ->assertSessionHasNoErrors();
 
-    expect($repository->refresh()->approval_level)->toBe(1);
+    expect($repository->refresh()->approval_level)->toBe(2);
+});
+
+it('treats a 403 from the branch as unknown, not missing', function () {
+    $repository = Repository::factory()->create();
+    configureFakeGitHubApp();
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/*/branches/*' => Http::response(['message' => 'Resource not accessible by integration'], 403)]);
+    Exceptions::fake();
+
+    expect(ApprovalSettingsPageData::github($repository)['requiredChecks'])->toBe('unknown');
 });
 
 it('refuses to arm when GitHub fails', function () {

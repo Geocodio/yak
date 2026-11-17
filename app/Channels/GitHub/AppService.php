@@ -931,15 +931,12 @@ class AppService
 
     /**
      * Bounded evidence reads: large or incomplete responses prevent approval.
-     * Branch protection is read, never changed by Yak.
      *
      * @return array<string, mixed>
      */
     public function approvalEvidence(int $installationId, string $repoSlug, int $prNumber, string $sha, string $baseRef): array
     {
         $client = $this->installationClient($installationId)->timeout(20);
-        $protection = $client->get('https://api.github.com/repos/' . $repoSlug . '/branches/' . rawurlencode($baseRef) . '/protection')
-            ->throw()->json();
         $checks = $client->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/check-runs", [
             'per_page' => 100, 'filter' => 'latest',
         ])->throw()->json();
@@ -973,7 +970,6 @@ GRAPHQL;
         }
 
         return [
-            'dismiss_stale_reviews' => data_get($protection, 'required_pull_request_reviews.dismiss_stale_reviews', false),
             'check_runs' => $checks['check_runs'] ?? [],
             'total_count' => $checks['total_count'] ?? -1,
             'statuses' => $statuses['statuses'] ?? [],
@@ -1420,58 +1416,35 @@ GRAPHQL;
     }
 
     /**
-     * Whether the branch requires status checks, through classic branch
-     * protection or a ruleset. A 404 from protection means none is configured;
-     * any other failure throws.
+     * Whether the branch requires status checks, read from the branch itself
+     * (its `protection` summary, which the app can read without the
+     * Administration permission) or from a ruleset. A 404 on the branch means
+     * no checks; any other failure throws.
      */
     public function hasRequiredStatusChecks(int $installationId, string $repoSlug, string $branch): bool
     {
         $client = $this->installationClient($installationId)->timeout(20);
         $encodedBranch = self::encodeRef($branch);
 
-        $protection = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}/protection");
+        $branchResponse = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}");
 
-        if ($protection->status() !== 404) {
-            $required = $protection->throw()->json('required_status_checks');
-
-            if (! empty($required['checks'] ?? []) || ! empty($required['contexts'] ?? [])) {
-                return true;
-            }
+        if ($branchResponse->status() === 404) {
+            return false;
         }
 
-        $rules = $client->get("https://api.github.com/repos/{$repoSlug}/rules/branches/{$encodedBranch}")->throw()->json();
+        $protection = (array) $branchResponse->throw()->json('protection');
+        $required = (array) ($protection['required_status_checks'] ?? []);
 
-        foreach ((array) $rules as $rule) {
-            if (($rule['type'] ?? null) === 'required_status_checks' && ! empty($rule['parameters']['required_status_checks'] ?? [])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Whether new commits on a pull request dismiss existing approvals on the
-     * branch, through classic protection (`dismiss_stale_reviews`) or a ruleset
-     * pull_request rule (`dismiss_stale_reviews_on_push`). A 404 from protection
-     * means none is configured; any other failure throws.
-     */
-    public function dismissesStaleReviews(int $installationId, string $repoSlug, string $branch): bool
-    {
-        $client = $this->installationClient($installationId)->timeout(20);
-        $encodedBranch = self::encodeRef($branch);
-
-        $protection = $client->get("https://api.github.com/repos/{$repoSlug}/branches/{$encodedBranch}/protection");
-
-        if ($protection->status() !== 404
-            && $protection->throw()->json('required_pull_request_reviews.dismiss_stale_reviews') === true) {
+        if (($protection['enabled'] ?? false) === true
+            && ($required['enforcement_level'] ?? null) !== 'off'
+            && (! empty($required['checks'] ?? []) || ! empty($required['contexts'] ?? []))) {
             return true;
         }
 
         $rules = $client->get("https://api.github.com/repos/{$repoSlug}/rules/branches/{$encodedBranch}")->throw()->json();
 
         foreach ((array) $rules as $rule) {
-            if (($rule['type'] ?? null) === 'pull_request' && ($rule['parameters']['dismiss_stale_reviews_on_push'] ?? false) === true) {
+            if (($rule['type'] ?? null) === 'required_status_checks' && ! empty($rule['parameters']['required_status_checks'] ?? [])) {
                 return true;
             }
         }

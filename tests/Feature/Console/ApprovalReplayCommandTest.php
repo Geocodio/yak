@@ -44,7 +44,6 @@ it('replays stored reviews through the policy without writing or posting anythin
         ]);
         $mock->shouldReceive('compareFilesOrFail')->andReturn([['filename' => 'src/a.php', 'status' => 'modified', 'patch' => '@@ -1 +1 @@']]);
         $mock->shouldNotReceive('hasRequiredStatusChecks');
-        $mock->shouldNotReceive('dismissesStaleReviews');
         $mock->shouldNotReceive('createPullRequestReview');
         $mock->shouldNotReceive('dismissPullRequestReview');
     });
