@@ -14,6 +14,9 @@ private func logFailure(_ message: String) {
 /// or a pointer is closed by a catch-up that runs one at a time, and snapshots are paced to a frame.
 public actor ThreadEngine {
     public static let historyPage = 500
+    /// Events asked for per page of earlier history. A small page keeps the list's height estimate for the new rows
+    /// close, so the row the person is reading stays in place, and costs less memory and network.
+    public static let olderPage = 60
     /// A cached copy further behind than this is dropped and the newest page is loaded instead.
     private static let largestUsableGap = 2000
     /// How often a visible engine catches up while the socket is not delivering.
@@ -303,10 +306,10 @@ public actor ThreadEngine {
     private func runLoadOlder() async {
         let bound = firstLoadedAfter
         let generation = windowGeneration
-        let after = max(0, bound - Self.historyPage)
+        let after = max(0, bound - Self.olderPage)
         let page: EventsPage
         do {
-            page = try await client.send(.events(threadID, after: after, limit: Self.historyPage))
+            page = try await client.send(.events(threadID, after: after, limit: Self.olderPage))
         } catch {
             isLoadingOlder = false
             didOlderFail = true

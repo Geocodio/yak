@@ -89,6 +89,13 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(after.last == 63)
     }
 
+    @Test func aLongHistoryServesAnOlderPageOfTheAskedSize() throws {
+        let newest = try sequences(reply(.longHistory, "GET", "threads/d0e515ef/events?after=700&limit=500"))
+        #expect(newest == Array(701...1200))
+        let older = try sequences(reply(.longHistory, "GET", "threads/d0e515ef/events?after=640&limit=60"))
+        #expect(older == Array(641...700))
+    }
+
     @Test func eventsAnswerOnlyWhatIsPublished() throws {
         let threads = StubThreads()
         let before = try reply(.oneThreadWorking, "GET", "threads/d0e515ef/events?after=0&limit=500", threads: threads)
