@@ -49,6 +49,9 @@ struct StubControl {
         try send("GET", endpoint, body: nil)
     }
 
+    /// The last Overview action the stub received, as `<method> <path>` then the body, or empty.
+    func lastOverviewRequest() throws -> String { try get("overview/last-request") }
+
     /// What the preview feature of the stub saw, one entry per line ("status ready", "warm", "auth /").
     func previewLog() throws -> [String] {
         try get("preview/log").split(separator: "\n").map(String.init)

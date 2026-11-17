@@ -8,8 +8,22 @@ struct ThreadTitle: View {
     let title: String
     let dot: ThreadStatusDot
     let connectionLine: ConnectionLine?
+    /// Opens the Overview, or returns to the pane before it.
+    var action: (() -> Void)?
 
     var body: some View {
+        if let action {
+            Button(action: action) { content }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("overview.title.label \(title)"))
+                .accessibilityHint(Text("overview.title.hint"))
+                .accessibilityIdentifier("thread.title")
+        } else {
+            content.accessibilityIdentifier("thread.title")
+        }
+    }
+
+    private var content: some View {
         VStack(spacing: 1) {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8).accessibilityHidden(true)
@@ -22,7 +36,7 @@ struct ThreadTitle: View {
                     .accessibilityIdentifier("thread.connection")
             }
         }
-        .accessibilityIdentifier("thread.title")
+        .frame(minHeight: 44).contentShape(.rect)
     }
 
     /// Running is green and blocked or waiting orange; every other state is a neutral gray, never the rust accent.

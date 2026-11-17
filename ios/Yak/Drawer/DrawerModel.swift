@@ -23,16 +23,39 @@ final class DrawerModel {
     @ObservationIgnored private let outbox: Outbox?
     @ObservationIgnored private let scene: SceneModel
     @ObservationIgnored private let clock: any YakClock
+    @ObservationIgnored private let overview: OverviewActions?
     @ObservationIgnored private var unsent: [OutboxItem] = []
     @ObservationIgnored private var expanded: [String: Bool] = [:]
     @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var stackTasks: [String: (token: UUID, task: Task<Void, Never>)] = [:]
+    /// The roots whose stack was fetched during this visit of the drawer, so a list update never asks again.
+    @ObservationIgnored private var fetchedRoots: Set<String> = []
+    @ObservationIgnored private var lineTask: Task<Void, Never>?
+    @ObservationIgnored private var isVisible = false
+    /// The root of every thread in the list, by thread id.
+    @ObservationIgnored private var rootOfChild: [String: String] = [:]
+    /// The stacks the menus read, by root id.
+    private var stacks: [String: (stack: ThreadStack, fetchedAt: Date)] = [:]
+    /// The sub-thread an action is running on.
+    private(set) var runningChildID: String?
+    /// The server's sentence about a refused action; it leaves by itself.
+    private(set) var actionLine: String?
+    private(set) var refusalCount = 0
 
-    init(feed: ThreadListFeed, outbox: Outbox?, scene: SceneModel, clock: any YakClock) {
+    static let actionLineLifetime: Duration = .seconds(6)
+
+    init(
+        feed: ThreadListFeed, outbox: Outbox?, scene: SceneModel, clock: any YakClock,
+        overview: OverviewActions? = nil
+    ) {
         self.feed = feed
         self.outbox = outbox
         self.scene = scene
         self.clock = clock
+        self.overview = overview
     }
+
+    var isOffline: Bool { state?.isOffline ?? false }
 
     /// How many items wait for the person, for the threads button's badge.
     var needsYouCount: Int { state?.list?.needsYouCount ?? 0 }
@@ -68,6 +91,8 @@ final class DrawerModel {
 
     /// True while the drawer is on screen and the app is in front; the feed polls only then.
     func setVisible(_ visible: Bool) async {
+        isVisible = visible
+        if visible { prefetchStacks() } else { cancelStackTasks() }
         await feed.setVisible(visible)
     }
 
@@ -117,5 +142,115 @@ final class DrawerModel {
         let next = DrawerSections.make(
             list: list, filter: state.filter, search: state.search, expanded: expanded, unsentNewThreads: unsent)
         if next != content { content = next }
+        rootOfChild = [:]
+        let needing = list.needsYou.compactMap { item -> ThreadRow? in
+            if case .thread(let row) = item { row } else { nil }
+        }
+        for root in list.threads + list.starred + needing { noteDescendants(of: root, root: root.id) }
+        prefetchStacks()
+    }
+
+    private func noteDescendants(of row: ThreadRow, root: String) {
+        for child in row.children {
+            rootOfChild[child.id] = root
+            noteDescendants(of: child, root: root)
+        }
+    }
+
+    // MARK: Sub-thread menus
+
+    /// The root rows that are expanded.
+    private var expandedRoots: Set<String> {
+        guard case .sections(let sections)? = content else { return [] }
+        return Set(
+            sections.flatMap(\.rows).compactMap { row in
+                if case .thread(let id) = row.target, row.depth == 0, row.childCount > 0, row.isExpanded {
+                    id
+                } else {
+                    nil
+                }
+            })
+    }
+
+    /// Fetches the stack of every expanded root once per visit; collapsing a root or hiding the drawer cancels its
+    /// fetch and forgets that it was fetched.
+    private func prefetchStacks() {
+        guard isVisible else { return }
+        let roots = expandedRoots
+        for (root, running) in stackTasks where !roots.contains(root) {
+            running.task.cancel()
+            stackTasks[root] = nil
+        }
+        fetchedRoots.formIntersection(roots)
+        for root in roots where !fetchedRoots.contains(root) { fetchStack(of: root) }
+    }
+
+    private func fetchStack(of root: String) {
+        guard let overview else { return }
+        fetchedRoots.insert(root)
+        let token = UUID()
+        let task = Task { [weak self] in
+            // A failed fetch is logged by the actions; the menu stays in its loading state.
+            if let answer = try? await overview.stack(root) { self?.stacks[root] = answer }
+            // A fetch that was cancelled and replaced must not remove the handle of the one that replaced it.
+            if self?.stackTasks[root]?.token == token { self?.stackTasks[root] = nil }
+        }
+        stackTasks[root] = (token, task)
+    }
+
+    private func cancelStackTasks() {
+        for running in stackTasks.values { running.task.cancel() }
+        stackTasks = [:]
+        fetchedRoots = []
+    }
+
+    /// What a long press on a sub-thread row offers.
+    func childMenu(_ row: DrawerRow) -> DrawerChildMenu {
+        guard case .thread(let id) = row.target, let root = rootOfChild[id] else { return .ready([.open]) }
+        let known = stacks[root]
+        return SubThreadActions.forDrawerRow(
+            childID: id, stack: known?.stack, fetchedAt: known?.fetchedAt, now: clock.now())
+    }
+
+    /// A menu is opening: a stack older than ten seconds is fetched again, so the next press has the actions.
+    func menuOpening(_ row: DrawerRow) {
+        guard case .thread(let id) = row.target, let root = rootOfChild[id], stackTasks[root] == nil else { return }
+        if case .loading = childMenu(row) { fetchStack(of: root) }
+    }
+
+    func perform(_ action: SubThreadAction, on row: DrawerRow) async {
+        guard action != .open, case .thread(let id) = row.target, let overview, runningChildID == nil else { return }
+        runningChildID = id
+        setActionLine(nil)
+        let outcome: ThreadActionOutcome
+        switch action {
+        case .takeOver: outcome = await overview.takeOver(id)
+        case .split: outcome = await overview.split(id)
+        default: outcome = await overview.drop(id)
+        }
+        runningChildID = nil
+        switch outcome {
+        case .done, .alreadySent:
+            if let root = rootOfChild[id] { stacks[root] = nil }
+            await feed.refresh()
+        case .refused(_, let message, _):
+            refusalCount += 1
+            setActionLine(message)
+        case .failed(let problem):
+            refusalCount += 1
+            setActionLine(
+                problem == .offline
+                    ? String(localized: "overview.action.notSent") : OverviewModel.sentence(for: problem))
+        }
+    }
+
+    private func setActionLine(_ text: String?) {
+        actionLine = text
+        lineTask?.cancel()
+        guard text != nil else { return }
+        lineTask = Task { [weak self, clock] in
+            do { try await clock.sleep(for: Self.actionLineLifetime) } catch { return }
+            self?.actionLine = nil
+        }
     }
 }
