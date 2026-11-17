@@ -131,7 +131,12 @@ import XCTest
     private func audit() throws {
         let auditBars = AuditRules.Bars(app)
         try app.performAccessibilityAudit { [self, auditBars] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
+            // centre of the window free.
+            let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+            let bars =
+                app.navigationBars.allElementsBoundByIndex
+                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
             }
