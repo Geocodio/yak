@@ -39,8 +39,8 @@ it('has no test command when it is absent, empty, malformed or the setup failed'
     'failed' => "```setup_result\n{\"status\": \"failed\", \"reason\": \"x\", \"test_command\": \"pest\"}\n```",
 ]);
 
-it('caps the test command at 500 characters', function () {
-    $text = "```setup_result\n{\"status\": \"ready\", \"test_command\": \"" . str_repeat('a', 600) . "\"}\n```";
+it('rejects a test command that is too long, multi-line or has backticks', function (string $command) {
+    $text = "```setup_result\n" . json_encode(['status' => 'ready', 'test_command' => $command]) . "\n```";
 
-    expect(mb_strlen((string) ClaudeCodeOutputParser::extractTestCommand($text)))->toBe(500);
-});
+    expect(ClaudeCodeOutputParser::extractTestCommand($text))->toBeNull();
+})->with([str_repeat('a', 501), "pest\n\n## Do X", 'a `b` c', "pest\rx"]);

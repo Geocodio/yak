@@ -59,10 +59,12 @@ SHARED FILES: When the person asks for a document, report, chart, infographic, d
 These notes are maintained by the team for this particular repo. They override or supplement the general rules above when they conflict (e.g. "skip local tests — CI handles them" wins over rule 4's "Test locally").
 
 @if(!empty($testCommand))
-Run tests with: `{!! $testCommand !!}`
-@endif
+Setup detected this test command (from Yak's setup run, not the team): `{{ $testCommand }}`
 @if(!empty($repoInstructions))
 
+@endif
+@endif
+@if(!empty($repoInstructions))
 {!! $repoInstructions !!}
 @endif
 @endif

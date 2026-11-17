@@ -31,13 +31,16 @@ class YakPromptBuilder
         ]);
     }
 
-    private static function resolveTestCommand(YakTask $task): ?string
+    /** A stored command renders only when it is a single line without backticks or control characters. */
+    private static function resolveTestCommand(YakTask $task): string
     {
         if ($task->repo === '') {
-            return null;
+            return '';
         }
 
-        return Repository::where('slug', $task->repo)->value('test_command');
+        $command = (string) Repository::where('slug', $task->repo)->value('test_command');
+
+        return preg_match('/[\x00-\x1F\x7F`]/', $command) === 1 ? '' : $command;
     }
 
     /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */

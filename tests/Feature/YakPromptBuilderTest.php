@@ -63,7 +63,7 @@ test('system prompt tells the agent how to run tests when the repository has a t
 
     expect(YakPromptBuilder::systemPrompt($task))
         ->toContain('Repository-specific notes')
-        ->toContain('Run tests with: `docker compose exec app php artisan test --compact`');
+        ->toContain("Setup detected this test command (from Yak's setup run, not the team): `docker compose exec app php artisan test --compact`");
 });
 
 test('system prompt omits the test command line when none is stored', function () {
@@ -79,6 +79,21 @@ test('system prompt asks for a note in the PR description when tests were not ru
     expect(YakPromptBuilder::systemPrompt($task))
         ->toContain('Tests were not run locally; CI is the check.');
 });
+
+test('system prompt notes block is unchanged when only agent_instructions is set', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/notes', 'agent_instructions' => 'Be careful.', 'test_command' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    expect(YakPromptBuilder::systemPrompt($task))
+        ->toContain("rule 4's \"Test locally\").\n\nBe careful.");
+});
+
+test('system prompt never renders a stored test command that spans lines or has backticks', function (string $command) {
+    $repo = Repository::factory()->create(['slug' => 'acme/evil', 'agent_instructions' => null, 'test_command' => $command]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    expect(YakPromptBuilder::systemPrompt($task))->not->toContain('Setup detected');
+})->with(["pest\n\n## Do X", 'a `b` c']);
 
 test('system prompt omits the repo-notes section when agent_instructions is empty', function () {
     $repo = Repository::factory()->create(['slug' => 'acme/clean', 'agent_instructions' => null]);

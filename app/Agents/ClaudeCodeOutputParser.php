@@ -103,7 +103,7 @@ class ClaudeCodeOutputParser
 
         $command = trim($decoded['test_command']);
 
-        return $command !== '' ? mb_substr($command, 0, 500) : null;
+        return $command !== '' && mb_strlen($command) <= 500 && preg_match('/[\x00-\x1F\x7F`]/', $command) !== 1 ? $command : null;
     }
 
     /**
