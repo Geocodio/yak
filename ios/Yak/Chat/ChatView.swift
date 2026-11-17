@@ -16,11 +16,11 @@ struct ChatView: View {
     /// row's disappearance can reach this view late, after a page has pushed it far above, and that would ask for
     /// every page in a row.
     @State private var isHistoryVisible = false
-    /// The row at the top of the screen when a page of earlier messages was asked for: where it was, how tall it
+    /// The row that holds the place when a page of earlier messages was asked for: where it was, how tall it
     /// was, how tall the viewport was, and how many rows there were. When the page has arrived above it, the row is
     /// scrolled back to the same place by its identity, so the estimated height of the new rows plays no part.
     @State private var rowCountWhenRequested: Int?
-    /// The top row as of the last layout before the page arrived; once the rows have changed, it is not updated.
+    /// That row as of the last layout before the page arrived; once the rows have changed, it is not updated.
     @State private var anchorBeforePage: PlaceAnchor?
     /// The row put back after a page of earlier messages, held there while the page's documents arrive.
     @State private var placeHeld: HeldPlace?
@@ -87,7 +87,7 @@ struct ChatView: View {
                             guard case .entry = row else { return }
                             rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
                             if let requested = rowCountWhenRequested, thread.rows.count == requested {
-                                anchorBeforePage = topRow()
+                                anchorBeforePage = anchorRow()
                             }
                         }
                         .onDisappear { rowFrames.frames[row.id] = nil }
@@ -116,7 +116,7 @@ struct ChatView: View {
             guard trigger.isVisible, trigger.state == .available else { return }
             isHistoryVisible = false
             rowCountWhenRequested = thread.rows.count
-            anchorBeforePage = topRow()
+            anchorBeforePage = anchorRow()
             Task { await thread.loadOlder() }
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
@@ -156,19 +156,25 @@ struct ChatView: View {
         }
     }
 
-    /// The first row that is at least partly on screen, with where it is. A row that has left the screen can be slow
-    /// to be forgotten, so only rows that reported as recently as the newest one count.
-    private func topRow() -> PlaceAnchor? {
+    /// The lowest row that is wholly on screen, with where it is; the highest one on screen when none is whole. Older
+    /// messages arrive above, and a row near the top can move with them (a message that sorts before every event of
+    /// the page), so the place is held by the row furthest from them. A row that has left the screen can be slow to
+    /// be forgotten, so only rows that reported as recently as the newest one count.
+    private func anchorRow() -> PlaceAnchor? {
         guard let newest = rowFrames.frames.values.map(\.time).max() else { return nil }
         let current = rowFrames.frames.filter { $0.value.time > newest - 0.15 && $0.value.rect.maxY > 0 }
-        guard let top = current.min(by: { $0.value.rect.minY < $1.value.rect.minY }) else { return nil }
+        let whole = current.filter { $0.value.rect.minY >= 0 && $0.value.rect.maxY <= viewportHeight }
+        guard
+            let top = whole.max(by: { $0.value.rect.minY < $1.value.rect.minY })
+                ?? current.min(by: { $0.value.rect.minY < $1.value.rect.minY })
+        else { return nil }
         let frame = top.value.rect
         return PlaceAnchor(
             id: top.key, top: frame.minY, height: frame.height, viewportHeight: viewportHeight,
             rowCount: thread.rows.count)
     }
 
-    /// When the asked-for page has been added, puts the row that was at the top back where it was. The rows are
+    /// When the asked-for page has been added, puts the anchor row back where it was. The rows are
     /// read before the new ones are laid out. The anchor lines the point `f * height` of the row up with the point
     /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`.
     /// The new rows show as plain text until their Markdown is parsed, and the rendered text can be taller, so the
