@@ -48,3 +48,14 @@ it('falls back to base template snapshot when no repo template exists', function
 
     expect($source)->toContain('yak-base');
 });
+
+it('does not take a leftover ready-v3 snapshot for the legacy ready snapshot', function () {
+    Process::fake([
+        'incus snapshot list yak-tpl-*' => Process::result(exitCode: 0, output: "ready-v3,2026/11/15 10:57 CET,\" \",NO\n"),
+        'incus snapshot list yak-base *' => Process::result(exitCode: 0, output: "ready,2026/11/01 09:00 CET,\" \",NO\n"),
+    ]);
+
+    $repository = Repository::factory()->create(['sandbox_snapshot' => null]);
+
+    expect(app(IncusSandboxManager::class)->resolveSource($repository))->toBe('yak-base/ready');
+});
