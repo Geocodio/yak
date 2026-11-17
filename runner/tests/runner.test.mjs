@@ -197,3 +197,54 @@ test('it answers every pending call with an error when the runner ends', async (
   run.release();
   await run.exited;
 });
+
+const toolUse = { type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: {} }] } };
+const endTurn = { type: 'assistant', message: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'done' }] } };
+
+function sweepOptions() {
+  const timers = [];
+  const kills = [];
+  const listed = [
+    { pid: process.pid, ppid: 1, uid: 1000, startedAtMs: 0, command: 'node runner.mjs' },
+    { pid: 900, ppid: 1, uid: 1000, startedAtMs: 10_000, command: 'node playwright run-server' },
+  ];
+  return {
+    timers,
+    kills,
+    options: {
+      agentUid: 1000,
+      now: () => 5_000,
+      listProcesses: () => listed,
+      kill: (pid, signal) => kills.push([pid, signal]),
+      setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length; },
+      clearTimer: (id) => { timers[id - 1].cleared = true; },
+    },
+  };
+}
+
+test('it sweeps leftover processes 60 seconds after the final answer without a result', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].delay, 60_000);
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, [[900, 'SIGTERM']]);
+  assert.equal(sweeping.timers[1].delay, 5_000);
+  sweeping.timers[1].callback();
+  assert.deepEqual(sweeping.kills.at(-1), [900, 'SIGKILL']);
+  const swept = run.lines().find((line) => line.event === 'swept');
+  assert.deepEqual(swept.pids, [900]);
+  assert.deepEqual(swept.commands, ['node playwright run-server']);
+  await finish(run);
+});
+
+test('it cancels the sweep when a result arrives first', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, endTurn, { type: 'result', subtype: 'success' }], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+});
