@@ -1,6 +1,10 @@
 import { Deferred, Head, usePage } from '@inertiajs/react';
 import { PageHeader } from '@geocodio/console-ui';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import type { PaletteAction } from '@/commandPalette/types';
+import { openNewThread } from '@/components/Sidebar';
+import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { SectionNav } from '@/components/repositories/settings/SectionNav';
 import { SettingsHeader } from '@/components/repositories/settings/SettingsHeader';
 import { YakConfigStrip, YakConfigStripSkeleton } from '@/components/repositories/YakConfigStrip';
@@ -28,6 +32,20 @@ type Props = {
 export function RepositorySettingsLayout({ header, yakConfig, active, dirtySections = [], branch = 'the default branch', children }: Props) {
     const sectionLabel = header.sections.find((section) => section.slug === active)?.label ?? '';
     const docsBaseUrl = useDocsUrl('');
+    const { slug, githubUrl, prReviewEnabled, sections } = header;
+    const paletteActions = useMemo<PaletteAction[]>(
+        () => [
+            { id: 'this-repository-new-thread', label: 'New thread in this repository', keywords: ['create', 'start', 'spawn'], run: () => openNewThread({ repository: slug }) },
+            ...(githubUrl === null ? [] : [{ id: 'this-repository-open-github', label: 'Open on GitHub', keywords: ['repo', 'code', 'source'], hint: 'new window', href: githubUrl, run: () => window.open(githubUrl, '_blank', 'noopener') }]),
+            ...(prReviewEnabled ? [{ id: 'this-repository-risk-profile', label: 'Open the risk profile', keywords: ['risk', 'review', 'approval'], href: showRiskProfile.url(slug) }] : []),
+            { id: 'this-repository-set-approval-level', label: 'Set approval level', keywords: ['defcon', 'auto-approval', 'approve'], href: sections.find((section) => section.slug === 'approvals')?.url },
+            ...sections
+                .filter((section) => section.slug !== active)
+                .map((section) => ({ id: `this-repository-go-${section.slug}`, label: `Go to ${section.label}`, keywords: ['settings', 'section'], href: section.url })),
+        ],
+        [slug, githubUrl, prReviewEnabled, sections, active],
+    );
+    useCommandPaletteActions('This repository', paletteActions);
     const configUrl = (usePage().props as { docsLinks?: { config?: string } }).docsLinks?.config ?? docsBaseUrl;
 
     return (

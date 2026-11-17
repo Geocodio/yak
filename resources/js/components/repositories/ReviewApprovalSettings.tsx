@@ -10,11 +10,13 @@ import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { ConfigSourceBadge, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
 
+type RiskProfileRepository = Pick<RepositoryDetail, 'slug' | 'defaultBranch' | 'riskProfiles' | 'riskProfileActionUrl'>;
+
 export function ReviewApprovalSettings({ value, onChange, errors, repository, yakConfig }: {
     value: ReviewPolicy;
     onChange: (policy: ReviewPolicy) => void;
     errors: Record<string, string | undefined>;
-    repository: RepositoryDetail | null;
+    repository: RiskProfileRepository | null;
     yakConfig?: YakConfig;
 }) {
     const lockedRisk = yakConfig?.values.riskProfile;
@@ -68,7 +70,7 @@ function LockedRiskProfile({ profile, config, branch, repositorySlug }: { profil
     );
 }
 
-function RiskProfiles({ repository }: { repository: RepositoryDetail }) {
+function RiskProfiles({ repository }: { repository: RiskProfileRepository }) {
     const { active, drafts } = repository.riskProfiles;
     const [version, setVersion] = useState(drafts[0]?.version ?? '');
     const draft = drafts.find((item) => item.version === version);

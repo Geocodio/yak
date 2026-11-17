@@ -66,7 +66,7 @@ test('profile approval requires exact version confirmation and uses the signed i
     $url = route('repos.risk-profile', $this->repo);
     $this->post($url, ['action' => 'approve', 'version' => $draft['version']])->assertSessionHasErrors('reviewed');
     expect($profiles->active($this->repo->slug))->toBeNull();
-    $this->post($url, ['action' => 'approve', 'version' => $draft['version'], 'reviewed' => true, 'reviewer' => 'spoofed'])->assertSessionHas('success');
+    $this->from('/origin')->post($url, ['action' => 'approve', 'version' => $draft['version'], 'reviewed' => true, 'reviewer' => 'spoofed'])->assertRedirect('/origin')->assertSessionHas('success');
     expect($profiles->active($this->repo->slug)['approved_by'])->toBe('user:' . $this->user->id . ' (' . $this->user->name . ')');
 });
 

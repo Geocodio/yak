@@ -106,3 +106,20 @@ it('gives a null config pull request when none is open or GitHub fails', functio
             ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
                 ->where('yakConfig.configPullRequest', null)));
 });
+
+it('flags a version 2 concerns file so the old risk profile can be hidden', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => "version: 2\nconcerns:\n  - name: Billing\n    approval: always_human\n    description: Money moves here.\n"]);
+
+    $this->actingAs(User::factory()->create())->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.values.hasConcernsFile', true)));
+
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+
+    $this->actingAs(User::factory()->create())->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.values.hasConcernsFile', false)));
+});

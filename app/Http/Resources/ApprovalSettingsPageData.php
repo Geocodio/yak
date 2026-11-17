@@ -162,18 +162,28 @@ final class ApprovalSettingsPageData
             $requiredChecks = 'unknown';
         }
 
-        $concernsPullRequest = null;
+        return ['requiredChecks' => $requiredChecks, 'concernsPullRequest' => self::concernsPullRequest($repository)];
+    }
 
+    /**
+     * The open pull request that adds the concerns file, null when there is none or the lookup failed.
+     *
+     * @return array{number: int, url: string}|null
+     */
+    public static function concernsPullRequest(Repository $repository): ?array
+    {
         try {
-            $pullRequest = $github->findOpenPullRequestForBranch($installationId, $repository->github_full_name, self::CONCERNS_BRANCH);
+            $pullRequest = app(AppService::class)->findOpenPullRequestForBranch(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                self::CONCERNS_BRANCH,
+            );
 
-            if ($pullRequest !== null) {
-                $concernsPullRequest = ['number' => (int) $pullRequest['number'], 'url' => (string) ($pullRequest['html_url'] ?? '')];
-            }
+            return $pullRequest === null ? null : ['number' => (int) $pullRequest['number'], 'url' => (string) ($pullRequest['html_url'] ?? '')];
         } catch (\Throwable $exception) {
             report($exception);
-        }
 
-        return ['requiredChecks' => $requiredChecks, 'concernsPullRequest' => $concernsPullRequest];
+            return null;
+        }
     }
 }

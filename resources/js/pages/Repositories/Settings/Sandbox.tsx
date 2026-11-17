@@ -1,14 +1,67 @@
+import { Badge, Button } from '@geocodio/console-ui';
+import { RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { SetupHistory } from '@/components/repositories/SetupHistory';
+import { SectionIntro, SettingRow, SettingsCard } from '@/components/repositories/settings/SettingsCard';
 import { AppLayout } from '@/layouts/AppLayout';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
+import { useRouterAction } from '@/lib/useRouterAction';
+import repos from '@/routes/repos';
+import { tasks } from '@/routes';
 import type { PageProps } from '@/types/shared';
-import type { YakConfig } from '@/types/repositories';
+import type { RepositoryDocsLinks, RepositoryStats, SandboxData, SetupHistoryRow, YakConfig } from '@/types/repositories';
 import type { RepositorySettingsHeader } from '@/types/repositorySettings';
 
-export default function Sandbox({ header, yakConfig }: PageProps<{ header: RepositorySettingsHeader; yakConfig?: YakConfig }>) {
+type Props = PageProps<{
+    header: RepositorySettingsHeader;
+    repository: { slug: string };
+    sandbox: SandboxData;
+    setupHistory: SetupHistoryRow[];
+    stats: RepositoryStats;
+    docsLinks: RepositoryDocsLinks;
+    yakConfig?: YakConfig;
+}>;
+
+export default function Sandbox({ header, repository, sandbox, setupHistory, stats, docsLinks, yakConfig }: Props) {
+    const action = useRouterAction();
+    const isBehind = sandbox.baseVersion !== null && sandbox.baseVersion !== sandbox.latestBaseVersion;
+
     return (
         <RepositorySettingsLayout header={header} yakConfig={yakConfig} active="sandbox">
-            <p className="text-muted">Sandbox settings</p>
+            <SectionIntro title="Sandbox" description="The prepared environment every task for this repository starts from." />
+
+            <SettingsCard docsHref={docsLinks.setup}>
+                <SettingRow
+                    label="Template"
+                    description={
+                        <>
+                            Snapshot <span className="font-mono">{sandbox.snapshot ?? 'none yet'}</span>.{' '}
+                            {sandbox.baseVersion === null ? 'Not provisioned.' : <>yak-base <span className="font-mono">v{sandbox.baseVersion}</span>.</>}
+                        </>
+                    }
+                    badge={isBehind ? <Badge tone="warn">v{sandbox.latestBaseVersion} available</Badge> : undefined}
+                >
+                    <Button
+                        icon={<RefreshCw size={13} />}
+                        pending={action.isPending('rerun-setup')}
+                        pendingLabel="Dispatching…"
+                        onClick={() => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug))}
+                    >
+                        Run setup again
+                    </Button>
+                </SettingRow>
+                <SettingRow label="Activity" description="Tasks and reviews for this repository.">
+                    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-faint" data-testid="repository-stats">
+                        <span><span className="tnum text-muted">{stats.tasks}</span> tasks</span>
+                        <span><span className="tnum text-muted">{stats.tasks7d}</span> in 7d</span>
+                        <span><span className="tnum text-muted">{stats.reviews30d}</span> reviews in 30d</span>
+                    </span>
+                </SettingRow>
+            </SettingsCard>
+
+            <SettingsCard title="Setup history" description="Setup tasks prepare the dev environment and verify it works.">
+                <SetupHistory rows={setupHistory} viewAllHref={setupHistory.length > 0 ? tasks.url({ query: { tab: 'setup', repo: repository.slug } }) : null} />
+            </SettingsCard>
         </RepositorySettingsLayout>
     );
 }

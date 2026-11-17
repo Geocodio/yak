@@ -148,6 +148,7 @@ export type YakConfig = {
         previewManifest: Record<string, unknown> | null;
         previewScript: boolean;
         riskProfile: { areas: number; unknowns: number; commitSha: string | null } | null;
+        hasConcernsFile: boolean;
     };
 };
 

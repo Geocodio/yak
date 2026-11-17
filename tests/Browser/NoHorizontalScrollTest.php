@@ -52,7 +52,7 @@ test('no page is wider than a phone, and nothing but code scrolls sideways', fun
     TelemetryEvent::factory()->create(['yak_task_id' => $task->id, 'properties' => ['stages' => ['clone' => 1200, 'install' => 48000], 'error' => 'Process exited with code 1: vendor/bin/pest --filter=NotifyPlanChangedToSlackTest']]);
     TaskRun::factory()->create(['yak_task_id' => $task->id]);
 
-    $pages = [...$phonePages, route('tasks.show', $task, false), route('tasks.show', $unbrokenTask, false), route('repos.edit', $repository, false)];
+    $pages = [...$phonePages, route('tasks.show', $task, false), route('tasks.show', $unbrokenTask, false), route('repos.edit', $repository, false), route('repos.settings.show', ['repository' => $repository, 'section' => 'review'], false), route('repos.settings.show', ['repository' => $repository, 'section' => 'previews'], false)];
 
     foreach ($pages as $path) {
         $page = visit($path)->on()->mobile()->assertNoJavaScriptErrors();

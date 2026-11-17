@@ -24,8 +24,8 @@ use Inertia\Inertia;
  * `yakConfig` ({@see YakConfigData}, group `yak-config`), plus the props of its
  * own section:
  *
- * - general: `{repository: {slug, name, description, agentInstructions, gitUrl, path, defaultBranch, publicSiteUrl, isActive, isDefault, defaultResponsibleUserId, ciSystem, sentryProject, prReviewEnabled, githubFullName, githubUrl, githubNameDiverged}, options: {ciSystems, sentryProjects, users, defaultPathExcludes, defaultReviewPolicy}, sandbox: {snapshot, baseVersion, latestBaseVersion}, docsLinks}`
- * - review: `{repository: {slug, prReviewEnabled, reviewPolicy: {profile_max_age_days}, riskProfiles, riskProfileActionUrl, pathExcludes}, options, docsLinks, coOwnerGate (deferred, group co-owner-gate)}`
+ * - general: `{repository: {slug, name, description, agentInstructions, gitUrl, path, defaultBranch, publicSiteUrl, isActive, isDefault, defaultResponsibleUserId, ciSystem, sentryProject, prReviewEnabled, githubFullName, githubUrl, githubNameDiverged}, options: {ciSystems, sentryProjects, users, defaultPathExcludes, defaultReviewPolicy}, sandbox: {snapshot, baseVersion, latestBaseVersion}, docsLinks, shadowDays: int, concernsPullRequest (deferred, group concerns-pull-request): ?{number, url}}`
+ * - review: `{repository: {slug, defaultBranch, prReviewEnabled, reviewPolicy: {profile_max_age_days}, riskProfiles, riskProfileActionUrl, pathExcludes}, options, docsLinks, coOwnerGate (deferred, group co-owner-gate)}`
  * - previews: `{repository: {slug, deploymentsEnabled, previewRepairEnabled}, manifest: {port, healthProbePath, coldStart, checkoutRefresh, wakeTimeoutSeconds}, runningPreviews: int, docsLinks}`
  * - sandbox: `{repository: {slug}, sandbox: {snapshot, baseVersion, latestBaseVersion}, setupHistory: list<{status, id, url, startedAgo, duration}>, stats: {tasks, tasks7d, reviews30d}, docsLinks}`
  * - accounts: `{repository: {slug}, claudeAccounts: RepositoryClaudeAccountData}`
@@ -118,10 +118,15 @@ final class RepositorySettingsData
                 'options' => fn () => self::options(),
                 'sandbox' => fn () => self::sandboxData($repository),
                 'docsLinks' => self::docsLinks(),
+                'shadowDays' => fn () => self::shadowDays($repository),
+                'concernsPullRequest' => Inertia::defer(
+                    fn () => ApprovalSettingsPageData::concernsPullRequest($repository),
+                    'concerns-pull-request',
+                ),
             ],
             'review' => [
                 'repository' => fn () => Arr::only(self::repositoryData($repository), [
-                    'slug', 'prReviewEnabled', 'reviewPolicy', 'riskProfiles', 'riskProfileActionUrl', 'pathExcludes',
+                    'slug', 'defaultBranch', 'prReviewEnabled', 'reviewPolicy', 'riskProfiles', 'riskProfileActionUrl', 'pathExcludes',
                 ]),
                 'options' => fn () => self::options(),
                 'docsLinks' => self::docsLinks(),
@@ -301,6 +306,24 @@ final class RepositorySettingsData
                 ->where('submitted_at', '>=', now()->subDays(30))
                 ->count(),
         ];
+    }
+
+    /**
+     * Whole days since the oldest review recorded in shadow or enforce mode at
+     * a level above 1, 0 when there is none. Looks back 90 days.
+     */
+    public static function shadowDays(Repository $repository): int
+    {
+        $oldest = PrReview::query()
+            ->where('repo', $repository->slug)
+            ->where('created_at', '>=', now()->subDays(90))
+            ->whereNotNull('risk_assessment')
+            ->oldest('created_at')
+            ->get(['id', 'risk_assessment', 'created_at'])
+            ->first(fn (PrReview $review): bool => in_array($review->risk_assessment['mode'] ?? null, ['shadow', 'enforce'], true)
+                && (int) ($review->risk_assessment['level'] ?? 1) >= 2);
+
+        return $oldest?->created_at === null ? 0 : (int) $oldest->created_at->diffInDays(now(), true);
     }
 
     public static function canDelete(Repository $repository): bool

@@ -16,7 +16,7 @@ test('repository risk prompt uses the existing prompt editor', function () {
 test('repository settings show policy controls and draft generation', function () {
     $this->actingAs(User::factory()->create());
     $repo = Repository::factory()->create(['pr_review_enabled' => true]);
-    visit(route('repos.edit', $repo))
+    visit(route('repos.settings.show', ['repository' => $repo, 'section' => 'review']))
         ->assertSee('Risk-based approval')
         ->assertSee('Generate draft with Claude')
         ->assertSee('Edit risk profile prompt')
@@ -90,7 +90,7 @@ test('a human can activate an exact profile and save shadow mode from repository
             'risk' => 'low', 'rationale' => 'Prose only.', 'evidence' => ['docs/readme.md:1']]],
         'unknowns' => [],
     ]));
-    $page = visit(route('repos.edit', $repo));
+    $page = visit(route('repos.settings.show', ['repository' => $repo, 'section' => 'review']));
     $page->assertSee('Documentation: low')
         ->click('[data-testid="review-approval-settings"] [role="switch"]')
         ->click('Approve this profile')
@@ -98,6 +98,7 @@ test('a human can activate an exact profile and save shadow mode from repository
         ->assertNoJavaScriptErrors();
     expect($profiles->active($repo->slug)['approved_by'])->toBe('user:' . $user->id . ' (' . $user->name . ')');
     $page->assertDontSee('Approval mode')
-        ->click('Save repository')
+        ->fill('[data-testid="review-approval-settings"] input[type="number"]', '30')
+        ->click('[data-testid="section-save"]')
         ->assertNoJavaScriptErrors();
 });

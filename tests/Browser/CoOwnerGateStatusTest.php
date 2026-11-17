@@ -17,7 +17,7 @@ it('shows the co-owner gate status on the repository page', function () {
     fakeRiskMapGitHub([], "* @mathias\n");
     $this->actingAs($owner);
 
-    visit(route('repos.edit', $repository))
+    visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']))
         ->assertSee('Risk profile present')
         ->assertVisible('[data-testid="co-owner-gate-status"]')
         ->assertSee('1 CODEOWNERS owner resolves to linked users with write access: Mathias Hansen.')
@@ -41,7 +41,7 @@ function visitGateStatus(string $mode, string $codeOwners, ?User $fallback = nul
     fakeRiskMapGitHub([], $codeOwners);
     test()->actingAs($viewer);
 
-    return visit(route('repos.edit', $repository));
+    return visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']));
 }
 
 it('shows the nobody-can-be-asked state (frame 13b)', function () {

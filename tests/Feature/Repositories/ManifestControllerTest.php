@@ -27,13 +27,13 @@ test('edit exposes the existing manifest values', function () {
 test('manifest update persists changes', function () {
     $repo = Repository::factory()->create(['preview_manifest' => null]);
 
-    $this->put(route('repos.manifest.update', $repo), [
+    $this->from('/origin')->put(route('repos.manifest.update', $repo), [
         'port' => 8080,
         'health_probe_path' => '/',
         'cold_start' => 'docker compose up -d',
         'checkout_refresh' => '',
         'wake_timeout_seconds' => 120,
-    ])->assertRedirect();
+    ])->assertRedirect('/origin');
 
     expect($repo->fresh()->preview_manifest['port'])->toBe(8080);
     expect($repo->fresh()->preview_manifest['cold_start'])->toBe('docker compose up -d');

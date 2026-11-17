@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -139,4 +140,31 @@ test('index rows carry the approval level and mode', function () {
             ->where('approvalLevel', 4)
             ->where('approvalMode', 'shadow')
             ->etc()));
+});
+
+test('general counts the days of shadow reviews at a level above 1', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/site', 'approval_level' => 2, 'approval_mode' => 'shadow']);
+    PrReview::factory()->create(['repo' => 'acme/site', 'risk_assessment' => ['mode' => 'shadow', 'level' => 2], 'created_at' => now()->subDays(20)]);
+    PrReview::factory()->create(['repo' => 'acme/site', 'risk_assessment' => ['mode' => 'off', 'level' => 1], 'created_at' => now()->subDays(40)]);
+
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page->where('shadowDays', 20));
+});
+
+test('general reports the open concerns pull request and survives GitHub failing', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/site']);
+    $github = Mockery::mock(AppService::class);
+    $github->shouldReceive('findOpenPullRequestForBranch')->once()->andReturn(['number' => 9431, 'html_url' => 'https://github.com/acme/site/pull/9431']);
+    $this->instance(AppService::class, $github);
+
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page
+        ->loadDeferredProps('concerns-pull-request', fn (Assert $reload) => $reload
+            ->where('concernsPullRequest.number', 9431)));
+
+    $failing = Mockery::mock(AppService::class);
+    $failing->shouldReceive('findOpenPullRequestForBranch')->andThrow(new RuntimeException('down'));
+    $this->instance(AppService::class, $failing);
+
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page
+        ->loadDeferredProps('concerns-pull-request', fn (Assert $reload) => $reload
+            ->where('concernsPullRequest', null)));
 });
