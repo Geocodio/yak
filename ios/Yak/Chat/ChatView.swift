@@ -61,6 +61,7 @@ struct ChatView: View {
     private struct HistoryTrigger: Equatable {
         var isVisible: Bool
         var state: HistoryState
+        var isAsked: Bool
     }
 
     /// The jump button and the action line sit below the list, so no row hides behind them.
@@ -114,8 +115,13 @@ struct ChatView: View {
         } action: { old, new in
             follow(from: old, to: new)
         }
-        .onChange(of: HistoryTrigger(isVisible: isHistoryVisible, state: thread.historyState)) { _, trigger in
-            guard trigger.isVisible, trigger.state == .available else { return }
+        // Earlier messages load when the person has scrolled to the history row; a list that fits the screen still
+        // moves under a finger. Rows that arrive late pass through the top on their way to the end, and that does
+        // not ask for a page.
+        .onChange(
+            of: HistoryTrigger(isVisible: isHistoryVisible, state: thread.historyState, isAsked: hasPersonScrolled)
+        ) { _, trigger in
+            guard trigger.isVisible, trigger.isAsked, trigger.state == .available else { return }
             isHistoryVisible = false
             rowCountWhenRequested = thread.rows.count
             anchorBeforePage = anchorRow()
@@ -152,17 +158,12 @@ struct ChatView: View {
     private func follow(from old: Metrics, to new: Metrics) {
         viewportHeight = new.viewportHeight
         guard new.contentHeight != old.contentHeight else {
-            // A scroll to the end can land short of it while the lazy stack still estimates; it goes on until there.
-            if !hasPersonScrolled, new.distanceFromBottom > 0.5 {
-                withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
-                return
-            }
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
             return
         }
         // Until the person touches the list, the end stays in view however late or in how many steps the rows and
         // their Markdown arrive; a distance read before the first rows existed decides nothing.
-        if !hasPersonScrolled || (old.distanceFromBottom <= Self.stickDistance && !isPersonScrolling) {
+        if !isPersonScrolling, !hasPersonScrolled || old.distanceFromBottom <= Self.stickDistance {
             withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
             isNearBottom = true
         }
