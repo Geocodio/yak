@@ -16,6 +16,10 @@ Each company builds its own copy. Nothing in this folder holds a team ID, bundle
 
 `YakKit` holds all logic and imports no UIKit or SwiftUI. The app target only shows its models.
 
+## Licenses
+
+The app target uses Apple's [swift-markdown](https://github.com/swiftlang/swift-markdown) 0.9.0 (Apache 2.0, with `swift-cmark` under BSD-2-Clause) to parse chat Markdown. It is pinned to an exact version in `project.yml`. No other Swift package is used by the app target.
+
 ## Running tests fast
 
 Locally, the lanes build once and test many times. `ui_smoke`, `walkthrough` and the app tests of `test` run `xcodebuild build-for-testing` and then `test-without-building` in `build/DerivedData`. The next run skips the build while nothing under `ios/` changed, and the lane output says whether it built or reused. Add `rebuild:true` to force a build. CI always builds.

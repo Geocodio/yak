@@ -196,7 +196,11 @@ final class PreviewModel {
     }
 
     private func apply(intents next: PreviewIntentState) {
+        // A message that left the outbox without a refusal reached the server; the status asked for right after the
+        // send can have reached it first, so it is asked for again.
+        let delivered = intents.pending.subtracting(next.pending).filter { next.refused[$0] == nil }
         intents = next
+        if !delivered.isEmpty { Task { await backend.refresh() } }
         if case .ask(let intent, _) = isPerforming, next.pending.contains(intent) || next.refused[intent] != nil {
             isPerforming = nil
             if let message = next.refused[intent] {

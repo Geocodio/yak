@@ -515,6 +515,7 @@ packages:
 EOF
 sed -i.bak 's#dependencies: \[#dependencies: [\
         .package(url: "https://github.com/example/widget.git", exact: "1.0.0"),#' "$work/ios/Packages/Pins/Package.swift"
+rm -f "$work/ios/Packages/Pins/Package.resolved"
 expect_fail "pins: Package.resolved is missing" "release: pins" "Package.resolved"
 fresh
 sed -i.bak 's#dependencies: \[#dependencies: [\

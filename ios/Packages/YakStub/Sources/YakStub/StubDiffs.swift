@@ -91,7 +91,8 @@ extension StubChanges {
             thread["pullRequestOpening"] = ["state": "held", "error": NSNull(), "at": NSNull()]
         }
         show["thread"] = thread
-        show["latestSequence"] = state.get().nextSequence - 1
+        // The scenario's own history can be further along than the events this feature plays, as in long-history.
+        show["latestSequence"] = max(show["latestSequence"] as? Int ?? 0, state.get().nextSequence - 1)
         return json(show)
     }
 

@@ -34,6 +34,10 @@ private func resultEntry(_ sequence: Int, _ value: String) -> ThreadEvent {
     )
 }
 
+private func failedResultEntry(_ sequence: Int, _ value: String) -> ThreadEvent {
+    make(sequence, "entry", #"{"role":"result","subtype":"error","isError":true,"text":"\#(value)"}"#)
+}
+
 private func project(_ events: ThreadEvent...) -> ConversationProjection {
     var state = ThreadEventState()
     state.apply(events)
@@ -281,4 +285,9 @@ private func repositoryEvent(_ sequence: Int, _ repo: String, _ state: String) -
     let projection = ConversationProjection.project(state)
     #expect(projection.items.map(\.key) == ["tools:msg_3:0", "tools:msg_4:0", "msg_5:0"])
     #expect(projection.readSequences == ["00000000-0000-4000-8000-000000000002": 3])
+}
+
+@Test func aResultKeepsWhetherTheTurnFailed() {
+    let items = project(resultEntry(2, "Fine"), failedResultEntry(5, "Out of steps")).items
+    #expect(items.map(\.isError) == [false, true])
 }

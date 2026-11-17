@@ -61,24 +61,25 @@ struct YakApp: App {
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
+                    MarkdownGallery()
+                } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
+                    ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
-                    root
+                    rootView.preferredColorScheme(TestMode.colorScheme())
                 }
             #else
-                root
+                rootView
             #endif
         }
     }
 
-    private var root: some View {
+    private var rootView: some View {
         RootView(model: model)
             .appRoot(parts, model: model)
             .task {
                 delegate.attach(parts.push)
                 await parts.push.start()
             }
-            #if DEBUG
-                .preferredColorScheme(TestMode.colorScheme())
-            #endif
     }
 }

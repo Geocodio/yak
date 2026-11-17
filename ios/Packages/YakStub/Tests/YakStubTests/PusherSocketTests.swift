@@ -112,6 +112,20 @@ private final class Client: @unchecked Sendable {
         #expect((stored["events"] as? [Any])?.count == 11)
     }
 
+    @Test func liveEventsAreStampedWithTheTimeTheyArePlayed() async throws {
+        let (server, _, socketPort) = try await startedServer(.oneThreadWorking)
+        defer { server.stop() }
+        let client = Client(socketPort)
+        _ = try await client.receive()
+        try await client.send(#"{"event":"pusher:subscribe","channel":"private-thread.d0e515ef"}"#)
+        _ = try await client.receive()
+        let frame = try await client.receive()
+        let item = try JSONSerialization.jsonObject(with: Data((frame["data"] as? String ?? "").utf8)) as? [String: Any]
+        let stamp = try #require(item?["createdAt"] as? String)
+        let age = Date().timeIntervalSince(try #require(ISO8601DateFormatter().date(from: stamp)))
+        #expect(age >= 0 && age < 30)
+    }
+
     @Test func offlineClosesSocketsAndPausesPlayback() async throws {
         let (server, port, socketPort) = try await startedServer(.oneThreadWorking)
         defer { server.stop() }

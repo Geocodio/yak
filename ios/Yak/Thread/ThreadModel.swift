@@ -2,6 +2,17 @@ import Foundation
 import Observation
 import YakKit
 
+/// What the chat shows at the top of its rows about earlier messages.
+enum HistoryState: Equatable {
+    /// There is nothing earlier.
+    case hidden
+    /// There is more, and the chat asks for it when the top is on screen.
+    case available
+    case loading
+    /// The last request for earlier messages failed; the person can ask again.
+    case failed
+}
+
 /// One open thread on screen: reads the engine's snapshots and hands the screen finished values.
 @MainActor @Observable
 final class ThreadModel {
@@ -12,8 +23,34 @@ final class ThreadModel {
     let composer: ComposerModel
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
+    /// The rows of the conversation, with the day dividers, from the newest snapshot.
+    private(set) var rows: [ConversationRow] = []
+    /// The parsed Markdown of the text items, by item key. An item has none until its first parse is done.
+    private(set) var documents: [String: AppMarkdownRenderer.Document] = [:]
+    /// A short message about a refused or failed action, cleared after six seconds or on the next action.
+    private(set) var actionLine: String?
+    /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
+    private(set) var announcement: String?
+    private(set) var announcementSerial = 0
+    /// A notice's button (Continue or Retry) has a request in flight.
+    private(set) var isNoticeActionRunning = false
+    /// The name of the signed-in person, to tell their messages from other people's.
+    private(set) var ownName: String?
 
     let session: InstanceSession
+    /// Day dividers follow this calendar; a test sets another.
+    var calendar = Calendar.current
+    @ObservationIgnored var buildRows: RowsBuilder = ThreadModel.defaultRowsBuilder
+    @ObservationIgnored private var markdownCache: MarkdownCache<AppMarkdownRenderer>?
+    @ObservationIgnored private var markdownItems: [String: ConversationItem] = [:]
+    @ObservationIgnored private var pendingMarkdown: [ConversationItem]?
+    @ObservationIgnored private var markdownTask: Task<Void, Never>?
+    /// Which task `markdownTask` holds, so an older task cannot clear a newer one's handle.
+    @ObservationIgnored private var markdownTaskToken: UUID?
+    @ObservationIgnored private var dirtyMarkdownKeys: Set<String> = []
+    @ObservationIgnored private var flushTask: Task<Void, Never>?
+    @ObservationIgnored private var actionLineTask: Task<Void, Never>?
+    @ObservationIgnored private var actionLineSerial = 0
     /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
     @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
     /// The drawer row's title, shown until the thread's own arrives.
@@ -44,6 +81,9 @@ final class ThreadModel {
             ?? ComposerModel(
                 key: .thread(threadID),
                 backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
+            self?.markdownChanged(key)
+        }
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -55,6 +95,17 @@ final class ThreadModel {
         return ThreadLoadPresentation.make(snapshot?.load ?? .loading)
     }
     var hasOpenQuestion: Bool { snapshot?.hasOpenQuestion ?? false }
+    /// The thread `/clear` started; the screen opens it.
+    var replacementThreadID: String? { snapshot?.replacementThreadID }
+    var instanceURL: URL { session.instance.url }
+    var isOffline: Bool { snapshot?.isOffline ?? false }
+    var notice: ThreadNotice? { snapshot?.show?.notice }
+    var historyState: HistoryState {
+        guard let snapshot, snapshot.hasOlderHistory else { return .hidden }
+        if snapshot.isLoadingOlder { return .loading }
+        return snapshot.didOlderFail ? .failed : .available
+    }
+    var isTurnActive: Bool { Self.isTurnActive(snapshot) }
 
     /// Opens the engine and reads its snapshots until `stop()`. A second call changes nothing.
     func start(initialTitle: String?) async {
@@ -108,10 +159,13 @@ final class ThreadModel {
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
         await opened.setVisible(isVisible)
+        if ownName == nil { ownName = await session.me()?.user.name }
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
-                self.snapshot = next
+                await self.apply(next)
+                // The thread can close while `apply` waits; the composer then keeps what it has.
+                guard !Task.isCancelled else { return }
                 self.onSnapshot(next)
                 self.composer.update(snapshot: next)
             }
@@ -122,8 +176,220 @@ final class ThreadModel {
         generation += 1
         readingTask?.cancel()
         readingTask = nil
+        markdownTask?.cancel()
+        flushTask?.cancel()
+        actionLineTask?.cancel()
+        markdownTask = nil
+        flushTask = nil
+        actionLineTask = nil
+        actionLine = nil
+        dirtyMarkdownKeys = []
+        await markdownCache?.clear()
         guard engine != nil else { return }
         engine = nil
         await session.closeThread(threadID)
+    }
+}
+
+// MARK: Chat
+
+extension ThreadModel {
+    private static let announcementLength = 200
+
+    private static func isTurnActive(_ snapshot: ConversationSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        return snapshot.turn?.state.isActive ?? (snapshot.show?.composer.state == .working)
+    }
+
+    /// Builds the rows of a snapshot; a test replaces it to see where it runs.
+    typealias RowsBuilder = @Sendable (ConversationSnapshot, Date, Calendar) -> [ConversationRow]
+
+    nonisolated static let defaultRowsBuilder: RowsBuilder = { snapshot, now, calendar in
+        ConversationRows.make(
+            entries: snapshot.entries, currentStepKey: snapshot.currentStepKey, waiting: snapshot.waiting,
+            now: now, calendar: calendar)
+    }
+
+    /// Takes a newer snapshot: the rows, the Markdown parses and the announcement when a turn has just ended.
+    /// The rows are built before the main actor takes the snapshot, so a long history never holds up scrolling.
+    func apply(_ next: ConversationSnapshot) async {
+        let builtRows = await Self.makeRows(next, now: session.clock.now(), calendar: calendar, using: buildRows)
+        guard !Task.isCancelled else { return }
+        let wasActive = Self.isTurnActive(snapshot)
+        snapshot = next
+        rows = builtRows
+        if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
+        requestMarkdown(for: next.entries)
+    }
+
+    @concurrent private nonisolated static func makeRows(
+        _ snapshot: ConversationSnapshot, now: Date, calendar: Calendar, using builder: RowsBuilder
+    ) async -> [ConversationRow] {
+        builder(snapshot, now, calendar)
+    }
+
+    private func announceTurnEnd(_ snapshot: ConversationSnapshot) {
+        let lastText = snapshot.entries.reversed().lazy.compactMap { entry -> String? in
+            guard case .event(let item) = entry, item.kind == .text, !item.isStreaming else { return nil }
+            return item.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.first { !$0.isEmpty }
+        if let lastText {
+            announcement = String(
+                localized: "chat.announce.finishedWith \(String(lastText.prefix(Self.announcementLength)))")
+        } else {
+            announcement = String(localized: "chat.announce.finished")
+        }
+        announcementSerial += 1
+    }
+
+    // MARK: Markdown
+
+    private func requestMarkdown(for entries: [ConversationEntry]) {
+        let items = entries.compactMap { entry -> ConversationItem? in
+            guard case .event(let item) = entry, item.kind == .text || item.kind == .result else { return nil }
+            return item
+        }
+        markdownItems = Dictionary(items.map { ($0.key, $0) }, uniquingKeysWith: { $1 })
+        pendingMarkdown = items
+        guard markdownTask == nil else { return }
+        let token = UUID()
+        markdownTaskToken = token
+        markdownTask = Task { [weak self] in
+            while let self, !Task.isCancelled, let items = self.pendingMarkdown {
+                self.pendingMarkdown = nil
+                await self.markdownCache?.update(with: items)
+            }
+            // A task that `close()` cancelled can end after a newer one started; it clears only its own handle.
+            if self?.markdownTaskToken == token { self?.markdownTask = nil }
+        }
+    }
+
+    /// The cache has a new document for `key`. Parses of a long history finish one after another, so they are
+    /// collected and published together.
+    private func markdownChanged(_ key: String) {
+        dirtyMarkdownKeys.insert(key)
+        guard flushTask == nil else { return }
+        flushTask = Task { [weak self] in
+            do { try await self?.session.clock.sleep(for: .milliseconds(50)) } catch { return }
+            await self?.flushMarkdown()
+        }
+    }
+
+    private func flushMarkdown() async {
+        let keys = dirtyMarkdownKeys
+        dirtyMarkdownKeys = []
+        flushTask = nil
+        var updated: [String: AppMarkdownRenderer.Document] = [:]
+        for key in keys {
+            if let item = markdownItems[key], let document = await markdownCache?.document(for: item) {
+                updated[key] = document
+            }
+        }
+        documents.merge(updated) { $1 }
+    }
+
+    // MARK: Actions
+
+    /// Lets the turn go on after the guard stopped it.
+    func continueTurn() async {
+        await performNoticeAction { await $0.continueTurn() }
+    }
+
+    func retryRestore() async {
+        await performNoticeAction { await $0.retryRestore() }
+    }
+
+    func loadOlder() async {
+        guard let engine else { return }
+        await engine.loadOlder()
+    }
+
+    /// Saves a queued message's new text. The sheet shows a refusal itself; a message that already went out is
+    /// told here, because the sheet closes.
+    func editQueued(_ uuid: String, text: String) async -> ThreadActionOutcome {
+        guard let engine else { return .failed(.offline) }
+        let outcome = await engine.editQueuedMessage(uuid, text: text)
+        if outcome == .alreadySent { show(outcome) }
+        return outcome
+    }
+
+    func setQueuedMode(_ uuid: String, mode: MessageMode) async {
+        guard let engine else { return show(.failed(.offline)) }
+        show(await engine.setQueuedMessageMode(uuid, mode: mode))
+    }
+
+    func withdrawQueued(_ uuid: String) async {
+        guard let engine else { return show(.failed(.offline)) }
+        show(await engine.withdrawQueuedMessage(uuid))
+    }
+
+    /// Sends a refused or waiting message again now.
+    func retryUnsent(_ id: UUID) async {
+        await session.outbox()?.retry(id)
+    }
+
+    /// Takes an unsent message out of the outbox and returns it; nil when it is gone or is sending right now.
+    func removeUnsent(_ id: UUID) async -> OutboxItem? {
+        guard let outbox = await session.outbox() else { return nil }
+        do throws(OutboxEditProblem) {
+            return try await outbox.remove(id)
+        } catch {
+            if error == .alreadySending { setActionLine(String(localized: "chat.action.sendingNow")) }
+            return nil
+        }
+    }
+
+    /// Hands an unsent message back to the composer: its text, model and files, taken out of the outbox. False when
+    /// it could not be taken; the composer then says why.
+    func edit(_ item: OutboxItem) async -> Bool {
+        await composer.restore(item)
+    }
+
+    /// The bytes of an attachment of an unsent message, read off the main actor.
+    func attachmentData(_ attachment: OutboxAttachment) async -> Data? {
+        await session.attachmentData(attachment)
+    }
+
+    private func performNoticeAction(_ action: (ThreadEngine) async -> ThreadActionOutcome) async {
+        guard let engine, !isNoticeActionRunning else { return }
+        clearActionLine()
+        isNoticeActionRunning = true
+        let outcome = await action(engine)
+        isNoticeActionRunning = false
+        show(outcome)
+    }
+
+    /// Words for how an action ended: nothing when it worked.
+    private func show(_ outcome: ThreadActionOutcome) {
+        switch outcome {
+        case .done: break
+        case .alreadySent: setActionLine(String(localized: "chat.message.alreadySent"))
+        case .refused(_, let message, _):
+            setActionLine(message.isEmpty ? String(localized: "chat.action.refused") : message)
+        case .failed(let problem):
+            switch problem {
+            case .offline: setActionLine(String(localized: "chat.action.offline"))
+            case .server(_, let message) where !message.isEmpty: setActionLine(message)
+            default: setActionLine(String(localized: "chat.action.failed"))
+            }
+        }
+    }
+
+    private func setActionLine(_ text: String) {
+        actionLineSerial += 1
+        let mine = actionLineSerial
+        actionLine = text
+        actionLineTask?.cancel()
+        actionLineTask = Task { [weak self] in
+            do { try await self?.session.clock.sleep(for: .seconds(6)) } catch { return }
+            guard let self, self.actionLineSerial == mine else { return }
+            self.actionLine = nil
+        }
+    }
+
+    private func clearActionLine() {
+        actionLineSerial += 1
+        actionLineTask?.cancel()
+        actionLine = nil
     }
 }
