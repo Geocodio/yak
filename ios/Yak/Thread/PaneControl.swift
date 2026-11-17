@@ -32,7 +32,7 @@ struct PaneMenuButton: View {
             .contentShape(.capsule)
         }
         .tint(.primary)
-        .popoverTip(PaneSlideTip())
+        .popoverTip(PaneSlideTip(), arrowEdge: .bottom)
         .onChange(of: panes.count, initial: true) {
             PaneSlideTip.isEligible = GestureTips.eligibleForPaneSlide(usesMenuButton: true, paneCount: panes.count)
         }

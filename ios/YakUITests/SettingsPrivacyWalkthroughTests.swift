@@ -55,16 +55,35 @@ import XCTest
 
     // MARK: Tips
 
+    /// Opens the thread `d0e515ef` from the drawer.
+    private func openThread() throws {
+        if !app.otherElements["drawer"].exists, app.buttons["threads.button"].waitForExistence(timeout: 5) {
+            app.buttons["threads.button"].tap()
+        }
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: 30))
+        row.tap()
+    }
+
     func testTips() throws {
         try start("one-thread-working", paired: true, extraArguments: ["-yakTestTips", "show"])
+        try stub.setPlaybackMilliseconds(1000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        try openThread()
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 30))
+        try stub.setPlaybackMilliseconds(600_000)
         let field = app.textFields["composer.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 30))
+        // The tip is the system popover, so its shot skips the audit. With every tip forced on, the pane tip's popover shows over the field first; its close button dismisses it.
+        let close = app.buttons["Close"]
+        if close.waitForExistence(timeout: 3) { close.tap() }
         field.tap()
         field.typeText("Next")
         XCTAssertTrue(label("Hold to send later").waitForExistence(timeout: 10))
-        try shoot("tip-send-after-turn")
+        try shoot("tip-send-after-turn", audits: false)
         app.terminate()
         try start("paired", paired: true, extraArguments: ["-yakTestTips", "show"])
+        try openThread()
         let menu = app.buttons["pane.menu"]
         guard menu.waitForExistence(timeout: 30) else { throw XCTSkip("the thread did not open") }
         menu.tap()
@@ -74,6 +93,6 @@ import XCTest
         else { throw XCTSkip("needs two panes") }
         app.tap()
         XCTAssertTrue(label("Press and slide").waitForExistence(timeout: 10))
-        try shoot("tip-pane-slide")
+        try shoot("tip-pane-slide", audits: false)
     }
 }

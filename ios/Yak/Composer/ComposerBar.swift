@@ -92,7 +92,7 @@ struct ComposerBar: View {
         .accessibilityAction(named: Text("composer.sendAfterTurn")) {
             if composer.bar.offersSendAfterTurn { send(.afterTurn) }
         }
-        .popoverTip(SendAfterTurnTip())
+        .popoverTip(SendAfterTurnTip(), arrowEdge: .bottom)
         .onChange(of: tipIsEligible, initial: true) { SendAfterTurnTip.isEligible = tipIsEligible }
         .accessibilityIdentifier("composer.send")
     }
