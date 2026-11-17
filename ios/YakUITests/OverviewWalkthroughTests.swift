@@ -493,7 +493,8 @@ import XCTest
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
             if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
             if let directory = self.environment["YAK_SHOT_DIR"] {
-                try? self.upright(XCUIScreen.main.screenshot()).write(to: URL(fileURLWithPath: "\(directory)/\(name)-audit.png"))
+                let file = URL(fileURLWithPath: "\(directory)/\(name)-audit.png")
+                try? self.upright(XCUIScreen.main.screenshot()).write(to: file)
             }
             XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
             return true
