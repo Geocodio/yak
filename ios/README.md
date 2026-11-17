@@ -16,6 +16,18 @@ Each company builds its own copy. Nothing in this folder holds a team ID, bundle
 
 `YakKit` holds all logic and imports no UIKit or SwiftUI. The app target only shows its models.
 
+## Running tests fast
+
+Locally, the lanes build once and test many times. `ui_smoke`, `walkthrough` and the app tests of `test` run `xcodebuild build-for-testing` and then `test-without-building` in `build/DerivedData`. The next run skips the build while nothing under `ios/` changed, and the lane output says whether it built or reused. Add `rebuild:true` to force a build. CI always builds.
+
+At most `YAK_SIM_SLOTS` simulator test jobs run at once on a machine (default 4). A job that finds all slots taken prints "waiting for a simulator slot" once a minute and starts when one frees up. The slots are folders in `/tmp/yak-ios-sim-slots`. CI takes no slot.
+
+A failed UI test is not retried locally. Add `retry:true` to get one more try, as CI does.
+
+`lint` runs the self-test of the rule scripts (`test-rules.sh`) only when `scripts/` or the workflow files changed since it last passed. Add `rules:true` to run it anyway. CI always runs it.
+
+Run one test with `only:<Class>/<test>`, for example `bundle exec fastlane ui_smoke only:PairingSmokeTests/testName`.
+
 ## UI tests and the stub server
 
 `bundle exec fastlane ui_smoke device:"iPhone 18 Pro"` builds `Packages/YakStub`, starts `yak-stub` on a free port, runs `YakUITests` against it and stops it. The stub replays the contract fixtures in `fixtures/`; a test picks the scenario with `StubControl.play(_:)`, which posts the name to `/__stub/scenario`. Scenarios: `paired`, `revoked`, `server-too-new`, `server-too-old`, `not-yak`, `slow` (every answer after 10 seconds), `slower` (14 seconds, so the slow-connection hint shows before the answer arrives), `down` (connections closed), `broken` (500 everywhere), `code-used`, `code-expired`, `approval-pending` (`device/token` answers `authorization_pending` for ever), `approval-denied`, `approval-expired`, `approval-slow-down`. `POST /__stub/online` with `no` or `yes` takes the app offline and back in test mode (a new scenario resets it); `StubControl.setOnline(_:)` does this from a test.
