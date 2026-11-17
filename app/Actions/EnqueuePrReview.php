@@ -128,12 +128,21 @@ class EnqueuePrReview
             ->get(['context']);
 
         foreach ($candidates as $task) {
-            $ctx = json_decode((string) $task->context, true);
-            if (is_array($ctx) && ($ctx['head_sha'] ?? null) === $headSha) {
+            if (self::isAtHead($task, $headSha)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Whether a review task was queued for this head commit.
+     */
+    public static function isAtHead(YakTask $task, string $headSha): bool
+    {
+        $context = json_decode((string) $task->context, true);
+
+        return is_array($context) && ($context['head_sha'] ?? null) === $headSha;
     }
 }

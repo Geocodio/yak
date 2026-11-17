@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Models\ApprovalPreview;
 use App\Models\Repository;
 use App\Models\User;
+use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 
 function fakeApprovalGitHub(bool $hasRequiredChecks = true): void
@@ -130,6 +132,23 @@ it('offers a review for a pull request Yak has not reviewed yet', function () {
     visit(route('repos.approvals.show', $repository))
         ->assertSeeIn('[data-testid="open-pr-row-4"]', 'Waiting')
         ->assertVisible('[data-testid="open-pr-review-4"]')
+        ->assertNoJavascriptErrors();
+});
+
+it('shows a pull request Yak is reviewing without a review button', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => concernsYaml()]);
+    fakeApprovalGitHub();
+    $url = 'https://github.com/acme/api/pull/6';
+    $sha = str_repeat('b', 40);
+    openPullRequestRow($repository, 6, 'no_runtime_change', ['url' => $url, 'head_sha' => $sha, 'result' => ['holds' => [], 'changeKind' => null, 'hasTestChange' => false, 'waiting' => true, 'classification' => null]]);
+    YakTask::factory()->create(['mode' => TaskMode::Review, 'status' => 'running', 'external_id' => $url, 'context' => json_encode(['head_sha' => $sha])]);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.approvals.show', $repository))
+        ->assertSeeIn('[data-testid="open-pr-row-6"] [aria-live]', 'Yak is reviewing')
+        ->assertSeeIn('[data-testid="open-pr-reason-6"]', 'Yak is reviewing this commit now.')
+        ->assertMissing('[data-testid="open-pr-review-6"]')
         ->assertNoJavascriptErrors();
 });
 
