@@ -1,16 +1,17 @@
 import SwiftUI
 import YakKit
 
-/// The mark at the trailing side of a row: a colored dot and a letter, so the two are told apart without color.
+/// The mark at the trailing side of a row: a letter on a tinted pill, or a dot for a folder, so the marks are told apart without color.
 struct FileMarkView: View {
     let mark: FileMark
 
     var body: some View {
         HStack(spacing: 4) {
-            Circle().fill(color).frame(
-                width: mark == .containsChanges ? 6 : 8, height: mark == .containsChanges ? 6 : 8)
             if let letter {
                 Text(verbatim: letter).font(.caption.weight(.bold).monospaced()).foregroundStyle(Color.primary)
+                    .padding(.horizontal, 5).background(color.opacity(0.25), in: .capsule)
+            } else {
+                Circle().fill(color).frame(width: 6, height: 6)
             }
         }
         .accessibilityHidden(true)
