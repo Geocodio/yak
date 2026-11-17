@@ -184,6 +184,10 @@ test('leaves a task Failed once it is over the deploy_resume_count bound', funct
         ->and($task->deploy_resume_count)->toBe(3)
         ->and($task->error_log)->toContain('manual retry')
         ->and($task->stop_kind)->toBe(StopKind::YakStopped);
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
+        && $job->personalize === false);
 });
 
 test('is a no-op while the drain flag is set', function () {
