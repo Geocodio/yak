@@ -46,6 +46,8 @@ class VisibilityRoutes
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
         'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
         'threads.local-turns' => ['GET', '/threads/{thread}/local-turns'],
+        'threads.runs.log' => ['GET', '/threads/{thread}/runs/{run}/log'],
+        'threads.tasks.log' => ['GET', '/threads/{thread}/tasks/{task}/log', [], 404],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],
         'threads.teleport-request.store' => ['POST', '/threads/{thread}/teleport-request', ['acknowledged_private_publish' => true]],
         'threads.teleport-request.destroy' => ['DELETE', '/threads/{thread}/teleport-request'],
@@ -152,6 +154,7 @@ class VisibilityRoutes
                 '{sharedFile}' => $id === $missing ? '0000000000000000000000000z' : (string) $world->sharedFile->public_id,
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
                 '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
+                '{run}' => (string) ($id === $missing ? $missing : $world->run->id),
                 '{row}' => (string) ($id === $missing ? $missing : $world->pullRequestRow->id),
                 '{pr}' => (string) ($id === $missing ? $missing : $world->prReview->pr_number),
             ]);

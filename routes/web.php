@@ -124,6 +124,7 @@ use App\Http\Controllers\Threads\ThreadPullRequestController;
 use App\Http\Controllers\Threads\ThreadQueuedMessageController;
 use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
+use App\Http\Controllers\Threads\ThreadRunLogController;
 use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
 use App\Http\Controllers\Threads\ThreadSharedFileController;
@@ -396,6 +397,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])
         ->name('threads.diff.files.show')
         ->where(['file' => '[0-9]+']);
+    Route::get('threads/{thread}/runs/{run}/log', [ThreadRunLogController::class, 'show'])
+        ->name('threads.runs.log')
+        ->where(['run' => '[0-9]+']);
+    Route::get('threads/{thread}/tasks/{task}/log', [ThreadRunLogController::class, 'showTask'])
+        ->name('threads.tasks.log');
     Route::get('threads/{thread}/local-turns', LocalTurnsController::class)
         ->name('threads.local-turns');
     Route::get('threads/{thread}/environment', [ThreadEnvironmentController::class, 'show'])

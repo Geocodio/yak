@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ThreadRunLogData;
 use App\Http\Resources\ThreadShowData;
 use App\Models\Thread;
 use Illuminate\Http\Request;
@@ -17,6 +18,11 @@ class ThreadController extends Controller
         // A hidden thread answers exactly like a missing one.
         abort_unless(Gate::allows('view', $thread), 404);
 
-        return Inertia::render('Threads/Show', ThreadShowData::build($thread, $request->user() ?? abort(401)));
+        $entryId = $request->query('log');
+
+        return Inertia::render('Threads/Show', [
+            ...ThreadShowData::build($thread, $request->user() ?? abort(401)),
+            'openLog' => is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null,
+        ]);
     }
 }
