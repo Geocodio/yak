@@ -20,21 +20,30 @@ function postSeen(threadId: string): Promise<void> {
 
 /**
  * Posts `threads.seen` again when the open thread's row arrives unread, which
- * happens when a turn finishes while the person watches. It posts at most once
- * per list response and never while another seen post is in flight.
+ * happens when a turn finishes while the person watches. It never posts while
+ * another seen post is in flight. A row with an unread sub-thread stays unread
+ * whatever is posted for it, so that row costs one request per thread, not one
+ * per refresh.
  */
 export function useKeepThreadSeen(threadId: string | null, data: ThreadListData | null): void {
-    const handled = useRef<ThreadListData | null>(null);
+    const postedForSubThreads = useRef<string | null>(null);
 
     useEffect(() => {
-        if (threadId === null || data === null || handled.current === data) {
+        if (threadId === null || data === null || pendingPosts > 0) {
             return;
         }
-        handled.current = data;
         const rows = [...data.starred, ...data.needsYou, ...data.threads].flatMap((row) => [row, ...row.children]);
-        if (pendingPosts === 0 && rows.some((row) => row.id === threadId && row.isUnread)) {
-            void postSeen(threadId);
+        const row = rows.find((candidate) => candidate.id === threadId && candidate.isUnread);
+        if (!row) {
+            return;
         }
+        if (row.children.some((child) => child.isUnread)) {
+            if (postedForSubThreads.current === threadId) {
+                return;
+            }
+            postedForSubThreads.current = threadId;
+        }
+        void postSeen(threadId);
     }, [threadId, data]);
 }
 
