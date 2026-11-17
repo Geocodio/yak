@@ -14,7 +14,7 @@ import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import { allFailuresRetried } from '@/components/tasks/groupActivity';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import { rerunReview, retry, setupAndContinue } from '@/routes/tasks';
-import type { ActionsData, ActivityRow, ActivitySummary, DeploymentData, FindingsData, ProgressStep, TaskDetail, ThreadEntryData } from '@/types/tasks';
+import type { ActionsData, ActivityRow, ActivitySummary, DeploymentData, FindingsData, ProgressStep, StopData, TaskDetail, ThreadEntryData } from '@/types/tasks';
 
 /** Where Yak's activity for the run on screen lives: the loaded rows, the run totals and the paging controls. */
 export type YakStream = {
@@ -32,6 +32,7 @@ export type YakBubbleContext = {
     progress: ProgressStep[];
     stream: YakStream;
     findings: FindingsData;
+    stop: StopData;
     onOpenFullLog: () => void;
 };
 
@@ -112,15 +113,80 @@ function RepositorySetupCard({ task, setup }: { task: TaskDetail; setup: NonNull
     );
 }
 
+const STOP_STYLES = {
+    yak_retrying: { label: 'Paused', block: 'bg-info-soft', tone: 'text-info', dot: 'bg-info' },
+    yak_stopped: { label: 'Stopped', block: 'bg-fail-soft', tone: 'text-fail', dot: 'bg-fail' },
+    needs_you: { label: 'Yak needs you', block: 'bg-warn-soft', tone: 'text-warn', dot: 'bg-warn' },
+} as const;
+
+/** What happened in plain words, what to do next, and the technical text folded under Details. */
+function StopBlock({ stop, retryAction, step }: { stop: NonNullable<StopData>; retryAction: { label: string; url: string } | null; step: ReturnType<typeof stoppedAt> }) {
+    const style = STOP_STYLES[stop.kind];
+
+    return (
+        <div className={cn('flex flex-col gap-2.5 rounded-[10px] px-4 py-3.5', style.block)} data-testid="task-stop" data-stop-kind={stop.kind}>
+            <span className={cn('inline-flex items-center gap-2 text-[13px] font-semibold', style.tone)}>
+                <span className={cn('size-2 rounded-full', style.dot)} aria-hidden />
+                {style.label}
+            </span>
+            <p className="m-0 max-w-[65ch] text-[14.5px] leading-[1.55] text-body">{stop.summary}</p>
+            <p className="m-0 max-w-[65ch] text-[13.5px] text-muted">{stop.nextStep}</p>
+            {stop.isWaitingForSetup && (
+                <span className="flex items-center gap-2 text-[13px] text-muted">
+                    <Loader2 size={13} className="animate-spin motion-reduce:animate-none" aria-hidden />
+                    Waiting for setup to finish
+                </span>
+            )}
+            {retryAction && stop.kind !== 'yak_retrying' && (
+                <div>
+                    <Button variant="primary" icon={<RotateCcw size={14} />} onClick={() => router.post(retryAction.url, {}, { preserveScroll: true })} data-testid="retry-run">
+                        {retryAction.label}
+                    </Button>
+                </div>
+            )}
+            {(stop.detail || step) && (
+                <details className="text-[13px]">
+                    <summary className="cursor-pointer text-muted">Details</summary>
+                    {stop.detail && <pre className="mt-2 mb-0 overflow-x-auto rounded-lg bg-panel-2 px-3 py-2.5 font-mono text-[12.5px] whitespace-pre-wrap text-body">{stop.detail}</pre>}
+                    {step && (
+                        <div className="mt-2 rounded-lg bg-panel p-[3px]">
+                            <OpenKeysProvider>
+                                <StepList className="before:hidden">
+                                    <StepRow step={step} />
+                                </StepList>
+                            </OpenKeysProvider>
+                        </div>
+                    )}
+                </details>
+            )}
+        </div>
+    );
+}
+
+function retryActionFor(task: TaskDetail, actions: ActionsData) {
+    return actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+}
+
+/** The stop block for a task whose final run has no bubble carrying an error (an expired clarification, for one). */
+export function StandaloneStop({ task, actions, stop }: { task: TaskDetail; actions: ActionsData; stop: NonNullable<StopData> }) {
+    return <StopBlock stop={stop} retryAction={retryActionFor(task, actions)} step={null} />;
+}
+
 function ErrorCard({ entry, context, rows, focused }: { entry: ThreadEntryData; context: YakBubbleContext; rows: ActivityRow[]; focused: boolean }) {
     const { task, actions } = context;
 
-    if (task.repositorySetup && focused) {
+    const { stop } = context;
+    // The setup card keeps its own buttons; a task already waiting on setup reads as the Paused block instead.
+    if (task.repositorySetup && focused && !(stop && task.repositorySetup.continuesAfterSetup)) {
         return <RepositorySetupCard task={task} setup={task.repositorySetup} />;
     }
 
     const step = stoppedAt(rows);
-    const retryAction = actions.canRerunReview ? { label: 'Re-run review', url: rerunReview.url(task.id) } : actions.canRetry ? { label: task.mode === 'setup' ? 'Retry setup' : 'Retry', url: retry.url(task.id) } : null;
+    const retryAction = retryActionFor(task, actions);
+
+    if (stop && focused) {
+        return <StopBlock stop={stop} retryAction={retryAction} step={step} />;
+    }
 
     return (
         <div className="flex flex-col gap-2 rounded-[10px] bg-fail-soft p-3" data-testid="run-error">

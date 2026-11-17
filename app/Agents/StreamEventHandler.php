@@ -154,6 +154,11 @@ class StreamEventHandler
         if ($error !== null && $error !== '') {
             TaskLogger::error($this->task, "Agent runner error: {$error}");
         }
+
+        if (($event['event'] ?? null) === 'swept' && is_array($event['commands'] ?? null)) {
+            $commands = implode(', ', array_filter($event['commands'], 'is_string'));
+            TaskLogger::info($this->task, 'Stopped leftover processes after the final answer: ' . SecretRedactor::redact($commands));
+        }
     }
 
     /**

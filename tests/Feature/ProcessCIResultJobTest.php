@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\CreatePullRequestJob;
 use App\Jobs\ProcessCIResultJob;
@@ -658,7 +659,33 @@ test('second failure marks task as failed', function () {
 
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->completed_at)->not->toBeNull()
-        ->and($task->error_log)->toBe('Tests still failing after retry');
+        ->and($task->error_log)->toBe('Tests still failing after retry')
+        ->and($task->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($task->stop_summary)->toBe("Yak's change still fails the automated checks after 2 tries.");
+});
+
+test('the still-failing message counts only the tries since the last dashboard retry', function () {
+    Queue::fake([SendNotificationJob::class]);
+    config()->set('yak.max_attempts', 2);
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'source' => 'manual',
+        'attempts' => 4,
+        'attempts_at_manual_retry' => 2,
+    ]);
+
+    (new ProcessCIResultJob($task, false, "## Tests (https://github.com/org/my-repo/runs/1)\n\nlog"))->handle();
+
+    expect($task->refresh()->stop_summary)->toBe("Yak's change still fails the automated checks after 2 tries (failing: Tests).");
+});
+
+test('failedCheckNames lists the check names from the headings', function () {
+    $output = "## Tests (https://github.com/org/r/runs/1)\n\nlog\n\n## Lint (https://github.com/org/r/runs/2)\nlog";
+
+    expect(ProcessCIResultJob::failedCheckNames($output))->toBe(['Tests', 'Lint'])
+        ->and(ProcessCIResultJob::failedCheckNames('plain output'))->toBe([]);
 });
 
 test('a failure after a dashboard retry gets a fresh CI retry budget', function () {
@@ -716,8 +743,7 @@ test('second failure posts failure summary to source', function () {
 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'slack.com/api/chat.postMessage')
-            && str_contains($request['text'], 'CI failed')
-            && str_contains($request['text'], 'Auth tests failed');
+            && str_contains($request['text'], 'still fails the automated checks after 2 tries');
     });
 });
 
@@ -745,10 +771,11 @@ test('second failure keeps job log excerpts out of the source notification', fun
 
     (new ProcessCIResultJob($task, false, $output))->handle();
 
-    expect($task->refresh()->error_log)->toBe($output);
+    expect($task->refresh()->error_log)->toBe($output)
+        ->and($task->stop_summary)->toContain('(failing: Test (Browser))');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), 'slack.com/api/chat.postMessage')
-        && str_contains($request['text'], '## Test (Browser)')
+        && str_contains($request['text'], 'failing: Test (Browser)')
         && ! str_contains($request['text'], 'LoginTest'));
 });
 
@@ -809,6 +836,8 @@ test('failed() transitions non-final task to Failed with error_log', function ()
 
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->error_log)->toContain('PR creation exploded')
+        ->and($task->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($task->stop_summary)->toBe('Yak ran into a problem on its side and stopped before finishing.')
         ->and($task->completed_at)->not->toBeNull();
 
     Http::assertSent(fn ($r) => str_contains($r->url(), 'slack.com/api/chat.postMessage'));
@@ -1179,7 +1208,7 @@ test('a final CI failure followed by a job exception reports one error', functio
 
     Queue::assertPushed(SendNotificationJob::class, 1);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error
-        && str_contains($notification->message, 'CI failed'));
+        && str_contains($notification->message, 'still fails the automated checks'));
 });
 
 test('the green path reports the PR through SendNotificationJob for every source', function () {

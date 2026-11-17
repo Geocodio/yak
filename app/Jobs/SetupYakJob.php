@@ -357,6 +357,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
             'setup_script_hash' => $setupScriptHash,
+            'test_command' => ClaudeCodeOutputParser::extractTestCommand($result->resultSummary) ?? $repository->test_command,
         ]);
 
         app(EnqueuePrReview::class)->releaseHeld($repository);

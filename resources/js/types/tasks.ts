@@ -109,6 +109,16 @@ export type TaskDetail = {
     runId: string;
 };
 
+/** Why a failed or expired task stopped; null for a task that has not. */
+export type StopData = {
+    kind: 'needs_you' | 'yak_retrying' | 'yak_stopped';
+    summary: string;
+    /** The technical text, shown under Details. */
+    detail: string | null;
+    nextStep: string;
+    isWaitingForSetup: boolean;
+} | null;
+
 export type MediaItem = {
     id: number;
     kind: 'video' | 'image' | 'audio' | 'pdf' | 'text';
@@ -294,7 +304,7 @@ export type FindingsData = {
 } | null;
 
 export type ComposerData = {
-    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
+    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'stopped' | 'disabled_failed' | 'disabled_closed';
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;

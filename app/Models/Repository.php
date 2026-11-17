@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
+use App\Enums\TaskMode;
 use App\Services\RepositoryConfig;
 use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\ThreadsAwaitingRepository;
@@ -23,6 +24,7 @@ use InvalidArgumentException;
  *
  * @property array<string, string>|null $build_credentials
  * @property string|null $setup_script_hash
+ * @property string|null $test_command
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
  * @property int $tasks_count
@@ -76,6 +78,23 @@ class Repository extends Model
                 app(TaskActions::class)->continueTasksAwaitingSetup($repository);
             }
         });
+    }
+
+    /**
+     * A setup task that is failed from outside its own job (the reaper, a deploy drain)
+     * never reaches the job's failure handler, so its repository would show a setup that
+     * never finishes and the tasks parked on it would wait forever.
+     */
+    public static function markSetupFailedFor(YakTask $task): void
+    {
+        if ($task->mode !== TaskMode::Setup) {
+            return;
+        }
+
+        self::where('setup_task_id', $task->id)
+            ->whereIn('setup_status', ['pending', 'running'])
+            ->get()
+            ->each(fn (self $repository) => $repository->update(['setup_status' => 'failed']));
     }
 
     /**
