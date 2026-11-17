@@ -603,3 +603,25 @@ test('tells each waiting starter once when setup fails', function () {
 
     Queue::assertPushed(SendNotificationJob::class, 2);
 });
+
+test('the setup failure message carries the setup error, or a plain fallback', function (?string $errorLog, string $expected) {
+    Queue::fake();
+    $setupTask = YakTask::factory()->create(['mode' => TaskMode::Setup, 'source' => 'system', 'error_log' => $errorLog]);
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null, 'setup_task_id' => $setupTask->id]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'source' => 'slack', 'status' => TaskStatus::Failed, 'resume_after_setup_at' => now()]);
+
+    $repository->update(['setup_status' => 'failed']);
+
+    expect($task->fresh()->error_log)->toBe($expected);
+})->with([['composer install exited 1', 'composer install exited 1'], [null, 'Setup failed']]);
+
+test('a waiting task that moved on gets no setup failure message', function () {
+    Queue::fake();
+    $repository = Repository::factory()->create(['setup_status' => 'running', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'source' => 'slack', 'status' => TaskStatus::Cancelled, 'resume_after_setup_at' => now()]);
+
+    $repository->update(['setup_status' => 'failed']);
+
+    Queue::assertNotPushed(SendNotificationJob::class);
+    expect($task->fresh()->resume_after_setup_at)->toBeNull();
+});

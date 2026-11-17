@@ -6,7 +6,6 @@ use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
-use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
@@ -152,12 +151,24 @@ class EnsureRepoReady
 
     /**
      * Fails the task but marks it to continue once the repository's setup finishes, starting
-     * that setup unless one is already pending or running. Thread tasks never reach this path
-     * with a stale template; they wait in place instead.
+     * that setup unless one is already pending or running. Thread tasks, and tasks the state
+     * machine will not move to Failed, are refused instead because nothing could resume them.
      */
     private function parkForSetup(object $job, YakTask $task, Repository $repository, string $detail): void
     {
-        $this->markFailed($task, $detail);
+        if ($task->thread_id !== null) {
+            $this->refuse($job, $task, $detail);
+
+            return;
+        }
+
+        if (! $this->markFailed($task, $detail)) {
+            StopNotifier::notify($task, TaskStop::yakSideProblem($detail));
+            $this->failJob($job, $detail);
+
+            return;
+        }
+
         $task->update(['resume_after_setup_at' => now()]);
 
         if (! in_array($repository->setup_status, ['pending', 'running'], true)) {
@@ -180,16 +191,13 @@ class EnsureRepoReady
 
         $this->markFailed($task, $reason);
 
-        if ($stop !== null) {
-            StopNotifier::notify($task, $stop);
-        } elseif ($task->source !== 'system') {
-            SendNotificationJob::dispatch($task, NotificationType::Error, $reason);
-        }
+        StopNotifier::notify($task, $stop ?? TaskStop::yakSideProblem($reason));
 
         $this->failJob($job, $reason);
     }
 
-    private function markFailed(YakTask $task, string $reason): void
+    /** Returns whether the task actually reached Failed. */
+    private function markFailed(YakTask $task, string $reason): bool
     {
         // Guard against invalid state transitions (e.g. from
         // AwaitingClarification). We still want the task marked done even
@@ -200,11 +208,15 @@ class EnsureRepoReady
                 'error_log' => $reason,
                 'completed_at' => now(),
             ]);
+
+            return true;
         } catch (\Throwable $e) {
-            $task->forceFill([
+            $task->refresh()->forceFill([
                 'error_log' => $reason,
                 'completed_at' => now(),
             ])->save();
+
+            return false;
         }
     }
 

@@ -149,6 +149,10 @@ class TaskActions
                 $task->update(['resume_after_setup_at' => null]);
 
                 if ($repository->setup_status !== 'ready') {
+                    if ($task->status !== TaskStatus::Failed) {
+                        return;
+                    }
+
                     $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
 
                     StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));

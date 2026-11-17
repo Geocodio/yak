@@ -12,6 +12,7 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\SetupScriptHash;
 use Illuminate\Support\Facades\Http;
@@ -384,5 +385,62 @@ test('a parked agent job notifies the source exactly once', function () {
     (new EnsureRepoReady)->handle($job, fn () => null);
     $job->failed(new RuntimeException('refused'));
 
+    expect($task->fresh()->stop_kind)->toBe(StopKind::YakRetrying);
     Queue::assertPushed(SendNotificationJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $dispatched) => $dispatched->type === NotificationType::Retry);
+});
+
+test('a thread task on a repository that is not set up is refused, not parked', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/threaded', 'setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/threaded', 'source' => 'slack', 'thread_id' => $thread->id]);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->resume_after_setup_at)->toBeNull()
+        ->and($task->stop_kind)->toBe(StopKind::YakStopped)
+        ->and($job->failed)->toBeTrue();
+    Queue::assertNotPushed(SetupYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('a task the state machine will not fail is refused, not parked', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/stuck', 'setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->create(['repo' => 'acme/stuck', 'source' => 'slack', 'status' => TaskStatus::Cancelled]);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    expect($task->fresh()->resume_after_setup_at)->toBeNull()
+        ->and($task->fresh()->stop_kind)->toBe(StopKind::YakStopped);
+    Queue::assertNotPushed(SetupYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('a changed setup script parks the task and dispatches one setup', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    fakeSetupScriptOnGitHub('acme/scripted-park', "composer install\n");
+    Repository::factory()->create([
+        'slug' => 'acme/scripted-park',
+        'github_full_name' => 'acme/scripted-park',
+        'sandbox_base_version' => (int) config('yak.sandbox.base_version'),
+        'setup_script_hash' => SetupScriptHash::forContents("composer install --old\n"),
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/scripted-park', 'source' => 'slack']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    Queue::assertPushed(SetupYakJob::class, 1);
+    expect($task->fresh()->resume_after_setup_at)->not->toBeNull()
+        ->and($task->fresh()->stop_kind)->toBe(StopKind::YakRetrying);
 });
