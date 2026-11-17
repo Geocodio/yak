@@ -130,15 +130,18 @@ class EnsureRepoReady
 
         $drift = app(RepositoryTemplateDrift::class);
         $mustWait = $drift->mustWait($repository);
+        $detail = 'The repository workspace is being rebuilt.';
 
         if (! $mustWait && empty($repository->sandbox_snapshot)) {
             $drift->dispatchSetupTask($repository, 'first task for this repository');
             $mustWait = true;
+            $detail = 'Repository has no workspace yet; setup started.';
         }
 
         if (! $mustWait && $this->setupScriptChanged($repository)) {
             $drift->invalidateAndSetUp($repository, '.yak/setup.sh changed');
             $mustWait = true;
+            $detail = '.yak/setup.sh changed; a fresh setup started.';
         }
 
         if (! $mustWait) {
@@ -147,6 +150,8 @@ class EnsureRepoReady
 
         $task->update(['status' => TaskStatus::Pending]);
 
+        $wasWaiting = Thread::query()->withoutGlobalScopes()->whereKey($task->thread_id)->value('blocked_reason') === ThreadBlockReason::WaitingForRepository;
+
         Thread::query()->withoutGlobalScopes()->whereKey($task->thread_id)->update([
             'blocked_reason' => ThreadBlockReason::WaitingForRepository,
             'blocked_at' => now(),
@@ -154,6 +159,8 @@ class EnsureRepoReady
 
         if ($this->hasFinishedSetupMeanwhile($repository)) {
             app(ThreadsAwaitingRepository::class)->release($repository);
+        } elseif (! $wasWaiting) {
+            StopNotifier::notify($task, TaskStop::refreshingWorkspace($repository->slug, $detail), NotificationType::Retry);
         }
 
         return true;

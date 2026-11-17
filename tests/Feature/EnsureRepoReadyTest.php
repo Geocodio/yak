@@ -9,6 +9,7 @@ use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\GitHubInstallationToken;
@@ -265,13 +266,14 @@ test('a refused agent job notifies the source exactly once', function () {
     Queue::assertPushed(SendNotificationJob::class, 1);
 });
 
-/** A task outside any thread, the way a task of a legacy conversation is parked and resumed. */
+/** A review task never gets a thread, so it takes the park-and-resume path. */
 function threadlessTask(array $attributes): YakTask
 {
-    $task = YakTask::factory()->pending()->create($attributes);
-    YakTask::query()->whereKey($task->id)->update(['thread_id' => null]);
+    $task = YakTask::factory()->pending()->create(['mode' => TaskMode::Review, ...$attributes]);
 
-    return $task->refresh();
+    expect($task->thread_id)->toBeNull();
+
+    return $task;
 }
 
 function fakeSetupScriptOnGitHub(string $slug, ?string $contents): void
@@ -353,7 +355,7 @@ test('a thread task on a repository that is still being set up waits and starts 
         ->and($job->failed)->toBeFalse()
         ->and($task->fresh()->status)->toBe(TaskStatus::Pending)
         ->and($thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
-    Queue::assertNotPushed(SendNotificationJob::class);
+    Queue::assertPushed(SendNotificationJob::class, 1);
 
     $repository->update(['setup_status' => 'ready', 'sandbox_snapshot' => 'yak-tpl/ready']);
 
@@ -444,7 +446,7 @@ test('a thread task on a repository that is not set up dispatches setup and wait
         ->and($thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository)
         ->and($job->failed)->toBeFalse();
     Queue::assertPushed(SetupYakJob::class, 1);
-    Queue::assertNotPushed(SendNotificationJob::class);
+    Queue::assertPushed(SendNotificationJob::class, 1);
 });
 
 test('a task the state machine will not fail is refused, not parked', function () {
@@ -499,7 +501,7 @@ test('a task parked just as setup finishes is retried instead of waiting', funct
 
     expect($task->fresh()->resume_after_setup_at)->toBeNull()
         ->and($task->fresh()->status)->toBe(TaskStatus::Pending);
-    Queue::assertPushed(RunYakJob::class, 1);
+    Queue::assertPushed(RunYakReviewJob::class, 1);
     Queue::assertNotPushed(SetupYakJob::class);
 });
 
@@ -513,4 +515,63 @@ test('a task parked on a never-set-up repository carries the workspace detail', 
     (new EnsureRepoReady)->handle($job, fn () => null);
 
     expect($task->fresh()->error_log)->toBe('Repository has no workspace yet; setup started.');
+});
+
+test('a thread task on a never-built repository waits, starts setup and tells the starter once', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/fresh', 'setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $first = YakTask::factory()->pending()->create(['repo' => 'acme/fresh', 'source' => 'slack']);
+    $second = YakTask::factory()->pending()->create(['repo' => 'acme/fresh', 'source' => 'slack', 'thread_id' => $first->thread_id]);
+
+    foreach ([$first, $second] as $task) {
+        $job = makeTestJobDouble();
+        $job->task = $task;
+        (new EnsureRepoReady)->handle($job, fn () => null);
+    }
+
+    expect($first->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($first->thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+    Queue::assertPushed(SetupYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $dispatched) => $dispatched->type === NotificationType::Retry
+        && $dispatched->stop?->kind === StopKind::YakRetrying);
+});
+
+test('a thread task whose setup script changed waits, starts setup and tells the starter', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    fakeSetupScriptOnGitHub('acme/scripted-thread', "composer install\n");
+    Repository::factory()->create([
+        'slug' => 'acme/scripted-thread',
+        'github_full_name' => 'acme/scripted-thread',
+        'sandbox_base_version' => (int) config('yak.sandbox.base_version'),
+        'setup_script_hash' => SetupScriptHash::forContents("composer install --old\n"),
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/scripted-thread', 'source' => 'slack']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($task->thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::WaitingForRepository);
+    Queue::assertPushed(SetupYakJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});
+
+test('a thread task that is retrying still parks because it cannot move to pending', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/retrying', 'setup_status' => 'failed', 'sandbox_snapshot' => null]);
+    $task = YakTask::factory()->retrying()->create(['repo' => 'acme/retrying', 'source' => 'slack']);
+    expect($task->thread_id)->not->toBeNull();
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->resume_after_setup_at)->not->toBeNull()
+        ->and($task->stop_kind)->toBe(StopKind::YakRetrying);
+    Queue::assertPushed(SetupYakJob::class, 1);
 });

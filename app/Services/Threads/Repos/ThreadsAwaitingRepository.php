@@ -2,13 +2,15 @@
 
 namespace App\Services\Threads\Repos;
 
+use App\DataTransferObjects\TaskStop;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
-use App\Jobs\RunYakJob;
+use App\Jobs\RunFollowUpJob;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\Tasks\StopNotifier;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -48,15 +50,35 @@ class ThreadsAwaitingRepository
             $thread->forceFill(['blocked_reason' => null, 'blocked_at' => null])->save();
             $this->events->appendThreadState($thread->id);
 
-            if ($task !== null) {
-                $this->dispatcher->dispatch($task, RunYakJob::class);
+            if ($task === null) {
+                return;
             }
+
+            $jobClass = $task->claimingJobClass();
+
+            if ($jobClass === null) {
+                RunFollowUpJob::dispatch($task)->afterCommit();
+
+                return;
+            }
+
+            $this->dispatcher->dispatch($task, $jobClass);
         });
     }
 
     private function markFailed(Repository $repository): void
     {
-        $this->threads($repository, [ThreadBlockReason::WaitingForRepository])->each(fn (Thread $thread) => $this->block($thread, ThreadBlockReason::RepositorySetupFailed));
+        $this->threads($repository, [ThreadBlockReason::WaitingForRepository])->each(function (Thread $thread) use ($repository): void {
+            $this->block($thread, ThreadBlockReason::RepositorySetupFailed);
+
+            $task = YakTask::query()->where('thread_id', $thread->id)->where('status', TaskStatus::Pending)->oldest('id')->first();
+
+            if ($task !== null) {
+                $setupTask = $repository->setup_task_id === null ? null : YakTask::withoutGlobalScopes()->find($repository->setup_task_id);
+
+                StopNotifier::notify($task, TaskStop::setupFailed($repository->slug, $setupTask?->error_log ?: 'Setup failed'));
+            }
+        });
     }
 
     private function markWaiting(Repository $repository): void

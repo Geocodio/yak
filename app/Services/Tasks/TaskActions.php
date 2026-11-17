@@ -358,6 +358,8 @@ class TaskActions
                 'status' => TaskStatus::Pending->value,
                 'branch_name' => null,
                 'error_log' => null,
+                'stop_kind' => null,
+                'stop_summary' => null,
                 'result_summary' => null,
                 'pr_body_update' => null,
                 'review_replies' => null,

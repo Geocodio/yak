@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -176,3 +177,20 @@ it('continues a stopped task of a closed thread in a new thread', function (): v
     expect($openThread->id)->not->toBe($closed->id)
         ->and($openThread->isOpen())->toBeTrue();
 });
+
+it('clears the stop when a task is rerouted, with or without a thread repository to attach', function (bool $hasNoRepository): void {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'Geocodio/atlas', 'is_active' => true]);
+    $task = YakTask::factory()->create(['repo' => $hasNoRepository ? 'unknown' : 'Geocodio/old', 'status' => TaskStatus::Failed, 'pr_url' => null, 'stop_kind' => StopKind::YakStopped, 'stop_summary' => 'It stopped.']);
+
+    if ($hasNoRepository) {
+        $thread = Thread::factory()->create(['repo' => Thread::UNKNOWN_REPOSITORY]);
+        YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id]);
+    } else {
+        Repository::factory()->create(['slug' => 'Geocodio/old', 'is_active' => true]);
+    }
+
+    app(TaskActions::class)->reroute($task->fresh(), 'Geocodio/atlas');
+
+    expect($task->fresh()->stop_kind)->toBeNull()->and($task->fresh()->stop_summary)->toBeNull();
+})->with([true, false]);
