@@ -185,11 +185,7 @@ import XCTest
         let moved = app.staticTexts[label]
         XCTAssertTrue(moved.exists, "\(label) left the screen when the earlier messages arrived")
         print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
-        // The row stays within 5 points when older messages load on a cold list: the lazy stack lays the new rows out
-        // from estimates and the placement can land a few points off. Two points is the aim.
-        XCTExpectFailure("the row can land up to 5 points away on a cold list", strict: false) {
-            XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
-        }
+        XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
     }
 
     /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues. The
