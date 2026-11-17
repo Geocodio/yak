@@ -549,7 +549,7 @@ private struct DrawerLoading: View {
             .task {
                 do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
                 withAnimation(.easeIn(duration: 0.2)) { showsSkeleton = true }
-                guard !reduceMotion else { return }
+                guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
                 withAnimation(.easeInOut(duration: 0.9).repeatForever()) { isDim = true }
             }
             .task {

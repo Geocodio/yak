@@ -304,7 +304,7 @@ struct IndeterminateLine: View {
         .background(Color.primary.opacity(0.12), in: .capsule)
         .clipShape(.capsule)
         .onAppear {
-            guard !reduceMotion else { return }
+            guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { isAtEnd = true }
         }
         .accessibilityHidden(true)
