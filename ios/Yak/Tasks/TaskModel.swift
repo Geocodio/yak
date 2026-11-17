@@ -49,6 +49,8 @@ final class TaskModel {
     @ObservationIgnored private let scene: SceneModel
     @ObservationIgnored private var feed: TaskDetailFeed?
     @ObservationIgnored private var readingTask: Task<Void, Never>?
+    /// Counts the snapshots read, so a reload can tell its own answer arrived.
+    @ObservationIgnored private var applied = 0
 
     init(taskID: String, session: InstanceSession, scene: SceneModel) {
         self.taskID = taskID
@@ -96,6 +98,31 @@ final class TaskModel {
         await closing?.close()
     }
 
+    /// Asks for the task again and returns the answer; nil when the request failed or the screen is gone. The player
+    /// uses it to get a fresh signed video link.
+    func reloadTask() async -> AppTask? {
+        guard let feed else { return nil }
+        let before = applied
+        await feed.reload()
+        for _ in 0..<100 where applied == before {
+            try? await session.clock.sleep(for: .milliseconds(20))
+        }
+        guard applied != before, case .ready = load else { return nil }
+        return task
+    }
+
+    /// Hands the walkthrough video to the player.
+    func playWalkthrough(with playback: WalkthroughPlayback) {
+        guard let url = playableVideoURL else { return }
+        let poster = session.playableVideoURL(task?.walkthrough?.posterUrl)
+        playback.play(
+            url: url, posterURL: poster, taskID: taskID, instance: session.instance, from: scene,
+            refresh: { [weak self] in
+                guard let self else { return nil }
+                return session.playableVideoURL(await reloadTask()?.walkthrough?.videoUrl)
+            })
+    }
+
     func retry() async {
         message = nil
         canRetryAfterMessage = false
@@ -103,6 +130,7 @@ final class TaskModel {
     }
 
     private func apply(_ next: TaskDetailFeed.Snapshot) {
+        applied += 1
         task = next.task
         syncQuestions()
         load = next.load

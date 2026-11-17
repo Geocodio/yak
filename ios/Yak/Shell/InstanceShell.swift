@@ -39,6 +39,7 @@ struct InstanceShell: View {
             case .serverTooOld: problem("signedIn.serverTooOld")
             }
         }
+        .walkthroughPlayerHost(scene: scene)
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
         .task(id: status) { await refreshStoredInstance() }

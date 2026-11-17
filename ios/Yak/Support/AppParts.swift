@@ -25,18 +25,22 @@ final class AppParts {
     private(set) var backgroundRefreshSteps: [BackgroundRefreshStep]
     /// Erases an instance's preview web data when it is unpaired or revoked, and sweeps leftovers at launch.
     let previewData: PreviewWebDataObserver
+    /// The one walkthrough player: audio session, picture in picture, which scene shows it.
+    let walkthroughPlayback: WalkthroughPlayback
     /// One line per observer; `AppModel` tells each after a pairing, a removal and a revoke.
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
         storage: SharedStorage?, isTestMode: Bool, push: PushController, steps: [BackgroundRefreshStep],
-        previewData: PreviewWebDataObserver, observers: [any InstanceLifecycleObserver]
+        previewData: PreviewWebDataObserver, walkthroughPlayback: WalkthroughPlayback,
+        observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
         self.push = push
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
+        self.walkthroughPlayback = walkthroughPlayback
         self.observers = observers
     }
 
@@ -48,6 +52,7 @@ final class AppParts {
             instances: context.instances, registrar: registrar, permission: context.permission,
             center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let previewData = PreviewWebDataObserver(defaults: context.defaults)
+        let walkthroughPlayback = WalkthroughPlayback.system(isOnline: { true })
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
@@ -55,7 +60,8 @@ final class AppParts {
         ]
         return AppParts(
             storage: storage, isTestMode: isTestMode, push: push, steps: steps,
-            previewData: previewData, observers: [push, previewData])
+            previewData: previewData, walkthroughPlayback: walkthroughPlayback,
+            observers: [push, previewData, walkthroughPlayback])
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -71,6 +77,10 @@ extension View {
         onOpenURL { url in Task { await model.handle(url: url) } }
             .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
+            .environment(\.walkthroughPlayback, parts.walkthroughPlayback)
+            .onChange(of: model.network.isOnline) { _, isOnline in
+                parts.walkthroughPlayback.networkChanged(isOnline: isOnline)
+            }
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
                 .onOpenURL { url in

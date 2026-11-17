@@ -293,3 +293,19 @@ func aTappedConversationLinkOpensOnlyWhenItIsSafe(_ text: String) {
     await model.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func reloadTaskReturnsAFreshTask() async throws {
+    let access = Access("write")
+    let fixture = try await TasksFixture { route, _, _ in
+        route == "GET tasks/k3m9p2qa" ? (200, try json(task(access: access.current))) : nil
+    }
+    let (model, _) = model(fixture)
+    await model.start()
+    #expect(await fixture.eventually { model.task != nil })
+    access.set("read")
+    let fresh = await model.reloadTask()
+    #expect(fresh?.coOwner?.viewer.access == "read")
+    #expect(model.task?.coOwner?.viewer.access == "read")
+    await model.stop()
+    await fixture.session.stop()
+}
