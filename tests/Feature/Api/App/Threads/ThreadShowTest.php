@@ -130,7 +130,7 @@ it('lets a share recipient read but not drive', function () {
     $this->postJson(appThreadPath($thread, '/seen'), [], phoneHeadersFor($recipient))->assertNoContent();
 });
 
-it('marks a thread seen once, answers 204 on a repeat and clears its needs-you row', function () {
+it('marks a thread seen once, answers 204 on a repeat and clears its unread mark', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
@@ -138,14 +138,16 @@ it('marks a thread seen once, answers 204 on a repeat and clears its needs-you r
     $headers = phoneHeadersFor($user);
 
     $before = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
-    expect(collect($before->json('needsYou'))->pluck('id')->all())->toContain($thread->public_id)
-        ->and($before->json('needsYouCount'))->toBe(1);
+    expect(collect($before->json('threads'))->firstWhere('id', $thread->public_id))
+        ->toMatchArray(['isUnread' => true, 'needsYouReason' => 'unseen'])
+        ->and($before->json('needsYouCount'))->toBe(0);
 
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
 
     $after = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
-    expect(collect($after->json('needsYou'))->pluck('id')->all())->not->toContain($thread->public_id)
+    expect(collect($after->json('threads'))->firstWhere('id', $thread->public_id))
+        ->toMatchArray(['isUnread' => false, 'needsYouReason' => null])
         ->and($after->json('needsYouCount'))->toBe(0)
         ->and(ThreadView::query()->where('user_id', $user->id)->where('thread_id', $thread->id)->count())->toBe(1);
 });
