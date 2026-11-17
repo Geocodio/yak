@@ -590,12 +590,13 @@ import XCTest
     // MARK: Helpers
 
     /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
-    /// whose size the system caps.
+    /// whose size the system caps. The Dynamic Type and clipped-text checks run last: they change the text size,
+    /// which lays the conversation out again and moves its rows, so every other check reads the list as it was shot.
     private func shootThread(_ name: String) throws {
         try shoot(name, audits: false)
         let keyboard = keyboardFrame()
         let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [app, auditBars] issue in
+        let judge: (XCUIAccessibilityAuditIssue) -> Bool = { [app, auditBars] issue in
             let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
             if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
                 // The system caps the size of text in its bars, and draws its glass under the threads badge.
@@ -622,6 +623,9 @@ import XCTest
             )
             return true
         }
+        let resizing: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+        try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(resizing), judge)
+        try app.performAccessibilityAudit(for: resizing, judge)
     }
 
     /// Opens a thread through its link, for rows that sit far down the drawer at the largest text size.
