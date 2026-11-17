@@ -20,6 +20,10 @@
                     }
                 }
                 .toolbar(.hidden, for: .navigationBar)
+                // The page color under the status bar, where the thread screen has its opaque navigation bar.
+                .overlay(alignment: .top) {
+                    Color.clear.frame(height: 0).background(Color(.systemBackground).ignoresSafeArea(edges: .top))
+                }
             }
             .environment(\.chatStartsExpanded, page == "activity-open")
             .task { thread = await Self.makeThread(page: page) }

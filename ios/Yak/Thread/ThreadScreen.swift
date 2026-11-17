@@ -80,16 +80,12 @@ struct ThreadScreen: View {
         let focused = focusedBinding(thread)
         return NavigationStack {
             HStack(spacing: 0) {
+                // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
+                // screen: no row scrolls behind the glass or below it, where it would be hidden yet still reachable.
                 VStack(spacing: 0) {
                     if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
-                }
-                // A safe-area bar on the page's own color, from the bar's top to the bottom of the screen, so no
-                // row shows through the glass or below it; the system's edge effect would still let a row's shape
-                // through.
-                .safeAreaBar(edge: .bottom, spacing: 0) {
                     BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
-                        .background(Color(.systemBackground).ignoresSafeArea(edges: .bottom))
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }

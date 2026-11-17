@@ -229,7 +229,9 @@ enum Scenario: String, CaseIterable, Sendable {
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
     static let slowerDelay = Duration.seconds(14)
-    static let olderPageDelay = Duration.seconds(6)
+    /// Long enough that a screenshot and its audit at the largest text size finish before the page arrives, and
+    /// shorter than the 15 seconds the app waits.
+    static let olderPageDelay = Duration.seconds(12)
 
     func reply(
         to request: StubRequest, baseURL: String, fixtures: StubFixtures, threads: StubThreads = StubThreads(),

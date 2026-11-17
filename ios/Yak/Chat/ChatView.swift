@@ -10,6 +10,8 @@ struct ChatView: View {
 
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var isNearBottom = true
+    /// A finger is on the list or its fling is running; the list does not follow new content then.
+    @State private var isPersonScrolling = false
     /// The history row came into view and has not asked for a page yet. A page is asked for once per arrival: the
     /// row's disappearance can reach this view late, after a page has pushed it far above, and that would ask for
     /// every page in a row.
@@ -59,7 +61,13 @@ struct ChatView: View {
         var state: HistoryState
     }
 
-    var body: some View { list }
+    /// The jump button and the action line sit below the list, so no row hides behind them.
+    var body: some View {
+        VStack(spacing: 0) {
+            list
+            floatingControls
+        }
+    }
 
     private var list: some View {
         ScrollView {
@@ -95,7 +103,7 @@ struct ChatView: View {
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom, for: .initialOffset)
-        // The navigation bar is opaque and the bars below are on the page color, so no edge effect draws over rows.
+        // The navigation bar is opaque and nothing sits over the list's foot, so no edge effect draws over rows.
         .scrollEdgeEffectHidden(true, for: [.top, .bottom])
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
@@ -113,7 +121,10 @@ struct ChatView: View {
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
         .onChange(of: thread.documents.count) { applyHeldPlace() }
-        .onScrollPhaseChange { _, phase in if phase == .interacting { placeHeld = nil } }
+        .onScrollPhaseChange { _, phase in
+            isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
+            if phase == .interacting { placeHeld = nil }
+        }
         .onChange(of: thread.historyState) { old, new in
             guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
             // The rows can reach the screen a moment after the state does.
@@ -123,8 +134,6 @@ struct ChatView: View {
             }
         }
         .overlay { if thread.rows.isEmpty, thread.notice == nil, thread.snapshot?.load == .ready { EmptyChat() } }
-        // A bar of the list's own, so the edge effect also covers the rows behind the jump button and the action line.
-        .safeAreaBar(edge: .bottom, spacing: 0) { floatingControls }
         .onChange(of: thread.announcementSerial) {
             if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
         }
@@ -133,14 +142,15 @@ struct ChatView: View {
 
     // MARK: Scrolling
 
-    /// New content keeps the end in view for someone who is at the end; for anyone else nothing moves.
+    /// New content keeps the end in view for someone who is at the end; for anyone else nothing moves. The lazy stack
+    /// refines its height estimates while someone scrolls, which is not new content and must not pull them back.
     private func follow(from old: Metrics, to new: Metrics) {
         viewportHeight = new.viewportHeight
         guard new.contentHeight != old.contentHeight else {
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
             return
         }
-        if old.distanceFromBottom <= Self.stickDistance {
+        if old.distanceFromBottom <= Self.stickDistance, !isPersonScrolling {
             withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
             isNearBottom = true
         }
@@ -225,9 +235,7 @@ struct ChatView: View {
                 .accessibilityIdentifier("chat.jumpToLatest")
             }
         }
-        .padding(.horizontal, 16).padding(.bottom, 8)
-        .frame(maxWidth: .infinity)
-        .background(Color(.systemBackground))
+        .padding(.horizontal, 16).padding(.vertical, 8)
         .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: isNearBottom)
     }
 }
