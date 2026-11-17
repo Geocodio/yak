@@ -12,7 +12,14 @@ struct BottomBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let swipeDistance: CGFloat = 60
 
+    /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
+    private var isInStrip: Bool { placement == .trailingStrip && slots.stripRows[focused] != nil }
+
     var body: some View {
+        if !isInStrip { bar }
+    }
+
+    private var bar: some View {
         layout
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background { BarSurface() }
@@ -29,7 +36,7 @@ struct BottomBar: View {
                 row
             }
         } else {
-            HStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 control
                 row
             }
@@ -64,12 +71,16 @@ struct BottomBar: View {
     }
 }
 
-/// The glass behind the bar and the trailing strip. Under Reduce Transparency the text sits on an opaque surface.
+/// The glass behind the bar and the trailing strip. Under Reduce Transparency, in dark mode and at accessibility text sizes, the text sits on an opaque surface.
 struct BarSurface: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        if reduceTransparency {
+        // The thread's text would show through glass at accessibility text sizes, where the bar covers much of the
+        // screen, and the audit cannot read the bar's text on glass in dark mode.
+        if reduceTransparency || dynamicTypeSize.isAccessibilitySize || colorScheme == .dark {
             RoundedRectangle(cornerRadius: 28).fill(Color(.secondarySystemBackground))
                 .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
         } else {

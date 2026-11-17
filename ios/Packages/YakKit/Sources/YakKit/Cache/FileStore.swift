@@ -33,6 +33,9 @@ public protocol FileStore: Sendable {
     func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError)
     /// A file or a folder; no error when it is missing.
     func remove(_ path: String) throws(FileStoreError)
+    /// Whether a file is there, without reading it and whatever its protection. The default reads the whole file, so a
+    /// conformer that holds large files must override it.
+    func exists(_ path: String) throws(FileStoreError) -> Bool
     /// Names, sorted; empty when the folder is missing.
     func list(_ folder: String) throws(FileStoreError) -> [String]
     /// Nil when missing; `.tooLarge` when the file holds more than `maximumBytes`. `DiskFileStore` never loads more than the bound plus one byte. The default implementation reads the whole file first, so a conformer that holds large files must override it.
@@ -44,6 +47,8 @@ public protocol FileStore: Sendable {
 }
 
 extension FileStore {
+    public func exists(_ path: String) throws(FileStoreError) -> Bool { try read(path) != nil }
+
     public func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data? {
         guard let data = try read(path) else { return nil }
         if data.count > max(0, maximumBytes) { throw .tooLarge }
@@ -185,6 +190,11 @@ public struct DiskFileStore: FileStore {
         }
     }
 
+    public func exists(_ path: String) throws(FileStoreError) -> Bool {
+        var isFolder: ObjCBool = false
+        return FileManager.default.fileExists(atPath: try url(path).path, isDirectory: &isFolder) && !isFolder.boolValue
+    }
+
     public func list(_ folder: String) throws(FileStoreError) -> [String] {
         let location = try url(folder)
         guard FileManager.default.fileExists(atPath: location.path) else { return [] }
@@ -225,6 +235,11 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
         guard let file else { return nil }
         if isLockedNow && file.protection == .complete { throw .unreadable }
         return file.data
+    }
+
+    public func exists(_ path: String) throws(FileStoreError) -> Bool {
+        let key = try validatedComponents(path).joined(separator: "/")
+        return lock.withLock { files[key] != nil }
     }
 
     public func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {

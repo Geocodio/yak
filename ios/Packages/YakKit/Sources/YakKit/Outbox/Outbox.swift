@@ -288,6 +288,87 @@ public actor Outbox {
         return item
     }
 
+    /// Gives an editable item up to its owner without deleting its attachment files: the caller now owns them and
+    /// may send them again under the same id. An item the server may already hold stays.
+    public func take(_ id: UUID) throws(OutboxEditProblem) -> OutboxItem {
+        guard !isShutDown, let index = stored.firstIndex(where: { $0.id == id }) else { throw .notFound }
+        switch stored[index].state {
+        case .sending, .slow: throw .alreadySending
+        case .queued, .waiting: if stored[index].mayHaveReachedServer { throw .mayAlreadyBeSent }
+        case .refused: break
+        }
+        let item = stored.remove(at: index)
+        do {
+            try persist()
+        } catch {
+            stored.insert(item, at: min(index, stored.count))
+            throw .notSaved
+        }
+        retryTimers.removeValue(forKey: id)?.cancel()
+        failedUploads.remove(id)
+        publish()
+        dropRecord(of: id)
+        pump()
+        return item
+    }
+
+    /// Removes the attachment folders that no item here and no name in `draftFolders` holds: what a stop between
+    /// storing a file and saving its draft left behind. An item waiting in the inbox keeps its folder. Does nothing
+    /// unless every holder is accounted for: `draftFolders` is nil when a draft could not be read, and an unreadable
+    /// inbox listing or an item list that did not decode stops the sweep.
+    public func sweepAttachmentFolders(keeping draftFolders: Set<String>?) async {
+        guard !isShutDown, hasLoadedList, let draftFolders else { return }
+        do {
+            if try files.read(OutboxInbox.unreadableItemsPath(instance)) != nil { return }
+        } catch { return }
+        let folder = "\(InstanceFolders.outbox(instance))/files"
+        let names: [String]
+        do { names = try files.list(folder) } catch { return }
+        var held = draftFolders
+        for item in stored {
+            held.insert(item.id.uuidString)
+            for attachment in item.attachments {
+                if let name = OutboxInbox.attachmentFolderName(of: attachment.path) { held.insert(name) }
+            }
+        }
+        let waiting: [String]
+        do { waiting = try files.list(OutboxInbox.folder(instance)) } catch {
+            logFailure("sweep skipped, inbox unreadable: \(type(of: error))")
+            return
+        }
+        for name in waiting where name.hasSuffix(".json") { held.insert(String(name.dropLast(5))) }
+        if let ledger = uploads?.ledger {
+            guard let recorded = await ledger.recordedItemIDs() else { return }
+            for id in recorded { held.insert(id.uuidString) }
+        }
+        guard !isShutDown else { return }
+        // A folder is removed only when it was also unheld at the previous sweep, so a file stored a moment before
+        // its draft or item is saved is never taken.
+        let candidatesPath = "\(InstanceFolders.outbox(instance))/sweep-candidates.json"
+        var previous: Set<String> = []
+        do {
+            if let data = try files.read(candidatesPath) {
+                previous = Set(try JSONDecoder().decode([String].self, from: data))
+            }
+        } catch { logFailure("sweep candidates unreadable: \(type(of: error))") }
+        // The file goes before anything is deleted, so a later failure to write the new one leaves no older
+        // candidates behind: the next sweep then reads none and deletes nothing.
+        do { try files.remove(candidatesPath) } catch {
+            logFailure("sweep candidates not removed: \(type(of: error))")
+            return
+        }
+        let unheld = Set(names).subtracting(held)
+        let doomed = unheld.intersection(previous)
+        for name in doomed { removeFile("\(folder)/\(name)") }
+        let candidates = unheld.subtracting(doomed)
+        // With none left there is no file, so a sweep that runs while the outbox is erased leaves nothing behind.
+        if candidates.isEmpty { return }
+        do {
+            try files.write(
+                JSONEncoder().encode(candidates.sorted()), to: candidatesPath, protection: .untilFirstUnlock)
+        } catch { logFailure("sweep candidates not saved: \(type(of: error))") }
+    }
+
     /// A refused or waiting item is sent again now.
     public func retry(_ id: UUID) {
         guard !isShutDown else { return }

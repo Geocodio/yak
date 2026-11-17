@@ -16,6 +16,10 @@ struct InstanceShell: View {
     @State private var storedInstance: Instance?
     @State private var showsAccount = false
     @State private var showsSwitcher = false
+    /// The tasks area, when it is open in place of the thread screen.
+    @State private var tasksRoute: TasksRoute?
+    /// The thread the tasks route opened over; a different thread closes the route.
+    @State private var tasksOverThreadID: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -38,10 +42,21 @@ struct InstanceShell: View {
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
         .task(id: status) { await refreshStoredInstance() }
+        .task {
+            #if DEBUG
+                if let id = TestMode.taskToOpen() { model.taskToOpen = id }
+            #endif
+        }
         .onChange(of: showsAccount) { Task { await refreshStoredInstance() } }
         .task(id: drawerModel.map(ObjectIdentifier.init)) { await drawerModel?.run() }
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
+        .onChange(of: model.taskToOpen, initial: true) {
+            guard let id = model.taskToOpen else { return }
+            model.taskToOpen = nil
+            openTasks(.task(id))
+        }
+        .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .sheet(isPresented: $showsAccount) {
             SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
@@ -110,11 +125,17 @@ struct InstanceShell: View {
         DrawerView(
             model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
             openAccount: { showsAccount = true }, openSwitcher: { showsSwitcher = true },
-            retry: { Task { await retryList() } })
+            retry: { Task { await retryList() } }, openTasksRoute: openTasks)
     }
 
     @ViewBuilder private var threadScreen: some View {
-        if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
+        if let route = tasksRoute {
+            TasksNavigation(
+                route: route, session: session, scene: scene, instanceURL: instance.url,
+                openWeb: { model.browserURL = $0 }, close: { tasksRoute = nil }
+            )
+            .id(route)
+        } else if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
             ThreadScreen(
                 session: session, scene: scene, threadID: threadID,
                 initialTitle: listState?.list?.title(ofThread: threadID), instanceURL: instance.url,
@@ -134,6 +155,12 @@ struct InstanceShell: View {
                 title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
                 openDrawer: { scene.setDrawerOpen(true) })
         }
+    }
+
+    private func openTasks(_ route: TasksRoute?) {
+        tasksRoute = route
+        tasksOverThreadID = scene.state.threadID
+        if route != nil, isCompactWidth { scene.setDrawerOpen(false) }
     }
 
     private func problem(_ message: LocalizedStringKey) -> some View {

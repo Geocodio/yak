@@ -8,8 +8,8 @@ targets=(Yak Shared Packages/*/Sources)
 extension_targets=()
 deferred_checks=()
 # Folders where no rust-colored token may appear, and the files inside them that may name one on purpose.
-no_rust_folders=(Yak/Thread Yak/Chat Yak/Composer Yak/Questions)
-rust_allowed_files=()
+no_rust_folders=(Yak/Thread Yak/Chat Yak/Composer Yak/Questions Yak/Files Yak/PullRequests)
+rust_allowed_files=(Yak/Files/OpenPullRequestButton.swift)
 
 fail() {
     echo "rule broken: $1"

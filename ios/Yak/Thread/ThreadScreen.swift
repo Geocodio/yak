@@ -47,12 +47,20 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
     private func run() async {
-        let next = ThreadModel(threadID: threadID, session: session)
+        // Text typed in the last moments before the model is replaced is saved first, then read back by the next one.
+        await model?.flushDraft()
+        // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
+        // it, stays the only one for that thread.
+        let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
+        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
         model = next
+        // Drafts are local files, so the field shows the saved text before the session is active.
+        await next.composer.load()
         guard isSessionActive else { return }
         await next.start(initialTitle: initialTitle)
         await next.setVisible(isVisible)
@@ -66,6 +74,7 @@ struct ThreadScreen: View {
 
     private func content(_ thread: ThreadModel, placement: PaneControlPlacement) -> some View {
         let focused = focusedBinding(thread)
+        let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
@@ -73,7 +82,13 @@ struct ThreadScreen: View {
                     PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    VStack(spacing: 6) {
+                        if let line = activity {
+                            ActivityStrip(line: line) { openChat(focusComposer: $0) }
+                        }
+                        BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: activity)
                 }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
@@ -95,7 +110,7 @@ struct ThreadScreen: View {
                 }
             }
             .overlay(alignment: .top) { copiedToast }
-            .background { shortcuts(focused) }
+            .background { shortcuts(focused, panes: thread.panes) }
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
@@ -112,7 +127,11 @@ struct ThreadScreen: View {
         VStack(spacing: 8) {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
             PaneMenuButton(panes: thread.panes, focused: focused)
+            PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
+            if let line = activityLine(thread, focused: focused.wrappedValue) {
+                ActivityStripButton(line: line) { openChat(focusComposer: $0) }
+            }
             threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
@@ -122,6 +141,17 @@ struct ThreadScreen: View {
         .padding(.vertical, 8).padding(.trailing, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.strip")
+    }
+
+    /// The line above the bar in every pane but Chat.
+    private func activityLine(_ thread: ThreadModel, focused: PaneID) -> ActivityLine? {
+        focused == .chat ? nil : ActivityLine.make(thread.snapshot)
+    }
+
+    /// Shows Chat, and puts the cursor in the composer when asked.
+    private func openChat(focusComposer: Bool) {
+        scene.focus(pane: .chat)
+        if focusComposer { scene.requestComposerFocus() }
     }
 
     // MARK: Controls
@@ -157,10 +187,15 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat.
-    private func shortcuts(_ focused: Binding<PaneID>) -> some View {
-        Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
+    /// Command 1 focuses Chat, Command 2 Preview when the thread has one.
+    private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
+        ZStack {
+            Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
+            if panes.contains(.preview) {
+                Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+        }
+        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
 

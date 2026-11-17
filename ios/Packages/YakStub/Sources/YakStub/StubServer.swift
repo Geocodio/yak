@@ -37,13 +37,21 @@ final class StubServer: Sendable {
         }
         let current = Locked(scenario)
         let online = self.online
+        let featureScenario = self.featureScenario
         self.current = current
         socket = try PusherSocket(
             fixtures: fixtures, threads: threads, playbackInterval: playbackInterval,
-            scenario: { current.get() }, isOnline: { online.get() })
+            scenario: { current.get() }, isOnline: { online.get() },
+            onSubscribe: { id in
+                let name = featureScenario.get() ?? current.get().rawValue
+                for feature in features { feature.subscribed(thread: id, scenario: name, fixtures: fixtures) }
+            })
         let parameters = NWParameters.tcp
         parameters.requiredInterfaceType = .loopback
         listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port) ?? .any)
+        for feature in features {
+            feature.attach { [socket] thread, json in socket.publish(json, thread: thread) }
+        }
     }
 
     /// The port of the WebSocket listener, known after `start()`.
@@ -149,7 +157,7 @@ final class StubServer: Sendable {
                     featureScenario.set(nil)
                     attachments.begin()
                 } else if owners.count == 1 {
-                    current.set(.paired)
+                    current.set(owners[0].coreScenario(for: name).flatMap(Scenario.init(rawValue:)) ?? .paired)
                     attachmentScenario.set(nil)
                     featureScenario.set(name)
                 } else {
@@ -166,11 +174,20 @@ final class StubServer: Sendable {
                 socket.reset()
                 for feature in features {
                     feature.reset()
+                    feature.played(scenario: name)
                     feature.setOnline(true)
                 }
             }
             let body = Data((featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue).utf8)
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: body))
+        }
+        if request.path == "/__stub/playback", request.method == "POST" {
+            let text = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let milliseconds = Int(text), milliseconds > 0 else {
+                return StubReply(answer: Scenario.error(400, "unknown_playback", "Send milliseconds, not \(text)."))
+            }
+            socket.setPlaybackMilliseconds(milliseconds)
+            return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(text.utf8)))
         }
         if request.path == "/__stub/online" {
             if request.method == "POST" {
@@ -191,6 +208,10 @@ final class StubServer: Sendable {
         if request.path == "/__stub/last-message" {
             return StubReply(
                 answer: .reply(status: 200, contentType: "text/plain", body: Data(threads.lastMessage.utf8)))
+        }
+        if request.path == "/deployments/auth-bounce" {
+            let page = "<!doctype html><title>Bounce</title><p>The app showed the dashboard bounce.</p>"
+            return StubReply(answer: .reply(status: 200, contentType: "text/html", body: Data(page.utf8)))
         }
         for feature in features where Self.controlPath(of: feature.name, matches: request.path) {
             if let reply = feature.control(request) { return reply }

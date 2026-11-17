@@ -37,6 +37,13 @@ struct PaneBarRowKey: PreferenceKey {
     }
 }
 
+struct PaneStripRowKey: PreferenceKey {
+    static let defaultValue: [PaneID: PaneSlotContent] = [:]
+    static func reduce(value: inout [PaneID: PaneSlotContent], nextValue: () -> [PaneID: PaneSlotContent]) {
+        value.merge(nextValue()) { _, next in next }
+    }
+}
+
 struct PaneMenuItemsKey: PreferenceKey {
     static let defaultValue: [PaneID: PaneSlotContent] = [:]
     static func reduce(value: inout [PaneID: PaneSlotContent], nextValue: () -> [PaneID: PaneSlotContent]) {
@@ -51,6 +58,12 @@ extension View {
         modifier(PaneSlotModifier(slot: .barRow, content: PaneSlotContent(key: key, view: AnyView(row()))))
     }
 
+    /// The pane's controls in the trailing strip of a short window (a phone in landscape), top to bottom. While a
+    /// pane has them the bottom bar leaves out the pane's row. `key` works as for `paneBarRow`.
+    func paneStripRow<Row: View>(key: some Hashable, @ViewBuilder _ row: () -> Row) -> some View {
+        modifier(PaneSlotModifier(slot: .stripRow, content: PaneSlotContent(key: key, view: AnyView(row()))))
+    }
+
     /// Rows the thread menu shows above its own while this pane is focused. `key` works as for `paneBarRow`.
     func paneMenuItems<Items: View>(key: some Hashable, @ViewBuilder _ items: () -> Items) -> some View {
         modifier(PaneSlotModifier(slot: .menuItems, content: PaneSlotContent(key: key, view: AnyView(items()))))
@@ -58,7 +71,7 @@ extension View {
 }
 
 private struct PaneSlotModifier: ViewModifier {
-    enum Slot { case barRow, menuItems }
+    enum Slot { case barRow, stripRow, menuItems }
     let slot: Slot
     let content: PaneSlotContent
     @Environment(\.paneID) private var paneID
@@ -67,6 +80,7 @@ private struct PaneSlotModifier: ViewModifier {
         let value = paneID.map { [$0: content] } ?? [:]
         switch slot {
         case .barRow: base.preference(key: PaneBarRowKey.self, value: value)
+        case .stripRow: base.preference(key: PaneStripRowKey.self, value: value)
         case .menuItems: base.preference(key: PaneMenuItemsKey.self, value: value)
         }
     }
@@ -77,10 +91,22 @@ private struct PaneSlotModifier: ViewModifier {
 @MainActor @Observable
 final class PaneSlots {
     private(set) var barRows: [PaneID: PaneSlotContent] = [:]
+    private(set) var stripRows: [PaneID: PaneSlotContent] = [:]
     private(set) var menuItems: [PaneID: PaneSlotContent] = [:]
 
     func setBarRows(_ rows: [PaneID: PaneSlotContent]) { barRows = rows }
+    func setStripRows(_ rows: [PaneID: PaneSlotContent]) { stripRows = rows }
     func setMenuItems(_ items: [PaneID: PaneSlotContent]) { menuItems = items }
+}
+
+/// The focused pane's controls in the trailing strip.
+struct PaneStripRow: View {
+    let slots: PaneSlots
+    let focused: PaneID
+
+    var body: some View {
+        if let row = slots.stripRows[focused] { row.view }
+    }
 }
 
 /// The focused pane's menu rows, above the thread menu's own.
@@ -97,6 +123,7 @@ extension View {
     /// Collects the panes' bar rows and menu items into `slots`.
     func collectingPaneSlots(into slots: PaneSlots) -> some View {
         onPreferenceChange(PaneBarRowKey.self) { slots.setBarRows($0) }
+            .onPreferenceChange(PaneStripRowKey.self) { slots.setStripRows($0) }
             .onPreferenceChange(PaneMenuItemsKey.self) { slots.setMenuItems($0) }
     }
 }

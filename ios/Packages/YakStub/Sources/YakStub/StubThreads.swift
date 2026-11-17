@@ -93,7 +93,7 @@ private func json(_ object: Any, status: Int = 200) -> StubAnswer {
 private let noContent = StubAnswer.reply(status: 204, contentType: "application/json", body: Data())
 
 extension Scenario {
-    var playsLive: Bool { self == .oneThreadWorking }
+    var playsLive: Bool { self == .oneThreadWorking || self == .oneThreadHeld }
 
     /// The data file of the scenario, or the server's own fixture in the `server-fixtures` scenario.
     private func data(_ name: String, _ fixtures: StubFixtures, _ baseURL: String) -> [String: Any] {
@@ -117,7 +117,7 @@ extension Scenario {
             list["needsYou"] = needy.filter { $0["id"] as? String == "d0e515ef" }
             list["threads"] = [[String: Any]]()
             list["needsYouCount"] = 1
-        case .oneThreadWorking:
+        case .oneThreadWorking, .oneThreadHeld:
             var row = needy.first { $0["id"] as? String == "d0e515ef" } ?? [:]
             row["needsYouReason"] = NSNull()
             row["needsYouLabel"] = NSNull()

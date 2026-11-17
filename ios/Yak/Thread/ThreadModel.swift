@@ -8,10 +8,14 @@ final class ThreadModel {
     let threadID: String
     private(set) var snapshot: ConversationSnapshot?
     private(set) var engine: ThreadEngine?
+    /// Lives as long as the model, so typed text survives a retry and a slow load.
+    let composer: ComposerModel
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
 
     let session: InstanceSession
+    /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
+    @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
     /// The drawer row's title, shown until the thread's own arrives.
     private var initialTitle: String?
     private var isStarted = false
@@ -20,9 +24,15 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
-    init(threadID: String, session: InstanceSession) {
+    /// `composer` is the one an earlier model of the same thread made, so a thread never has two.
+    init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
         self.threadID = threadID
         self.session = session
+        self.composer =
+            composer
+            ?? ComposerModel(
+                key: .thread(threadID),
+                backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -40,14 +50,20 @@ final class ThreadModel {
         if let initialTitle, snapshot?.show == nil { self.initialTitle = initialTitle }
         guard !isStarted else { return }
         isStarted = true
+        await composer.load()
         await open()
     }
 
     func stop() async {
         guard isStarted else { return }
         isStarted = false
+        await files.stop()
+        await composer.flush()
         await close()
     }
+
+    /// Saves the draft now; the screen calls it when the app goes to the background.
+    func flushDraft() async { await composer.flush() }
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible
@@ -77,11 +93,13 @@ final class ThreadModel {
             return
         }
         engine = opened
+        composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
         await opened.setVisible(isVisible)
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
                 self.snapshot = next
+                self.composer.update(snapshot: next)
             }
         }
     }

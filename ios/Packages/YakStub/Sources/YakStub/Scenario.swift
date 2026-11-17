@@ -81,12 +81,16 @@ struct StubFixtures: Sendable {
         self.files = files
         var scenarioFiles: [String: Data] = [:]
         if let scenariosDirectory {
-            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames {
+            for name in Self.names.map(\.scenario) + Self.authorizationScenarioNames
+                + StubFeatures.all.flatMap(\.scenarioDataNames)
+            {
                 do {
                     scenarioFiles[name] = try Data(
                         contentsOf: scenariosDirectory.appendingPathComponent("\(name).json"))
                 } catch {
-                    let owner = StubFeatures.all.first { $0.fixturePairs.contains { $0.scenario == name } }?.name
+                    let owner = StubFeatures.all.first {
+                        $0.fixturePairs.contains { $0.scenario == name } || $0.scenarioDataNames.contains(name)
+                    }?.name
                     throw StubFixtureError(scenario: name, feature: owner)
                 }
             }
@@ -196,6 +200,8 @@ enum Scenario: String, CaseIterable, Sendable {
     case questionOpen = "question-open"
     /// One running thread whose events play over the socket, one every 400 ms from the first subscription.
     case oneThreadWorking = "one-thread-working"
+    /// Like `oneThreadWorking`, but the last event never plays, so the turn stays open.
+    case oneThreadHeld = "one-thread-held"
     /// The person has no threads of their own, the team has: `mine` is empty, `everyone` is the scenario list.
     case teamOnly = "team-only"
     /// Nobody has a thread.
@@ -212,6 +218,8 @@ enum Scenario: String, CaseIterable, Sendable {
     case messageRefused = "message-refused"
     /// Starting a thread is refused: 422 `validation_failed`.
     case newThreadRefused = "new-thread-refused"
+    /// The paired data with a limit of one attachment per message.
+    case oneAttachment = "one-attachment"
     /// Nobody has a thread and the instance has no repositories: `threads/new` answers `repos: []`.
     case noRepositories = "no-repositories"
     /// Nobody has a thread, and the new-thread options answer after 14 seconds.
@@ -284,6 +292,11 @@ enum Scenario: String, CaseIterable, Sendable {
                     details: ["min_protocol": 99, "current_protocol": 99, "client_protocol": 1])
             default:
                 return json("me") {
+                    if self == .oneAttachment {
+                        var limits = $0["attachments"] as? [String: Any] ?? [:]
+                        limits["maxFiles"] = 1
+                        $0["attachments"] = limits
+                    }
                     guard realtimePort != 0 else { return }
                     $0["realtime"] = [
                         "host": "127.0.0.1", "port": Int(realtimePort), "scheme": "http", "key": "stub-key",

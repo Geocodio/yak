@@ -7,14 +7,23 @@ final class StubPreviewPages: @unchecked Sendable {
     /// Seconds the listener has to reach `.ready` before start() throws.
     static let startBound: TimeInterval = 5
     private let preview: StubPreview
-    private let apiBaseURL: String
     private let lock = NSLock()
+    private var apiAddress: String
+    private var isOnline = true
     private var listener: NWListener?
+
+    private var apiBaseURL: String { lock.withLock { apiAddress } }
 
     init(preview: StubPreview, apiBaseURL: String) {
         self.preview = preview
-        self.apiBaseURL = apiBaseURL
+        apiAddress = apiBaseURL
     }
+
+    /// The API origin that the bounce redirect names; known once the first request has arrived.
+    func setAPIBaseURL(_ url: String) { lock.withLock { apiAddress = url } }
+
+    /// Offline, the listener drops every connection.
+    func setOnline(_ online: Bool) { lock.withLock { isOnline = online } }
 
     /// Starts listening on a free port and returns it; the preview learns the pages base URL from it.
     func start() async throws -> UInt16 {
@@ -59,7 +68,9 @@ final class StubPreviewPages: @unchecked Sendable {
     private func handle(_ connection: NWConnection) {
         connection.start(queue: .global())
         Task {
-            guard let request = await Self.readRequest(from: connection), preview.playing != .pageDown else {
+            guard let request = await Self.readRequest(from: connection), preview.playing != .pageDown,
+                lock.withLock({ isOnline })
+            else {
                 connection.cancel()
                 return
             }
