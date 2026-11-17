@@ -52,7 +52,7 @@ it('shows a thread after a finished turn', function () {
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None, 'live_activity_channel' => 'dGVzdC1jaGFubmVs']);
     $task = YakTask::factory()->create(['source' => 'dashboard', 'thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id]);
-    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour(), 'cost_usd' => 1.25, 'num_turns' => 10, 'total_ms' => 60_000]);
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'Retry failed uploads with backoff']);
 
     $response = $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()

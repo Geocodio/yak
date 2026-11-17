@@ -7,8 +7,6 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ProcessCIResultJob;
-use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\CoOwnerRequest;
@@ -19,7 +17,9 @@ use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\ChainMediaResolver;
+use App\Services\Tasks\TaskProgressSteps;
 use App\Services\ThreadBuilder;
+use App\Services\Threads\ThreadTasks;
 use App\Support\AttachmentNumbering;
 use App\Support\AttachmentReferences;
 use App\Support\Markdown;
@@ -83,7 +83,7 @@ final class TaskDetailData
         $detail = [
             'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount, $isFollowUp),
             'thread' => self::thread($task, $conversation),
-            'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
+            'progress' => ['steps' => TaskProgressSteps::for($task, $head, $coOwnerRequest)],
             'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user(), $isTimeBounded) : null,
             'earlyWarning' => EarlyWarningData::forTask($task, $coOwnerRequest, $request->user()),
             'media' => self::latestMedia($conversation),
@@ -552,55 +552,6 @@ final class TaskDetailData
     }
 
     /**
-     * @return array<int, array{label: string, tooltip: string, done: bool, current: bool, failed: bool}>
-     */
-    private static function progressSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
-    {
-        /** @var TaskStatus $status */
-        $status = $head->status;
-
-        $hasCoOwnerRequest = $coOwnerRequest !== null;
-        $waitingShift = $hasCoOwnerRequest ? 1 : 0;
-
-        $reachedStep = match ($status) {
-            TaskStatus::Pending => 0,
-            TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
-            TaskStatus::AwaitingCi => 4,
-            TaskStatus::AwaitingCoOwner => 4 + $waitingShift,
-            TaskStatus::Success => 6 + $waitingShift,
-            TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 + $waitingShift : ($task->branch_name ? 3 : 2),
-        };
-
-        $isRetryingAfterCiFailure = in_array($status, [TaskStatus::Running, TaskStatus::Retrying], true)
-            && ($head->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->latest('id')->value('metadata')['passed'] ?? null) === false;
-
-        $ciStep = match (true) {
-            $isRetryingAfterCiFailure => ['label' => 'CI failed, retrying', 'tooltip' => 'CI failed on the last push, so Yak is fixing the changes and will push again.', 'failed' => true],
-            $reachedStep === 4 => ['label' => 'Waiting for CI', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
-            default => ['label' => 'CI passed', 'tooltip' => 'CI verifies the changes before the pull request opens.'],
-        };
-
-        $steps = [
-            ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
-            ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
-            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
-            ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
-            $ciStep,
-            ...($hasCoOwnerRequest ? [['label' => 'Waiting for a co-owner', 'tooltip' => 'A co-owner with write access has to approve before Yak opens the pull request.']] : []),
-            ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
-            ['label' => 'Done', 'tooltip' => 'Task complete.'],
-        ];
-
-        return array_map(fn (array $step, int $index) => [
-            'label' => $step['label'],
-            'tooltip' => $step['tooltip'],
-            'done' => $index <= $reachedStep,
-            'current' => $index === $reachedStep,
-            'failed' => $step['failed'] ?? false,
-        ], $steps, array_keys($steps));
-    }
-
-    /**
      * @param  Collection<int, YakTask>  $conversation
      * @return array<int, array<string, mixed>>
      */
@@ -867,7 +818,7 @@ final class TaskDetailData
 
     private static function apiSpend(YakTask $task): float
     {
-        return (float) AiUsage::query()->where('yak_task_id', $task->id)->sum('cost_usd');
+        return ThreadTasks::apiSpendUsd([$task->id]);
     }
 
     /**

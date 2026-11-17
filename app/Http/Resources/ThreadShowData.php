@@ -20,6 +20,10 @@ use App\Services\Threads\LegacyConversation;
 /**
  * Props of the `Threads/Show` page, shared by the web page and the app's thread show.
  *
+ * @phpstan-import-type ThreadRequestInfo from ThreadRequestData
+ * @phpstan-import-type ThreadProgress from ThreadRequestData
+ * @phpstan-import-type ThreadRunDetails from ThreadRequestData
+ *
  * @phpstan-type ThreadShow array{
  *     thread: array{
  *         id: string,
@@ -65,6 +69,9 @@ use App\Services\Threads\LegacyConversation;
  *     notice: array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null,
  *     modelLabels: array<string, string>,
  *     stackParent: array{id: string, name: string, title: string}|null,
+ *     request: ThreadRequestInfo,
+ *     progress: ?ThreadProgress,
+ *     runDetails: ThreadRunDetails,
  *     question: ?array{taskId: string, expiresAt: ?string, questions: list<array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multiSelect: bool}>},
  * }
  */
@@ -91,6 +98,7 @@ final class ThreadShowData
             'modelLabels' => self::modelLabels(),
             'stackParent' => self::stackParent($thread),
             'question' => ThreadQuestionData::for($thread),
+            ...ThreadRequestData::for($thread, $viewer),
         ]);
     }
 

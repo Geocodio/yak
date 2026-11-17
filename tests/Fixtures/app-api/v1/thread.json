@@ -138,9 +138,42 @@
         "preview": true,
         "terminal": false
     },
+    "progress": null,
     "publishWarning": false,
     "pullRequest": null,
     "question": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "done",
+            "label": "Done",
+            "tone": "ok"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": "2026-11-15T11:00:00+00:00",
+        "costUsd": 1.25,
+        "durationSeconds": 60,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 1,
+        "sessionId": null,
+        "startedAt": "2026-11-15T11:40:00+00:00",
+        "stepCount": 10
+    },
     "sharedFiles": [],
     "stackParent": null,
     "teleport": {

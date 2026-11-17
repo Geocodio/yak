@@ -142,12 +142,45 @@
         "preview": true,
         "terminal": false
     },
+    "progress": null,
     "publishWarning": false,
     "pullRequest": {
         "number": 41,
         "url": "https://github.com/example/api/pull/41"
     },
     "question": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "done",
+            "label": "Done",
+            "tone": "ok"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": null,
+        "costUsd": 0,
+        "durationSeconds": 0,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 0,
+        "sessionId": null,
+        "startedAt": null,
+        "stepCount": 0
+    },
     "sharedFiles": [],
     "stackParent": null,
     "teleport": {

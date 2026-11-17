@@ -138,6 +138,33 @@ export type SharedFile = {
 /** One answer of Yak in a thread made from an old task; mirrors `App\Services\Threads\LegacyConversation`. */
 export type LegacyAnswer = { runTaskId: string; html: string; at: string };
 
+/** Status of a whole request; mirrors `App\Services\Threads\ThreadRequestStatus::for()`. */
+export type ThreadRequestStatus = { key: 'working' | 'needs_you' | 'waiting_for_co_owner' | 'stopped' | 'done' | 'closed'; label: string; tone: 'info' | 'warn' | 'bad' | 'ok' | 'neutral' };
+
+/** Request, progress and run details; mirrors `App\Http\Resources\ThreadRequestData`. */
+export type ThreadRequest = {
+    source: { key: string; label: string; reference: string | null; url: string | null };
+    starter: { key: string; name: string; avatarUrl: string | null };
+    responsibleName: string | null;
+    status: ThreadRequestStatus;
+};
+
+export type ThreadProgress = { steps: { key: string; label: string; tooltip: string; state: 'done' | 'current' | 'failed' | 'upcoming' }[] };
+
+export type ThreadRunDetails = {
+    runCount: number;
+    stepCount: number;
+    attempts: string | null;
+    durationSeconds: number;
+    costUsd: number;
+    apiSpendUsd: number;
+    sessionId: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    errorLog: string | null;
+    errorLogTruncated: boolean;
+};
+
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
@@ -162,6 +189,10 @@ export type ThreadPageData = {
     question: { taskId: string; expiresAt: string | null; questions: QuestionData[] } | null;
     /** Catalog label of each model id and family alias. */
     modelLabels: Record<string, string>;
+    request: ThreadRequest;
+    /** The staged row, or null when the head task is finished or the thread is closed. */
+    progress: ThreadProgress | null;
+    runDetails: ThreadRunDetails;
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */

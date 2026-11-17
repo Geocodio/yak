@@ -214,9 +214,87 @@
         "preview": true,
         "terminal": false
     },
+    "progress": {
+        "steps": [
+            {
+                "key": "received",
+                "label": "Received",
+                "state": "current",
+                "tooltip": "Task landed in the queue."
+            },
+            {
+                "key": "picked_up",
+                "label": "Picked up",
+                "state": "upcoming",
+                "tooltip": "An agent has claimed the task and started setup."
+            },
+            {
+                "key": "working",
+                "label": "Working",
+                "state": "upcoming",
+                "tooltip": "Agent is investigating the codebase and implementing the fix."
+            },
+            {
+                "key": "pushed",
+                "label": "Pushed",
+                "state": "upcoming",
+                "tooltip": "Changes committed and pushed to a branch."
+            },
+            {
+                "key": "c_i_passed",
+                "label": "CI passed",
+                "state": "upcoming",
+                "tooltip": "CI verifies the changes before the pull request opens."
+            },
+            {
+                "key": "pull_request",
+                "label": "Pull request",
+                "state": "upcoming",
+                "tooltip": "Pull request opened for human review."
+            },
+            {
+                "key": "done",
+                "label": "Done",
+                "state": "upcoming",
+                "tooltip": "Task complete."
+            }
+        ]
+    },
     "publishWarning": false,
     "pullRequest": null,
     "question": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "working",
+            "label": "Working",
+            "tone": "info"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": "2026-11-15T11:00:00+00:00",
+        "costUsd": 1.25,
+        "durationSeconds": 60,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 1,
+        "sessionId": null,
+        "startedAt": "2026-11-15T12:00:00+00:00",
+        "stepCount": 10
+    },
     "sharedFiles": [],
     "stackParent": null,
     "teleport": {
