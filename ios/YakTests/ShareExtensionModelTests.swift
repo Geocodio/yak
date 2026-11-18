@@ -75,7 +75,7 @@ private struct Rig {
             realSender
             ? ShareSender(
                 files: files, appBundleID: "com.example.yak", appGroup: nil, clock: SystemClock(),
-                makeClient: { _, _ in nil}) : sender
+                makeClient: { _, _ in nil }) : sender
         model = ShareExtensionModel(
             instances: instances, tokens: tokens, files: files, sender: used, clock: SystemClock(),
             fetchOptions: { _, _ in

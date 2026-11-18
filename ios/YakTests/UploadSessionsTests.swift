@@ -208,7 +208,10 @@ private struct Rig {
         try files.write(Data("a".utf8), to: path, protection: .untilFirstUnlock)
         let draft = OutboxDraft(
             target: .thread("d0e515ef"), text: "Look",
-            attachments: [OutboxAttachment(reference: "Image #1", fileName: "a.jpg", contentType: "image/jpeg", path: path)])
+            attachments: [
+                OutboxAttachment(
+                    reference: "Image #1", fileName: "a.jpg", contentType: "image/jpeg", path: path)
+            ])
         return OutboxInbox.item(for: draft, id: id, now: Date())
     }
 }

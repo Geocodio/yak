@@ -94,8 +94,8 @@ final class UploadSessions: @unchecked Sendable {
                     finish()
                     holder.session?.finishAndInvalidate()
                     self?.forgetShareSession(identifier)
-                }
-            ) { [weak self] description in await self?.ledgerOwningShare(description) }
+                },
+                route: { [weak self] description in await self?.ledgerOwningShare(description) })
             holder.session = session
             state.withLock { $0.shareSessions[identifier] = session }
         case nil:

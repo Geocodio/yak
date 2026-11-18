@@ -62,7 +62,8 @@ import XCTest
 
     func testShareFailed() throws {
         try share("failed")
-        XCTAssertTrue(app.staticTexts["This could not be saved for sending. Try again."].waitForExistence(timeout: Wait.appear))
+        let line = app.staticTexts["This could not be saved for sending. Try again."]
+        XCTAssertTrue(line.waitForExistence(timeout: Wait.appear))
         try shoot("share-failed")
     }
 }

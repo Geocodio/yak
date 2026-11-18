@@ -348,7 +348,9 @@ public actor UploadLedger {
     private func failedSet() -> Set<UUID> {
         Set(
             records().compactMap { record in
-                guard case .failed(let kind) = record.phase, kind == .transport || kind == .lost || kind == .notStarted else { return nil }
+                guard case .failed(let kind) = record.phase,
+                    kind == .transport || kind == .lost || kind == .notStarted
+                else { return nil }
                 return record.itemID
             })
     }
