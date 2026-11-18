@@ -19,6 +19,11 @@ class CiFailureNotificationGate
         Cache::put(self::key($task), $shouldNotify, now()->addDay());
     }
 
+    public static function forget(YakTask $task): void
+    {
+        Cache::forget(self::key($task));
+    }
+
     public static function shouldNotify(YakTask $task): bool
     {
         return (bool) Cache::get(self::key($task), true);

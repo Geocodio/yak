@@ -13,6 +13,8 @@ use App\Services\CiFailure\CiFailureNotificationGate;
 use App\Services\CiFailure\CiFailureOutcome;
 use App\Services\CiFailure\CiFailureTaskCreator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Turns the end of a ci-failure task into claim state: the outcome, the
@@ -54,15 +56,18 @@ class RecordCiFailureOutcome
                 $attempts = $claim->attempt_count + 1;
                 $updates['attempt_count'] = $attempts;
                 $updates['blocked_until'] = now()->addHours((int) $backoff[min($attempts - 1, count($backoff) - 1)]);
-                $shouldNotify = $shouldNotify
-                    || ($outcome !== CiFailureOutcome::Infrastructure && ($attempts === 1 || $claim->last_outcome !== $outcome->value));
             }
+
+            $shouldNotify = $shouldNotify
+                || ($outcome !== CiFailureOutcome::Infrastructure && $claim->last_outcome !== $outcome->value);
 
             $claim->update($updates);
         }
 
-        if ($isFailed) {
+        if ($isFailed || ! in_array($outcome, [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true)) {
             CiFailureNotificationGate::remember($task, $shouldNotify);
+        } else {
+            CiFailureNotificationGate::forget($task);
         }
 
         match ($outcome) {
@@ -81,15 +86,24 @@ class RecordCiFailureOutcome
             return;
         }
 
-        $sha = app(AppService::class)->getBranchHeadSha(
-            (int) config('yak.channels.github.installation_id'),
-            $repository->github_full_name,
-            $repository->default_branch,
-        );
-
-        if ($sha !== null) {
-            CiFailureClaim::query()->where('yak_task_id', $task->id)->update(['fix_merge_sha' => $sha]);
+        try {
+            $sha = app(AppService::class)->getBranchHeadSha(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                $repository->default_branch,
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+            $sha = null;
         }
+
+        if ($sha === null) {
+            Log::channel('yak')->warning('Could not read the default branch head for an already_fixed ci-failure task', ['task_id' => $task->id]);
+
+            return;
+        }
+
+        CiFailureClaim::query()->where('yak_task_id', $task->id)->update(['fix_merge_sha' => $sha]);
     }
 
     private function resolveEvidence(YakTask $task): void

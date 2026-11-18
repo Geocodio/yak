@@ -2,15 +2,20 @@
 
 use App\Actions\RecordPullRequestOutcome;
 use App\Channels\GitHub\AppService;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
+use App\Jobs\SendNotificationJob;
 use App\Models\CiFailureClaim;
 use App\Models\CiJobFailure;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\CiFailure\CiFailureNotificationGate;
 use App\Services\CiFailure\CiFailureOutcome;
+use App\Services\DirectMessageRecipients;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 function outcomeLine(string $outcome): string
 {
@@ -143,4 +148,66 @@ it('does not notify for an infrastructure failure but still backs off', function
         ->and($claim->fresh()->attempt_count)->toBe(1)
         ->and($claim->fresh()->blocked_until)->not->toBeNull()
         ->and(CiFailureNotificationGate::shouldNotify($task->fresh()))->toBeFalse();
+});
+
+it('still records the outcome when the default head lookup throws', function () {
+    $this->mock(AppService::class)->shouldReceive('getBranchHeadSha')->andThrow(new RuntimeException('timeout'));
+    [$task, $claim] = ciFailureTaskWithClaim();
+
+    finishCiFailureTask($task, TaskStatus::Success, outcomeLine('already_fixed'));
+
+    expect($claim->fresh()->last_outcome)->toBe('already_fixed')
+        ->and($claim->fresh()->fix_merge_sha)->toBeNull();
+});
+
+it('does not re-notify a repeated cannot_fix that ended as Success', function () {
+    [$task] = ciFailureTaskWithClaim();
+
+    finishCiFailureTask($task, TaskStatus::Success, outcomeLine('cannot_fix'));
+    expect(CiFailureNotificationGate::shouldNotify($task->fresh()))->toBeTrue();
+
+    $this->travelTo(now()->addMinute());
+    finishCiFailureTask($task->fresh(), TaskStatus::Success, outcomeLine('cannot_fix'));
+    expect(CiFailureNotificationGate::shouldNotify($task->fresh()))->toBeFalse();
+});
+
+it('skips the notification job when the gate says no and sends otherwise', function (NotificationType $type, TaskStatus $status, string $summary) {
+    [$task] = ciFailureTaskWithClaim();
+    $task->updateQuietly(['status' => $status, 'result_summary' => $summary]);
+
+    CiFailureNotificationGate::remember($task, false);
+    $this->mock(DirectMessageRecipients::class)->shouldNotReceive('for');
+    app()->call([new SendNotificationJob($task->fresh(), $type, 'msg'), 'handle']);
+
+    CiFailureNotificationGate::remember($task, true);
+    $this->mock(DirectMessageRecipients::class)->shouldReceive('for')->once()->andReturn([]);
+    app()->call([new SendNotificationJob($task->fresh(), $type, 'msg'), 'handle']);
+})->with([
+    'error' => [NotificationType::Error, TaskStatus::Failed, 'x'],
+    'result cannot_fix' => [NotificationType::Result, TaskStatus::Success, 'CI-FAILURE-OUTCOME: cannot_fix'],
+]);
+
+it('does not gate a result that carries a fix', function () {
+    [$task] = ciFailureTaskWithClaim();
+    $task->updateQuietly(['status' => TaskStatus::Success, 'result_summary' => 'CI-FAILURE-OUTCOME: fixed']);
+
+    CiFailureNotificationGate::remember($task, false);
+    $this->mock(DirectMessageRecipients::class)->shouldReceive('for')->once()->andReturn([]);
+    app()->call([new SendNotificationJob($task->fresh(), NotificationType::Result, 'msg'), 'handle']);
+});
+
+it('sets fix_merge_sha when the reconciler records a merged ci-failure PR', function () {
+    config()->set('yak.channels.github.installation_id', 99);
+    GitHubInstallationToken::create(['installation_id' => 99, 'token' => 'ghs', 'expires_at' => now()->addHour()]);
+    [$task, $claim] = ciFailureTaskWithClaim(task: ['pr_url' => 'https://github.com/acme/widgets/pull/1', 'pr_number' => 1, 'status' => TaskStatus::Success]);
+
+    Http::fake([
+        'api.github.com/repos/acme/widgets/pulls/1/commits*' => Http::response([]),
+        'api.github.com/repos/acme/widgets/pulls/1' => Http::response(['state' => 'closed', 'merged' => true, 'merged_at' => '2026-09-15T10:00:00Z', 'closed_at' => '2026-09-15T10:00:00Z', 'merge_commit_sha' => 'reconciled-sha']),
+        'api.github.com/*' => Http::response([]),
+    ]);
+
+    $this->artisan('yak:reconcile-pr-state')->assertSuccessful();
+
+    expect($claim->fresh()->fix_merge_sha)->toBe('reconciled-sha');
 });

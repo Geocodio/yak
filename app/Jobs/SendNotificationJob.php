@@ -14,6 +14,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CiFailure\CiFailureNotificationGate;
+use App\Services\CiFailure\CiFailureOutcome;
 use App\Services\CiFailure\CiFailureTaskCreator;
 use App\Services\DirectMessageRecipients;
 use App\Services\Tasks\StopMessage;
@@ -77,9 +78,7 @@ class SendNotificationJob implements ShouldQueue
                 return;
             }
 
-            if ($this->type === NotificationType::Error
-                && $this->task->source === CiFailureTaskCreator::SOURCE
-                && ! CiFailureNotificationGate::shouldNotify($this->task)) {
+            if ($this->isRepeatedCiFailure()) {
                 return;
             }
 
@@ -118,6 +117,23 @@ class SendNotificationJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * A ci-failure task that failed, or finished without a fix, tells a person
+     * only on the claim's first failure or when the outcome changes.
+     */
+    private function isRepeatedCiFailure(): bool
+    {
+        if ($this->task->source !== CiFailureTaskCreator::SOURCE) {
+            return false;
+        }
+
+        $isUnfixed = $this->type === NotificationType::Error
+            || ($this->type === NotificationType::Result
+                && ! in_array(CiFailureOutcome::fromSummary($this->task->result_summary), [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true));
+
+        return $isUnfixed && ! CiFailureNotificationGate::shouldNotify($this->task);
     }
 
     /**
