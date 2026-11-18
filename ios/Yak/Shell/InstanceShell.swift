@@ -100,7 +100,8 @@ struct InstanceShell: View {
         .environment(\.hasSeveralWindows, hasSeveralWindows)
         .focusedSceneValue(
             \.sceneCommands,
-            SceneCommands.published(sceneCommands, isBlocked: inputBlocked, hasSheetOpen: hasSheetOpen))
+            SceneCommands.published(sceneCommands, isBlocked: inputBlocked, hasSheetOpen: hasSheetOpen)
+        )
         .overlay(alignment: .bottom) { otherInstanceNotice }
     }
 

@@ -58,9 +58,8 @@ import XCTest
                 }
                 // Open finding: on a wide screen the audit reports "contrast nearly passed" with no element on the thread
                 // screen. Only that kind is excused here.
-                if issue.auditType == .contrast, issue.element == nil, issue.compactDescription.contains("nearly passed") {
-                    return true
-                }
+                let isNearlyPassed = issue.compactDescription.contains("nearly passed")
+                if issue.auditType == .contrast, issue.element == nil, isNearlyPassed { return true }
                 // An element entirely outside the screen shows no pixels to measure.
                 if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
                 // Text behind a bar is covered by the bar.
