@@ -6,6 +6,7 @@ use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Small GraphQL client for reading Linear data that
@@ -19,6 +20,8 @@ class IssueFetcher
     private const GRAPHQL_ENDPOINT = 'https://api.linear.app/graphql';
 
     private const TIMEOUT_SECONDS = 3;
+
+    private const UPLOAD_TIMEOUT_SECONDS = 5;
 
     /**
      * Return the lowercased label names for a Linear issue, or null
@@ -168,6 +171,40 @@ class IssueFetcher
             'description' => (string) ($issue['description'] ?? ''),
             'url' => (string) ($issue['url'] ?? ''),
         ];
+    }
+
+    /**
+     * The bytes of a file on Linear's upload host, or null when it cannot be
+     * read or is over the attachment limit. The access token only ever goes
+     * to that host, and redirects are not followed. The token reads a file
+     * after the signature in its URL has expired.
+     */
+    public function downloadUpload(string $url): ?string
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || ! IssueImages::isUpload($url)) {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken($accessToken)
+                ->withOptions(['allow_redirects' => false])
+                ->connectTimeout(self::TIMEOUT_SECONDS)
+                ->timeout(self::UPLOAD_TIMEOUT_SECONDS)
+                ->get(Str::before($url, '?'));
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('LinearIssueFetcher: upload download failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $response->successful() || strlen($response->body()) > (int) config('yak.attachments.max_file_kb') * 1024) {
+            return null;
+        }
+
+        return $response->body();
     }
 
     public function hasLabel(string $identifier, string $labelName): bool

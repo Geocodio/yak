@@ -16,6 +16,7 @@ use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
@@ -38,6 +39,8 @@ class WebhookController extends Controller
 {
     use RecordsWebhookTelemetry;
     use VerifiesWebhookSignature;
+
+    private const float REPLY_IMAGE_BUDGET_SECONDS = 3.0;
 
     public function __invoke(Request $request): JsonResponse
     {
@@ -251,6 +254,7 @@ class WebhookController extends Controller
                 'linear_issue_url' => $description->metadata['linear_issue_url'] ?? '',
                 'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? '',
                 'linear_creator_id' => $description->metadata['creator_id'] ?? '',
+                'linear_images' => $description->metadata['images'] ?? [],
             ]),
         ]);
 
@@ -477,6 +481,10 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'stop']);
         }
 
+        $images = app(IssueImages::class);
+        $parsedMessage = $images->extract($message);
+        $message = $parsedMessage['text'];
+
         if ($status === TaskStatus::AwaitingClarification && RepoClarificationResolver::awaitingRepoChoice($task)) {
             RepoClarificationResolver::resolve($task, $message);
 
@@ -502,13 +510,17 @@ class WebhookController extends Controller
         }
 
         if ($task->acceptsFollowUp()) {
-            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'), replier: User::findByEmail($request->input('actor.email')));
+            $stored = $images->store($message, $parsedMessage['images'], budgetSeconds: self::REPLY_IMAGE_BUDGET_SECONDS);
+            app(FollowUpTaskFactory::class)->create($task, $stored['text'], 'linear', authorName: $request->input('actor.name'), attachments: $stored['attachments'], replier: User::findByEmail($request->input('actor.email')));
+            TaskAttachment::discard($stored['attachments']);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
 
         if (in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], strict: true)) {
-            PendingSteeringMessage::queueFor($task, $message, 'linear', authorName: $request->input('actor.name'));
+            $stored = $images->store($message, $parsedMessage['images'], budgetSeconds: self::REPLY_IMAGE_BUDGET_SECONDS);
+            $steering = PendingSteeringMessage::queueFor($task, $stored['text'], 'linear', authorName: $request->input('actor.name'));
+            $stored['attachments']->each(fn (TaskAttachment $attachment) => $attachment->update(['pending_steering_message_id' => $steering->id]));
             TaskLogger::info($task, 'Steering reply queued (mid-run)');
 
             return response()->json(['ok' => true, 'handled' => 'steering']);

@@ -75,7 +75,7 @@ export function AccountDialog({ mode, account, models, hasDefault, onClose, onSe
     const form = useForm({
         secret: '',
         name: isRotate ? '' : defaultName(isSystem, setup?.appName),
-        default_model: 'sonnet' as string | null,
+        default_model: 'opus' as string | null,
         default_effort: null as string | null,
         make_default: !hasDefault,
         icon: (isSystem ? 'building' : 'briefcase') as ClaudeAccount['icon'],
