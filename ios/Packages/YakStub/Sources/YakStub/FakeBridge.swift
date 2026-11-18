@@ -6,8 +6,8 @@ import Network
 /// It does its own upgrade and framing, because the URL's token, columns and rows are not visible to
 /// `NWProtocolWebSocket`'s request handler. It logs event names only, never bytes.
 final class FakeBridge: @unchecked Sendable {
-    private let frames: Data
-    private let origin: String
+    private let frames: @Sendable () -> Data
+    private let origin: @Sendable () -> String
     private let admit: @Sendable (String) -> BridgeAdmission
     fileprivate let queue = DispatchQueue(label: "fake-bridge")
     private let lock = NSLock()
@@ -17,6 +17,16 @@ final class FakeBridge: @unchecked Sendable {
     private var resize: (columns: Int, rows: Int)?
 
     init(frames: Data, origin: String, admit: @escaping @Sendable (String) -> BridgeAdmission) {
+        self.frames = { frames }
+        self.origin = { origin }
+        self.admit = admit
+    }
+
+    /// The script is read when a shell opens, so the data may arrive after the listener started.
+    init(
+        frames: @escaping @Sendable () -> Data, origin: @escaping @Sendable () -> String,
+        admit: @escaping @Sendable (String) -> BridgeAdmission
+    ) {
         self.frames = frames
         self.origin = origin
         self.admit = admit
@@ -80,11 +90,11 @@ final class FakeBridge: @unchecked Sendable {
     fileprivate func record(columns: Int, rows: Int) { lock.withLock { resize = (columns, rows) } }
     fileprivate func remove(_ peer: Peer) { lock.withLock { peers.removeAll { $0 === peer } } }
     fileprivate func admission(for token: String) -> BridgeAdmission { admit(token) }
-    fileprivate var allowedOrigin: String { origin }
+    fileprivate var allowedOrigin: String { origin() }
 
     /// The script's `banner`, `prompt` and `responses`.
     fileprivate var script: (banner: String, prompt: String, responses: [String: String]) {
-        let object = (try? JSONSerialization.jsonObject(with: frames)) as? [String: Any] ?? [:]
+        let object = (try? JSONSerialization.jsonObject(with: frames())) as? [String: Any] ?? [:]
         return (
             object["banner"] as? String ?? "", object["prompt"] as? String ?? "",
             object["responses"] as? [String: String] ?? [:]

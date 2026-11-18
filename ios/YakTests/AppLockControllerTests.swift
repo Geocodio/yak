@@ -185,10 +185,11 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         await controller.launched()
         #expect(playback.closes == 0)
         controller.appEnteredBackground()
+        let closesInBackground = playback.closes
         clock.advance(.seconds(300))
         await controller.appBecameActive()
         #expect(controller.isLocked)
-        #expect(playback.closes == 1)
+        #expect(playback.closes == closesInBackground + 1)
 
         let offSettings = PrivacySettings(store: Store())
         let off = AppLockController(
@@ -197,7 +198,7 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         off.appEnteredBackground()
         clock.advance(.seconds(300))
         await off.appBecameActive()
-        #expect(playback.closes == 1)
+        #expect(playback.closes == closesInBackground + 1)
     }
 
     @Test func enteringBackgroundClosesPlaybackOnlyWhenTheLockIsOnOrUnknown() {

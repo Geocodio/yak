@@ -70,7 +70,7 @@
             let faults = DebugFaultSwitch()
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(
-                    version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true,
+                    version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true,
                     faults: faults)
             }
             QuickActions.normalizeAddress = Self.normalize
@@ -125,7 +125,7 @@
                         do {
                             let added = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
-                                token: token)
+                                token: token, id: Self.keepsFiles() ? Self.keptInstanceID : nil)
                             await Self.deliverQuickAction(for: added)
                         } catch {
                             Logger(subsystem: "Yak", category: "TestMode").error(

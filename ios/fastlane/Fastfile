@@ -5,6 +5,7 @@ IOS_ROOT = File.expand_path("..", __dir__)
 require_relative "lib/release_support"
 require_relative "lib/fast_lanes"
 import("Releasefile")
+import("E2eFastfile")
 
 # The classes the iPad and the Duo run (`core_only`). A new feature smoke test runs on the iPhone row only, and adds
 # its class here, one line, to run on the others.
@@ -240,7 +241,7 @@ platform :ios do
   def xcodebuild_base(device)
     "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
       "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \
-      "CODE_SIGNING_ALLOWED=NO"
+      "-skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO"
   end
 
   # One `xcodebuild build-for-testing` that every test run after it reuses (test-without-building, same derived data)

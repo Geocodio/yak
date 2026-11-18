@@ -11,6 +11,7 @@ struct LicenseEntry: Identifiable, Equatable {
 /// One line per package the app links. `scripts/rules.d/settings-privacy.sh` checks the list against `project.yml`.
 enum LicenseList {
     static let entries: [LicenseEntry] = [
+        LicenseEntry(id: "SwiftTerm", name: "SwiftTerm", licenseName: "MIT License", resource: "SwiftTerm"),
         LicenseEntry(
             id: "swift-markdown", name: "swift-markdown", licenseName: "Apache License 2.0",
             resource: "swift-markdown"),
