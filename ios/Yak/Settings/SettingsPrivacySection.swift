@@ -13,6 +13,11 @@ enum PrivacyRows {
         }
     }
 
+    /// With no known method the lock cannot be turned on, but one that is on can always be turned off.
+    static func lockSwitchIsDisabled(method: AppLockMethod?, isOn: Bool, confirming: Bool) -> Bool {
+        confirming || (method == nil && !isOn)
+    }
+
     static func lockSubtitle(hasMethod: Bool) -> String {
         hasMethod ? String(localized: "privacy.lock.subtitle") : String(localized: "privacy.lock.noPasscode")
     }
@@ -99,7 +104,7 @@ struct SettingsPrivacySection: View {
             }
             .frame(minHeight: 44, alignment: .leading)
         }
-        .disabled(lock.method == nil || confirming)
+        .disabled(PrivacyRows.lockSwitchIsDisabled(method: lock.method, isOn: lock.policy.isOn, confirming: confirming))
         .accessibilityIdentifier("settings.appLock")
     }
 

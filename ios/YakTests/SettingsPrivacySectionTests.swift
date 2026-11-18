@@ -13,6 +13,13 @@ import YakKit
         return try JSONDecoder().decode(Me.DeviceInfo.self, from: Data(json.utf8))
     }
 
+    @Test func theLockSwitchCanAlwaysTurnOffButTurnsOnOnlyWithAMethod() {
+        #expect(PrivacyRows.lockSwitchIsDisabled(method: nil, isOn: false, confirming: false))
+        #expect(!PrivacyRows.lockSwitchIsDisabled(method: nil, isOn: true, confirming: false))
+        #expect(!PrivacyRows.lockSwitchIsDisabled(method: .passcode, isOn: false, confirming: false))
+        #expect(PrivacyRows.lockSwitchIsDisabled(method: .passcode, isOn: true, confirming: true))
+    }
+
     @Test func theLockTitleFollowsTheMethod() {
         #expect(PrivacyRows.lockTitle(.faceID) == "Require Face ID")
         #expect(PrivacyRows.lockTitle(.touchID) == "Require Touch ID")

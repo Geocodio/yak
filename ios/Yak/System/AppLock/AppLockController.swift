@@ -15,6 +15,8 @@ final class AppLockController {
     @ObservationIgnored private var launchAskPending: Bool
 
     @ObservationIgnored private var lockWindows: AnyObject?
+    @ObservationIgnored private var backgroundCount = 0
+    @ObservationIgnored private var deferred: (@MainActor () async -> Void)?
     private(set) var policy: AppLockPolicy
     /// True while the settings store cannot be read. The content stays covered, because the lock may be on.
     private(set) var storeUnreadable: Bool
@@ -47,6 +49,22 @@ final class AppLockController {
         self.policy = policy
     }
 
+    /// The one place links, taps and continuations pass: they run now, or after the unlock while input is blocked.
+    /// Only the newest waiting one is kept, and it is never shown under the lock.
+    func whenOpen(_ action: @escaping @MainActor () async -> Void) {
+        guard blocksInput else {
+            Task { await action() }
+            return
+        }
+        deferred = action
+    }
+
+    private func runDeferredIfOpen() {
+        guard !blocksInput, let action = deferred else { return }
+        deferred = nil
+        Task { await action() }
+    }
+
     /// Keeps the one set of lock windows alive and makes it only the first time it is asked.
     func startWindowsOnce(_ make: () -> AnyObject) {
         if lockWindows == nil { lockWindows = make() }
@@ -68,6 +86,7 @@ final class AppLockController {
         settings.appLockOn = false
         launchAskPending = false
         showsPasscodeRemoved = true
+        runDeferredIfOpen()
     }
 
     /// Reads the stored choice again. A store that was unreadable at launch may say the lock is on now: the policy
@@ -79,6 +98,7 @@ final class AppLockController {
             return false
         }
         storeUnreadable = false
+        defer { runDeferredIfOpen() }
         guard settings.appLockOn, !policy.isOn else { return false }
         policy.handle(.turnedOn)
         launchAskPending = policy.handle(.launched)
@@ -95,6 +115,7 @@ final class AppLockController {
     }
 
     func appEnteredBackground() {
+        backgroundCount += 1
         policy.handle(.enteredBackground(clock.now()))
         authenticator.cancel()
     }
@@ -103,7 +124,9 @@ final class AppLockController {
     /// Returns true when the policy just locked and the app should ask the owner by itself.
     func relockIfDue() -> Bool {
         let reloaded = reloadSettings()
-        return policy.handle(.becameActive(clock.now())) || reloaded
+        let locked = policy.handle(.becameActive(clock.now())) || reloaded
+        if locked { launchAskPending = true }
+        return locked
     }
 
     /// The device was unlocked for the first time since it started: the store can be read now.
@@ -114,7 +137,10 @@ final class AppLockController {
 
     func finishBecomingActive(askIfLocked ask: Bool) async {
         await refreshCapability()
-        if ask && policy.isLocked { await requestUnlock() }
+        if (ask || launchAskPending) && policy.isLocked {
+            launchAskPending = false
+            await requestUnlock()
+        }
     }
 
     func appBecameActive() async {
@@ -125,11 +151,17 @@ final class AppLockController {
     func requestUnlock() async {
         guard policy.isLocked, unlock != .authenticating else { return }
         unlock = .authenticating
+        let backgroundsBefore = backgroundCount
         switch await authenticator.authenticate(reason: String(localized: "lock.reason")) {
+        case .success where backgroundCount != backgroundsBefore:
+            // The app went to the background during the ask: the time away counts, so stay locked and ask again.
+            unlock = .idle
+            launchAskPending = true
         case .success:
             policy.handle(.unlocked)
             unlock = .idle
             unlockCount += 1
+            runDeferredIfOpen()
         case .cancelled:
             unlock = .idle
         case .failed:
@@ -149,6 +181,7 @@ final class AppLockController {
             settings.appLockOn = false
             policy.handle(.turnedOff)
             toggle = .idle
+            runDeferredIfOpen()
             return
         }
         guard method != nil, toggle != .confirming, !policy.isOn else { return }
@@ -168,7 +201,10 @@ final class AppLockController {
         }
     }
 
-    func dismissPasscodeRemoved() { showsPasscodeRemoved = false }
+    func dismissPasscodeRemoved() {
+        showsPasscodeRemoved = false
+        runDeferredIfOpen()
+    }
 
     /// Settings has said the lock turned itself off.
     func acknowledgeTurnedOff() { policy.acknowledgeTurnedOff() }

@@ -372,4 +372,30 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         let controller = AppLockController(settings: settings, authenticator: FakeAuthenticator(), clock: ManualClock())
         #expect(controller.coversContent(sceneIsActive: true))
     }
+
+    @Test func aSuccessThatLandsAfterTheAppWentToTheBackgroundDoesNotUnlock() async {
+        let fake = FakeAuthenticator([.success])
+        fake.holds = true
+        let (controller, _) = make(on: true, fake)
+        let ask = Task { await controller.requestUnlock() }
+        while !fake.isHolding { await Task.yield() }
+        controller.appEnteredBackground()
+        fake.release(.success)
+        await ask.value
+        #expect(controller.isLocked)
+    }
+
+    @Test func aRelockDecidedByTheSceneStillAsksWhenTheAppBecomesActive() async {
+        let clock = ManualClock()
+        let fake = FakeAuthenticator([.success])
+        let (controller, _) = make(on: true, fake, clock: clock)
+        await controller.launched()
+        controller.appEnteredBackground()
+        clock.advance(.seconds(400))
+        #expect(controller.relockIfDue())
+        #expect(!controller.relockIfDue())
+        await controller.finishBecomingActive(askIfLocked: false)
+        #expect(fake.asks == 2)
+        #expect(!controller.isLocked)
+    }
 }

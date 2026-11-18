@@ -4,12 +4,13 @@ import YakKit
 /// What the lock window shows while the app is locked: opaque, neutral, one button.
 struct AppLockScreen: View {
     let controller: AppLockController
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize = 64
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 64)).foregroundStyle(Color.yakMuted)
+                    .font(.system(size: iconSize)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
                 Text("lock.title").font(.title2.weight(.semibold)).multilineTextAlignment(.center)
                     .padding(.top, 20).accessibilityAddTraits(.isHeader)
@@ -86,10 +87,12 @@ private struct LockButtonStyle: ButtonStyle {
 
 /// What the app switcher shows while the lock is on and the scene is not active.
 struct AppSwitcherCover: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize = 64
+
     var body: some View {
         ZStack {
             Color(.systemBackground)
-            Image(systemName: "lock.fill").font(.system(size: 64)).foregroundStyle(Color.yakMuted)
+            Image(systemName: "lock.fill").font(.system(size: iconSize)).foregroundStyle(Color.yakMuted)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

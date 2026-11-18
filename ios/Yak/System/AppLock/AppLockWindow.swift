@@ -48,7 +48,7 @@ private struct LockWindowView: View {
 /// One `UIWindow` per window scene, above alerts, hidden unless it has something to show. The process has one set of
 /// these, so it also owns the app-wide events and the haptics, which would otherwise repeat once per scene.
 @MainActor final class AppLockWindows {
-    private struct Entry {
+    @MainActor private struct Entry {
         let scene: UIWindowScene
         let window: UIWindow
         let content: WindowContent
@@ -121,6 +121,8 @@ private struct LockWindowView: View {
                 entry.window.isHidden = true
             }
         case UIScene.didActivateNotification:
+            // Decided before the render below, so content never shows after the limit.
+            _ = controller.relockIfDue()
             if entries[key] == nil { connect(scene) }
             scenes.phaseChanged(key, isActive: true)
         default:
