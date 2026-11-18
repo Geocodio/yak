@@ -61,17 +61,22 @@
 
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
-            let defaults = MemoryDefaults()
+            let kept = Self.keptStores()
+            let defaults = kept.defaults
             let options = TestSystemOptions.current()
             if options.appLockOn { defaults.set(Data("true".utf8), forKey: PrivacySettings.appLockKey) }
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
+            let uploads = UploadSessions(
+                appBundleID: "com.example.yak", appGroup: nil, files: kept.files, clock: SystemClock(),
+                instances: instances, tokens: lockable, appVersion: version, systemDescription: system)
+            uploads.failsFirstUpload = Self.flag("yakTestUploadFailure")
             let faults = DebugFaultSwitch()
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(
-                    version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true,
-                    faults: faults)
+                    version: version, system: system, files: kept.files, allowsInsecureRealtime: true, faults: faults,
+                    uploads: { uploads.link(for: $0) })
             }
             QuickActions.normalizeAddress = Self.normalize
             let sharedEnvironment = environment()
@@ -85,7 +90,7 @@
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
-                    faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
+                    uploads: uploads, faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
                     appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
                     coversWhenActive: options.coverWhenActive,
                     buildKind: TestBuildKind(value: options.buildKind),
@@ -109,7 +114,9 @@
                 normalizeAddress: Self.normalize, parseLink: Self.parse, normalizeLinkAddress: Self.normalize,
                 makeEnvironment: environment,
                 prepare: { instances in
-                    if let token = seed.token {
+                    if let token = seed.token, let known = await instances.all().first {
+                        try? lockable.setToken(token, for: known.id)
+                    } else if let token = seed.token {
                         // `-yakTestExtraInstances YES`: two more paired instances, added first so the seed stays active.
                         if UserDefaults.standard.bool(forKey: "yakTestExtraInstances") {
                             for (name, path) in [("Example staging", "second"), ("Side project", "third")] {

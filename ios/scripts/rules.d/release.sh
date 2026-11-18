@@ -15,6 +15,8 @@ host_allowed_files=(
     Yak/Markdown/MarkdownGallery.swift
     # The debug-only chat gallery names example.test and example.com in canned data; no request is made.
     Yak/Chat/ChatGallery.swift
+    # The debug-only share sheet test host builds a sample instance and link on example.com addresses; it is compiled out of release builds and no request is made.
+    Yak/Support/ShareTestHost.swift
 )
 
 release_swift_files() {

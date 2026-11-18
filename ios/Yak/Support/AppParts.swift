@@ -12,6 +12,7 @@ struct AppPartsContext {
     var center: any NotificationCenterClient = SystemNotificationCenter()
     var activityHost: any ActivityHost = SystemActivityHost()
     var normalizeAddress: @Sendable (String) -> URL? = InstanceAddress.normalize
+    var uploads: UploadSessions?
     var faults = DebugFaultSwitch()
     var authenticator: any DeviceOwnerAuthenticator = LocalDeviceOwnerAuthenticator()
     var appLockBackgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit
@@ -28,6 +29,8 @@ final class AppParts {
     let storage: SharedStorage?
     let isTestMode: Bool
     let push: PushController
+    /// The background upload sessions; nil when the app has no files folder to keep them in.
+    let uploads: UploadSessions?
     /// Reloads the widgets' timelines when what they show changed.
     let widgets: WidgetReloadScheduler
     /// The pieces of the background refresh, one line per feature in `make`; their budgets stay inside
@@ -43,13 +46,14 @@ final class AppParts {
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
-        storage: SharedStorage?, isTestMode: Bool, push: PushController, widgets: WidgetReloadScheduler,
-        steps: [BackgroundRefreshStep], previewData: PreviewWebDataObserver, walkthroughPlayback: WalkthroughPlayback,
-        system: SystemFeatures, observers: [any InstanceLifecycleObserver]
+        storage: SharedStorage?, isTestMode: Bool, push: PushController, uploads: UploadSessions?,
+        widgets: WidgetReloadScheduler, steps: [BackgroundRefreshStep], previewData: PreviewWebDataObserver,
+        walkthroughPlayback: WalkthroughPlayback, system: SystemFeatures, observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
         self.push = push
+        self.uploads = uploads
         self.widgets = widgets
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
@@ -95,14 +99,18 @@ final class AppParts {
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
             },
+            BackgroundRefreshStep(name: "uploads", budget: .seconds(7)) { budget in
+                await context.uploads?.retryFailed(budget: budget)
+            },
             BackgroundRefreshStep(name: "widgets", budget: .seconds(3)) { _ in
                 await widgets.backgroundRefreshFinished()
             },
         ]
         return AppParts(
-            storage: storage, isTestMode: isTestMode, push: push, widgets: widgets, steps: steps,
-            previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
-            observers: [push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight])
+            storage: storage, isTestMode: isTestMode, push: push, uploads: context.uploads, widgets: widgets,
+            steps: steps, previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
+            observers: [push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight]
+                + (context.uploads.map { [$0] } ?? []))
     }
 
     /// The active instance and its cached thread lists, read off the main actor; nil without a model, a ready
@@ -156,6 +164,7 @@ extension View {
             }
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
+                .overlay(alignment: .topLeading) { TestInstanceID(model: model) }
                 .onOpenURL { url in
                     if let payload = TestMode.pushTap(url: url) { Task { await parts.push.didTap(payload) } }
                 }

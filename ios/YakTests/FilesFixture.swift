@@ -142,15 +142,11 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
         thread = ThreadModel(threadID: "d0e515ef", session: session)
         await thread.start(initialTitle: nil)
         model = FilesEverythingModel(thread: thread, timings: .standard)
-        for _ in 0..<600 where thread.snapshot?.show == nil { try? await Task.sleep(for: .milliseconds(5)) }
+        _ = await TestTimeScale.poll { thread.snapshot?.show != nil }
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 
     func finish() async {

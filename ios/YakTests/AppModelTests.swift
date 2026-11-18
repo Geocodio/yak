@@ -313,7 +313,7 @@ private final class SleeperCount: @unchecked Sendable {
     let instance = try await instances.add(
         url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
     for _ in 0..<20 { await observers.paired(instance) }
-    for _ in 0..<100 where sleepers.count > 0 { try await Task.sleep(for: .milliseconds(20)) }
+    _ = await TestTimeScale.poll { sleepers.count == 0 }
     #expect(sleepers.count == 0, "a timer is still sleeping after its call finished")
 }
 
