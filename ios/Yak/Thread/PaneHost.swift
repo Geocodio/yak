@@ -14,6 +14,7 @@ struct PaneHost: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var isStill: Bool { StillMotion.isOn(reduceMotion: reduceMotion) }
     private var isSingle: Bool { slots.arrangement == .single }
 
     /// With one slot the focused pane is the shown one, read in the same update as `focused` so the fade and the slide
@@ -22,8 +23,8 @@ struct PaneHost: View {
         isSingle ? id == focused : placed
     }
 
-    /// A pane moves to its slot at once: a text size change re-plans the slots, and the screen must be still for
-    /// the accessibility audit that drives the size.
+    /// A pane moves to its slot at once, with no fade: a text size change or a focus move re-plans the slots, and the
+    /// screen must be still, text fully opaque, for the accessibility audit.
     var body: some View {
         ZStack(alignment: isSingle ? .center : .topLeading) {
             ForEach(slots.alive, id: \.self) { id in
@@ -45,11 +46,12 @@ struct PaneHost: View {
                 }
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28), value: focused)
+        .animation(
+            isSingle ? (isStill ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28)) : nil, value: focused)
     }
 
     private func slide(of id: PaneID, isShown: Bool) -> CGFloat {
-        guard !reduceMotion, !isShown, isSingle else { return 0 }
+        guard !isStill, !isShown, isSingle else { return 0 }
         let order = thread.panes
         guard let own = order.firstIndex(of: id), let current = order.firstIndex(of: focused) else { return 0 }
         return own < current ? -24 : 24

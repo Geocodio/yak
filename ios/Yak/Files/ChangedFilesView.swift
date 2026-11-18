@@ -95,7 +95,7 @@ struct ChangedFilesView: FilesModeView {
             Text(banner).font(sizeClass == .regular ? .subheadline.weight(.medium) : .footnote.weight(.medium))
                 .foregroundStyle(sizeClass == .regular ? Color.primary : Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.vertical, 8)
-                .background(Color.primary.opacity(0.05)).fixedSize(horizontal: false, vertical: true)
+                .background(Color(.secondarySystemBackground)).fixedSize(horizontal: false, vertical: true)
                 .id(dynamicTypeSize).accessibilityIdentifier("files.banner")
         }
     }
