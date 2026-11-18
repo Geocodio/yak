@@ -229,8 +229,8 @@ class YakTask extends Model
     }
 
     /**
-     * The Yak user who started the task. Null for sources without a Yak
-     * identity (Slack, GitHub, the command line, system tasks).
+     * The Yak user who wrote the message this task carries, which can be a
+     * different person than the one who started the conversation.
      *
      * @return BelongsTo<User, $this>
      */
@@ -240,6 +240,9 @@ class YakTask extends Model
     }
 
     /**
+     * The Yak user who started the task. Null for sources without a Yak
+     * identity (Slack, GitHub, the command line, system tasks).
+     *
      * @return BelongsTo<User, $this>
      */
     public function startedBy(): BelongsTo
