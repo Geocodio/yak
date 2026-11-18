@@ -195,6 +195,9 @@ private struct SpotlightRoot: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 Task { await system.spotlight.reindexInBackground() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) {
+                _ in Task { await system.spotlight.reindex() }
+            }
             .onContinueUserActivity(CSSearchableItemActionType) { activity in
                 guard let identifier = SpotlightIndexer.identifier(of: activity) else { return }
                 system.appLock.whenOpen {

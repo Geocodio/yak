@@ -15,14 +15,18 @@ enum AppLockInput {
 @MainActor final class LockKeyHandoff {
     private weak var previousKey: UIWindow?
     private weak var lock: UIWindow?
+    private var covered: [WeakWindow] = []
     private var observer: (any NSObjectProtocol)?
     private let center: NotificationCenter
     private(set) var isEngaged = false
+
+    private struct WeakWindow { weak var window: UIWindow? }
 
     init(center: NotificationCenter = .default) { self.center = center }
 
     func engage(lock: UIWindow, covering windows: [UIWindow]) {
         self.lock = lock
+        covered = windows.map { WeakWindow(window: $0) }
         if !isEngaged {
             previousKey = windows.first { $0.isKeyWindow }
             isEngaged = true
@@ -40,6 +44,8 @@ enum AppLockInput {
         guard isEngaged, let lock, window !== lock, window.windowScene === lock.windowScene,
             window.windowLevel < .alert + 1
         else { return }
+        // The window the person was in is the one to give key back to.
+        previousKey = window
         window.endEditing(true)
         lock.makeKey()
     }
@@ -50,8 +56,9 @@ enum AppLockInput {
         if let observer { center.removeObserver(observer) }
         observer = nil
         lock = nil
-        let restore = previousKey
+        let restore = previousKey ?? covered.lazy.compactMap(\.window).first { !$0.isHidden }
         previousKey = nil
+        covered = []
         if let restore, !restore.isHidden { restore.makeKey() }
     }
 }

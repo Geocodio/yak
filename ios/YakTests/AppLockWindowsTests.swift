@@ -110,4 +110,61 @@ import YakKit
         for _ in 0..<100 where opened.count < 2 { await Task.yield() }
         #expect(opened == ["second", "later"])
     }
+
+    @Test func theLockScreenAndTheUnreadableCoverBlockTouchesAndHideTheContentTheSwitcherCoverDoesNot() {
+        typealias Presentation = AppLockWindows.Presentation
+        let lockScreen = Presentation(shows: .lockScreen, storeUnreadable: false)
+        #expect(lockScreen.blocksInput && lockScreen.hidesCoveredFromAccessibility && lockScreen.isModal)
+        let unreadable = Presentation(shows: .cover, storeUnreadable: true)
+        #expect(unreadable.blocksInput && unreadable.hidesCoveredFromAccessibility && !unreadable.isModal)
+        let switcher = Presentation(shows: .cover, storeUnreadable: false)
+        #expect(!switcher.blocksInput && !switcher.hidesCoveredFromAccessibility)
+    }
+
+    @Test func theWindowsHideTheAppFromAccessibilityWhileLockedAndShowItAgainAfterTheUnlock() async throws {
+        let app = try window()
+        app.isHidden = false
+        let controller = controller(lockOn: true)
+        let windows = AppLockWindows(controller: controller)
+        windows.start()
+        let lockWindow = try #require(windows.lockWindows.first { $0.windowScene === app.windowScene })
+        #expect(!lockWindow.isHidden && lockWindow.isUserInteractionEnabled)
+        #expect(lockWindow.windowLevel == .alert + 1)
+        #expect(app.accessibilityElementsHidden)
+        await controller.requestUnlock()
+        for _ in 0..<500 where app.accessibilityElementsHidden { await Task.yield() }
+        #expect(!app.accessibilityElementsHidden)
+        app.isHidden = true
+        windows.lockWindows.forEach { $0.isHidden = true }
+    }
+
+    @Test func keyGoesBackToTheWindowThatTookKeyWhileLockedEvenWhenNoneWasKeyAtTheStart() throws {
+        let app = try window()
+        app.isHidden = false
+        let lock = try window(level: .alert + 1)
+        lock.isHidden = false
+        lock.makeKey()
+        let center = NotificationCenter()
+        let handoff = LockKeyHandoff(center: center)
+        handoff.engage(lock: lock, covering: [app])
+        app.makeKey()
+        center.post(name: UIWindow.didBecomeKeyNotification, object: app)
+        #expect(lock.isKeyWindow)
+        handoff.release()
+        #expect(app.isKeyWindow)
+        lock.isHidden = true
+    }
+
+    @Test func keyGoesToAVisibleCoveredWindowWhenNoneWasEverKey() throws {
+        let app = try window()
+        app.isHidden = false
+        let lock = try window(level: .alert + 1)
+        lock.isHidden = false
+        lock.makeKey()
+        let handoff = LockKeyHandoff(center: NotificationCenter())
+        handoff.engage(lock: lock, covering: [app])
+        handoff.release()
+        #expect(app.isKeyWindow)
+        lock.isHidden = true
+    }
 }

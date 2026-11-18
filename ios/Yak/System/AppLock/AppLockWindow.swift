@@ -168,20 +168,37 @@ private struct LockWindowView: View {
         seenFailures = failures
     }
 
+    /// What a window shows, turned into what it does to input: the lock screen and the unreadable-store cover take
+    /// touches and hide the content from accessibility; the app switcher cover, shown while the app is not in
+    /// use, does neither.
+    struct Presentation: Equatable {
+        let blocksInput: Bool
+        let hidesCoveredFromAccessibility: Bool
+        let isModal: Bool
+
+        init(shows: AppLockScenes<ObjectIdentifier>.Shows, storeUnreadable: Bool) {
+            blocksInput = shows == .lockScreen || storeUnreadable
+            hidesCoveredFromAccessibility = blocksInput
+            isModal = shows == .lockScreen
+        }
+    }
+
+    /// The windows this process made, one per scene.
+    var lockWindows: [UIWindow] { entries.values.map(\.window) }
+
     private func apply(_ shows: AppLockScenes<ObjectIdentifier>.Shows, to entry: Entry) {
         let covered = AppLockInput.windowsToHide(in: entry.scene.windows, lock: entry.window)
-        let blocksInput = shows == .lockScreen || controller.storeUnreadable
-        for other in covered { other.accessibilityElementsHidden = shows == .lockScreen }
+        let presentation = Presentation(shows: shows, storeUnreadable: controller.storeUnreadable)
+        for other in covered { other.accessibilityElementsHidden = presentation.hidesCoveredFromAccessibility }
         if shows != .nothing {
             // At once and without animation, so the app switcher snapshot is never taken half covered.
             entry.window.layer.removeAllAnimations()
             entry.window.alpha = 1
-            // The cover shows only while the app is not in use, so it takes no touches.
-            entry.window.isUserInteractionEnabled = shows == .lockScreen
+            entry.window.isUserInteractionEnabled = presentation.blocksInput
             entry.content.shows = shows
-            entry.window.rootViewController?.view.accessibilityViewIsModal = shows == .lockScreen
+            entry.window.rootViewController?.view.accessibilityViewIsModal = presentation.isModal
             entry.window.isHidden = false
-            if blocksInput {
+            if presentation.blocksInput {
                 entry.keyHandoff.engage(lock: entry.window, covering: covered)
             } else {
                 entry.keyHandoff.release()

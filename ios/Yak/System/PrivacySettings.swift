@@ -3,8 +3,8 @@ import Observation
 import UIKit
 import YakKit
 
-/// Whether the system has the app's protected files open. App group defaults answer empty, and keep unwritten
-/// values in memory only, until the device is unlocked once after a restart.
+/// Whether the system has the app's protected files open, which is false whenever the device is locked. App group
+/// defaults then answer empty, and keep unwritten values in memory only, until the device is unlocked.
 protocol ProtectedDataAvailability: Sendable {
     @MainActor var isAvailable: Bool { get }
 }
