@@ -16,11 +16,17 @@ struct PaneHost: View {
 
     private var isSingle: Bool { slots.arrangement == .single }
 
+    /// With one slot the focused pane is the shown one, read in the same update as `focused` so the fade and the slide
+    /// run with the switch; with two slots the placement the layout wrote says which panes are shown.
+    static func isShown(_ id: PaneID, focused: PaneID, isSingle: Bool, placed: Bool) -> Bool {
+        isSingle ? id == focused : placed
+    }
+
     var body: some View {
         ZStack(alignment: isSingle ? .center : .topLeading) {
             ForEach(slots.alive, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
-                    let isShown = slots.isShown(id)
+                    let isShown = Self.isShown(id, focused: focused, isSingle: isSingle, placed: slots.isShown(id))
                     let frame = slots.frame(for: id)
                     descriptor.content(thread)
                         .frame(width: frame?.width, height: frame?.height)

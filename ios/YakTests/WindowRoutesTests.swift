@@ -29,3 +29,10 @@ import YakKit
         thread: "d0e515ef", instance: instance, open: { requests.append($0) }, supportsMultipleWindows: true)
     #expect(requests == [.thread(instance: instance, id: "d0e515ef")])
 }
+
+@MainActor @Test func onlyARegularWidthIPadWindowShowsTheNoThreadView() {
+    #expect(NoThreadView.isShown(supportsMultipleWindows: true, isCompactWidth: false))
+    #expect(!NoThreadView.isShown(supportsMultipleWindows: true, isCompactWidth: true))
+    // A wide iPhone shows the placeholder, as it always did.
+    #expect(!NoThreadView.isShown(supportsMultipleWindows: false, isCompactWidth: false))
+}

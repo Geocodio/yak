@@ -23,6 +23,10 @@ final class PaneSlotsModel {
             if !alive.contains(pane) { alive.append(pane) }
         }
         if placement != next { placement = next }
+        // A slot that left the plan drops its frame, so a pane that returns to it never starts from the old one.
+        let positions = Set(plan.slots.map(\.position))
+        let kept = frames.filter { positions.contains($0.key) }
+        if kept.count != frames.count { frames = kept }
     }
 
     /// A slot's frame. A frame that is not finite is ignored; a frame of a slot no pane sits in is never read.

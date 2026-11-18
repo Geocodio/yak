@@ -4,6 +4,11 @@ import SwiftUI
 struct NoThreadView: View {
     let startThread: () -> Void
 
+    /// A window of a device with several windows (the iPad) at regular width shows it; an iPhone, wide or not, shows the placeholder it always did.
+    static func isShown(supportsMultipleWindows: Bool, isCompactWidth: Bool) -> Bool {
+        supportsMultipleWindows && !isCompactWidth
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "rectangle.split.1x2").font(.largeTitle).foregroundStyle(.secondary)

@@ -95,8 +95,16 @@ enum PaneControl {
 struct PaneMarkLabel: ViewModifier {
     let mark: PaneMark?
 
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
         let style = PaneControl.markStyle
+        if mark == nil {
+            content
+        } else {
+            marked(content, style: style)
+        }
+    }
+
+    private func marked(_ content: Content, style: PaneMarkStyle) -> some View {
         content
             .foregroundStyle(mark == .focused && style == .capsules ? Color(.systemBackground) : .primary)
             .background {
@@ -278,35 +286,43 @@ struct PaneStripToolbar: ToolbarContent {
     }
 
     var body: some ToolbarContent {
-        ForEach(panes.compactMap { PaneCatalog.descriptor(for: $0) }, id: \.id) { descriptor in
-            let id = descriptor.id
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    focused = id
-                } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: descriptor.symbol)
-                            .overlay(alignment: .topTrailing) {
-                                PaneBadge.make(descriptor, thread).map {
-                                    PaneBadgeView(badge: $0).offset(x: 6, y: -3)
-                                }
-                            }
-                        // Fit: caption2 on one line passes the contrast audit and leaves room for a fifth caption ("Overview")
-                        // when five panes share the strip; a longer name must shorten, not scale.
-                        Text(descriptor.name).font(.caption2).foregroundStyle(.primary).lineLimit(1)
-                    }
-                }
-                .modifier(PaneMarkLabel(mark: marks[id]))
-                .accessibilityLabel(Text(descriptor.name))
-                .accessibilityValue(
-                    paneAccessibilityValue(mark: marks[id], badge: PaneBadge.make(descriptor, thread))
-                )
-                .accessibilityAddTraits(id == focused ? .isSelected : [])
-                .accessibilityIdentifier("pane.strip.\(id.rawValue)")
+        if marks.isEmpty {
+            // One pane shows: the one group the strip always had, in its own order and with its own tint.
+            ToolbarItemGroup(placement: .bottomBar) {
+                ForEach(panes.compactMap { PaneCatalog.descriptor(for: $0) }, id: \.id) { button($0) }
             }
-            .visibilityPriority(visibility[id] ?? .automatic)
+            .axisBehavior(.verticalPreferred)
+        } else {
+            ForEach(panes.compactMap { PaneCatalog.descriptor(for: $0) }, id: \.id) { descriptor in
+                ToolbarItem(placement: .bottomBar) { button(descriptor) }
+                    .visibilityPriority(visibility[descriptor.id] ?? .automatic)
+            }
+            .axisBehavior(.verticalPreferred)
         }
-        .axisBehavior(.verticalPreferred)
+    }
+
+    private func button(_ descriptor: PaneDescriptor) -> some View {
+        let id = descriptor.id
+        return Button {
+            focused = id
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: descriptor.symbol)
+                    .overlay(alignment: .topTrailing) {
+                        PaneBadge.make(descriptor, thread).map {
+                            PaneBadgeView(badge: $0).offset(x: 6, y: -3)
+                        }
+                    }
+                // Fit: caption2 on one line passes the contrast audit and leaves room for a fifth caption ("Overview")
+                // when five panes share the strip; a longer name must shorten, not scale.
+                Text(descriptor.name).font(.caption2).foregroundStyle(.primary).lineLimit(1)
+            }
+        }
+        .modifier(PaneMarkLabel(mark: marks[id]))
+        .accessibilityLabel(Text(descriptor.name))
+        .accessibilityValue(paneAccessibilityValue(mark: marks[id], badge: PaneBadge.make(descriptor, thread)))
+        .accessibilityAddTraits(id == focused ? .isSelected : [])
+        .accessibilityIdentifier("pane.strip.\(id.rawValue)")
     }
 }
 

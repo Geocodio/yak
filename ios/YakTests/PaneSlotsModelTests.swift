@@ -103,3 +103,46 @@ private let state = PaneState(focused: .chat, second: .preview)
     hinge.setKeyboard(.zero)
     #expect(!hinge.isKeyboardOnLowerHalf)
 }
+
+@MainActor @Test func onePaneIsShownByTheFocusedPaneNotByThePlacementOfTheLastUpdate() {
+    // The placement is written one update after the focus changes; with one slot the switch must not wait for it.
+    #expect(PaneHost.isShown(.preview, focused: .preview, isSingle: true, placed: false))
+    #expect(!PaneHost.isShown(.chat, focused: .preview, isSingle: true, placed: true))
+    // With two slots the placement decides.
+    #expect(PaneHost.isShown(.chat, focused: .preview, isSingle: false, placed: true))
+    #expect(!PaneHost.isShown(.preview, focused: .preview, isSingle: false, placed: false))
+}
+
+@MainActor @Test func aSlotThatLeftThePlanLosesItsFrame() {
+    let model = PaneSlotsModel()
+    model.show(plan(900))
+    model.report(CGRect(x: 0, y: 0, width: 400, height: 600), for: .leading)
+    model.report(CGRect(x: 406, y: 0, width: 400, height: 600), for: .trailing)
+    model.show(plan(300, compact: true))
+    #expect(model.frames[.leading] == nil && model.frames[.trailing] == nil)
+}
+
+@MainActor @Test func aHingeChangeReadsTheFoldRegionAgainWithoutASizeChange() {
+    let hinge = HingeState()
+    #expect(hinge.fold == nil && hinge.posture == .flat)
+    // The fake hinge: the system reports the region only once the hinge is half open.
+    hinge.hingeChanged(to: .partlyOpen) { (CGRect(x: 390, y: 0, width: 40, height: 800), true) }
+    #expect(hinge.posture == .partlyOpen)
+    #expect(hinge.fold != nil)
+    hinge.hingeChanged(to: .flat) { (CGRect(x: 390, y: 0, width: 40, height: 800), false) }
+    #expect(hinge.posture == .flat && hinge.fold == nil)
+}
+
+@MainActor @Test func theDividerStripIsAsTallAsItsTouchTargetAndSteppedByTenPercent() {
+    #expect(PaneDivider.bandHeight >= 44)
+    #expect(PaneDivider.adjusted(0.5, increment: true) == 0.6)
+    #expect(PaneDivider.adjusted(0.5, increment: false) == 0.4)
+    #expect(PaneDivider.adjusted(0.7, increment: true) == 0.7)
+    #expect(PaneDivider.adjusted(0.3, increment: false) == 0.3)
+}
+
+@MainActor @Test func aPrivateThreadsWindowTitleIsNeverItsRealTitle() {
+    #expect(WindowTitle.privateThread.text == "A private thread")
+    #expect(WindowTitle.thread("Fix the import").text == "Fix the import")
+    #expect(WindowTitle.none.text == "")
+}
