@@ -95,10 +95,17 @@ it('keeps the composer and its Send button on screen at 375 px with a card above
     $page->resize(375, 812)->assertVisible('[data-testid="card-stop"]')->assertVisible('[data-testid="thread-send"]');
 
     $fits = $page->script(<<<'JS'
-        (() => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
-            const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
-            return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
-        }))()
+        (async () => {
+            const measure = () => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
+                const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+                return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
+            });
+            for (let attempt = 0; attempt < 60 && ! measure().every(([, fits]) => fits); attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            return measure();
+        })()
     JS);
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]]);
@@ -113,10 +120,17 @@ it('keeps the composer and its Send button on screen at 375 x 667 with a stop ca
     $page->resize(375, 667)->assertVisible('[data-testid="card-stop"]')->assertVisible('[data-testid="thread-send"]');
 
     $fits = $page->script(<<<'JS'
-        (() => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
-            const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
-            return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
-        }))()
+        (async () => {
+            const measure = () => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
+                const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+                return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
+            });
+            for (let attempt = 0; attempt < 60 && ! measure().every(([, fits]) => fits); attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            return measure();
+        })()
     JS);
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
