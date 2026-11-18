@@ -161,12 +161,12 @@
         }
       }
     },
-    "share.notice.tooMany %lld" : {
+    "share.notice.tooMany %lld %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yak takes up to %lld files. The first %lld are attached."
+            "value" : "Yak takes up to %1$lld files. The first %2$lld are attached."
           }
         }
       }

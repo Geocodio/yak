@@ -43,8 +43,7 @@ struct UploadLine: View {
             .font(.caption.monospacedDigit()).foregroundStyle(Color.yakMuted)
             .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("chat.upload.progress.speech \(percent)"))
+        .accessibilityRepresentation { Text("chat.upload.progress.speech \(percent)") }
     }
 
     private var failed: some View {

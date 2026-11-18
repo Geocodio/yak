@@ -17,7 +17,7 @@ struct ShareChips: View {
         } else if model.isRefreshingOptions {
             loadingSkeleton
         } else {
-            ShareText.text("share.noContext").font(.footnote).foregroundStyle(.secondary)
+            ShareText.text("share.noContext").font(.footnote).foregroundStyle(.primary)
                 .accessibilityIdentifier("share.notice")
         }
     }
@@ -36,7 +36,7 @@ struct ShareChips: View {
             }
             .chip()
         }
-        .accessibilityIdentifier("share.repository")
+        .chipMenu().accessibilityIdentifier("share.repository")
         Menu {
             Button {
                 model.selectMode(.fix)
@@ -51,7 +51,7 @@ struct ShareChips: View {
         } label: {
             ShareText.text(form.mode == .fix ? "share.mode.fix" : "share.mode.research").chip()
         }
-        .accessibilityIdentifier("share.mode")
+        .chipMenu().accessibilityIdentifier("share.mode")
         Menu {
             Button {
                 model.selectModel(nil)
@@ -68,7 +68,7 @@ struct ShareChips: View {
             )
             .chip()
         }
-        .accessibilityIdentifier("share.model")
+        .chipMenu().accessibilityIdentifier("share.model")
     }
 
     private var loadingSkeleton: some View {
@@ -79,7 +79,7 @@ struct ShareChips: View {
                 }
             }
             if model.isSlowToLoadOptions {
-                ShareText.text("share.slow").font(.footnote).foregroundStyle(.secondary)
+                ShareText.text("share.slow").font(.footnote).foregroundStyle(.primary)
                 Button {
                     Task { await model.retryOptions() }
                 } label: {
@@ -92,8 +92,10 @@ struct ShareChips: View {
 }
 
 extension View {
-    fileprivate func chip() -> some View {
-        font(.subheadline).padding(.horizontal, 12).frame(minHeight: 44)
-            .background(Color(.secondarySystemFill), in: .capsule)
+    /// The system's bordered capsule in the primary color: its text size and contrast come from the system.
+    fileprivate func chip() -> some View { foregroundStyle(.primary) }
+
+    fileprivate func chipMenu() -> some View {
+        buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.primary).controlSize(.large)
     }
 }

@@ -41,8 +41,9 @@ struct ShareScreen: View {
                 model.cancel()
                 finish(false)
             } label: {
-                ShareText.text("share.cancel").frame(minWidth: 44, minHeight: 44)
+                ShareText.text("share.cancel").foregroundStyle(.primary).frame(minWidth: 44, minHeight: 44)
             }
+            .buttonStyle(.plain)
             .disabled(model.phase == .saving)
             .accessibilityIdentifier("share.cancel")
             Spacer()
@@ -91,7 +92,7 @@ struct ShareScreen: View {
         VStack(spacing: 8) {
             Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
             title.font(.headline).multilineTextAlignment(.center)
-            detail.font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            detail.font(.subheadline).foregroundStyle(.primary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.top, 40).accessibilityElement(children: .combine)
         .accessibilityIdentifier("share.notice")
@@ -125,12 +126,12 @@ struct ShareScreen: View {
                     Text(ShareText.resource("share.preparing \(max(progress.current, 1)) \(progress.total)"))
                 }
                 if progress.isSlow {
-                    ShareText.text("share.stillPreparing").font(.footnote).foregroundStyle(.secondary)
+                    ShareText.text("share.stillPreparing").font(.footnote).foregroundStyle(.primary)
                 }
             } else {
                 Text(summary).font(.subheadline)
                 if model.target == .lastThread, let last = model.context?.lastThread {
-                    Text(verbatim: ShareDraft.lastThreadLabel(last)).font(.footnote).foregroundStyle(.secondary)
+                    Text(verbatim: ShareDraft.lastThreadLabel(last)).font(.footnote).foregroundStyle(.primary)
                 }
             }
         }
@@ -155,26 +156,34 @@ struct ShareScreen: View {
     @ViewBuilder private var lines: some View {
         VStack(alignment: .leading, spacing: 6) {
             if model.didFailToSave {
-                ShareText.text("share.saveFailed").foregroundStyle(.orange)
+                warning(ShareText.text("share.saveFailed"))
             }
             ForEach(Array(model.notices.enumerated()), id: \.offset) { _, notice in
-                noticeLine(notice).foregroundStyle(.orange)
+                warning(noticeLine(notice))
             }
             if model.importResult.unreadable > 0 {
-                ShareText.text("share.notice.unreadable").foregroundStyle(.orange)
+                warning(ShareText.text("share.notice.unreadable"))
             }
             ForEach(model.importResult.tooLarge, id: \.self) { name in
-                Text(ShareText.resource("share.notice.tooLarge \(name)")).foregroundStyle(.orange)
+                warning(Text(ShareText.resource("share.notice.tooLarge \(name)")))
             }
-            if let problem = model.problem, model.progress == nil { problemLine(problem).foregroundStyle(.secondary) }
-            if model.isOffline { ShareText.text("share.offline").foregroundStyle(.secondary) }
+            if let problem = model.problem, model.progress == nil { problemLine(problem).foregroundStyle(.primary) }
+            if model.isOffline { ShareText.text("share.offline").foregroundStyle(.primary) }
         }
         .font(.footnote).accessibilityIdentifier("share.notice")
     }
 
+    /// A warning line: an orange mark and text in the primary color, which stays readable on the sheet.
+    private func warning(_ text: Text) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            text.foregroundStyle(.primary)
+        }
+    }
+
     private func noticeLine(_ notice: ShareNotice) -> Text {
         switch notice {
-        case .tooManyFiles(let maximum): Text(ShareText.resource("share.notice.tooMany \(maximum)"))
+        case .tooManyFiles(let maximum): Text(ShareText.resource("share.notice.tooMany \(maximum) \(maximum)"))
         case .textCut(let limit): Text(ShareText.resource("share.notice.textCut \(limit)"))
         case .linksDropped: ShareText.text("share.notice.links")
         }

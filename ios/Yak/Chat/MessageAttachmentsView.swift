@@ -71,18 +71,19 @@ private struct AttachmentTile: View {
                     Text(verbatim: reference).font(.caption2.weight(.medium)).padding(.horizontal, 8).padding(
                         .vertical, 3
                     )
-                    .background(Color(.secondarySystemFill), in: .capsule).padding(6)
+                    .background(Color(.systemBackground), in: .capsule).padding(6)
                 }
             }
             .frame(width: side, height: side).clipShape(.rect(cornerRadius: 14))
             .overlay { if isOpening { ProgressView() } }
         }
         .buttonStyle(.plain)
-        .disabled(state == .notAvailable || state == .loading || isOpening)
+        .disabled(state == .loading || isOpening)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("chat.attachment.image.speech \(row.reference ?? "") \(row.title)"))
         .accessibilityValue(stateSpeech)
-        .accessibilityHint(Text("chat.attachment.hint"))
+        .accessibilityHint(state == .notAvailable ? Text(verbatim: "") : Text("chat.attachment.hint"))
+        .accessibilityRemoveTraits(state == .notAvailable ? .isButton : [])
         .task(id: LoadKey(link: row.openURL, reloads: reloads, isOffline: thread.isOffline)) { await load() }
     }
 

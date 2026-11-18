@@ -155,6 +155,11 @@ struct ShareExtensionModelTests {
         #expect(try rig.files.list(staging).isEmpty)
     }
 
+    @Test func theTooManyFilesNoticeResolvesWithItsArguments() {
+        let text = String(localized: ShareText.resource("share.notice.tooMany \(8) \(8)"))
+        #expect(text == "Yak takes up to 8 files. The first 8 are attached.")
+    }
+
     @Test func noContextAndOfflineCannotStartAThread() async throws {
         let rig = try await Rig(withContext: false)
         await rig.model.start([TextProvider()])

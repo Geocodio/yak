@@ -28,7 +28,7 @@ import XCTest
         try start("chat-attachments", paired: true, attachments: 2)
         try openThread()
         XCTAssertTrue(app.descendants(matching: .any)["composer.attachments"].waitForExistence(timeout: Wait.appear))
-        try shoot("attachments-composer")
+        try shootThread("attachments-composer")
     }
 
     func testPasteButton() throws {
@@ -39,7 +39,7 @@ import XCTest
         try start("chat-attachments", paired: true)
         try openThread()
         XCTAssertTrue(app.buttons["composer.pasteImage"].waitForExistence(timeout: Wait.appear))
-        try shoot("attachments-paste")
+        try shootThread("attachments-paste")
     }
 
     func testUploadingLine() throws {
@@ -47,7 +47,7 @@ import XCTest
         try openThread()
         typeAndSend("Here is the screenshot")
         XCTAssertTrue(element(endingWith: ".upload").waitForExistence(timeout: Wait.firstLoad))
-        try shoot("attachments-uploading")
+        try shootThread("attachments-uploading")
     }
 
     func testUploadFailedLine() throws {
@@ -57,7 +57,7 @@ import XCTest
         typeAndSend("This one fails first")
         XCTAssertTrue(
             app.staticTexts["Not sent. Tap Retry, or it tries again later."].waitForExistence(timeout: Wait.firstLoad))
-        try shoot("attachments-upload-failed")
+        try shootThread("attachments-upload-failed")
     }
 
     func testAttachmentsOnAMessage() throws {
@@ -65,6 +65,35 @@ import XCTest
         try openThread()
         XCTAssertTrue(element(endingWith: ".attachment.41").waitForExistence(timeout: Wait.firstLoad))
         XCTAssertTrue(element(endingWith: ".attachment.42").waitForExistence(timeout: Wait.appear))
-        try shoot("attachments-message")
+        try shootThread("attachments-message")
+    }
+
+    /// A screenshot of a screen with a thread, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps. The Dynamic Type and clipped-text checks run last: they change the text size,
+    /// which lays the conversation out again, so every other check reads the screen as it was shot.
+    private func shootThread(_ name: String) throws {
+        try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
+        let auditBars = AuditRules.Bars(app)
+        let judge: (XCUIAccessibilityAuditIssue) -> Bool = { [app, auditBars] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
+            return true
+        }
+        let resizing: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+        try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(resizing), judge)
+        try app.performAccessibilityAudit(for: resizing, judge)
     }
 }
