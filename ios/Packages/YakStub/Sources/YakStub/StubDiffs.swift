@@ -65,7 +65,14 @@ extension StubChanges {
         case "pull-request-order-failed":
             return StubReply(answer: Scenario.error(500, "server_error", "The order could not be saved."))
         case "pull-request-order-conflict":
-            return StubReply(answer: Scenario.error(409, "pull_requests_changed", "The pull requests changed."))
+            return StubReply(
+                answer: Scenario.error(
+                    422, "validation_failed", "The request is not valid.",
+                    details: [
+                        "errors": [
+                            "order": ["The order must list each pull request of this thread exactly once."]
+                        ]
+                    ]))
         default:
             let sent = ((try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any])?["order"] as? [Int]
             state.mutate { $0.rowOrder = sent ?? [] }

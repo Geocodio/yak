@@ -10,12 +10,13 @@ private final class OrderServer: @unchecked Sendable {
     private var order = [77, 78]
     private var merged: Set<Int> = []
     private var canDrive = true
+    private var losesTheNextAnswer = false
+    private var failsReads = false
     private(set) var puts: [[Int]] = []
     var putAnswer: (status: Int, body: Data) = (200, Data(#"{"status":"updated"}"#.utf8))
-    /// Holds the PUT until `release()`.
-    let gate = DispatchSemaphore(value: 0)
-    var isGated = false
 
+    func setFailsReads(_ value: Bool) { lock.withLock { failsReads = value } }
+    func loseTheNextAnswer() { lock.withLock { losesTheNextAnswer = true } }
     func setCanDrive(_ value: Bool) { lock.withLock { canDrive = value } }
     func merge(_ id: Int) { lock.withLock { _ = merged.insert(id) } }
     func putCount() -> Int { lock.withLock { puts.count } }
@@ -24,6 +25,7 @@ private final class OrderServer: @unchecked Sendable {
 
     func answer(route: String, body: Data) -> (status: Int, body: Data)? {
         if route == "GET threads/d0e515ef/pull-requests" {
+            if lock.withLock({ failsReads }) { return (500, Data(#"{"error":"server_error","message":""}"#.utf8)) }
             var panel = ScenarioFile.object("scenario-pull-requests")
             let rows = panel["pullRequests"] as? [[String: Any]] ?? []
             let (current, closed, drive) = lock.withLock { (order, merged, canDrive) }
@@ -38,10 +40,16 @@ private final class OrderServer: @unchecked Sendable {
             return (200, (try? JSONSerialization.data(withJSONObject: panel)) ?? Data())
         }
         if route == "PUT threads/d0e515ef/pull-requests/order" {
-            if isGated { gate.wait() }
             let sent = ((try? JSONSerialization.jsonObject(with: body)) as? [String: Any])?["order"] as? [Int] ?? []
             lock.withLock { puts.append(sent) }
             if putAnswer.status == 200 { lock.withLock { order = sent } }
+            if lock.withLock({ () -> Bool in
+                defer { losesTheNextAnswer = false }
+                return losesTheNextAnswer
+            }) {
+                lock.withLock { order = sent }
+                return (500, errorBody("server_error", ""))
+            }
             return putAnswer
         }
         return nil
@@ -112,7 +120,12 @@ private final class OrderServer: @unchecked Sendable {
 
 @MainActor @Test func aConflictReloadsTheListAndSaysSo() async throws {
     let server = OrderServer()
-    server.putAnswer = (409, errorBody("pull_requests_changed", "The pull requests changed."))
+    server.putAnswer = (
+        422,
+        errorBody(
+            "validation_failed", "The request is not valid.",
+            details: ["errors": ["order": ["The order must list each pull request of this thread exactly once."]]])
+    )
     let (model, fixture) = try await openedCard(server)
     model.beginEditing(isOnline: true)
     server.merge(78)
@@ -163,8 +176,11 @@ private final class OrderServer: @unchecked Sendable {
 
 @MainActor @Test func aSlowSaySlowAndIsNotSentTwice() async throws {
     let server = OrderServer()
-    server.isGated = true
     let (model, fixture) = try await openedCard(server, slowAfter: .milliseconds(30))
+    let gate = AsyncGate()
+    fixture.transport.beforeAnswer { route in
+        if route.hasPrefix("PUT") { await gate.wait() }
+    }
     model.beginEditing(isOnline: true)
     let saving = Task { await model.moveRow(77, by: 1) }
     #expect(await fixture.eventually { model.orderState == .slow })
@@ -173,7 +189,7 @@ private final class OrderServer: @unchecked Sendable {
     await model.moveRow(77, by: -1)
     model.endEditing()
     #expect(model.isEditing)
-    server.gate.signal()
+    await gate.open()
     await saving.value
     #expect(server.putCount() == 1)
     #expect(model.orderState == .idle)
@@ -192,5 +208,83 @@ private final class OrderServer: @unchecked Sendable {
     #expect(model.openRows.map(\.id) == [77, 78])
     model.endEditing()
     #expect(await fixture.eventually { model.rows.first { $0.id == 78 }?.state == .merged })
+    await finish(model, fixture)
+}
+
+/// A gate a request waits at until the test opens it.
+private actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        for waiter in waiters { waiter.resume() }
+        waiters = []
+    }
+}
+
+@MainActor @Test func aValidationErrorOnAnotherFieldIsAFailureNotAChange() async throws {
+    let server = OrderServer()
+    server.putAnswer = (
+        422, errorBody("validation_failed", "The request is not valid.", details: ["errors": ["other": ["Nope."]]])
+    )
+    let (model, fixture) = try await openedCard(server)
+    model.beginEditing(isOnline: true)
+    await model.moveRow(77, by: 1)
+    #expect(model.orderNotice == nil)
+    #expect(model.orderState == .failed("The request is not valid."))
+    #expect(model.openRows.map(\.id) == [77, 78])
+    await finish(model, fixture)
+}
+
+@MainActor @Test func aSavedOrderStaysWhenTheReloadFailsAndAnOlderPanelDoesNotMoveItBack() async throws {
+    let server = OrderServer()
+    let (model, fixture) = try await openedCard(server)
+    model.beginEditing(isOnline: true)
+    // A panel read before the save is held.
+    await model.reload()
+    try await Task.sleep(for: .milliseconds(100))
+    server.setFailsReads(true)
+    await model.moveRow(77, by: 1)
+    #expect(server.serverOrder() == [78, 77])
+    #expect(model.orderState == .idle)
+    #expect(model.openRows.map(\.id) == [78, 77])
+    model.endEditing()
+    #expect(model.rows.map(\.id) == [78, 77])
+    await finish(model, fixture)
+}
+
+/// The PUT carries the full order, so after a lost answer the same order sent again leaves the server as it is.
+@MainActor @Test func aRetryAfterALostAnswerLeavesTheSameOrder() async throws {
+    let server = OrderServer()
+    server.loseTheNextAnswer()
+    let (model, fixture) = try await openedCard(server)
+    model.beginEditing(isOnline: true)
+    await model.moveRow(77, by: 1)
+    guard case .failed = model.orderState else {
+        Issue.record("expected a failure line")
+        return
+    }
+    #expect(server.serverOrder() == [78, 77])
+    await model.retryOrder()
+    #expect(model.orderState == .idle)
+    #expect(server.putCount() == 2)
+    #expect(server.serverOrder() == [78, 77])
+    #expect(model.openRows.map(\.id) == [78, 77])
+    await finish(model, fixture)
+}
+
+@MainActor @Test func aMoveThatLandsAfterDoneIsIgnored() async throws {
+    let server = OrderServer()
+    let (model, fixture) = try await openedCard(server)
+    model.beginEditing(isOnline: true)
+    model.endEditing()
+    await model.moveRows(from: IndexSet(integer: 1), to: 0)
+    #expect(server.putCount() == 0)
     await finish(model, fixture)
 }

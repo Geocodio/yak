@@ -146,11 +146,13 @@ struct PullRequestCardSheet: View {
                     .accessibilityLabel(
                         Text(verbatim: "\(row.title), \(String(localized: "pullRequest.order.place \(index + 1)"))")
                     )
-                    .accessibilityAction(named: Text("pullRequest.order.moveUp")) {
-                        Task { await model.moveRow(row.id, by: -1) }
-                    }
-                    .accessibilityAction(named: Text("pullRequest.order.moveDown")) {
-                        Task { await model.moveRow(row.id, by: 1) }
+                    .accessibilityActions {
+                        if index > 0 {
+                            Button("pullRequest.order.moveUp") { Task { await model.moveRow(row.id, by: -1) } }
+                        }
+                        if index < model.openRows.count - 1 {
+                            Button("pullRequest.order.moveDown") { Task { await model.moveRow(row.id, by: 1) } }
+                        }
                     }
                     .accessibilityIdentifier("pullRequest.order.row.\(row.id)")
                     .moveDisabled(model.isSavingOrder)

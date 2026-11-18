@@ -148,17 +148,3 @@ private func sentBody(_ request: URLRequest) -> String {
     }
     #expect(await transport.requests(on: route).isEmpty)
 }
-
-/// The PUT carries the full order, so sending it again after a lost answer sets the same order: a repeat is harmless.
-@Test func aRepeatedReorderSendsTheSameFullOrder() async throws {
-    let transport = ScriptedTransport()
-    let route = "PUT threads/\(threadID)/pull-requests/order"
-    await transport.on(route, .json(200, #"{"status":"updated"}"#))
-    let actions = makeActions(transport)
-    #expect(await actions.reorder([78, 77]) == .done)
-    #expect(await actions.reorder([78, 77]) == .done)
-    let bodies = await transport.requests(on: route).map(sentBody)
-    #expect(bodies.count == 2)
-    #expect(bodies[0] == bodies[1])
-    #expect(bodies[0].contains("[78,77]"))
-}

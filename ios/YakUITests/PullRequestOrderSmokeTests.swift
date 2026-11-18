@@ -54,10 +54,15 @@ import XCTest
         wait(for: [XCTNSPredicateExpectation(predicate: saved, object: nil)], timeout: Wait.appear)
         XCTAssertLessThan(
             element("pullRequest.order.row.78").frame.minY, element("pullRequest.order.row.77").frame.minY)
+        try audit()
         app.navigationBars.buttons["Done"].tap()
         XCTAssertTrue(element("pullRequest.row.78").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(element("pullRequest.order.list").exists)
         XCTAssertLessThan(element("pullRequest.row.78").frame.minY, element("pullRequest.row.77").frame.minY)
+        try audit()
+    }
+
+    private func audit() throws {
         try auditTwice(app) { [app] in
             let auditBars = AuditRules.Bars(app)
             return { issue in

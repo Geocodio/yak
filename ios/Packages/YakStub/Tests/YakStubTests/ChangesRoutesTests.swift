@@ -103,7 +103,7 @@ import Testing
     @Test func aRefusedOpenAnswersItsMessage() throws {
         let refused = call(
             StubChanges(), "POST threads/d0e515ef/pull-request", try context("pull-request-refused"), body: "{}")
-        #expect(refused.status == 409)
+        #expect(refused.status == 422)
     }
 
     @Test func fixAnswersOnlyForTheFailingRow() throws {
@@ -138,7 +138,7 @@ import Testing
         let conflict = try context("pull-request-order-conflict")
         let refused = call(
             conflicting, "PUT threads/d0e515ef/pull-requests/order", conflict, body: #"{"order":[78,77]}"#)
-        #expect(refused.status == 409)
+        #expect(refused.status == 422)
     }
 
     @Test func everyNewPairHasScenarioData() throws {

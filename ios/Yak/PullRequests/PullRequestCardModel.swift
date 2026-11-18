@@ -29,8 +29,6 @@ final class PullRequestCardModel {
 
     /// How long a save runs before the card says it is taking longer than usual.
     static let slowAfter: Duration = .seconds(8)
-    /// Answer codes that mean the pull requests changed under the person.
-    private static let changedCodes: Set<String> = ["conflict", "pull_requests_changed"]
 
     let threadID: String
     private(set) var isEditing = false
@@ -194,6 +192,7 @@ final class PullRequestCardModel {
 
     /// A drag ended: `source` rows were dropped at `destination` (SwiftUI's `onMove` numbering).
     func moveRows(from source: IndexSet, to destination: Int) async {
+        guard isEditing else { return }
         let current = draftOpenIDs ?? PullRequestOrder.openIDs(rows)
         await commit(
             PullRequestOrder.moving(current, from: source, to: destination), movedID: source.first.map { current[$0] })
@@ -227,13 +226,15 @@ final class PullRequestCardModel {
         slowTask = nil
         switch outcome {
         case .done, .alreadySent:
-            await confirm(next, feed: feed)
+            await confirm(next, fullOrder: full, feed: feed)
             if let movedID, let place = next.firstIndex(of: movedID) {
                 orderAnnouncement = String(localized: "pullRequest.order.moved \(place + 1) \(next.count)")
             }
-        case .refused(let code, let message, _):
+        case .refused(let code, let message, let fieldErrors):
             draftOpenIDs = previous
-            if Self.changedCodes.contains(code) {
+            // The server answers 422 with an error on `order` when the pull requests of the thread are not the ones
+            // that were sent.
+            if code == "validation_failed", !(fieldErrors["order"] ?? []).isEmpty {
                 await reloadAfterChange(feed: feed)
             } else {
                 fail(message.isEmpty ? String(localized: "pullRequest.order.failed") : message, retry: next)
@@ -271,8 +272,13 @@ final class PullRequestCardModel {
 
     /// The server answered "updated": read the list again and keep it as the truth. A list that differs from what
     /// was sent means a pull request merged or closed meanwhile.
-    private func confirm(_ sent: [Int], feed: PullRequestsFeed) async {
+    private func confirm(_ sent: [Int], fullOrder: [Int], feed: PullRequestsFeed) async {
         guard let fetched = await feed.reload() else {
+            // The save worked but the reload did not: the moved order stays on screen, and a panel read before the
+            // save is dropped so it cannot move the row back.
+            heldPanel = nil
+            rows = rows.sorted { (fullOrder.firstIndex(of: $0.id) ?? 0) < (fullOrder.firstIndex(of: $1.id) ?? 0) }
+            draftOpenIDs = sent
             orderState = .idle
             orderSuccessCount += 1
             return

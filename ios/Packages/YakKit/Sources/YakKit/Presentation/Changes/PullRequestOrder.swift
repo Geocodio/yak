@@ -27,7 +27,9 @@ public enum PullRequestOrder {
     }
 
     /// `order` after a drag of the rows at `source` to `destination`, in the numbering of SwiftUI's `onMove`.
-    public static func moving(_ order: [Int], from source: IndexSet, to destination: Int) -> [Int] {
+    public static func moving(_ order: [Int], from indices: IndexSet, to destination: Int) -> [Int] {
+        let source = indices.filter { order.indices.contains($0) }
+        guard !source.isEmpty else { return order }
         let moved = source.map { order[$0] }
         var rest = order.enumerated().filter { !source.contains($0.offset) }.map(\.element)
         let insertAt = destination - source.filter { $0 < destination }.count

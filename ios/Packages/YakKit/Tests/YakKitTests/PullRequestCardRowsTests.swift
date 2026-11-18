@@ -160,3 +160,8 @@ private func orderRow(_ id: Int, _ state: PullRequestState = .open) -> PullReque
     #expect(PullRequestOrder.moving([1, 2, 3], from: IndexSet(integer: 2), to: 0) == [3, 1, 2])
     #expect(PullRequestOrder.moving([1, 2, 3], from: IndexSet(integer: 0), to: 1) == [1, 2, 3])
 }
+
+@Test func aDragWithIndicesOutsideTheListChangesNothing() {
+    #expect(PullRequestOrder.moving([1, 2], from: IndexSet(integer: 5), to: 0) == [1, 2])
+    #expect(PullRequestOrder.moving([1, 2], from: IndexSet([1, 7]), to: 0) == [2, 1])
+}
