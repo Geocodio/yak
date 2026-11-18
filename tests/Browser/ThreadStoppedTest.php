@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
@@ -94,5 +96,22 @@ it('shows a read-only viewer the stop card without its buttons', function () {
         ->assertVisible('[data-testid="card-stop"]')
         ->assertMissing('[data-testid="stop-retry"]')
         ->assertMissing('[data-testid="stop-move"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows an expired co-owner request as a stop card with no Retry button', function () {
+    Queue::fake();
+    $thread = stoppedThread(['status' => TaskStatus::Expired, 'stop_kind' => null, 'stop_summary' => null]);
+    $task = $thread->tasks()->firstOrFail();
+    $repository = Repository::where('slug', 'o-r')->firstOrFail();
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'repository_id' => $repository->id, 'status' => CoOwnerRequestStatus::Expired, 'decided_at' => now()]);
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="card-stop"]')
+        ->assertSeeIn('[data-testid="card-stop"]', 'The co-owner request expired')
+        ->assertSeeIn('[data-testid="stop-summary"]', 'Nobody decided within 7 days, so Yak did not open the pull request.')
+        ->assertSeeIn('[data-testid="stop-next-step"]', 'Send a message to continue this work.')
+        ->assertMissing('[data-testid="stop-retry"]')
         ->assertNoJavaScriptErrors();
 });

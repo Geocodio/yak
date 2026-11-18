@@ -1,6 +1,8 @@
 <?php
 
+use App\DataTransferObjects\ThreadMessageInput;
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\MessageDelivery;
 use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -9,6 +11,7 @@ use App\Http\Resources\ThreadCardsData;
 use App\Http\Resources\ThreadMilestonesData;
 use App\Http\Resources\ThreadRequestData;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RunYakJob;
 use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
@@ -19,6 +22,7 @@ use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadMessageSender;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -269,7 +273,26 @@ describe('co-owner request states', function () {
         $cards = ThreadCardsData::for($this->thread, $this->viewer);
 
         expect($cards['coOwner']['status'])->toBe('expired')
-            ->and($cards['actions']['canRetry'])->toBeFalse();
+            ->and($cards['actions']['canRetry'])->toBeFalse()
+            ->and($cards['card'])->toBe('stopped')
+            ->and($cards['stopped'])->toBe([
+                'kind' => 'needs_you',
+                'summary' => 'Nobody decided within 7 days, so Yak did not open the pull request.',
+                'detail' => null,
+                'nextStep' => 'Send a message to continue this work.',
+                'isWaitingForSetup' => false,
+            ]);
+    });
+
+    it('starts a follow-up when a message is sent to a thread whose co-owner request expired', function () {
+        $this->request->update(['status' => CoOwnerRequestStatus::Expired, 'decided_at' => now()]);
+        $this->task->update(['status' => TaskStatus::Expired, 'pr_url' => null]);
+
+        $result = app(ThreadMessageSender::class)->send($this->thread, $this->viewer, new ThreadMessageInput('Go ahead without a co-owner', null, null, null, MessageDelivery::Steer, null));
+
+        expect($result->notice)->toBe('Trying again with your note.')
+            ->and($this->task->fresh()->status)->toBe(TaskStatus::Pending);
+        Queue::assertPushed(RunYakJob::class);
     });
 
     it('says on the app API task detail that an expired co-owner request needs a new task', function () {

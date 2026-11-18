@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\StopKind;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadVisibility;
 use App\Http\Controllers\Settings\GitHubAccountController;
@@ -12,6 +13,7 @@ use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CoOwner\CoOwnerGate;
 use App\Services\RepoClarificationResolver;
 use App\Services\Tasks\TaskStopSummary;
 use App\Services\Threads\ThreadAccess;
@@ -69,7 +71,7 @@ final class ThreadCardsData
             $earlyWarning['canPick'] = $earlyWarning['canPick'] && $canDrive;
         }
         $repositoryQuestion = self::repositoryQuestion($thread, $head, $canDrive);
-        $stopped = self::stopped($head);
+        $stopped = self::stopped($head, $coOwnerRequest);
         $hasQuestion = $head->status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [];
 
         $card = match (true) {
@@ -119,8 +121,18 @@ final class ThreadCardsData
     /**
      * @return array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null
      */
-    private static function stopped(YakTask $head): ?array
+    private static function stopped(YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?array
     {
+        if ($head->status === TaskStatus::Expired && $coOwnerRequest?->status === CoOwnerRequestStatus::Expired) {
+            return [
+                'kind' => StopKind::NeedsYou->value,
+                'summary' => 'Nobody decided within ' . CoOwnerGate::EXPIRY_DAYS . ' days, so Yak did not open the pull request.',
+                'detail' => null,
+                'nextStep' => 'Send a message to continue this work.',
+                'isWaitingForSetup' => false,
+            ];
+        }
+
         if ($head->status === TaskStatus::Cancelled) {
             return ['kind' => 'cancelled', 'summary' => 'This request was cancelled.', 'detail' => null, 'nextStep' => 'Start a new request to try again.', 'isWaitingForSetup' => false];
         }

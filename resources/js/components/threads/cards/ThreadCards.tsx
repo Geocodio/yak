@@ -30,7 +30,7 @@ export function ThreadCards({ page, onOpenChanges, onMove, onShowLog }: Props) {
         content = <CoOwnerCard threadId={thread.id} coOwner={coOwner} repoUrl={thread.repo === 'unknown' ? null : editRepository.url(thread.repo)} onOpenChanges={onOpenChanges} />;
     } else if (card === 'stopped' && stopped !== null) {
         anchor = 'card-stop';
-        content = <StopCard threadId={thread.id} stopped={stopped} actions={actions} onMove={onMove} onShowLog={onShowLog} />;
+        content = <StopCard threadId={thread.id} stopped={stopped} actions={actions} onMove={onMove} onShowLog={onShowLog} title={coOwner?.status === 'expired' ? 'The co-owner request expired' : undefined} />;
     }
 
     if (content === null) {

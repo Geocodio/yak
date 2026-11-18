@@ -13,7 +13,7 @@ const TITLES: Record<ThreadStopped['kind'], string> = {
 };
 
 /** Why the work stopped, in plain words, with Retry, Move to another repository and the technical detail one click away. */
-export function StopCard({ threadId, stopped, actions, onMove, onShowLog }: { threadId: string; stopped: ThreadStopped; actions: ThreadActions; onMove: () => void; onShowLog: (() => void) | null }) {
+export function StopCard({ threadId, stopped, actions, onMove, onShowLog, title }: { title?: string; threadId: string; stopped: ThreadStopped; actions: ThreadActions; onMove: () => void; onShowLog: (() => void) | null }) {
     const action = useRouterAction();
     const [error, setError] = useState<string | null>(null);
     const [isDetailShown, setIsDetailShown] = useState(false);
@@ -29,7 +29,7 @@ export function StopCard({ threadId, stopped, actions, onMove, onShowLog }: { th
         <section className={`rounded-card px-4 py-4 ${isCalm ? 'bg-warn-soft' : 'bg-fail-soft'}`} aria-labelledby="stop-title" data-testid="card-stop" data-kind={stopped.kind}>
             <h2 id="stop-title" className="flex items-center gap-2 text-[15px] font-semibold">
                 <OctagonX className={`size-4 ${isCalm ? 'text-warn' : 'text-fail'}`} aria-hidden />
-                {TITLES[stopped.kind]}
+                {title ?? TITLES[stopped.kind]}
             </h2>
             <p className="mt-1 text-[13px] leading-normal" data-testid="stop-summary">{stopped.summary}</p>
             <p className="mt-1 text-[12.5px] leading-normal text-muted" data-testid="stop-next-step">{stopped.nextStep}</p>
