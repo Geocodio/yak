@@ -11,7 +11,7 @@ import Foundation
 /// pair differently. Dropping the bit would leave a closing panel no side to put the covered pane back on.
 public struct PaneState: Codable, Equatable, Sendable {
     public var focused: PaneID
-    /// The pane beside `focused`. Nil until a two-slot layout needs one.
+    /// The pane beside `focused`, set only when the person asks for it. Nil is one pane at every size.
     public var second: PaneID?
     /// The second pane sits in the first position (leading or lower).
     public var secondLeads: Bool
@@ -74,6 +74,16 @@ public struct PaneSlot: Equatable, Sendable {
     }
 }
 
+/// What the pane menu's "Second pane" section shows.
+public struct SecondPaneChoices: Equatable, Sendable {
+    /// False where the size has one slot: the section is left out.
+    public let isOffered: Bool
+    /// The panes that can be the second pane, in display order (the shown focused pane is not one).
+    public let panes: [PaneID]
+    /// The pane that is the second pane now; nil is "None".
+    public let current: PaneID?
+}
+
 public enum PaneMark: Equatable, Sendable { case focused, second, none }
 
 public struct SlotPlan: Equatable, Sendable {
@@ -90,6 +100,8 @@ public struct SlotPlan: Equatable, Sendable {
     public let available: [PaneID]
     /// The size lets the Overview be a side panel (whether or not it is open).
     public let overviewIsPanel: Bool
+    /// What the size allows, whatever is shown: `.single` is the only arrangement with one slot.
+    public let sizeArrangement: PaneArrangement
 
     public var shownPanes: [PaneID] {
         slots.compactMap { slot in
@@ -101,6 +113,16 @@ public struct SlotPlan: Equatable, Sendable {
 
 public enum PaneLayoutRules {
     public static let stackedFractionRange: ClosedRange<Double> = 0.3...0.7
+
+    /// The version a window's stored pane state is written with. Version 1 is the first in which the second pane
+    /// is always the person's choice; a state stored before has no version and its second pane was the app's.
+    public static let storedFormatVersion = 1
+
+    /// Whether a stored state's second pane (and the pane it covers) is kept: only when it was stored by a build that
+    /// leaves the choice to the person.
+    public static func keepsStoredSecondPane(formatVersion: Int?) -> Bool {
+        (formatVersion ?? 0) >= storedFormatVersion
+    }
 
     /// The Overview is a side panel exactly when the width is not compact, the height is not compact, and the
     /// size's arrangement is `.sideBySide` or `.book`. Everywhere else it is a pane.
@@ -179,7 +201,8 @@ public enum PaneLayoutRules {
             arrangement: arrangement, slots: slots, focusedPosition: focusedPosition, bars: bars,
             upperFraction: arrangement.hasDragHandle ? clampedFraction(state.stackedFraction) : nil,
             available: PaneID.allCases.filter(available.contains),
-            overviewIsPanel: overviewIsPanel(arrangement: size, inputs: inputs) && available.contains(.overview))
+            overviewIsPanel: overviewIsPanel(arrangement: size, inputs: inputs) && available.contains(.overview),
+            sizeArrangement: size)
     }
 
     /// A pane picked in the rail, the row, a pane menu or Command 1 to 5. `slot` is the bar whose menu was used, nil otherwise.
@@ -194,11 +217,8 @@ public enum PaneLayoutRules {
                 let isOverviewFirst = next.focused == .overview ? !next.secondLeads : next.secondLeads
                 next.focused = beside
                 let covered = next.behind
-                next.second =
-                    covered
-                    ?? defaultSecond(
-                        focused: beside, lastSecond: nil, candidates: plan.available.filter { $0 != .overview })
-                // A covered pane returns on the side the Overview had; a default pane takes the trailing slot.
+                // A covered pane returns on the side the Overview had; with none, one pane remains.
+                next.second = covered
                 next.secondLeads = covered != nil && isOverviewFirst
             } else {
                 next.behind = next.second
@@ -245,7 +265,7 @@ public enum PaneLayoutRules {
 
     /// Called whenever the layout inputs change (rotation, Split View, a window resize, fold, unfold, a pose), even
     /// when the arrangement value stays the same: a side-by-side size can lose the panel to a short height. The pair is
-    /// kept as it is, with two exceptions. A second pane that is missing is chosen. An open Overview panel that stops
+    /// kept as it is, with one exception. An open Overview panel that stops
     /// being a panel (the width drops) becomes the focused Overview pane, taking the pane that sat beside it as the
     /// second pane on the same side, so nothing moves. `oldInputs` are the inputs `old` was made from: the old size had
     /// the panel only when they allow it.
@@ -269,6 +289,52 @@ public enum PaneLayoutRules {
     public static func availableChanged(state: PaneState, available: [PaneID], inputs: LayoutInputs) -> PaneState {
         let size = ThreadLayout.arrangement(inputs, slotPaneCount: Set(available).count)
         return resolve(state, available: available, arrangement: size, inputs: inputs)
+    }
+
+    /// The panes the "Second pane" menu offers and the one that is the second pane now.
+    public static func secondChoices(state: PaneState, plan: SlotPlan, inputs: LayoutInputs) -> SecondPaneChoices {
+        let size = ThreadLayout.arrangement(inputs, slotPaneCount: plan.available.count)
+        guard size.slotCount == 2 else { return SecondPaneChoices(isOffered: false, panes: [], current: nil) }
+        let shownFocus = plan.slots.first { $0.position == plan.focusedPosition }?.content.paneID
+        let other = plan.slots.first { $0.position != plan.focusedPosition }?.content
+        let current: PaneID?
+        switch other {
+        case .pane(let pane)?: current = pane
+        case .overviewPanel?: current = .overview
+        case nil: current = nil
+        }
+        return SecondPaneChoices(
+            isOffered: true, panes: plan.available.filter { $0 != shownFocus }, current: current)
+    }
+
+    /// The person's pick in the "Second pane" menu: nil closes the second pane (and the Overview panel), a pane
+    /// opens it in the other slot and keeps the shown focused pane focused. Nothing changes at a one-slot size, for
+    /// the focused pane, or for a pane that is not available.
+    public static func setSecond(_ pane: PaneID?, state: PaneState, plan: SlotPlan) -> PaneState {
+        guard plan.sizeArrangement.slotCount == 2 else { return state }
+        let isPanelOpen = plan.slots.contains { $0.content == .overviewPanel }
+        let shownFocus = plan.slots.first { $0.position == plan.focusedPosition }?.content.paneID
+        guard let pane else {
+            var next = stateShown(by: plan, base: state)
+            if next.focused == .overview, let beside = next.second { next.focused = beside }
+            next.second = nil
+            next.behind = nil
+            next.secondLeads = false
+            return tidy(next, plan: plan)
+        }
+        guard plan.available.contains(pane), pane != shownFocus else { return state }
+        if pane == .overview && plan.overviewIsPanel {
+            return isPanelOpen ? state : select(.overview, from: nil, state: state, plan: plan)
+        }
+        if plan.slots.contains(where: { $0.position != plan.focusedPosition && $0.content == .pane(pane) }) {
+            return state
+        }
+        var next = stateShown(by: plan, base: state)
+        if isPanelOpen, next.focused == .overview, let beside = next.second { next.focused = beside }
+        if next.second == nil { next.secondLeads = false }
+        next.second = pane
+        next.behind = nil
+        return tidy(next, plan: plan)
     }
 
     public static func defaultSecond(focused: PaneID, lastSecond: PaneID?, candidates: [PaneID]) -> PaneID? {
@@ -340,7 +406,7 @@ public enum PaneLayoutRules {
     }
 
     /// The state with every self-contradiction repaired for `arrangement`: gone panes replaced and a second pane
-    /// present wherever two slots need one. The Overview stays in the pair wherever it is; the size decides whether
+    /// that is gone dropped. No second pane is ever invented. The Overview stays in the pair wherever it is; the size decides whether
     /// it is drawn as a pane or as the panel.
     private static func resolve(
         _ state: PaneState, available: [PaneID], arrangement: PaneArrangement, inputs: LayoutInputs
@@ -357,12 +423,15 @@ public enum PaneLayoutRules {
             present.contains(.overview) && overviewIsPanel(arrangement: arrangement, inputs: inputs)
             && next.isOverviewInPair
         if isPanelShown {
-            // The pane beside the panel is a pane slot's pane; the Overview itself needs none.
+            // The pane beside the panel is a pane slot's pane. A focused Overview with none cannot fill the width as a
+            // pane here, so Chat (or the first pane) takes the focus and the panel stays closed.
             if next.focused == .overview, next.second.map({ !candidates.contains($0) }) ?? true {
-                next.second = defaultSecond(focused: .overview, lastSecond: nil, candidates: candidates)
+                next.second = nil
+                next.focused = candidates.contains(.chat) ? .chat : (candidates.first ?? .chat)
+                next.secondLeads = false
             }
         } else if next.second.map({ !candidates.contains($0) }) ?? true {
-            next.second = defaultSecond(focused: next.focused, lastSecond: nil, candidates: candidates)
+            next.second = nil
         }
         return cleaned(next, available: present)
     }
