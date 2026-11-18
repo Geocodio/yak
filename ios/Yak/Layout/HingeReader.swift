@@ -34,6 +34,14 @@ final class HingeState {
     }
 
     func setKeyboard(_ frame: CGRect) { keyboardFrame = frame }
+
+    /// The hinge moved: the posture changes and the fold region is read again, because the system updates the region
+    /// with the hinge and the detail's size need not change.
+    func hingeChanged(to posture: HingePosture, division: () -> (frame: CGRect?, isActive: Bool)) {
+        setPosture(posture)
+        let region = division()
+        setDivision(region.frame, isActive: region.isActive)
+    }
 }
 
 extension View {
@@ -64,7 +72,7 @@ private struct HingeReading: ViewModifier {
             GeometryReader { proxy in
                 Color.clear
                     .onChange(of: proxy.size, initial: true) { read(proxy) }
-                    .modifier(HingeChanges(state: state))
+                    .modifier(HingeChanges(state: state, division: { division(of: proxy) }))
             }
             .allowsHitTesting(false)
         }
@@ -84,18 +92,25 @@ private struct HingeReading: ViewModifier {
                     return
                 }
             #endif
+            let region = division(of: proxy)
+            if #available(iOS 27.1, *) { state.setDivision(region.frame, isActive: region.isActive) }
+        }
+
+        /// The fold region in screen coordinates and whether it is active.
+        private func division(of proxy: GeometryProxy) -> (frame: CGRect?, isActive: Bool) {
             if #available(iOS 27.1, *) {
                 let region = proxy.reservedRegions(kind: .division, options: [.includeInactive]).first
                 let origin = proxy.frame(in: .global).origin
-                let frame = region.map { $0.frame.offsetBy(dx: origin.x, dy: origin.y) }
-                state.setDivision(frame, isActive: region?.isActive == true)
+                return (region.map { $0.frame.offsetBy(dx: origin.x, dy: origin.y) }, region?.isActive == true)
             }
+            return (nil, false)
         }
     }
 }
 
 private struct HingeChanges: ViewModifier {
     let state: HingeState
+    let division: () -> (frame: CGRect?, isActive: Bool)
 
     func body(content: Content) -> some View {
         #if DEBUG
@@ -104,7 +119,9 @@ private struct HingeChanges: ViewModifier {
         if #available(iOS 27.1, *) {
             return AnyView(
                 content.onHingeChange { _, new in
-                    state.setPosture(HingePosture(systemState: new.hinge.map { Self.name($0.status) } ?? "fullyOpen"))
+                    state.hingeChanged(
+                        to: HingePosture(systemState: new.hinge.map { Self.name($0.status) } ?? "fullyOpen"),
+                        division: division)
                 })
         }
         return AnyView(content)
