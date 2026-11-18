@@ -45,7 +45,6 @@ class ThreadShowChanged
 
         $queued = DB::table('pending_steering_messages')
             ->whereIn('root_task_id', DB::table('tasks')->where('thread_id', $threadId)->select('id'))
-            ->where('source', 'thread')
             ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')
                 ->where(fn ($match) => $match->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id')
                     ->orWhereColumn('thread_turn_messages.uuid', 'pending_steering_messages.uuid')))

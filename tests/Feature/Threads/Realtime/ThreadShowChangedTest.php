@@ -7,6 +7,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\ThreadEventBroadcast;
 use App\Exceptions\ThreadActionRefused;
+use App\Jobs\FlushSteeringMessagesJob;
 use App\Models\CoOwnerRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
@@ -14,6 +15,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\EarlyWarningState;
+use App\Services\FollowUpTaskFactory;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadShowChanged;
 use App\Services\Threads\ThreadTurns;
@@ -21,7 +23,6 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
 
 require_once __DIR__ . '/RealtimeRedis.php';
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
@@ -156,12 +157,19 @@ it('publishes the thread state when a queued message is queued, edited, switched
     expectShowChanged($thread, fn () => $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $message->id]))->assertRedirect());
 });
 
-it('keeps the key the same for a message queued from a channel, which the page does not list', function () {
+it('publishes the thread state when a message is queued from a channel and when it is delivered', function () {
     [$thread] = runningTurnFor();
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
-    $before = ThreadShowChanged::key($thread->id);
 
-    PendingSteeringMessage::query()->create(['root_task_id' => $task->id, 'text' => 'from slack', 'source' => 'slack', 'mode' => 'queue', 'uuid' => (string) Str::uuid()]);
+    expectShowChanged($thread, fn () => PendingSteeringMessage::queueFor($task, 'from slack', 'slack'));
+    expectShowChanged($thread, fn () => PendingSteeringMessage::drainFor($task));
+});
 
-    expect(ThreadShowChanged::key($thread->id))->toBe($before);
+it('publishes the thread state when the flush job hands channel replies to a follow-up', function () {
+    $task = showChangedTask(['status' => TaskStatus::Success, 'pr_url' => 'https://github.com/o/r/pull/1']);
+    $thread = Thread::findOrFail($task->thread_id);
+    PendingSteeringMessage::queueFor($task, 'from linear', 'linear');
+
+    expectShowChanged($thread, fn () => (new FlushSteeringMessagesJob($task->id))->handle(app(FollowUpTaskFactory::class)));
+    expect(PendingSteeringMessage::query()->count())->toBe(0);
 });

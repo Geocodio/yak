@@ -7,6 +7,7 @@ use App\Enums\TurnMessageState;
 use App\Facades\Telemetry;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
+use App\Services\Threads\ThreadShowChanged;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,23 @@ use Illuminate\Support\Facades\DB;
 class PendingSteeringMessage extends Model
 {
     protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key'];
+
+    /**
+     * A waiting message shows in the thread page's list, so an open page reloads when one is queued, changed or removed.
+     */
+    protected static function booted(): void
+    {
+        $publish = fn (self $message) => self::publishChange($message->root_task_id);
+
+        static::created($publish);
+        static::updated($publish);
+        static::deleted($publish);
+    }
+
+    public static function publishChange(int $rootTaskId): void
+    {
+        ThreadShowChanged::publish(DB::table('tasks')->where('id', $rootTaskId)->value('thread_id'));
+    }
 
     /**
      * @return array<string, string>
@@ -230,6 +248,7 @@ class PendingSteeringMessage extends Model
         }
 
         self::whereIn('id', $messages->pluck('id'))->delete();
+        self::publishChange($task->rootTask()->id);
 
         return self::render($messages);
     }

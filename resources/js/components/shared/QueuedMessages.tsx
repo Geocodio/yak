@@ -4,8 +4,11 @@ import { ListEnd, Navigation, Paperclip, Pencil, X } from 'lucide-react';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import type { QueuedMessage, SteeringMode } from '@/types/tasks';
 
-/** A waiting message; `canEditText` is false when someone else wrote it, and absent where every message can be edited. */
-export type QueuedRow = QueuedMessage & { canEditText?: boolean };
+/**
+ * A waiting message. `canEditText` is false when its text cannot be edited here, and absent where every message can be;
+ * `canSwitch` and `canRemove` default to the list's `canEdit`.
+ */
+export type QueuedRow = QueuedMessage & { canEditText?: boolean; canSwitch?: boolean; canRemove?: boolean };
 
 export const STEERING_MODES: { mode: SteeringMode; label: string; waitingLabel: string; icon: typeof ListEnd; hint: string }[] = [
     { mode: 'queue', label: 'Queue', waitingLabel: 'Queued', icon: ListEnd, hint: 'Give Yak a follow-up task after the current work is done.' },
@@ -132,7 +135,7 @@ export function QueuedMessages({
                 const source = SOURCE_LABELS[message.source];
                 const isBusy = busyId === message.id;
                 const isEditingInline = inlineEditingId === message.id;
-                const canSwitch = canEdit && message.canSteer && (other.mode !== 'steer' || canSteerNow);
+                const canSwitch = (message.canSwitch ?? canEdit) && message.canSteer && (other.mode !== 'steer' || canSteerNow);
 
                 return (
                     <li
@@ -170,7 +173,7 @@ export function QueuedMessages({
                                             ? `${current.hint} A GitHub review waits for the follow-up, so the reviewer is asked to look again.`
                                             : canSwitch
                                               ? `${current.hint} Click to ${other.label.toLowerCase()} instead.`
-                                              : canEdit
+                                              : message.canSwitch ?? canEdit
                                                 ? `${current.hint} Steering needs Yak to be working.`
                                                 : current.hint
                                     }
@@ -212,7 +215,7 @@ export function QueuedMessages({
                                         <Pencil size={12} />
                                     </IconButton>
                                 )}
-                                {canEdit && (
+                                {(message.canRemove ?? canEdit) && (
                                     <IconButton
                                         label="Remove from queue"
                                         onClick={() => remove(message)}

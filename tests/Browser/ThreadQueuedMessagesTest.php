@@ -2,11 +2,15 @@
 
 use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
+use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\ThreadShare;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadShowChanged;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Str;
 
@@ -148,4 +152,43 @@ it('keeps the composer on a phone screen with the list above it', function () {
         ->assertVisible('[data-testid="thread-composer-input"]')
         ->assertScript('document.querySelector(\'[data-testid="thread-queued-messages"]\').getBoundingClientRect().height <= 168', true)
         ->assertNoJavaScriptErrors();
+});
+
+it('lists a message queued from Slack with its source and lets the driver remove it', function () {
+    [$thread, $user] = threadWithWaitingMessage();
+    $slack = PendingSteeringMessage::queueFor($thread->headTask(), 'please also bump the changelog', 'slack', authorName: 'Sam');
+    $this->actingAs($user);
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn("[data-testid=\"queued-message-{$slack->id}\"]", 'please also bump the changelog')
+        ->assertSeeIn("[data-testid=\"queued-message-{$slack->id}\"]", 'via Slack')
+        ->assertMissing("[data-testid=\"queued-message-edit-{$slack->id}\"]")
+        ->click("[data-testid=\"queued-message-remove-{$slack->id}\"]")
+        ->assertMissing("[data-testid=\"queued-message-{$slack->id}\"]")
+        ->assertNoJavaScriptErrors();
+
+    expect(PendingSteeringMessage::query()->whereKey($slack->id)->exists())->toBeFalse();
+});
+
+it('moves a waiting message from the list to the conversation once Yak takes it in, without a duplicate', function () {
+    [$thread, $user, $message] = threadWithWaitingMessage('use the v2 endpoint');
+    $this->actingAs($user);
+
+    $page = visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="thread-queued-messages"]', 'use the v2 endpoint');
+
+    ThreadTurnMessage::query()->create([
+        'task_run_id' => $thread->runs()->latest('id')->firstOrFail()->id,
+        'uuid' => $message->uuid,
+        'kind' => TurnMessageKind::Steer,
+        'state' => TurnMessageState::Sent,
+        'text' => $message->text,
+        'pending_steering_message_id' => $message->id,
+    ]);
+    ThreadShowChanged::publish($thread->id);
+
+    $page->wait(3)
+        ->assertMissing('[data-testid="thread-queued-messages"]')
+        ->assertSeeIn('[data-testid="thread-conversation-scroller"]', 'use the v2 endpoint')
+        ->assertScript('document.querySelector(\'[data-testid="thread-conversation-scroller"]\').innerText.split("use the v2 endpoint").length - 1', 1);
 });

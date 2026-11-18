@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ThreadQueuedMessagesData;
 use App\Http\Resources\ThreadRunLogData;
 use App\Http\Resources\ThreadShowData;
 use App\Models\Thread;
@@ -23,6 +24,7 @@ class ThreadController extends Controller
         return Inertia::render('Threads/Show', [
             ...ThreadShowData::build($thread, $request->user() ?? abort(401)),
             'turnAnchors' => $thread->is_legacy ? [] : ThreadShowData::turnAnchors($thread),
+            'queuedMessages' => ThreadQueuedMessagesData::for($thread, $request->user()),
             'runs' => ThreadRunLogData::runs($thread),
             'openLog' => is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null,
         ]);

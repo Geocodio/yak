@@ -61,8 +61,6 @@ class QueuedMessages
                 $this->delivery->deliver($thread, $pending);
             }
 
-            ThreadShowChanged::publish($rootTask->thread_id);
-
             return $pending;
         });
     }
@@ -75,7 +73,6 @@ class QueuedMessages
         $this->shortTransaction(function () use ($rootTask, $message): void {
             $this->lockThread($rootTask);
             $this->findLocked($rootTask, $message)->withdraw();
-            ThreadShowChanged::publish($rootTask->thread_id);
         });
     }
 

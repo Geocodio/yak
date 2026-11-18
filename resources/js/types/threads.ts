@@ -229,6 +229,8 @@ export type ThreadPageData = {
     card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
     /** Web only: the element id of each follow-up task's first message, by the task's public id, for old `#turn-<id>` links. */
     turnAnchors: Record<string, string>;
+    /** Web only: every message waiting for the next turn, from any channel, with what this viewer may do to each. */
+    queuedMessages: ThreadQueuedMessage[];
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
     /** Web only: the run and entry a `?log=` link names, or null. */
@@ -261,6 +263,21 @@ export type LocalTurnsData = {
 };
 
 export type ThreadMessageVia = { key: string; label: string; reference: string | null; url: string | null };
+
+export type ThreadQueuedMessage = {
+    id: number;
+    text: string;
+    mode: 'steer' | 'queue';
+    source: string;
+    sourceLabel: string | null;
+    authorName: string | null;
+    sentAt: string;
+    canSteer: boolean;
+    canSwitch: boolean;
+    canRemove: boolean;
+    canEditText: boolean;
+    attachments: AttachmentData[];
+};
 
 export type ThreadMessage = {
     id: string;

@@ -102,7 +102,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
 
     const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
         // Up in an empty box edits the newest waiting message, as it does in the task composer.
-        if (event.key === 'ArrowUp' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey && form.data.message === '' && canManageQueued) {
+        if (event.key === 'ArrowUp' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey && !event.nativeEvent.isComposing && form.data.message === '' && draft.files.length === 0 && draft.refs.length === 0 && canManageQueued) {
             const latest = latestEditable(queued);
 
             if (latest !== undefined) {
