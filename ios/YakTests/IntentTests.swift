@@ -30,7 +30,9 @@ private func list(count: Int, items: [String]) -> String {
 @Suite struct IntentTests {
     private let transport = RecordingTransport()
 
-    private func make(instances count: Int = 1, removingTokens: Bool = false) async throws -> (IntentRunner, [Instance], InMemoryFileStore) {
+    private func make(instances count: Int = 1, removingTokens: Bool = false) async throws -> (
+        IntentRunner, [Instance], InMemoryFileStore
+    ) {
         let tokens = InMemoryTokenStore()
         let store = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
         var added: [Instance] = []

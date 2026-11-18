@@ -74,7 +74,7 @@ import YakKit
         #expect(QuickActions.deliver(item))
         var received: [URL] = []
         let reader = Task { @MainActor in for await link in QuickActions.links() { received.append(link) } }
-        await Task.yield()
+        for _ in 0..<100 where received.isEmpty { await Task.yield() }
         reader.cancel()
         #expect(received.count == 1)
     }
