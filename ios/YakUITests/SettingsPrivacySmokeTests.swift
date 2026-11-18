@@ -29,7 +29,10 @@ import XCTest
 
     private func audit() throws {
         var findings: [String] = []
+        let bars = AuditRules.Bars(app)
         try app.performAccessibilityAudit { issue in
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: bars) { return true }
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: bars) { return true }
             findings.append(
                 "\(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
             )
@@ -94,12 +97,18 @@ import XCTest
     func testTurningOnAppLockNeedsTheOwner() throws {
         try launch(["-yakTestBiometry", "touchID", "-yakTestAuthentication", "cancel,succeed"])
         openSettings()
+        try audit()
         reveal("settings.appLock")
         let toggle = app.switches["settings.appLock"]
         XCTAssertTrue(toggle.label.contains("Require Touch ID"), toggle.label)
         flip(toggle)
         // The first answer is a cancel: the switch goes through "confirming" and returns to off.
-        Thread.sleep(forTimeInterval: 1.5)
+        let transitioned = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == '1' OR enabled == false"), object: toggle)
+        _ = XCTWaiter().wait(for: [transitioned], timeout: 2)
+        let settled = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == '0' AND enabled == true"), object: toggle)
+        XCTAssertEqual(XCTWaiter().wait(for: [settled], timeout: 10), .completed)
         XCTAssertEqual(toggle.value as? String, "0")
         XCTAssertTrue(toggle.isEnabled)
         XCTAssertFalse(element("settings.appLock.failed").exists)

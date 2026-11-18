@@ -15,6 +15,7 @@ struct SettingsScreen: View {
     @State private var turnedOn = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(SystemFeatures.self) private var system
 
     init(app: AppModel, push: PushController, active: Instance, onClose: @escaping () -> Void) {
@@ -167,8 +168,10 @@ struct SettingsScreen: View {
             Button(role: .destructive) {
                 confirmingRemoval = model.current
             } label: {
-                Text("signedIn.remove").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                Text("signedIn.remove").fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
+            .id(dynamicTypeSize)
             .foregroundStyle(Color.yakDanger)
             .disabled(model.removing.contains(model.active.id))
             .accessibilityIdentifier("settings.removeActive")

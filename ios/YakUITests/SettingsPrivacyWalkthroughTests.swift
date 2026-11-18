@@ -11,7 +11,9 @@ import XCTest
             ] + extra)
         XCTAssertTrue(app.descendants(matching: .any)["lock.screen"].waitForExistence(timeout: 30))
         // The automatic ask answers first; the shot waits for the idle button.
-        Thread.sleep(forTimeInterval: 1)
+        let idle = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "NOT (label CONTAINS 'Unlocking')"), object: app.buttons["lock.unlock"])
+        XCTAssertEqual(XCTWaiter().wait(for: [idle], timeout: 10), .completed)
     }
 
     // MARK: Lock screen
@@ -50,7 +52,7 @@ import XCTest
         app.buttons["lock.unlock"].tap()
         openAccount()
         XCTAssertTrue(app.descendants(matching: .any)["lock.cover"].waitForExistence(timeout: 10))
-        try shoot("cover-over-sheet", audits: false)
+        try shoot("cover-over-sheet")
     }
 
     // MARK: Tips
@@ -77,6 +79,8 @@ import XCTest
         // The tip is the system popover, so its shot skips the audit. With every tip forced on, the pane tip's popover shows over the field first; its close button dismisses it.
         let close = app.buttons["Close"]
         if close.waitForExistence(timeout: 3) { close.tap() }
+        // The screen under the tip is audited here, with the tip closed; the tip's own shots skip the audit.
+        try shoot("tip-thread-under")
         field.tap()
         field.typeText("Next")
         XCTAssertTrue(label("Hold to send later").waitForExistence(timeout: 10))
@@ -109,7 +113,7 @@ import XCTest
     func testSettingsPrivacy() throws {
         try start("paired", paired: true)
         revealInSettings("settings.thisDevice")
-        try shoot("settings-privacy", audits: false)
+        try shoot("settings-privacy")
     }
 
     func testSettingsLockConfirming() throws {
@@ -117,13 +121,13 @@ import XCTest
             "paired", paired: true, extraArguments: ["-yakTestAuthentication", "slow"])
         revealInSettings("settings.appLock")
         app.switches["settings.appLock"].coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
-        try shoot("settings-lock-confirming", audits: false)
+        try shoot("settings-lock-confirming")
     }
 
     func testSettingsNoPasscode() throws {
         try start("paired", paired: true, extraArguments: ["-yakTestBiometry", "noPasscode"])
         revealInSettings("settings.appLock")
-        try shoot("settings-no-passcode", audits: false)
+        try shoot("settings-no-passcode")
     }
 
     func testSettingsSpotlightFailed() throws {
@@ -131,7 +135,7 @@ import XCTest
         revealInSettings("settings.spotlightPrivate")
         app.switches["settings.spotlightPrivate"].coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
         XCTAssertTrue(app.descendants(matching: .any)["settings.spotlightPrivate.failed"].waitForExistence(timeout: 15))
-        try shoot("settings-spotlight-failed", audits: false)
+        try shoot("settings-spotlight-failed")
     }
 
     func testLicenses() throws {
@@ -139,23 +143,23 @@ import XCTest
         revealInSettings("settings.licenses")
         app.descendants(matching: .any)["settings.licenses"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["licenses.screen"].waitForExistence(timeout: 10))
-        try shoot("licenses", audits: false)
+        try shoot("licenses")
         app.descendants(matching: .any)["licenses.swift-markdown"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["license.text"].waitForExistence(timeout: 10))
-        try shoot("license-text", audits: false)
+        try shoot("license-text")
     }
 
     func testSettingsTestFlight() throws {
         try start("paired", paired: true, extraArguments: ["-yakTestBuildKind", "testFlight"])
         revealInSettings("settings.debug")
-        try shoot("settings-debug-row", audits: false)
+        try shoot("settings-debug-row")
     }
 
     func testSettingsAppStore() throws {
         try start("paired", paired: true, extraArguments: ["-yakTestBuildKind", "appStore"])
         revealInSettings("settings.licenses")
         XCTAssertFalse(app.descendants(matching: .any)["settings.debug"].exists)
-        try shoot("settings-no-debug-row", audits: false)
+        try shoot("settings-no-debug-row")
     }
 
     private func openDebug(_ extra: [String] = []) throws {
@@ -167,14 +171,14 @@ import XCTest
 
     func testDebugMenu() throws {
         try openDebug()
-        try shoot("debug-menu", audits: false)
+        try shoot("debug-menu")
     }
 
     func testDebugFaults() throws {
         try openDebug()
         for fault in ["slow", "verySlow", "offline", "serverError"] {
             app.descendants(matching: .any)["debug.fault.\(fault)"].tap()
-            try shoot("debug-fault-\(fault)", audits: false)
+            try shoot("debug-fault-\(fault)")
         }
     }
 
@@ -182,21 +186,21 @@ import XCTest
         try openDebug(["-yakTestToken", "stub-token"])
         app.descendants(matching: .any)["debug.log"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["debug.log.screen"].waitForExistence(timeout: 10))
-        try shoot("debug-log", audits: false)
+        try shoot("debug-log")
     }
 
     func testDebugLogEmpty() throws {
         try openDebug(["-yakTestLog", "empty"])
         app.descendants(matching: .any)["debug.log"].tap()
         XCTAssertTrue(label("No log lines").waitForExistence(timeout: 10))
-        try shoot("debug-log-empty", audits: false)
+        try shoot("debug-log-empty")
     }
 
     func testDebugLogFailed() throws {
         try openDebug(["-yakTestLog", "failed"])
         app.descendants(matching: .any)["debug.log"].tap()
         XCTAssertTrue(label("could not be read").waitForExistence(timeout: 10))
-        try shoot("debug-log-failed", audits: false)
+        try shoot("debug-log-failed")
     }
 
     // MARK: State gallery
@@ -218,7 +222,7 @@ import XCTest
             XCTAssertTrue(row.exists, id)
             row.tap()
             XCTAssertTrue(app.buttons["gallery.close"].waitForExistence(timeout: 10), id)
-            try shoot("gallery-\(id)", audits: false)
+            try shoot("gallery-\(id)")
             app.buttons["gallery.close"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["gallery.screen"].waitForExistence(timeout: 10))
         }
