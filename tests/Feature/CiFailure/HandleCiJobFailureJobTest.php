@@ -453,3 +453,24 @@ it('records no task_created observation when the task cannot be queued', functio
     expect(fn () => runFailureJob($this->repository))->toThrow(RuntimeException::class)
         ->and(Observation::where('kind', 'ci_failure.task_created')->count())->toBe(0);
 });
+
+it('measures the fix window from the merge, not from when the claim was created', function () {
+    fakeFailureGitHub(['ancestor' => false]);
+    $task = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(2)]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'yak_task_id' => $task->id, 'created_at' => now()->subDays(20)]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->where('id', '!=', $task->id)->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('lets a fix that merged long ago stop suppressing even when its claim is recent', function () {
+    fakeFailureGitHub(['ancestor' => false]);
+    $task = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(20)]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'yak_task_id' => $task->id, 'created_at' => now()->subHour()]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->where('id', '!=', $task->id)->count())->toBe(1);
+});

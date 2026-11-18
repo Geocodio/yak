@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TaskStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\CiFailureClaimFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -108,18 +109,30 @@ class CiFailureClaim extends Model
     }
 
     /**
+     * When the fix behind fix_merge_sha landed: the claiming task's merge, or
+     * its completion for an already_fixed verdict, falling back to the claim's
+     * creation for a claim without a task.
+     */
+    private function fixedAt(): ?CarbonInterface
+    {
+        return $this->task?->pr_merged_at ?? $this->task?->completed_at ?? $this->created_at;
+    }
+
+    /**
      * Whether the recent fix merge sha is the only reason this claim is live,
      * so a failure whose head contains the sha is no longer covered by it.
      */
     public function isLiveOnlyByFixMergeSha(): bool
     {
-        if ($this->fix_merge_sha === null || $this->created_at === null) {
+        $fixedAt = $this->fixedAt();
+
+        if ($this->fix_merge_sha === null || $fixedAt === null) {
             return false;
         }
 
         $window = now()->subHours((int) config('yak.ci_failure.claim_window_hours'));
 
-        if ($this->created_at->lt($window)) {
+        if ($fixedAt->lt($window)) {
             return false;
         }
 
@@ -153,7 +166,11 @@ class CiFailureClaim extends Model
                 $query
                     ->where('blocked_until', '>', now())
                     ->orWhere(fn (Builder $skip) => $skip->whereNotNull('skipped_pr_url')->where('created_at', '>=', $window))
-                    ->orWhere(fn (Builder $fix) => $fix->whereNotNull('fix_merge_sha')->where('created_at', '>=', $window))
+                    ->orWhere(fn (Builder $fix) => $fix->whereNotNull('fix_merge_sha')->where(function (Builder $recent) use ($window): void {
+                        $recent
+                            ->whereHas('task', fn (Builder $task) => $task->whereRaw('coalesce(tasks.pr_merged_at, tasks.completed_at, tasks.created_at) >= ?', [$window]))
+                            ->orWhere(fn (Builder $taskless) => $taskless->whereDoesntHave('task')->where('created_at', '>=', $window));
+                    }))
                     ->orWhereHas('task', function (Builder $task): void {
                         $task
                             ->whereIn('status', TaskStatus::activeValues())
