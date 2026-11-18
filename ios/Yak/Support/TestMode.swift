@@ -2,6 +2,7 @@
     import Foundation
     import os
     import SwiftUI
+    import CoreSpotlight
     import UIKit
     import YakKit
 
@@ -62,6 +63,8 @@
             let lockable = LockableTokenStore()
             let kept = Self.keptStores()
             let defaults = kept.defaults
+            let options = TestSystemOptions.current()
+            if options.appLockOn { defaults.set(Data("true".utf8), forKey: PrivacySettings.appLockKey) }
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
@@ -69,9 +72,10 @@
                 appBundleID: "com.example.yak", appGroup: nil, files: kept.files, clock: SystemClock(),
                 instances: instances, tokens: lockable, appVersion: version, systemDescription: system)
             uploads.failsFirstUpload = Self.flag("yakTestUploadFailure")
+            let faults = DebugFaultSwitch()
             let environment: @Sendable () -> SessionEnvironment = {
                 .app(
-                    version: version, system: system, files: kept.files, allowsInsecureRealtime: true,
+                    version: version, system: system, files: kept.files, allowsInsecureRealtime: true, faults: faults,
                     uploads: { uploads.link(for: $0) })
             }
             QuickActions.normalizeAddress = Self.normalize
@@ -86,7 +90,18 @@
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
                     permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
-                    uploads: uploads))
+                    uploads: uploads, faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
+                    appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
+                    coversWhenActive: options.coverWhenActive,
+                    buildKind: TestBuildKind(value: options.buildKind),
+                    spotlightWriter: options.spotlightFailing ? FailingSpotlightWriter() : CoreSpotlightWriter(),
+                    logs: options.log.map { TestLogSource(mode: $0) } ?? LogReader()))
+            // A run starts with an empty index, so runs do not leak into each other.
+            Task {
+                do { try await CoreSpotlightWriter.makeIndex().deleteAllSearchableItems() } catch {
+                    Logger(subsystem: "Yak", category: "TestMode").error("index reset failed")
+                }
+            }
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(
@@ -131,6 +146,7 @@
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
                 observers: parts.observers, push: parts.push, widgets: parts.widgets)
             model.skipsWebSession = skipsWebSession
+            parts.system.modelBox.model = model
             return (model, parts)
         }
 

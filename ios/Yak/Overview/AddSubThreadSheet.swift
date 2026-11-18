@@ -53,6 +53,7 @@ private struct AddSubThreadForm: View {
     @FocusState private var focus: Field?
     @State private var touched: Set<String> = []
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.inputBlocked) private var inputBlocked
 
     private var isLocked: Bool { model.isSending || model.isUnsure }
 
@@ -109,9 +110,10 @@ private struct AddSubThreadForm: View {
             .background(Color(.systemGroupedBackground))
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
-        .task {
+        .task(id: inputBlocked) {
+            guard !inputBlocked else { return }
             try? await Task.sleep(for: .milliseconds(400))
-            if !isLocked { focus = .name }
+            if !isLocked, !inputBlocked, focus == nil { focus = .name }
         }
     }
 

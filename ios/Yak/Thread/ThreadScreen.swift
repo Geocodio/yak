@@ -30,6 +30,7 @@ struct ThreadScreen: View {
     /// The width of the thread screen, which decides between the Overview pane and the side panel.
     @State private var availableWidth: Double = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -42,6 +43,19 @@ struct ThreadScreen: View {
     }
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
+    /// Plain http appears only against the stub of test mode.
+    private static var allowsInsecure: Bool {
+        #if DEBUG
+            TestMode.current() != nil
+        #else
+            false
+        #endif
+    }
+
+    private var handoffURL: URL? {
+        HandoffLink.webURL(instance: instanceURL, threadID: threadID, allowsInsecure: Self.allowsInsecure)
+    }
+
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
 
     private struct Opening: Hashable {
@@ -62,6 +76,11 @@ struct ThreadScreen: View {
                 }
             }
         }
+        .threadHandoff(
+            webURL: handoffURL,
+            isActive: ThreadHandoff.isActive(
+                webURL: handoffURL, isVisible: isVisible, isLocked: system.appLock.isLocked)
+        )
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {

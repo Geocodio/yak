@@ -83,6 +83,7 @@ private struct NewThreadContent: View {
     @FocusState private var isFieldFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.inputBlocked) private var inputBlocked
 
     private var scrollsBottom: Bool { dynamicTypeSize.isAccessibilitySize || verticalSizeClass == .compact }
     private var keyboardClearance: CGFloat { 56 }
@@ -136,6 +137,7 @@ private struct NewThreadContent: View {
         .sensoryFeedback(.warning, trigger: model.refusedSendCount)
         .task(id: model.load == .ready || model.load == .loading) { focusFieldWhenFree() }
         .onChange(of: model.pending == nil) { focusFieldWhenFree() }
+        .onChange(of: inputBlocked) { focusFieldWhenFree() }
         .onChange(of: isSidebarOpen) { _, isOpen in
             if isOpen { isFieldFocused = false } else { focusFieldWhenFree() }
         }
@@ -153,7 +155,7 @@ private struct NewThreadContent: View {
 
     private func focusFieldWhenFree() {
         // A short window keeps the keyboard down until the person taps the field; the keyboard would leave no room.
-        if !model.isLocked, !hasNoRepositories, !isSidebarOpen, verticalSizeClass != .compact {
+        if !inputBlocked, !model.isLocked, !hasNoRepositories, !isSidebarOpen, verticalSizeClass != .compact {
             isFieldFocused = true
         }
     }
