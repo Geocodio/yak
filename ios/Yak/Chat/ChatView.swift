@@ -24,7 +24,7 @@ struct ChatView: View {
     @State private var rowCountWhenRequested: Int?
     /// That row as of the last layout before the page arrived; once the rows have changed, it is not updated.
     @State private var anchorBeforePage: PlaceAnchor?
-    /// The row put back after a page of earlier messages, held there while the page's documents arrive.
+    /// The row put back after a page of earlier messages, held there until the person scrolls or jumps to the end.
     @State private var placeHeld: HeldPlace?
     @State private var rowFrames = RowFrames()
     @State private var viewportHeight: CGFloat = 0
@@ -55,7 +55,6 @@ struct ChatView: View {
     private struct HeldPlace {
         var id: String
         var fraction: CGFloat
-        var until: Date
     }
 
     private struct HistoryTrigger: Equatable {
@@ -128,11 +127,7 @@ struct ChatView: View {
             Task { await thread.loadOlder() }
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
-        .onChange(of: thread.documents.count) {
-            // Documents still arriving mean the page is still settling, however slow the device is.
-            if let held = placeHeld, held.until > .now { placeHeld?.until = .now + 3 }
-            applyHeldPlace()
-        }
+        .onChange(of: thread.documents.count) { applyHeldPlace() }
         .onScrollPhaseChange { _, phase in
             isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
             if [.tracking, .interacting].contains(phase) {
@@ -195,14 +190,14 @@ struct ChatView: View {
     /// read before the new ones are laid out. The anchor lines the point `f * height` of the row up with the point
     /// `f * viewport` of the viewport, which puts its top at the old place for `f = top / (viewport - height)`.
     /// The new rows show as plain text until their Markdown is parsed, and the rendered text can be taller, so the
-    /// same placement is applied again as their documents arrive, until the person scrolls or no document has
-    /// arrived for three seconds.
+    /// same placement is applied again as their documents arrive, until the person scrolls or jumps to the end. A
+    /// slow device can parse the page's first document many seconds after its rows, so no clock ends the hold.
     private func restorePlace(rowCount: Int) {
         guard let requested = rowCountWhenRequested, rowCount > requested, let anchor = anchorBeforePage else { return }
         rowCountWhenRequested = nil
         let room = anchor.viewportHeight - anchor.height
         let fraction = room > 1 ? min(max(anchor.top / room, 0), 1) : 0
-        placeHeld = HeldPlace(id: anchor.id, fraction: fraction, until: .now + 3)
+        placeHeld = HeldPlace(id: anchor.id, fraction: fraction)
         applyHeldPlace()
         Task {
             // The lazy stack can correct its estimates after the first pass.
@@ -213,14 +208,11 @@ struct ChatView: View {
 
     private func applyHeldPlace() {
         guard let held = placeHeld, !isPersonScrolling else { return }
-        guard held.until > .now else {
-            placeHeld = nil
-            return
-        }
         withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0, y: held.fraction)) }
     }
 
     private func jumpToLatest() {
+        placeHeld = nil
         withAnimation(reduceMotion ? nil : .smooth) { position.scrollTo(edge: .bottom) }
         isNearBottom = true
     }
