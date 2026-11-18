@@ -111,8 +111,10 @@ class HandleCiJobFailureJob implements ShouldQueue
         if ($task === null) {
             // A task that was created but never queued would block the
             // repository for good, so queue it now.
-            if ($this->orphanedTask !== null) {
-                app(AgentJobDispatcher::class)->dispatch($this->orphanedTask, RunYakJob::class);
+            $orphan = $this->takeOrphanedTask();
+
+            if ($orphan !== null) {
+                app(AgentJobDispatcher::class)->dispatch($orphan, RunYakJob::class);
             }
 
             return;
@@ -129,6 +131,14 @@ class HandleCiJobFailureJob implements ShouldQueue
             referenceUrl: $task->external_url,
             task: $task,
         );
+    }
+
+    private function takeOrphanedTask(): ?YakTask
+    {
+        $orphan = $this->orphanedTask;
+        $this->orphanedTask = null;
+
+        return $orphan;
     }
 
     /**

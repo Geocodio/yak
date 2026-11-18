@@ -115,7 +115,9 @@ class CiFailureClaim extends Model
      */
     private function fixedAt(): ?CarbonInterface
     {
-        return $this->task?->pr_merged_at ?? $this->task?->completed_at ?? $this->created_at;
+        $task = $this->task;
+
+        return $task === null ? $this->created_at : ($task->pr_merged_at ?? $task->completed_at ?? $this->created_at);
     }
 
     /**
