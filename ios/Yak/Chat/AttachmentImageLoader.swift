@@ -63,7 +63,9 @@ final class AttachmentChunkDelegate: NSObject, URLSessionDataDelegate, @unchecke
         chunks = AsyncThrowingStream(bufferingPolicy: .unbounded) { made = $0 }
         sink = made
         super.init()
-        sink.onTermination = { [cancel] _ in cancel() }
+        sink.onTermination = { [cancel] reason in
+            if case .cancelled = reason { cancel() }
+        }
     }
 
     func waitForResponse(_ continuation: CheckedContinuation<HTTPURLResponse, any Error>) {
