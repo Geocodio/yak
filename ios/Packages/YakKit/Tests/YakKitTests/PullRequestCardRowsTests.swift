@@ -130,3 +130,38 @@ private func makeRig() async throws -> Rig {
     await rig.transport.waitForRequests(3, on: route)
     await rig.feed.close()
 }
+
+private func orderRow(_ id: Int, _ state: PullRequestState = .open) -> PullRequestCardRow {
+    PullRequestCardRow(id: id, title: "r\(id)", state: state, checks: .none, waitsFor: nil, canAskToFix: false, url: "")
+}
+
+@Test func editNeedsTwoOpenRowsAndADriver() {
+    let two = [orderRow(1), orderRow(2)]
+    #expect(PullRequestOrder.canEdit(canDrive: true, rows: two))
+    #expect(!PullRequestOrder.canEdit(canDrive: false, rows: two))
+    #expect(!PullRequestOrder.canEdit(canDrive: true, rows: [orderRow(1)]))
+    #expect(!PullRequestOrder.canEdit(canDrive: true, rows: [orderRow(1), orderRow(2, .merged), orderRow(3, .closed)]))
+}
+
+@Test func onlyOpenRowsMoveAndEndedRowsKeepTheirPlaces() {
+    let order = PullRequestOrder.fullOrder(allIDs: [1, 2, 3, 4], openIDs: [1, 3, 4], openOrder: [4, 1, 3])
+    #expect(order == [4, 2, 1, 3])
+}
+
+@Test func movingAStepStopsAtTheEnds() {
+    #expect(PullRequestOrder.moving([1, 2, 3], id: 2, by: -1) == [2, 1, 3])
+    #expect(PullRequestOrder.moving([1, 2, 3], id: 1, by: -1) == nil)
+    #expect(PullRequestOrder.moving([1, 2, 3], id: 3, by: 1) == nil)
+    #expect(PullRequestOrder.moving([1, 2, 3], id: 9, by: 1) == nil)
+}
+
+@Test func aDragFollowsOnMoveNumbering() {
+    #expect(PullRequestOrder.moving([1, 2, 3], from: IndexSet(integer: 0), to: 3) == [2, 3, 1])
+    #expect(PullRequestOrder.moving([1, 2, 3], from: IndexSet(integer: 2), to: 0) == [3, 1, 2])
+    #expect(PullRequestOrder.moving([1, 2, 3], from: IndexSet(integer: 0), to: 1) == [1, 2, 3])
+}
+
+@Test func aDragWithIndicesOutsideTheListChangesNothing() {
+    #expect(PullRequestOrder.moving([1, 2], from: IndexSet(integer: 5), to: 0) == [1, 2])
+    #expect(PullRequestOrder.moving([1, 2], from: IndexSet([1, 7]), to: 0) == [2, 1])
+}

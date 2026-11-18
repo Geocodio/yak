@@ -13,7 +13,8 @@ protocol FilesModeView: View {
 enum FilesModeRegistry {
     /// One line per mode view.
     static let views: [any FilesModeView.Type] = [
-        ChangedFilesView.self
+        ChangedFilesView.self,
+        FilesEverythingView.self,
     ]
 
     static func view(for mode: FilesMode) -> (any FilesModeView.Type)? { views.first { $0.mode == mode } }
@@ -54,6 +55,12 @@ struct FilesPane: View {
                     ForEach(opened, id: \.self) { mode in
                         if let type = FilesModeRegistry.view(for: mode) {
                             AnyView(type.init(thread: thread, scene: scene))
+                                // A hidden mode keeps its state but hands nothing to the bar, the strip or the menu,
+                                // and reacts to no shortcut or visibility change.
+                                .environment(\.isPaneShown, isPaneShown && mode == current)
+                                .transformPreference(PaneBarRowKey.self) { if mode != current { $0 = [:] } }
+                                .transformPreference(PaneStripRowKey.self) { if mode != current { $0 = [:] } }
+                                .transformPreference(PaneMenuItemsKey.self) { if mode != current { $0 = [:] } }
                                 .opacity(mode == current ? 1 : 0)
                                 .allowsHitTesting(mode == current)
                                 .accessibilityHidden(mode != current || !isPaneShown)
@@ -67,8 +74,37 @@ struct FilesPane: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files")
         .accessibilityHidden(!isPaneShown)
-        .onAppear { open(current) }
+        .onAppear {
+            pinModeOnceKnown()
+            open(current)
+        }
+        .onChange(of: thread.snapshot?.show != nil) { pinModeOnceKnown() }
         .onChange(of: current) { open(current) }
+        .onChange(of: thread.files.requestedDiffPath) { routeDiffRequest() }
+        .onChange(of: thread.files.files) { routeDiffRequest() }
+    }
+
+    /// The first mode is kept for as long as the pane lives, so a turn that makes the first change does not move the
+    /// person from the Everything editor to Changed.
+    private func pinModeOnceKnown() {
+        if selected == nil, thread.snapshot?.show != nil { selected = current }
+    }
+
+    /// "View diff" in the Everything viewer: show Changed on that file once its list has it.
+    private func routeDiffRequest() {
+        guard let path = thread.files.requestedDiffPath else { return }
+        selected = .changed
+        guard let key = Self.diffKey(for: path, in: thread.files.files) else {
+            // A loaded list without the file has nothing to show for it; Changed stays on its own file.
+            if thread.files.snapshot?.load == .ready { thread.files.requestedDiffPath = nil }
+            return
+        }
+        thread.files.requestedDiffPath = nil
+        Task { await thread.files.show(key) }
+    }
+
+    static func diffKey(for path: String, in files: [DiffFileSummary]) -> DiffFileKey? {
+        files.first { $0.path == path }?.key
     }
 
     /// One built mode is a selected label that does nothing; two or more are a segmented switch.

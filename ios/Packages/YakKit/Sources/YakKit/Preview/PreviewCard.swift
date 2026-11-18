@@ -6,10 +6,14 @@ public enum PreviewAction: Hashable, Sendable {
     /// Drivers only.
     case ask(MessageIntent, isPending: Bool)
     case tryAgain, restore, retryRestore, openTerminal, showConversation, openInBrowser
+    /// Drivers only, on the failing card, when Files can open the manifest.
+    case editManifest
 }
 
 /// The card the Preview pane shows for a preview state, and the buttons it offers.
 public struct PreviewCard: Equatable, Sendable {
+    public static let manifestPath = ".yak/preview.yml"
+
     public enum Kind: Equatable, Sendable {
         /// ready: the web view.
         case page
@@ -44,7 +48,7 @@ public struct PreviewCard: Equatable, Sendable {
         status: PreviewStatus, canDrive: Bool?, blockedReason: String?, isRestoring: Bool,
         sandboxState: String? = nil, hasKnownPreviewURL: Bool = false,
         restoreTookTooLong: Bool = false, pendingIntent: MessageIntent? = nil,
-        terminalAvailable: Bool = false
+        terminalAvailable: Bool = false, canOpenFiles: Bool = false
     ) -> PreviewCard {
         let drives = canDrive ?? false
         let state = status.state
@@ -73,6 +77,7 @@ public struct PreviewCard: Equatable, Sendable {
             var actions: [PreviewAction] = drives ? [ask(.fixPreview)] : []
             if terminalAvailable { actions.append(.openTerminal) }
             actions.append(.tryAgain)
+            if drives && canOpenFiles { actions.append(.editManifest) }
             return card(.failing, actions)
         case .noManifest:
             let actions: [PreviewAction] = drives ? [ask(.addPreviewManifest)] : []

@@ -29,6 +29,7 @@ struct RootView: View {
                 }
             }
         }
+        .environment(\.isNetworkOnline, model.network.isOnline)
         .fullScreenCover(item: explanationBinding) { request in
             NotificationExplanationCover(request: request, model: model)
         }

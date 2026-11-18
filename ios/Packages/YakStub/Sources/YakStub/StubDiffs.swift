@@ -21,9 +21,8 @@ extension StubChanges {
             reply = diffFile(Int(tail[2]), context)
         case ("POST", ["pull-request"]): reply = openPullRequest(request, context)
         case ("GET", ["pull-requests"]):
-            reply = json(
-                context.fixtures.scenario(isOpen(context) ? "scenario-pull-requests" : "scenario-pull-requests-none"))
-        case ("PUT", ["pull-requests", "order"]): reply = status("updated")
+            reply = json(pullRequests(context))
+        case ("PUT", ["pull-requests", "order"]): reply = saveOrder(request, context)
         case ("POST", let tail) where tail.count == 3 && tail[0] == "pull-requests" && tail[2] == "fix":
             reply =
                 tail[1] == "78"
@@ -42,8 +41,51 @@ extension StubChanges {
         return reply
     }
 
+    /// The pull request panel, its rows in the last order the person saved.
+    private func pullRequests(_ context: StubContext) -> [String: Any] {
+        var panel = context.fixtures.scenario(
+            isOpen(context) ? "scenario-pull-requests" : "scenario-pull-requests-none")
+        let order = state.get().rowOrder
+        if !order.isEmpty, var rows = panel["pullRequests"] as? [[String: Any]] {
+            rows.sort {
+                (order.firstIndex(of: $0["rowId"] as? Int ?? 0) ?? 0)
+                    < (order.firstIndex(of: $1["rowId"] as? Int ?? 0) ?? 0)
+            }
+            panel["pullRequests"] = rows
+        }
+        return panel
+    }
+
+    /// Remembers the order, so the next read of the panel lists the rows that way. The two failing scenarios
+    /// answer an error and remember nothing.
+    private func saveOrder(_ request: StubRequest, _ context: StubContext) -> StubReply {
+        let body = String(decoding: request.body, as: UTF8.self)
+        state.mutate { $0.lastOrderBody = body }
+        switch context.scenario {
+        case "pull-request-order-failed":
+            return StubReply(answer: Scenario.error(500, "server_error", "The order could not be saved."))
+        case "pull-request-order-conflict":
+            return StubReply(
+                answer: Scenario.error(
+                    422, "validation_failed", "The request is not valid.",
+                    details: [
+                        "errors": [
+                            "order": ["The order must list each pull request of this thread exactly once."]
+                        ]
+                    ]))
+        default:
+            let sent = ((try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any])?["order"] as? [Int]
+            state.mutate { $0.rowOrder = sent ?? [] }
+            return status("updated")
+        }
+    }
+
     private func isOpen(_ context: StubContext) -> Bool {
-        if ["pull-request-open", "pull-request-slow"].contains(context.scenario) { return true }
+        if ["pull-request-open", "pull-request-slow", "pull-request-order-failed", "pull-request-order-conflict"]
+            .contains(context.scenario)
+        {
+            return true
+        }
         guard let started = state.get().openingStartedAt, !state.get().openingRefused else { return false }
         return context.scenario != "pull-request-held" && Date().timeIntervalSince(started) >= Self.openingDuration
     }

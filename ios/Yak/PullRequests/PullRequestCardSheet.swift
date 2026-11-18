@@ -21,9 +21,15 @@ struct PullRequestCardSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("common.done") { dismiss() }.accessibilityIdentifier("pullRequest.done")
+                        if model.isEditing {
+                            Button("common.done") { model.endEditing() }
+                                .disabled(model.isSavingOrder).accessibilityIdentifier("pullRequest.order.done")
+                        } else {
+                            Button("common.done") { dismiss() }.accessibilityIdentifier("pullRequest.done")
+                        }
                     }
                     .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .cancellationAction) { editButton }
                 }
         }
         .presentationDetents([.large])
@@ -40,8 +46,18 @@ struct PullRequestCardSheet: View {
         .accessibilityIdentifier("pullRequest.card")
     }
 
+    @ViewBuilder private var editButton: some View {
+        let availability = model.editAvailability(isOnline: !thread.isOffline)
+        if availability != .hidden && !model.isEditing {
+            Button("pullRequest.order.edit") { model.beginEditing(isOnline: !thread.isOffline) }
+                .disabled(availability == .offline).accessibilityIdentifier("pullRequest.order.edit")
+        }
+    }
+
     @ViewBuilder private var content: some View {
-        if model.panel == nil {
+        if model.isEditing {
+            orderList
+        } else if model.panel == nil {
             switch model.load {
             case .failed(let problem):
                 StateMessage(
@@ -78,6 +94,16 @@ struct PullRequestCardSheet: View {
                     .accessibilityIdentifier("pullRequest.problem")
                 }
             }
+            if model.editAvailability(isOnline: !thread.isOffline) == .offline {
+                Section {
+                    Label("pullRequest.order.editOffline", systemImage: "wifi.slash").font(.footnote.weight(.medium))
+                        .accessibilityIdentifier("pullRequest.order.offline")
+                }
+            }
+            if let notice = model.orderNotice {
+                Section { Text(verbatim: notice).font(.footnote.weight(.medium)) }
+                    .accessibilityIdentifier("pullRequest.order.notice")
+            }
             if let banner = model.banner { bannerSection(banner) }
             ForEach(model.rows) { row in section(row) }
             if !model.withoutPullRequest.isEmpty {
@@ -102,6 +128,76 @@ struct PullRequestCardSheet: View {
             }
         }
         .refreshable { await model.reload() }
+    }
+
+    /// The open pull requests in merge order with the system's reorder handles.
+    private var orderList: some View {
+        List {
+            orderStatus
+            Section {
+                ForEach(Array(model.openRows.enumerated()), id: \.element.id) { index, row in
+                    HStack(spacing: 12) {
+                        Text(verbatim: "\(index + 1)").font(.body.monospacedDigit().weight(.medium))
+                            .foregroundStyle(Color.yakMuted).frame(minWidth: 24)
+                            .accessibilityHidden(true)
+                        Text(verbatim: row.title).frame(minHeight: 44, alignment: .leading)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        Text(verbatim: "\(row.title), \(String(localized: "pullRequest.order.place \(index + 1)"))")
+                    )
+                    .accessibilityActions {
+                        if index > 0 {
+                            Button("pullRequest.order.moveUp") { Task { await model.moveRow(row.id, by: -1) } }
+                        }
+                        if index < model.openRows.count - 1 {
+                            Button("pullRequest.order.moveDown") { Task { await model.moveRow(row.id, by: 1) } }
+                        }
+                    }
+                    .accessibilityIdentifier("pullRequest.order.row.\(row.id)")
+                    .moveDisabled(model.isSavingOrder)
+                }
+                .onMove { source, destination in
+                    Task { await model.moveRows(from: source, to: destination) }
+                }
+            } footer: {
+                Text("pullRequest.order.footer")
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .onChange(of: model.orderAnnouncement) { _, line in
+            if let line { AccessibilityNotification.Announcement(line).post() }
+        }
+        .accessibilityIdentifier("pullRequest.order.list")
+    }
+
+    @ViewBuilder private var orderStatus: some View {
+        if let notice = model.orderNotice {
+            Section { Text(verbatim: notice).font(.footnote.weight(.medium)) }
+                .accessibilityIdentifier("pullRequest.order.notice")
+        }
+        switch model.orderState {
+        case .slow:
+            Section {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("list.slow").font(.footnote.weight(.medium))
+                }
+                .accessibilityElement(children: .combine)
+            }
+            .accessibilityIdentifier("pullRequest.order.slow")
+        case .failed(let message):
+            Section {
+                HStack {
+                    Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    Spacer(minLength: 8)
+                    Button("common.retry") { Task { await model.retryOrder() } }
+                        .accessibilityIdentifier("pullRequest.order.retry")
+                }
+                .accessibilityIdentifier("pullRequest.order.failed")
+            }
+        default: EmptyView()
+        }
     }
 
     private func bannerSection(_ banner: PullRequestBanner) -> some View {

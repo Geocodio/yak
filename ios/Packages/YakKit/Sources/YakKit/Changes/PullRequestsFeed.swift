@@ -73,15 +73,18 @@ public actor PullRequestsFeed {
         }
     }
 
-    /// Loads now and waits for the answer, visible or not.
-    public func reload() async {
-        guard !isClosed else { return }
+    /// Loads now and waits for the answer, visible or not. Returns the panel this load fetched, or nil when it
+    /// failed or was overtaken.
+    @discardableResult
+    public func reload() async -> PullRequestsPanel? {
+        guard !isClosed else { return nil }
         if panel == nil, case .failed = load {
             load = .loading
             publish()
         }
-        await fetch()
+        let fetched = await fetch()
         if isVisible, !isClosed, !isPolling, problem?.isRetryable ?? true { startPolling(fetchFirst: false) }
+        return fetched
     }
 
     /// Cancels the polling and ends the streams. Repeating it changes nothing.
@@ -110,7 +113,8 @@ public actor PullRequestsFeed {
         }
     }
 
-    private func fetch() async {
+    @discardableResult
+    private func fetch() async -> PullRequestsPanel? {
         generation += 1
         let current = generation
         if panel == nil, load == .loading { startSlowTimer() }
@@ -118,7 +122,7 @@ public actor PullRequestsFeed {
         do {
             fetched = try await client.send(.pullRequests(threadID))
         } catch {
-            guard !Task.isCancelled, !isClosed, current == generation, error != .network(.cancelled) else { return }
+            guard !Task.isCancelled, !isClosed, current == generation, error != .network(.cancelled) else { return nil }
             slowTask?.cancel()
             slowTask = nil
             let failure = ThreadProblem(error)
@@ -126,15 +130,16 @@ public actor PullRequestsFeed {
             problem = failure
             if panel == nil { load = .failed(failure) }
             publish()
-            return
+            return nil
         }
-        guard !Task.isCancelled, !isClosed, current == generation else { return }
+        guard !Task.isCancelled, !isClosed, current == generation else { return nil }
         slowTask?.cancel()
         slowTask = nil
         panel = fetched
         problem = nil
         load = .ready
         publish()
+        return fetched
     }
 
     private func publish() {

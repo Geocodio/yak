@@ -14,6 +14,7 @@ struct SettingsScreen: View {
     @State private var confirmingRemoval: Instance?
     @State private var turnedOn = false
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.openURL) private var openURL
 
     init(app: AppModel, push: PushController, active: Instance, onClose: @escaping () -> Void) {
@@ -157,13 +158,15 @@ struct SettingsScreen: View {
             Button {
                 showsAdd = true
             } label: {
-                Text("signedIn.add").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                Text("signedIn.add").fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).id(dynamicTypeSize)
             }
             .accessibilityIdentifier("settings.addInstance")
             Button(role: .destructive) {
                 confirmingRemoval = model.current
             } label: {
-                Text("signedIn.remove").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                Text("signedIn.remove").fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).id(dynamicTypeSize)
             }
             .foregroundStyle(Color.yakDanger)
             .disabled(model.removing.contains(model.active.id))
@@ -179,6 +182,7 @@ struct SettingsScreen: View {
             Task { if await model.switchTo(instance) { onClose() } }
         } label: {
             HStack(spacing: 12) {
+                InstanceTintTile(instance: instance).opacity(isRemoving ? 0.5 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(instance.name).font(.body).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
