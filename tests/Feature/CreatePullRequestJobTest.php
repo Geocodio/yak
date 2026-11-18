@@ -614,7 +614,54 @@ test('PR body names the Sentry issue or flaky tests that triggered the task', fu
         ],
         '**Flaky tests:** [`FooTest > it works`](https://github.com/org/test-repo/actions/runs/1/job/7), `BarTest > it works` ([CI build](https://github.com/org/test-repo/actions/runs/1))',
     ],
+    'ci failure' => [
+        [
+            'source' => 'ci-failure',
+            'external_id' => 'ci-failure:abc',
+            'external_url' => 'https://github.com/org/test-repo/actions/runs/1/job/7',
+            'result_summary' => "Pinned the lockfile.\n\nCI-FAILURE-OUTCOME: fixed",
+            'context' => json_encode(['job_name' => 'Security Audit', 'failures' => [['branch' => 'feature/a', 'job_url' => 'https://github.com/org/test-repo/actions/runs/1/job/7']]]),
+        ],
+        '**Failing CI job:** `Security Audit` on [`feature/a`](https://github.com/org/test-repo/actions/runs/1/job/7)',
+    ],
 ]);
+
+test('PR body for a ci-failure task leaves out the outcome line', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/test-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create(['slug' => 'org/test-repo', 'path' => '/home/yak/repos/test-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/test-repo',
+        'branch_name' => 'yak/FIX-OUTCOME',
+        'source' => 'ci-failure',
+        'result_summary' => "Pinned the lockfile.\n\nCI-FAILURE-OUTCOME: fixed",
+        'context' => json_encode(['job_name' => 'Security Audit', 'failures' => []]),
+    ]);
+
+    app()->call([new CreatePullRequestJob($task), 'handle']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_contains($request->url(), '/pulls')
+        && str_contains($request['body'], 'Pinned the lockfile.')
+        && ! str_contains($request['body'], 'CI-FAILURE-OUTCOME'));
+});
 
 test('PR body does not wrap the agent summary in a "What changed" heading', function () {
     Http::fake([

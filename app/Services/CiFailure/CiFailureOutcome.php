@@ -24,7 +24,10 @@ enum CiFailureOutcome: string
     /** Recorded when the task's pull request was closed without merging. */
     case PullRequestClosed = 'pr_closed';
 
-    private const string LINE_PATTERN = '/^CI-FAILURE-OUTCOME: (fixed|unverified_fix|already_fixed|not_shared|covered_by_pr #\d+|cannot_fix)$/m';
+    /** Tolerates Markdown emphasis or backticks around the line, trailing whitespace and CRLF. */
+    private const string LINE_PATTERN = '/^[ \t*`]*CI-FAILURE-OUTCOME:[ \t*`]*(fixed|unverified_fix|already_fixed|not_shared|covered_by_pr #\d+|cannot_fix)[ \t*`]*\r?$/m';
+
+    private const string MARKER_LINE_PATTERN = '/^[ \t*`]*CI-FAILURE-OUTCOME:[^\n]*(?:\n|$)/m';
 
     /**
      * The last outcome line wins, because the prompt quotes an example line.
@@ -35,6 +38,14 @@ enum CiFailureOutcome: string
         $line = self::lastLine($summary);
 
         return $line === null ? self::CannotFix : (self::tryFrom(explode(' ', $line)[0]) ?? self::CannotFix);
+    }
+
+    /**
+     * The summary without its outcome lines, for text people read.
+     */
+    public static function withoutLine(?string $summary): ?string
+    {
+        return $summary === null ? null : rtrim((string) preg_replace(self::MARKER_LINE_PATTERN, '', $summary));
     }
 
     public static function hasLine(?string $summary): bool

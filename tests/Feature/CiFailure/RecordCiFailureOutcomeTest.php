@@ -56,8 +56,19 @@ it('parses each outcome line', function (string $summary, CiFailureOutcome $expe
     'not shared' => [outcomeLine('not_shared'), CiFailureOutcome::NotShared],
     'covered' => [outcomeLine('covered_by_pr #12'), CiFailureOutcome::CoveredByPullRequest],
     'cannot fix' => [outcomeLine('cannot_fix'), CiFailureOutcome::CannotFix],
+    'trailing whitespace' => ["Done.\n\nCI-FAILURE-OUTCOME: fixed  \t", CiFailureOutcome::Fixed],
+    'crlf' => ["Done.\r\n\r\nCI-FAILURE-OUTCOME: unverified_fix\r\n", CiFailureOutcome::UnverifiedFix],
+    'bold line' => ["Done.\n\n**CI-FAILURE-OUTCOME: already_fixed**", CiFailureOutcome::AlreadyFixed],
+    'bold label' => ["Done.\n\n**CI-FAILURE-OUTCOME:** not_shared", CiFailureOutcome::NotShared],
+    'backticks' => ["Done.\n\n`CI-FAILURE-OUTCOME: covered_by_pr #4`", CiFailureOutcome::CoveredByPullRequest],
     'last line wins over a quoted example' => ["CI-FAILURE-OUTCOME: fixed\nthen\nCI-FAILURE-OUTCOME: not_shared", CiFailureOutcome::NotShared],
 ]);
+
+it('removes the outcome line from a summary', function () {
+    expect(CiFailureOutcome::withoutLine("Fixed the lockfile.\n\n**CI-FAILURE-OUTCOME: fixed**\n"))->toBe('Fixed the lockfile.')
+        ->and(CiFailureOutcome::withoutLine("Quoted CI-FAILURE-OUTCOME: fixed mid-line stays.\nCI-FAILURE-OUTCOME: cannot_fix"))->toBe('Quoted CI-FAILURE-OUTCOME: fixed mid-line stays.')
+        ->and(CiFailureOutcome::withoutLine(null))->toBeNull();
+});
 
 it('treats a missing outcome line as cannot_fix', function (?string $summary) {
     expect(CiFailureOutcome::fromSummary($summary))->toBe(CiFailureOutcome::CannotFix);
