@@ -1,10 +1,12 @@
 <?php
 
 use App\Jobs\HandleCiJobFailureJob;
+use App\Jobs\RecordCiJobGreenJob;
 use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -23,7 +25,7 @@ beforeEach(function () {
 /**
  * @param  array<string, mixed>  $payload
  */
-function postWebhook(string $event, array $payload): void
+function postCiFailureWebhook(string $event, array $payload): void
 {
     test()->postJson('/webhooks/github', $payload, [
         'X-GitHub-Event' => $event,
@@ -36,7 +38,7 @@ function postWebhook(string $event, array $payload): void
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
-function workflowJobPayload(array $job = [], array $overrides = []): array
+function ciFailureWorkflowJobPayload(array $job = [], array $overrides = []): array
 {
     return array_replace_recursive([
         'action' => 'completed',
@@ -53,20 +55,20 @@ function workflowJobPayload(array $job = [], array $overrides = []): array
 }
 
 it('ignores workflow_job actions other than completed', function () {
-    postWebhook('workflow_job', workflowJobPayload(overrides: ['action' => 'in_progress']));
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(overrides: ['action' => 'in_progress']));
 
     Queue::assertNothingPushed();
 });
 
 it('dispatches the failure job for a failed or timed_out job on an active github_actions repo', function (string $conclusion) {
-    postWebhook('workflow_job', workflowJobPayload(['conclusion' => $conclusion]));
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['conclusion' => $conclusion]));
 
     Queue::assertPushed(HandleCiJobFailureJob::class, fn ($job) => $job->repositoryId === $this->repository->id
         && $job->workflowJobPayload['workflow_job']['conclusion'] === $conclusion);
 })->with(['failure', 'timed_out']);
 
 it('ignores cancelled and skipped conclusions', function (string $conclusion) {
-    postWebhook('workflow_job', workflowJobPayload(['conclusion' => $conclusion]));
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['conclusion' => $conclusion]));
 
     Queue::assertNothingPushed();
 })->with(['cancelled', 'skipped']);
@@ -74,7 +76,7 @@ it('ignores cancelled and skipped conclusions', function (string $conclusion) {
 it('ignores yak branches, configured prefixes, bot senders and a null head_branch', function (array $job, array $overrides) {
     config()->set('yak.ci_failure.ignored_branch_prefixes', ['yak/', 'dependabot/']);
 
-    postWebhook('workflow_job', workflowJobPayload($job, $overrides));
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload($job, $overrides));
 
     Queue::assertNothingPushed();
 })->with([
@@ -86,7 +88,7 @@ it('ignores yak branches, configured prefixes, bot senders and a null head_branc
 ]);
 
 it('ignores excluded jobs', function (string $name) {
-    postWebhook('workflow_job', workflowJobPayload(['name' => $name]));
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['name' => $name]));
 
     Queue::assertNothingPushed();
 })->with(['Deploy staging', 'Notify Slack (tests)']);
@@ -94,7 +96,7 @@ it('ignores excluded jobs', function (string $name) {
 it('ignores repos that are inactive or not on github_actions', function (array $state) {
     $this->repository->update($state);
 
-    postWebhook('workflow_job', workflowJobPayload());
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload());
 
     Queue::assertNothingPushed();
 })->with([
@@ -102,38 +104,123 @@ it('ignores repos that are inactive or not on github_actions', function (array $
     'drone' => [['ci_system' => 'drone']],
 ]);
 
-it('resolves the branch failures on a green run and records a default-branch green', function () {
-    $matching = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main']);
-    $otherBranch = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/y']);
+/**
+ * @return array<string, mixed>
+ */
+function ciFailureGreenPayload(string $branch = 'main'): array
+{
+    return ciFailureWorkflowJobPayload(['conclusion' => 'success', 'head_branch' => $branch, 'run_id' => 77, 'head_sha' => 'sha-1']);
+}
+
+/**
+ * @param  array<string, mixed>  $payload
+ */
+function runCiFailureGreenJob(Repository $repository, array $payload, string $headRepository): void
+{
+    configureFakeGitHubApp();
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/acme/widgets/actions/runs/77' => Http::response([
+            'head_repository' => ['full_name' => $headRepository],
+            'head_sha' => 'sha-1',
+        ]),
+    ]);
+
+    app()->call([new RecordCiJobGreenJob($repository->id, $payload), 'handle']);
+}
+
+function widgetsFailure(string $branch): CiJobFailure
+{
+    return CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => $branch]);
+}
+
+it('dispatches the green job for a default-branch success or a match with an unresolved failure', function (string $branch) {
+    widgetsFailure('feature/y');
+
+    postCiFailureWebhook('workflow_job', ciFailureGreenPayload($branch));
+
+    Queue::assertPushed(RecordCiJobGreenJob::class, fn ($job) => $job->repositoryId === $this->repository->id);
+})->with(['main', 'feature/y']);
+
+it('dispatches no green job when nothing matches and the branch is not default', function () {
+    postCiFailureWebhook('workflow_job', ciFailureGreenPayload('feature/z'));
+
+    Queue::assertNothingPushed();
+});
+
+it('records a green from the repo own run', function () {
+    $matching = widgetsFailure('main');
+    $otherBranch = widgetsFailure('feature/y');
     $otherJob = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main', 'job_name' => 'Lint']);
 
-    postWebhook('workflow_job', workflowJobPayload(['conclusion' => 'success', 'head_branch' => 'main']));
+    runCiFailureGreenJob($this->repository, ciFailureGreenPayload(), 'acme/widgets');
 
     expect($matching->fresh()->resolution)->toBe('green')
-        ->and($matching->fresh()->resolved_at)->not->toBeNull()
         ->and($otherBranch->fresh()->resolved_at)->toBeNull()
         ->and($otherJob->fresh()->resolved_at)->toBeNull()
         ->and(CiDefaultBranchGreen::where('repo', 'acme/widgets')->count())->toBe(0)
         ->and(CiDefaultBranchGreen::latestFor('widgets-slug', 'CI', 'Test (Main)')?->toIso8601String())
         ->toBe('2026-11-18T10:00:00+00:00');
-    Queue::assertNothingPushed();
 });
 
-it('does not record a green for a non-default branch', function () {
-    postWebhook('workflow_job', workflowJobPayload(['conclusion' => 'success']));
+it('ignores a green from a fork run', function () {
+    $failure = widgetsFailure('main');
+
+    runCiFailureGreenJob($this->repository, ciFailureGreenPayload(), 'fork/widgets');
+
+    expect($failure->fresh()->resolved_at)->toBeNull()
+        ->and(CiDefaultBranchGreen::count())->toBe(0);
+});
+
+it('ignores a green whose run head sha differs from the job', function () {
+    $payload = ciFailureGreenPayload();
+    $payload['workflow_job']['head_sha'] = 'other-sha';
+
+    runCiFailureGreenJob($this->repository, $payload, 'acme/widgets');
 
     expect(CiDefaultBranchGreen::count())->toBe(0);
 });
 
-it('resolves a branch failures when the branch is deleted or its PR closes', function (string $event, array $payload, string $resolution) {
-    $failure = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/x']);
-    $other = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/y']);
+/**
+ * @return array<string, mixed>
+ */
+function ciFailurePullRequestClosedPayload(string $headRef, string $headRepository = 'acme/widgets'): array
+{
+    return [
+        'action' => 'closed',
+        'pull_request' => [
+            'html_url' => 'https://github.com/acme/widgets/pull/9',
+            'head' => ['ref' => $headRef, 'repo' => ['full_name' => $headRepository]],
+        ],
+        'repository' => ['id' => 1, 'full_name' => 'acme/widgets'],
+    ];
+}
 
-    postWebhook($event, $payload);
+it('resolves a branch failures when the branch is deleted or its PR closes', function (string $event, array $payload, string $resolution) {
+    $failure = widgetsFailure('feature/x');
+    $other = widgetsFailure('feature/y');
+
+    postCiFailureWebhook($event, $payload);
 
     expect($failure->fresh()->resolution)->toBe($resolution)
         ->and($other->fresh()->resolved_at)->toBeNull();
 })->with([
     'branch deleted' => ['delete', ['ref_type' => 'branch', 'ref' => 'feature/x', 'repository' => ['id' => 1, 'full_name' => 'acme/widgets']], 'branch_deleted'],
-    'pr closed' => ['pull_request', ['action' => 'closed', 'pull_request' => ['html_url' => 'https://github.com/acme/widgets/pull/9', 'head' => ['ref' => 'feature/x']], 'repository' => ['id' => 1, 'full_name' => 'acme/widgets']], 'pr_closed'],
+    'pr closed' => ['pull_request', ciFailurePullRequestClosedPayload('feature/x'), 'pr_closed'],
 ]);
+
+it('does not resolve failures for a pull_request closed from a fork', function () {
+    $failure = widgetsFailure('feature/x');
+
+    postCiFailureWebhook('pull_request', ciFailurePullRequestClosedPayload('feature/x', 'fork/widgets'));
+
+    expect($failure->fresh()->resolved_at)->toBeNull();
+});
+
+it('does not resolve the default branch when a PR with head ref master closes', function () {
+    $this->repository->update(['default_branch' => 'master']);
+    $failure = widgetsFailure('master');
+
+    postCiFailureWebhook('pull_request', ciFailurePullRequestClosedPayload('master'));
+
+    expect($failure->fresh()->resolved_at)->toBeNull();
+});

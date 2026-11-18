@@ -18,6 +18,7 @@ use App\Jobs\HandleCiJobFailureJob;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\QuietPeriodReviewJob;
+use App\Jobs\RecordCiJobGreenJob;
 use App\Jobs\RunConfigCheckJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
@@ -116,6 +117,7 @@ class WebhookController extends Controller
         $action = $request->input('action');
 
         if ($action === 'closed') {
+            app(CiFailureIntake::class)->resolveClosedPullRequest($request);
             $this->maybeDispatchDeployment($request, 'closed');
 
             return $this->handleClosed($request);
@@ -188,9 +190,13 @@ class WebhookController extends Controller
         }
 
         if ($request->input('workflow_job.conclusion') === 'success') {
-            $intake->recordGreen($repository, $request);
+            if (! $intake->greenMatters($repository, $request)) {
+                return response()->json(['ok' => true, 'skipped' => 'green job changes nothing']);
+            }
 
-            return response()->json(['ok' => true, 'skipped' => 'green job recorded']);
+            RecordCiJobGreenJob::dispatch($repository->id, $request->input());
+
+            return response()->json(['ok' => true, 'dispatched' => true]);
         }
 
         HandleCiJobFailureJob::dispatch($repository->id, $request->input());
@@ -482,16 +488,6 @@ class WebhookController extends Controller
 
     private function handleClosed(Request $request): JsonResponse
     {
-        $closedRepository = $this->resolveRepositoryFromPayload($request);
-
-        if ($closedRepository !== null) {
-            app(CiFailureIntake::class)->resolveBranch(
-                $closedRepository->slug,
-                (string) $request->input('pull_request.head.ref'),
-                'pr_closed',
-            );
-        }
-
         /** @var string $prUrl */
         $prUrl = $request->input('pull_request.html_url', '');
         $merged = (bool) $request->input('pull_request.merged', false);

@@ -65,6 +65,47 @@ class CiFailureIntake
         return $repository;
     }
 
+    /**
+     * Whether a passing job could change anything: it is on the default
+     * branch, or it matches an unresolved failure.
+     */
+    public function greenMatters(Repository $repository, Request $request): bool
+    {
+        $branch = (string) $request->input('workflow_job.head_branch');
+
+        return $branch === $repository->default_branch
+            || CiJobFailure::query()
+                ->unresolved()
+                ->where('repo', $repository->slug)
+                ->where('workflow_name', (string) $request->input('workflow_job.workflow_name'))
+                ->where('job_name', (string) $request->input('workflow_job.name'))
+                ->where('branch', $branch)
+                ->exists();
+    }
+
+    /**
+     * Closes failures of a pull request's branch, only when the pull request
+     * comes from the repository itself and not from a fork or its default branch.
+     */
+    public function resolveClosedPullRequest(Request $request): void
+    {
+        $repository = Repository::resolveFromGitHub(
+            $request->input('repository.id') !== null ? (int) $request->input('repository.id') : null,
+            (string) $request->input('repository.full_name'),
+        );
+        $branch = (string) $request->input('pull_request.head.ref');
+
+        if ($repository === null
+            || ! $repository->is_active
+            || $branch === ''
+            || $branch === $repository->default_branch
+            || $request->input('pull_request.head.repo.full_name') !== $request->input('repository.full_name')) {
+            return;
+        }
+
+        $this->resolveBranch($repository->slug, $branch, 'pr_closed');
+    }
+
     public function recordGreen(Repository $repository, Request $request): void
     {
         $repo = $repository->slug;
