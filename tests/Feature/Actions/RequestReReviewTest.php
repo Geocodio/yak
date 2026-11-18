@@ -4,10 +4,9 @@ use App\Actions\RequestReReview;
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
-use App\Models\User;
 use App\Models\YakTask;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Support\Facades\Http;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);

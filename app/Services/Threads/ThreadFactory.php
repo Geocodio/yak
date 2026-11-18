@@ -183,7 +183,7 @@ class ThreadFactory
                 $this->copyShares($current, $thread);
             }
 
-            if ($continuesLegacy) {
+            if ($current !== null && $continuesLegacy) {
                 YakTask::query()->withoutGlobalScopes()->where('thread_id', $current->id)->whereIn('id', $locked->conversation()->pluck('id'))
                     ->toBase()->update(['thread_id' => $thread->id]);
             }
