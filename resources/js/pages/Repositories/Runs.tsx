@@ -102,15 +102,15 @@ function RunList({ onPick, runs, selectedId, filters, totalCount }: { onPick: ()
                                         <StackedTd label="Status" className="w-6">
                                             <span className={cn('inline-block size-2 rounded-full', DOT[status.tone])} role="img" aria-label={status.label} />
                                         </StackedTd>
-                                        <StackedTd label="Run">
+                                        <StackedTd label="Run" className="min-w-0 md:w-full md:max-w-0">
                                             <Link href={run.url} preserveScroll preserveState onClick={(event) => !(event.metaKey || event.ctrlKey || event.shiftKey) && onPick()} className="block min-w-0">
                                                 <span className="block text-[13px] font-semibold text-body">{KIND_LABEL[run.kind]}</span>
-                                                <span className="block truncate text-[12px] text-muted">{run.resultLine}</span>
+                                                <span className="block truncate text-[12px] text-muted" title={run.resultLine}>{run.resultLine}</span>
                                             </Link>
                                         </StackedTd>
                                         <StackedTd label="Started by" className="max-w-[140px] truncate text-[12px] text-muted" title={run.startedBy}>{run.startedBy}</StackedTd>
-                                        <StackedTd label="Cost" className="tnum text-[12px] text-muted md:text-right">{run.costUsd > 0 ? formatUsd(run.costUsd) : '–'}</StackedTd>
-                                        <StackedTd label="When" className="text-[12px] text-muted md:text-right">{formatWhen(run.startedAt)}</StackedTd>
+                                        <StackedTd label="Cost" className="tnum whitespace-nowrap text-[12px] text-muted md:text-right">{run.costUsd > 0 ? formatUsd(run.costUsd) : '–'}</StackedTd>
+                                        <StackedTd label="When" className="whitespace-nowrap text-[12px] text-muted md:text-right">{formatWhen(run.startedAt)}</StackedTd>
                                     </StackedTr>
                                 );
                             })}

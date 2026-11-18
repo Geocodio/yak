@@ -95,3 +95,14 @@ it('keeps the list scroll when a lower row is clicked outside the run cell', fun
     expect($page->script('document.querySelector("[scroll-region]").scrollTop'))->toBe($before);
     $page->assertPresent("[data-testid=\"run-detail\"][data-run-id=\"{$target->public_id}\"]");
 });
+
+it('keeps the result line of a run row inside its column and shows it in full on hover', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    [, , , $failed] = seedRepositoryRuns();
+    $failed->forceFill(['error_log' => str_repeat('port 8000 never answered within 90 seconds. ', 6)])->save();
+
+    visit('/repos/acme/site/runs')
+        ->assertPresent("[data-testid=\"run-row-{$failed->public_id}\"] span.truncate[title]")
+        ->assertNoJavaScriptErrors();
+});
