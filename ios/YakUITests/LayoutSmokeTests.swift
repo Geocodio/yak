@@ -184,6 +184,28 @@ import XCTest
         XCTAssertTrue(element("pane.slot.leading").exists && element("pane.slot.trailing").exists)
     }
 
+    func testCommandNumbersSwitchPanes() throws {
+        try launch(scenario: "preview-ready")
+        openThread()
+        waitForTwoSlotsIfWide()
+        try XCTSkipIf(isNarrowWindow, "needs the iPad")
+        app.typeKey("2", modifierFlags: .command)
+        let preview = NSPredicate { [self] _, _ in slotLabels().values.contains("Preview") }
+        wait(for: [XCTNSPredicateExpectation(predicate: preview, object: nil)], timeout: Wait.appear)
+        app.typeKey("1", modifierFlags: .command)
+        XCTAssertEqual(slotLabels().count, 2)
+    }
+
+    func testCommandCommaOpensSettings() throws {
+        try launch(scenario: "preview-ready")
+        openThread()
+        try XCTSkipIf(isNarrowWindow, "needs the iPad")
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.staticTexts["Settings"].waitForExistence(timeout: Wait.appear))
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+    }
+
     private func waitForWidthChange(from old: CGFloat) {
         let changed = NSPredicate { [self] _, _ in abs(detail.frame.width - old) > 1 }
         wait(for: [XCTNSPredicateExpectation(predicate: changed, object: nil)], timeout: Wait.appear)

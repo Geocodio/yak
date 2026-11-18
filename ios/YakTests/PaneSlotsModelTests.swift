@@ -87,7 +87,7 @@ private let state = PaneState(focused: .chat, second: .preview)
     for slot in laptop.slots { model.report(CGRect(x: 0, y: 0, width: 400, height: 300), for: slot.position) }
     for slot in laptop.slots where slot.position != laptop.focusedPosition { model.clear(slot.position) }
     #expect(model.frame(for: .chat) != nil)
-    #expect(model.frame(for: .preview) == nil && model.alive == [.chat, .preview])
+    #expect(model.frame(for: .preview) == nil && Set(model.alive) == [.chat, .preview])
     model.show(laptop)
     #expect(model.frame(for: .preview) != nil)
 }

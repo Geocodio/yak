@@ -44,6 +44,7 @@ struct ComposerBar: View {
             }
         }
         .background { shortcuts }
+        .composerDropTarget(composer)
         #if DEBUG
             .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
         #endif
@@ -81,7 +82,7 @@ struct ComposerBar: View {
         } label: {
             SendGlyph(isBusy: composer.isSending)
         }
-        .buttonStyle(.plain).disabled(!composer.canSend)
+        .buttonStyle(.plain).disabled(!composer.canSend).hoverEffect(.highlight)
         .contextMenu {
             if composer.bar.offersSendAfterTurn {
                 Button("composer.sendAfterTurn") { send(.afterTurn) }

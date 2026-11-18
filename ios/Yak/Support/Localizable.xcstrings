@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "Markdown" : {
       "localizations" : {
         "en" : {
@@ -2290,6 +2300,66 @@
         }
       }
     },
+    "drop.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop to attach"
+          }
+        }
+      }
+    },
+    "drop.tooLarge.many %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld files are larger than %2$@, the most this Yak accepts."
+          }
+        }
+      }
+    },
+    "drop.tooLarge.one %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is larger than %2$@, the most this Yak accepts."
+          }
+        }
+      }
+    },
+    "drop.tooMany %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld files were not attached. You can attach up to %2$lld."
+          }
+        }
+      }
+    },
+    "drop.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attachments are not available right now."
+          }
+        }
+      }
+    },
+    "drop.unreadable %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files could not be read."
+          }
+        }
+      }
+    },
     "files.banner.gone %@" : {
       "localizations" : {
         "en" : {
@@ -2996,6 +3066,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shown as plain text from here, because this message is very long."
+          }
+        }
+      }
+    },
+    "menu.thread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
           }
         }
       }
@@ -7444,6 +7524,16 @@
         }
       }
     },
+    "row.openInNewWindow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in new window"
+          }
+        }
+      }
+    },
     "scan.cameraLabel" : {
       "localizations" : {
         "en" : {
@@ -10196,6 +10286,46 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "window.noThread.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a thread on the left, or start a new one."
+          }
+        }
+      }
+    },
+    "window.noThread.start" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a thread"
+          }
+        }
+      }
+    },
+    "window.noThread.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No thread open"
+          }
+        }
+      }
+    },
+    "window.otherInstance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That thread is on another Yak. Switch to it in the instance list."
           }
         }
       }

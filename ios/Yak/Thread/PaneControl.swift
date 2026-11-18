@@ -40,6 +40,7 @@ struct PaneMenuButton: View {
             .frame(minWidth: 44, minHeight: 44)
             .background(Color.primary.opacity(0.08), in: .capsule)
             .contentShape(.capsule)
+            .hoverEffect(.highlight)
         }
         .tint(.primary)
         .menuOrder(.fixed)
@@ -177,6 +178,7 @@ private struct PaneRowButton: View {
             )
             .modifier(PaneMarkLabel(mark: mark))
             .contentShape(.rect)
+            .hoverEffect(.highlight)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(descriptor.name))
