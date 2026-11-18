@@ -151,7 +151,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         className="w-full resize-none border-0 shadow-none focus:ring-0"
                         data-testid="thread-composer-input"
                     />
-                    <DraftAttachments draft={draft} errors={errors} progress={null} onOpenMedia={() => {}} />
+                    <DraftAttachments draft={draft} errors={errors} progress={null} />
                     {(errors.message || errors.model) && (
                         <p role="alert" data-testid="thread-composer-error" className="px-3 pb-2 text-[12px] text-fail">
                             {errors.message ?? errors.model}

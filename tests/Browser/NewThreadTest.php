@@ -239,3 +239,26 @@ it('opens the account dialog in place from the dialog state', function () {
         ->assertSee('claude setup-token')
         ->assertPathIs('/');
 });
+
+it('opens a pasted screenshot from its draft tile in the lightbox on the new-thread form', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    $page = visit(route('threads.new'))->assertVisible('[data-testid="start-thread-description"]');
+    $page->script(<<<'JS'
+        (() => {
+            const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([png], 'chart.png', { type: 'image/png' }));
+            document.querySelector('[data-testid="start-thread-description"]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+        })()
+    JS);
+
+    $page->click('[data-testid="draft-attachment"] button[aria-label^="View"]')
+        ->assertVisible('[data-testid="media-lightbox"]')
+        ->keys('[data-testid="media-lightbox"]', 'Escape')
+        ->assertMissing('[data-testid="media-lightbox"]')
+        ->assertNoJavaScriptErrors();
+});

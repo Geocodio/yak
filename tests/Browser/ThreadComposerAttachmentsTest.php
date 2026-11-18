@@ -130,7 +130,7 @@ it('opens a pasted screenshot from its draft tile in the lightbox', function () 
         ->assertVisible('[data-testid="media-lightbox"]')
         ->keys('[data-testid="media-lightbox"]', 'Escape')
         ->assertMissing('[data-testid="media-lightbox"]');
-})->todo('The thread composer passes an empty open handler to its draft tiles, so a draft tile has no lightbox; the task composer opened it.');
+});
 
 it('puts tokens where the files were added and backspace removes a whole token and its file', function () {
     [$thread] = attachmentsThread();

@@ -173,18 +173,6 @@ describe('research report milestone', function () {
             ->and($report->first()['url'])->toContain('/viewer/first.html');
     });
 
-    it('offers one report link for the whole conversation, the newest', function () {
-        $thread = Thread::factory()->create();
-        $first = YakTask::factory()->success()->create(['thread_id' => $thread->id, 'mode' => TaskMode::Research]);
-        sharedRulesReport($first, 'first.html');
-        sharedRulesRun($thread, $first, 1);
-        $second = YakTask::factory()->success()->create(['thread_id' => $thread->id, 'mode' => TaskMode::Research, 'parent_task_id' => $first->id]);
-        sharedRulesReport($second, 'second.html');
-        sharedRulesRun($thread, $second, 3);
-
-        expect(collect(ThreadMilestonesData::for($thread))->where('key', 'research_report'))->toHaveCount(1);
-    })->todo('The thread shows one research report milestone per research turn, each on its own run, not a single link to the newest report.');
-
     it('has no report milestone without a report or for a task that is not research', function () {
         $research = Thread::factory()->create();
         $researchTask = YakTask::factory()->success()->create(['thread_id' => $research->id, 'mode' => TaskMode::Research]);

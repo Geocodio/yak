@@ -236,7 +236,7 @@ export function StartThreadForm({
                     />
                 </div>
                 {mention && !noRepos && <AtRepositoryMenu slugs={mentionSlugs} activeIndex={Math.min(activeIndex, Math.max(mentionSlugs.length - 1, 0))} onPick={pickMention} />}
-                <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
+                <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} />
                 <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-2">
                     <div className="inline-flex gap-0.5 rounded-[10px] border border-hair bg-panel-2/60 p-0.5" role="group" aria-label="Mode">
                         {MODES.map(({ mode, label, icon: Icon }) => {
