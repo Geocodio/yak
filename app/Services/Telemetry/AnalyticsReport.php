@@ -243,7 +243,7 @@ final class AnalyticsReport
             ->orderByDesc('total_ms')
             ->limit($limit)
             ->get();
-        $taskUrls = TaskPageUrl::forVisibleTaskIds($runs->pluck('yak_task_id')->all());
+        $taskUrls = TaskPageUrl::forVisibleTaskIds($runs->map(fn (TaskRun $run): int => $run->yak_task_id)->all());
 
         return $runs
             ->map(fn (TaskRun $run): array => [
@@ -527,7 +527,7 @@ final class AnalyticsReport
             ->orderByDesc('id')
             ->limit($limit)
             ->get();
-        $taskUrls = TaskPageUrl::forVisibleTaskIds($events->pluck('yak_task_id')->filter()->all());
+        $taskUrls = TaskPageUrl::forVisibleTaskIds(array_filter($events->map(fn (TelemetryEvent $event): ?int => $event->yak_task_id)->all()));
 
         $rows = $events
             ->map(fn (TelemetryEvent $event): array => [
@@ -537,7 +537,7 @@ final class AnalyticsReport
                 'repo' => $event->repo,
                 'source' => $event->source,
                 'taskId' => $event->yak_task_id,
-                'taskUrl' => $taskUrls[$event->yak_task_id] ?? null,
+                'taskUrl' => $event->yak_task_id === null ? null : ($taskUrls[$event->yak_task_id] ?? null),
                 'durationMs' => $event->duration_ms,
                 'value' => $event->value,
                 'properties' => $event->properties,

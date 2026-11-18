@@ -24,11 +24,13 @@ use Illuminate\Support\Str;
 /**
  * The person's messages in a thread, in send order, with whether the model has
  * taken each one in. State follows `thread_turn_messages`.
+ *
+ * @phpstan-type MessageRow array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
  */
 final class ThreadMessagesData
 {
     /**
-     * @return list<array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}>
+     * @return list<MessageRow>
      */
     public static function for(Thread $thread, ?User $viewer = null): array
     {
@@ -72,7 +74,7 @@ final class ThreadMessagesData
                 continue;
             }
 
-            $channelSource = $steer?->source ?? $row->source;
+            $channelSource = $steer->source ?? $row->source;
             $authorName = $row->author_name ?? $steer?->author_name;
             $isChannelSteer = $row->kind === TurnMessageKind::Steer && ($steer !== null || $row->author_name !== null || $row->source !== null);
 
@@ -259,7 +261,7 @@ final class ThreadMessagesData
      */
     public static function author(?YakTask $task, ?string ...$names): array
     {
-        $name = Arr::first($names, fn (?string $candidate): bool => filled($candidate), 'Yak');
+        $name = Arr::first($names, fn (?string $candidate): bool => filled($candidate)) ?? 'Yak';
         $origin = $task === null ? null : app(ThreadOrigin::class)->forRequest($task);
         $source = $origin['source'] ?? ThreadSource::Dashboard;
 

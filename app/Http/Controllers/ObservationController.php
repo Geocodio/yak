@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\ObservationData;
+use App\Models\Observation;
 use App\Services\ObservationQuery;
 use App\Support\TaskPageUrl;
 use Illuminate\Http\Request;
@@ -35,9 +36,8 @@ class ObservationController extends Controller
      */
     private function paginated(string $repo, string $outcome): ScrollProp
     {
-        /** @var LengthAwarePaginator<int, array<string, mixed>> $mapped */
         $page = ObservationQuery::page($repo, $outcome);
-        $taskUrls = TaskPageUrl::forVisibleTaskIds($page->getCollection()->pluck('yak_task_id')->filter()->values()->all());
+        $taskUrls = TaskPageUrl::forVisibleTaskIds(array_filter($page->getCollection()->map(fn (Observation $observation): ?int => $observation->yak_task_id)->all()));
         $mapped = $page->through(fn ($observation): array => ObservationData::from($observation, $taskUrls));
 
         return Inertia::scroll($mapped)->matchOn('data.id');

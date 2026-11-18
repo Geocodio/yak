@@ -95,7 +95,7 @@ final class TaskPageUrl
      * The pages of several tasks as the signed-in viewer may see them, in a fixed number of queries
      * for work tasks. A task the viewer cannot see, or that has no page, maps to null.
      *
-     * @param  list<int>  $taskIds
+     * @param  array<int, int>  $taskIds
      * @return array<int, ?string>
      */
     public static function forVisibleTaskIds(array $taskIds): array
@@ -186,11 +186,11 @@ final class TaskPageUrl
         if ($task->mode === TaskMode::Review) {
             $number = $task->pullRequestNumber();
 
-            return $task->repo === null || $number === null ? null : ['kind' => 'review', 'repo' => $task->repo, 'number' => $number];
+            return $number === null ? null : ['kind' => 'review', 'repo' => $task->repo, 'number' => $number];
         }
 
         if (RepositoryRunData::isRepositoryRun($task)) {
-            $repository = $task->repo === null ? null : ($lookups['repositories'][$task->repo] ?? (isset($lookups['repositories']) ? null : Repository::query()->where('slug', $task->repo)->first()));
+            $repository = $lookups['repositories'][$task->repo] ?? (isset($lookups['repositories']) ? null : Repository::query()->where('slug', $task->repo)->first());
 
             return $repository === null ? null : ['kind' => 'run', 'repository' => $repository];
         }

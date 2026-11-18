@@ -7,7 +7,7 @@ use App\Http\Requests\Threads\ThreadLogRequest;
 use App\Http\Resources\ThreadLogRowData;
 use App\Models\User;
 use App\Services\Threads\ThreadLogQuery;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Inertia\Inertia;
 use Inertia\Response;

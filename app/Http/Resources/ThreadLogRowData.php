@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Thread;
 use App\Services\Threads\ThreadRequestStatus;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -41,8 +42,8 @@ final class ThreadLogRowData
             return [];
         }
 
-        $ids = $threads->pluck('id')->all();
-        $threads->loadMissing('creator:id,name,avatar_url');
+        $ids = array_values($threads->map(fn (Thread $thread): int => $thread->id)->all());
+        (new EloquentCollection($threads->all()))->loadMissing('creator:id,name,avatar_url');
 
         $statusKeys = [];
         foreach (self::STATUS_KEYS_BY_PRIORITY as $key) {
@@ -56,7 +57,7 @@ final class ThreadLogRowData
         $firstAskedByThread = self::firstAskedNames($ids);
         $costs = DB::table('task_runs')->whereIn('thread_id', $ids)->groupBy('thread_id')->selectRaw('thread_id, sum(cost_usd) as total')->pluck('total', 'thread_id');
 
-        return $threads->map(function (Thread $thread) use ($statusKeys, $tasks, $firstAskedByThread, $costs): array {
+        return array_values($threads->map(function (Thread $thread) use ($statusKeys, $tasks, $firstAskedByThread, $costs): array {
             $status = ThreadRequestStatus::describe($statusKeys[$thread->id] ?? 'done');
             $threadTasks = $tasks->get($thread->id, collect());
             $followUpCount = $threadTasks->whereNotNull('parent_task_id')->count();
@@ -80,10 +81,10 @@ final class ThreadLogRowData
                 'repo' => $thread->hasRepository() ? $thread->repo : null,
                 'pullRequest' => $pullRequest,
                 'costUsd' => round((float) ($costs[$thread->id] ?? 0), 4),
-                'lastActivityAt' => ($thread->last_activity_at ?? $thread->created_at)->toIso8601String(),
+                'lastActivityAt' => ($thread->last_activity_at ?? $thread->created_at ?? now())->toIso8601String(),
                 'followUpCount' => $followUpCount,
             ];
-        })->all();
+        })->all());
     }
 
     /**

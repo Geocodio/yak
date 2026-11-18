@@ -62,7 +62,7 @@ final class PrReviewRunData
 
         $usages = TaskRun::query()->whereIn('yak_task_id', $tasks->pluck('id'))->whereNotNull('model_usage')->orderBy('id')->get(['yak_task_id', 'model_usage'])->pluck('model_usage', 'yak_task_id');
 
-        $runs = $tasks->map(fn (YakTask $task): array => self::run($task, $reviews->get($task->id), $usages->get($task->id), $repoSlug, $prNumber))->values()->all();
+        $runs = array_values($tasks->map(fn (YakTask $task): array => self::run($task, $reviews->get($task->id), $usages->get($task->id), $repoSlug, $prNumber))->all());
 
         return ['runs' => $runs, 'panel' => self::panel($tasks, $reviews, $runs, $repoSlug, $prNumber), 'description' => self::description($tasks)];
     }
@@ -94,15 +94,15 @@ final class PrReviewRunData
         $taskStatus = $task->status;
         $status = self::status($taskStatus);
         $isLive = in_array($status, ['queued', 'reviewing'], true);
-        $comments = $review?->comments ?? new Collection;
+        $comments = $review->comments ?? new Collection;
         $context = self::context($task);
-        $summary = $review?->summary ?? $task->result_summary;
+        $summary = $review->summary ?? $task->result_summary;
 
         return [
             'id' => $task->public_id,
             'status' => $status,
             'scope' => (string) ($review->review_scope ?? $context['review_scope'] ?? 'full'),
-            'startedAt' => ($task->started_at ?? $task->created_at)->toIso8601String(),
+            'startedAt' => ($task->started_at ?? $task->created_at ?? now())->toIso8601String(),
             'commit' => ($sha = $review->commit_sha_reviewed ?? $context['head_sha'] ?? null) === null ? null : substr((string) $sha, 0, 7),
             'model' => YakTask::mainModel(is_array($modelUsage) ? $modelUsage : null, $task->model_used),
             'stepCount' => (int) $task->num_turns,
@@ -276,6 +276,6 @@ final class PrReviewRunData
             ->orderBy('id')
             ->value('thread_id');
 
-        return $threadId === null ? null : Thread::query()->find($threadId);
+        return $threadId === null ? null : Thread::query()->whereKey($threadId)->first();
     }
 }

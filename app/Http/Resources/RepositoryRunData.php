@@ -96,8 +96,14 @@ final class RepositoryRunData
         $tasks = $query->orderByDesc('created_at')->orderByDesc('id')->limit(self::LIST_LIMIT)->get();
         $names = self::userNames($tasks);
 
+        $rows = [];
+
+        foreach ($tasks as $task) {
+            $rows[] = self::row($task, $repository, $names, $filters);
+        }
+
         return [
-            'rows' => $tasks->map(fn (YakTask $task): array => self::row($task, $repository, $names, $filters))->values()->all(),
+            'rows' => $rows,
             'totalCount' => $totalCount,
         ];
     }
@@ -127,7 +133,7 @@ final class RepositoryRunData
             'resultLine' => self::resultLine($task, $status),
             'startedBy' => self::startedBy($task, $names),
             'costUsd' => (float) $task->cost_usd,
-            'startedAt' => ($task->started_at ?? $task->created_at)->toIso8601String(),
+            'startedAt' => ($task->started_at ?? $task->created_at ?? now())->toIso8601String(),
             'url' => route('repos.runs.show', ['repository' => $repository, 'task' => $task, 'kind' => $filters['kind'] ?? null, 'status' => $filters['status'] ?? null]),
             'isLive' => in_array($status, ['queued', 'running'], true),
         ];
@@ -151,7 +157,7 @@ final class RepositoryRunData
             'kind' => $kind,
             'status' => $status,
             'isLive' => in_array($status, ['queued', 'running'], true),
-            'startedAt' => ($run->started_at ?? $run->created_at)->toIso8601String(),
+            'startedAt' => ($run->started_at ?? $run->created_at ?? now())->toIso8601String(),
             'startedBy' => self::startedBy($run, self::userNames(new Collection([$run]))),
             'model' => $run->resolvedModel(),
             'stepCount' => (int) $run->num_turns,
@@ -188,6 +194,9 @@ final class RepositoryRunData
             ->exists();
     }
 
+    /**
+     * @return 'repository_research'|'setup'
+     */
     public static function kind(YakTask $task): string
     {
         return $task->mode === TaskMode::Setup ? 'setup' : 'repository_research';
@@ -239,8 +248,10 @@ final class RepositoryRunData
      */
     private static function startedBy(YakTask $task, Collection $names): string
     {
-        if ($task->started_by_user_id !== null && $names->has($task->started_by_user_id)) {
-            return $names->get($task->started_by_user_id);
+        $name = $task->started_by_user_id === null ? null : $names->get($task->started_by_user_id);
+
+        if ($name !== null) {
+            return $name;
         }
 
         if ($task->source !== 'system' || preg_match('/\(([^()]+)\)$/', (string) $task->description, $match) !== 1) {
@@ -297,13 +308,13 @@ final class RepositoryRunData
      */
     private static function waitingThreads(Repository $repository): array
     {
-        return Thread::query()
+        return array_values(Thread::query()
             ->where('repo', $repository->slug)
             ->whereIn('blocked_reason', [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed])
             ->orderBy('blocked_at')
             ->limit(self::WAITING_THREAD_LIMIT)
             ->get()
             ->map(fn (Thread $thread): array => ['id' => $thread->public_id, 'title' => $thread->title, 'url' => route('threads.show', $thread)])
-            ->all();
+            ->all());
     }
 }

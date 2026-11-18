@@ -15,6 +15,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadTasks;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,6 +23,7 @@ use Illuminate\Support\Collection;
  * A row sits after the answer of its run, `afterSequence` being the last thread event of that run.
  * A thread made from an old task has no runs, so its rows hang on the task and sit at sequence 0.
  *
+ * @phpstan-type Loaded array{logs: Collection<int|string, EloquentCollection<int, TaskLog>>, held: array<int, true>, cut: Collection<int|string, Artifact>, reports: Collection<int|string, Artifact>}
  * @phpstan-type ThreadMilestone array{key: string, label: string, tone: string, url: ?string, runId: string, afterSequence: int}
  */
 final class ThreadMilestonesData
@@ -148,7 +150,7 @@ final class ThreadMilestonesData
      * The CI results, pending co-owner requests and artifacts of all the tasks, in one query each.
      *
      * @param  Collection<int, YakTask>  $tasks
-     * @return array{logs: Collection<int, Collection<int, TaskLog>>, held: array<int, true>, cut: Collection<int, Artifact>, reports: Collection<int, Artifact>}
+     * @return Loaded
      */
     private static function loaded(Collection $tasks): array
     {
@@ -157,7 +159,7 @@ final class ThreadMilestonesData
 
         return [
             'logs' => TaskLog::query()->whereIn('yak_task_id', $ids)->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->orderBy('id')->get()->groupBy('yak_task_id'),
-            'held' => array_fill_keys(CoOwnerRequest::query()->whereIn('task_id', $ids)->where('status', CoOwnerRequestStatus::Pending)->pluck('task_id')->all(), true),
+            'held' => array_fill_keys(CoOwnerRequest::query()->whereIn('task_id', $ids)->where('status', CoOwnerRequestStatus::Pending)->get()->map(fn (CoOwnerRequest $request): int => $request->task_id)->all(), true),
             'cut' => $artifacts->where('role', 'cut')->groupBy('yak_task_id')->map(fn (Collection $group) => $group->last())->filter(),
             'reports' => $artifacts->where('type', 'research')->groupBy('yak_task_id')->map(fn (Collection $group) => $group->first())->filter(),
         ];
@@ -167,7 +169,7 @@ final class ThreadMilestonesData
      * The milestones of one task, each with the key of the run (or, without runs, the task) that reached it.
      *
      * @param  Collection<int, TaskRun>  $runs  the task's runs, oldest first
-     * @param  array{logs: Collection<int, Collection<int, TaskLog>>, held: array<int, true>, cut: Collection<int, Artifact>, reports: Collection<int, Artifact>}  $loaded
+     * @param  Loaded  $loaded
      * @return list<array{0: string, 1: array{key: string, label: string, tone: string, url: ?string}}>
      */
     private static function facts(YakTask $task, Collection $runs, array $loaded): array

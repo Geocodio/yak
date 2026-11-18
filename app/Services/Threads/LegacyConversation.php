@@ -15,11 +15,13 @@ use App\Support\Markdown;
  * The stored history of a thread made from an old task: the person's
  * messages and Yak's answers, built from the same entries the old task page
  * showed. Only the entries are read, never the full step log.
+ *
+ * @phpstan-import-type MessageRow from ThreadMessagesData
  */
 class LegacyConversation
 {
     /**
-     * @return array{messages: list<array<string, mixed>>, answers: list<array{runTaskId: string, html: string, at: string}>}
+     * @return array{messages: list<MessageRow>, answers: list<array{runTaskId: string, html: string, at: string}>}
      */
     public static function for(Thread $thread): array
     {
