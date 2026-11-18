@@ -11,6 +11,10 @@ import YakKit
 final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private var controller: PushController?
     private var earlyResponses: [PushPayload] = []
+    private var uploads: UploadSessions?
+    /// Set by `YakApp.init`, which runs for every launch including a background relaunch with no scene.
+    nonisolated(unsafe) private static var launchUploads: UploadSessions?
+    private var earlyUploadEvents: [(identifier: String, completion: @Sendable () -> Void)] = []
 
     /// Responses that arrived before the controller existed are handed over here.
     func attach(_ controller: PushController) {
@@ -19,6 +23,35 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotification
         let waiting = earlyResponses
         earlyResponses = []
         for payload in waiting { Task { await controller.didTap(payload) } }
+    }
+
+    /// The system relaunched the app for a background upload session; the events go to the ledger that owns them.
+    func application(
+        _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping @Sendable () -> Void
+    ) {
+        guard let uploads = uploads ?? Self.launchUploads else {
+            earlyUploadEvents.append((identifier, completionHandler))
+            return
+        }
+        uploads.handleEvents(identifier: identifier, completion: completionHandler)
+    }
+
+    /// Makes the sessions known to every delegate of this process before any scene exists.
+    static func register(launchUploads: UploadSessions?) { self.launchUploads = launchUploads }
+
+    /// Events that came before the sessions existed are handed over here; with no sessions they are completed.
+    func attach(uploads: UploadSessions?) {
+        self.uploads = uploads
+        let waiting = earlyUploadEvents
+        earlyUploadEvents = []
+        for event in waiting {
+            if let uploads {
+                uploads.handleEvents(identifier: event.identifier, completion: event.completion)
+            } else {
+                event.completion()
+            }
+        }
     }
 
     func application(

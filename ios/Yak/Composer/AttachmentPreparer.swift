@@ -19,8 +19,8 @@ struct PreparedAttachment: Equatable, Sendable {
 
 /// Runs off the main actor. Images are re-encoded as JPEG, downscaled until they fit; other files must fit as they are.
 enum AttachmentPreparer {
-    /// Long edges tried in turn, in pixels, after the image at its own size did not fit.
-    static let longEdges = [4096, 3072, 2048, 1536, 1024]
+    /// Long edges tried in turn, in pixels, after the image at its own size (up to 4096) did not fit.
+    static let longEdges = [3072, 2048, 1536, 1024]
     private static let jpegQuality = 0.8
 
     @concurrent
@@ -35,19 +35,47 @@ enum AttachmentPreparer {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0 else {
             throw .unreadable
         }
-        let longestEdge = pixelLongEdge(of: source)
-        var candidates = [Int.max]
-        candidates += longEdges.filter { longestEdge == nil || $0 < longestEdge! }
-        for edge in candidates {
-            guard let encoded = jpeg(from: source, longEdge: edge == .max ? longestEdge : edge) else {
-                throw .unreadable
-            }
+        return try encodeImage(source, fileName: fileName, maximumBytes: maximumBytes)
+    }
+
+    /// The first pass is at the image's own size, never above `longestDecodedEdge`; then each smaller long edge.
+    private static func encodeImage(
+        _ source: CGImageSource, fileName: String, maximumBytes: Int
+    ) throws(AttachmentProblem) -> PreparedAttachment {
+        let first = min(pixelLongEdge(of: source) ?? longestDecodedEdge, longestDecodedEdge)
+        for edge in [first] + longEdges.filter({ $0 < first }) {
+            guard !Task.isCancelled, let encoded = jpeg(from: source, longEdge: edge) else { throw .unreadable }
             if encoded.count <= maximumBytes {
                 return PreparedAttachment(
                     data: encoded, fileName: jpegName(fileName), contentType: "image/jpeg", isImage: true)
             }
         }
         throw .tooLarge(maximumBytes: maximumBytes)
+    }
+
+    // MARK: Files and large images
+
+    /// No image is decoded above this long edge, so a 48-megapixel photo never needs 200 MB in an extension.
+    static let longestDecodedEdge = 4096
+
+    /// Reads from a file. A non-image over the limit is refused from its size alone, before any of it is read.
+    @concurrent
+    static func prepare(
+        fileAt url: URL, fileName: String, contentType: String, maximumBytes: Int
+    ) async throws(AttachmentProblem) -> PreparedAttachment {
+        let isScoped = url.startAccessingSecurityScopedResource()
+        defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
+        guard contentType.hasPrefix("image/") else {
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { throw .unreadable }
+            guard size > 0 else { throw .unreadable }
+            guard size <= maximumBytes else { throw .tooLarge(maximumBytes: maximumBytes) }
+            guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { throw .unreadable }
+            return PreparedAttachment(data: data, fileName: fileName, contentType: contentType, isImage: false)
+        }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceGetCount(source) > 0 else {
+            throw .unreadable
+        }
+        return try encodeImage(source, fileName: fileName, maximumBytes: maximumBytes)
     }
 
     /// Reads a picked file, refusing one over the limit before any of it is read.
@@ -80,7 +108,7 @@ enum AttachmentPreparer {
     /// The image is decoded upright at that long edge (the EXIF orientation is applied to the pixels), so a large
     /// photo is never held at full size. A nil edge decodes at the image's own size.
     private static func jpeg(from source: CGImageSource, longEdge: Int?) -> Data? {
-        let edge = longEdge ?? pixelLongEdge(of: source) ?? longEdges[0]
+        let edge = longEdge ?? pixelLongEdge(of: source) ?? longestDecodedEdge
         guard
             let image = CGImageSourceCreateThumbnailAtIndex(
                 source, 0,
