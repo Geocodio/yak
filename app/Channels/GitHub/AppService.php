@@ -700,7 +700,7 @@ class AppService
     /**
      * The first merged pull request that contains a commit.
      *
-     * @return array{number: int, title: string, url: string}|null
+     * @return array{number: int, title: string, url: string, author: string|null}|null
      */
     public function findPullRequestForCommit(int $installationId, string $repoSlug, string $sha): ?array
     {
@@ -717,6 +717,7 @@ class AppService
                     'number' => (int) $pullRequest['number'],
                     'title' => (string) $pullRequest['title'],
                     'url' => (string) $pullRequest['html_url'],
+                    'author' => $pullRequest['user']['login'] ?? null,
                 ];
             }
         }
