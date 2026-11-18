@@ -283,3 +283,20 @@ private func compactInputs() -> LayoutInputs {
     scene.toggleOverview()
     #expect(scene.state.focusedPane == .chat)
 }
+
+@MainActor @Test func aClearOpensItsNewThreadOnlyFromTheThreadItWasSentFrom() {
+    let scene = SceneModel(state: SceneState(threadID: "d0e515ef", focusedPane: .files))
+    scene.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
+    #expect(scene.state.threadID == "n3w7hr3d")
+    #expect(scene.state.focusedPane == .chat)
+}
+
+@MainActor @Test func aClearDeliveredWhileLookingAtAnotherThreadMovesNothing() {
+    let scene = SceneModel(state: SceneState(threadID: "a1b2c3d4", focusedPane: .files))
+    scene.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
+    #expect(scene.state.threadID == "a1b2c3d4")
+    #expect(scene.state.focusedPane == .files)
+    let none = SceneModel(state: SceneState())
+    none.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
+    #expect(none.state.threadID == nil)
+}

@@ -76,8 +76,10 @@ struct FilesPane: View {
         .accessibilityHidden(!isPaneShown)
         .onAppear {
             pinModeOnceKnown()
+            routeFileOpenRequest()
             open(current)
         }
+        .onChange(of: thread.fileOpenRequest) { routeFileOpenRequest() }
         .onChange(of: thread.snapshot?.show != nil) { pinModeOnceKnown() }
         .onChange(of: current) { open(current) }
         .onChange(of: thread.files.requestedDiffPath) { routeDiffRequest() }
@@ -88,6 +90,13 @@ struct FilesPane: View {
     /// person from the Everything editor to Changed.
     private func pinModeOnceKnown() {
         if selected == nil, thread.snapshot?.show != nil { selected = current }
+    }
+
+    /// A file another pane wants open: Everything shows it, and that mode's view takes the request itself.
+    private func routeFileOpenRequest() {
+        guard thread.fileOpenRequest != nil else { return }
+        selected = .everything
+        open(.everything)
     }
 
     /// "View diff" in the Everything viewer: show Changed on that file once its list has it.

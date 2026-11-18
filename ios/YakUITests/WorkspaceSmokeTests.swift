@@ -88,6 +88,18 @@ extension XCUIApplication {
         XCTAssertEqual(try stub.get("terminal/opened"), "2")
     }
 
+    /// Command 3 and Command 4 focus Files and the Terminal.
+    func testCommandThreeAndFourFocusFilesAndTerminal() throws {
+        try launch(scenario: "workspace")
+        app.openThread("d0e515ef")
+        XCTAssertTrue(app.buttons["pane.menu"].waitForExistence(timeout: 60) || app.buttons["pane.row.chat"].exists)
+        app.typeKey("4", modifierFlags: .command)
+        XCTAssertTrue(output.waitForExistence(timeout: 60))
+        app.typeKey("3", modifierFlags: .command)
+        XCTAssertTrue(element("files").waitForExistence(timeout: 60))
+        XCTAssertTrue(element("files").isHittable)
+    }
+
     func testTerminalIdleCloseDoesNotReconnect() throws {
         try launch(scenario: "workspace")
         app.openThread("d0e515ef")

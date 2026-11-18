@@ -78,6 +78,7 @@ final class StubPreviewFeature: StubFeature, @unchecked Sendable {
         else { return nil }
         var panes = show["panes"] as? [String: Any] ?? [:]
         panes["preview"] = true
+        if StubPreviewPlay(rawValue: context.scenario) == .failingWithFiles { panes["files"] = true }
         show["panes"] = panes
         var thread = show["thread"] as? [String: Any] ?? [:]
         var composer = show["composer"] as? [String: Any] ?? [:]

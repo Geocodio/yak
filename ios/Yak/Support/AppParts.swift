@@ -174,7 +174,7 @@ private struct PushRoot: ViewModifier {
         content
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
-                case .active: Task { await push.appBecameActive() }
+                case .active where model.claimActiveAnnouncement(): Task { await push.appBecameActive() }
                 default: break
                 }
             }
@@ -196,6 +196,7 @@ private struct SpotlightRoot: ViewModifier {
                 await system.spotlight.reindex()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                guard model.claimBackgroundAnnouncement() else { return }
                 Task { await system.spotlight.reindexInBackground() }
             }
             .onReceive(

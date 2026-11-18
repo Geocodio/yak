@@ -76,6 +76,22 @@ final class AppModel {
         if explanationPresenter === scene { explanationPresenter = nil }
     }
 
+    @ObservationIgnored private var hasAnnouncedActive = false
+    @ObservationIgnored private var hasAnnouncedBackground = false
+
+    /// True for the first window to ask after the app became active, so work that belongs to the app (the push
+    /// registration) runs once, not once per window.
+    func claimActiveAnnouncement() -> Bool {
+        defer { hasAnnouncedActive = true }
+        return !hasAnnouncedActive
+    }
+
+    /// True for the first window to ask after the app went to the background, so the Spotlight refresh runs once.
+    func claimBackgroundAnnouncement() -> Bool {
+        defer { hasAnnouncedBackground = true }
+        return !hasAnnouncedBackground
+    }
+
     /// What a window's phase did to the app as a whole.
     enum AppPhaseChange: Equatable { case none, enteredBackground, enteredForeground }
 
@@ -92,6 +108,7 @@ final class AppModel {
         switch phase {
         case .active:
             sceneBecameActive(scene)
+            hasAnnouncedBackground = false
             let wasInBackground = isInBackground
             isInBackground = false
             await sessions.enterForeground()
@@ -102,6 +119,7 @@ final class AppModel {
             }
             guard isEveryWindowInBackground, !isInBackground else { return .none }
             isInBackground = true
+            hasAnnouncedActive = false
             BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
             await sessions.enterBackground()
             await widgets?.enteredBackground()

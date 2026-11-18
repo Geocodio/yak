@@ -278,6 +278,13 @@ final class SceneModel {
         justPairedUserName = nil
     }
 
+    /// Follows a `/clear` to the thread it started, but only while the window still shows the thread the message was
+    /// sent from; a person who moved on is not pulled away, and the drawer lists the new thread.
+    func openReplacement(_ id: String, sentFrom threadID: String, isCompactWidth: Bool) {
+        guard state.threadID == threadID else { return }
+        open(thread: id, isCompactWidth: isCompactWidth)
+    }
+
     func openNewThread(repo: String?, text: String?, item: UUID? = nil) {
         newThreadPrefill = (repo, text)
         newThreadItem = item

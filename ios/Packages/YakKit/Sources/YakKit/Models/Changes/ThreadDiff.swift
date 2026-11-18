@@ -130,6 +130,11 @@ public struct ThreadDiff: Codable, Equatable, Sendable {
         self.repositories = repositories
         self.files = files
     }
+
+    /// The file is in a scratch repository: Yak edits it, but it never goes into the pull request.
+    public func isThrowaway(_ file: DiffFileSummary) -> Bool {
+        repositories.contains { $0.repo == file.repo && $0.isThrowaway }
+    }
 }
 
 /// `diff` is nil before the first capture.

@@ -596,3 +596,16 @@ private final class SleeperCount: @unchecked Sendable {
     await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4"))
     #expect(scene.state.threadID == "a1b2c3d4" && model.takeLaunchLink() == nil)
 }
+
+@MainActor @Test func appWideWorkIsClaimedOncePerAppStateChange() async {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    #expect(model.claimActiveAnnouncement() && !model.claimActiveAnnouncement())
+    #expect(model.claimBackgroundAnnouncement() && !model.claimBackgroundAnnouncement())
+    await model.scenePhaseChanged(first, to: .background)
+    await model.scenePhaseChanged(second, to: .background)
+    #expect(model.claimActiveAnnouncement())
+    await model.scenePhaseChanged(first, to: .active)
+    #expect(model.claimBackgroundAnnouncement())
+}
