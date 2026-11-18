@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { cn } from '@geocodio/console-ui';
 import { Clock, Laptop, RotateCw } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
@@ -6,6 +8,9 @@ import { SourceLink } from '@/components/threads/header/SourceLink';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
 
+/** A phone folds a message longer than this many characters behind a button. */
+const LONG_MESSAGE_CHARACTERS = 320;
+
 const INTENT_CAPTIONS: Record<NonNullable<ThreadMessage['intent']>, string> = {
     add_preview_manifest: 'Sent from the Preview panel: set up the preview',
     fix_preview: 'Sent from the Preview panel: fix the preview',
@@ -13,7 +18,9 @@ const INTENT_CAPTIONS: Record<NonNullable<ThreadMessage['intent']>, string> = {
     record_walkthrough_and_open_pr: 'Sent from the Open PR menu: record a walkthrough and open the PR',
 };
 
-export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {} }: { origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
+export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {}, isRequest = false }: { isRequest?: boolean; origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const isLong = message.bodyHtml.replace(/<[^>]*>/g, '').length > LONG_MESSAGE_CHARACTERS;
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     if (message.isRetry) {
@@ -59,8 +66,13 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                     {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{modelLabels[message.model] ?? message.model}{message.effort ? ` · ${effortLabel(message.effort)}` : ''}</span>}
                 </div>
                 <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
-                    <Prose html={message.bodyHtml} className="mt-1" />
+                    <Prose html={message.bodyHtml} className={cn('mt-1', isLong && !isExpanded && 'max-sm:line-clamp-5')} />
                 </MessageWithAttachments>
+                {isLong && !isExpanded && (
+                    <button type="button" onClick={() => setIsExpanded(true)} className="-my-1.5 inline-flex h-11 cursor-pointer items-center text-[12.5px] text-accent-text hover:underline sm:hidden" data-testid="thread-message-expand">
+                        {isRequest ? 'Show the full request' : 'Show the full message'}
+                    </button>
+                )}
                 {message.intent !== null && (
                     <p className="mt-1 text-[12px] text-faint" data-testid="thread-message-intent">
                         {INTENT_CAPTIONS[message.intent]}

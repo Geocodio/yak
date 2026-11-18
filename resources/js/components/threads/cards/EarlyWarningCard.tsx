@@ -11,6 +11,7 @@ export function EarlyWarningCard({ threadId, warning }: { threadId: string; warn
     return (
         <EarlyWarningNotice
             variant="card"
+            draftThreadId={threadId}
             warning={warning}
             routes={{ tag: tag.url(threadId), decline: decline.url(threadId) }}
             renderCandidates={({ disabled, onPick }) => {

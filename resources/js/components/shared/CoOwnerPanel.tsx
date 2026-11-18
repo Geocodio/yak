@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, Textarea } from '@geocodio/console-ui';
 import { AlertTriangle, Check, ExternalLink, GitPullRequest, Link as LinkIcon, RefreshCw, UserX } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { newMethod as newThread } from '@/routes/threads';
 import type { CoOwnerAttempt, CoOwnerData, CoOwnerDecisionError, CoOwnerLinkError } from '@/types/coOwner';
@@ -98,6 +99,8 @@ function readDecisionError(value: unknown): CoOwnerDecisionError | null {
 }
 
 type PanelProps = {
+    /** Identifies the thread so the typed reason and the open form survive the card being moved on screen. */
+    draftThreadId?: string;
     coOwner: CoOwnerData;
     routes: CoOwnerRoutes;
     /** The link the requester copies to share the request. */
@@ -158,12 +161,13 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
     );
 }
 
-function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', onOpenChanges }: PanelProps) {
+function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', onOpenChanges, draftThreadId }: PanelProps) {
+    const draftKey = (field: string) => (draftThreadId === undefined ? undefined : cardDraftKey(draftThreadId, 'co_owner', field));
     const action = useRouterAction();
-    const [decisionError, setDecisionError] = useState<CoOwnerDecisionError | null>(null);
-    const [feedbackOpen, setFeedbackOpen] = useState(false);
-    const [feedback, setFeedback] = useState('');
-    const [rejectOpen, setRejectOpen] = useState(false);
+    const [decisionError, setDecisionError] = useCardDraft<CoOwnerDecisionError | null>(draftKey('error'), null);
+    const [feedbackOpen, setFeedbackOpen] = useCardDraft(draftKey('feedbackOpen'), false);
+    const [feedback, setFeedback] = useCardDraft(draftKey('feedback'), '');
+    const [rejectOpen, setRejectOpen] = useCardDraft(draftKey('rejectOpen'), false);
     const [copied, setCopied] = useState(false);
     const [lastAction, setLastAction] = useState<string | null>(null);
 
@@ -194,9 +198,11 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
         : `A co-owner is a second person with write access to ${repoName}. They look at changes to sensitive areas before a PR opens. It is about what the change touches, not about who asked for it.`;
 
     const isCard = variant === 'card';
+    const phoneButton = isCard ? 'max-sm:h-11 max-sm:w-full max-sm:justify-center' : undefined;
     const approveButton = canApprove ? (
         <Button
             variant="primary"
+            className={phoneButton}
             icon={<GitPullRequest className="size-3.5" />}
             pending={isApproving}
             pendingLabel="Approving…"
@@ -255,7 +261,7 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                     <label htmlFor="co-owner-feedback-text" className="text-[13px] font-semibold">
                         What should Yak change? <span className="font-normal text-muted">Yak runs a follow-up with this and asks again here.</span>
                     </label>
-                    <Textarea id="co-owner-feedback-text" aria-describedby="co-owner-feedback-hint" rows={3} maxLength={2000} value={feedback} onChange={(event) => setFeedback(event.target.value)} data-testid="co-owner-feedback-text" />
+                    <Textarea id="co-owner-feedback-text" autoFocus aria-describedby="co-owner-feedback-hint" rows={3} maxLength={2000} value={feedback} onChange={(event) => setFeedback(event.target.value)} data-testid="co-owner-feedback-text" />
                     <p id="co-owner-feedback-hint" className="text-[12px] text-muted">No PR exists yet, so nothing is merged or visible to customers while Yak revises.</p>
                     <div className="flex justify-end gap-2">
                         <Button onClick={() => setFeedbackOpen(false)} disabled={action.busy}>Cancel</Button>
@@ -295,7 +301,7 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                         `Linked as ${viewer.login}. Access is checked live and cached for 10 minutes.`
                     ) : null}
                 </span>
-                <div className="ml-auto flex flex-wrap gap-2">
+                <div className="ml-auto flex flex-wrap gap-2 max-sm:w-full max-sm:flex-col">
                     {isRequesterView ? (
                         <>
                             <Button onClick={() => run('withdraw', routes.withdraw)} pending={action.isPending('withdraw')} disabled={action.busy}>Withdraw</Button>
@@ -307,9 +313,9 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                     ) : viewer.access !== 'read' || canApprove ? (
                         <>
                             {isCard && approveButton}
-                            {!isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
-                            <Button onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes" aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}>Request changes</Button>
-                            {isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            {!isCard && <Button className={isCard ? phoneButton : undefined} onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            <Button className={phoneButton} onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes" aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}>Request changes</Button>
+                            {isCard && <Button className={isCard ? phoneButton : undefined} onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
                             {!isCard && approveButton}
                         </>
                     ) : null}
@@ -400,7 +406,7 @@ function ChangedFiles({ coOwner, onOpenChanges }: { coOwner: CoOwnerData; onOpen
             ))}
             {rest > 0 && (
                 <button type="button" onClick={onOpenChanges} className="w-fit cursor-pointer text-left text-[12.5px] text-accent-text hover:underline" data-testid="co-owner-more-files">
-                    and {rest} more {rest === 1 ? 'file' : 'files'} in Changes
+                    and {rest} more {rest === 1 ? 'file' : 'files'} in Files
                 </button>
             )}
         </div>

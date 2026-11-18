@@ -8,9 +8,9 @@ const DOCK_TABS: PhoneTab[] = [
     { id: 'terminal', label: 'Terminal' },
 ];
 
-/** Chat and Overview always show; Preview, Files and Terminal show only when a dock panel with that id is registered. */
+/** Chat and Overview always show, first; Preview, Files and Terminal show only when a dock panel with that id is registered. */
 export function phoneTabs(registeredDockIds: string[]): PhoneTab[] {
-    return [{ id: 'chat', label: 'Chat' }, ...DOCK_TABS.filter((tab) => registeredDockIds.includes(tab.id)), { id: 'overview', label: 'Overview' }];
+    return [{ id: 'chat', label: 'Chat' }, { id: 'overview', label: 'Overview' }, ...DOCK_TABS.filter((tab) => registeredDockIds.includes(tab.id))];
 }
 
 /** Reads the active dock panel id from a `#panel=preview` hash; anything else is no panel. The retired `changes` id opens Files. */
