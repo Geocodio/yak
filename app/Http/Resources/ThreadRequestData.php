@@ -64,7 +64,7 @@ final class ThreadRequestData
 
         $keys = count($steps) === count(self::STEP_KEYS) ? self::STEP_KEYS : array_values(array_diff(self::STEP_KEYS, ['co_owner']));
 
-        return ['steps' => array_values(array_map(fn (array $step, int $index): array => [
+        return ['steps' => array_map(fn (array $step, int $index): array => [
             'key' => $keys[$index],
             'label' => $step['label'],
             'tooltip' => $step['tooltip'],
@@ -74,7 +74,7 @@ final class ThreadRequestData
                 $step['done'] => 'done',
                 default => 'upcoming',
             },
-        ], $steps, array_keys($steps)))];
+        ], $steps, array_keys($steps))];
     }
 
     /**
@@ -87,7 +87,7 @@ final class ThreadRequestData
             ->toBase()->get()->sole();
         $latest = TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first();
         $hasFailed = $latest !== null && ($latest->turn_state === TurnState::Failed || in_array($latest->outcome, [TaskRunOutcome::Error, TaskRunOutcome::Exception], true));
-        $errorLog = $hasFailed ? ($head?->error_log ?? $latest->error_message) : null;
+        $errorLog = $hasFailed ? ($head->error_log ?? $latest->error_message) : null;
         $isFinished = (int) $totals->run_count > 0 && (int) $totals->unfinished === 0;
 
         return [

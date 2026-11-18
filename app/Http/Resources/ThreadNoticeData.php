@@ -25,11 +25,13 @@ use Illuminate\Support\Str;
 /**
  * The one notice shown above the composer: a block on the thread's account or
  * sandbox, a guard stop, or a restore in progress. Null when nothing needs saying.
+ *
+ * @phpstan-type Notice array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, canContinueAfterSetup?: bool, failedSetupRunUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
  */
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, canContinueAfterSetup?: bool, failedSetupRunUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
+     * @return Notice|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -120,7 +122,7 @@ final class ThreadNoticeData
     /**
      * The closed thread of a request that moved on: where it went, or that it waits for a repository answer.
      *
-     * @return array<string, mixed>|null
+     * @return Notice|null
      */
     private static function moved(Thread $thread, ?User $viewer): ?array
     {

@@ -37,7 +37,7 @@ final class ObservationData
         return [
             ...self::common($observation),
             'taskId' => $observation->yak_task_id,
-            'taskUrl' => $taskUrls[$observation->yak_task_id] ?? null,
+            'taskUrl' => $observation->yak_task_id === null ? null : ($taskUrls[$observation->yak_task_id] ?? null),
         ];
     }
 

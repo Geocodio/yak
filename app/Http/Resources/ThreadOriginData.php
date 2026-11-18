@@ -31,7 +31,7 @@ final class ThreadOriginData
             ],
             'starter' => [
                 'key' => $key,
-                'name' => $creator?->name ?? $thread->starter_name ?? 'Yak',
+                'name' => $creator->name ?? $thread->starter_name ?? 'Yak',
                 'avatarUrl' => is_string($avatarUrl) ? $avatarUrl : null,
             ],
         ];

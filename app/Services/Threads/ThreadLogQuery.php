@@ -98,14 +98,14 @@ final class ThreadLogQuery
             $avatarUrl = $user?->getAttribute('avatar_url');
             $starters[] = [
                 'key' => (string) $key,
-                'name' => $user?->name ?? (str_starts_with($key, 'name:') ? substr($key, 5) : 'Yak'),
+                'name' => $user->name ?? (str_starts_with($key, 'name:') ? substr($key, 5) : 'Yak'),
                 'avatarUrl' => is_string($avatarUrl) ? $avatarUrl : null,
                 'count' => $count,
             ];
         }
         usort($starters, fn (array $a, array $b): int => $a['name'] <=> $b['name']);
 
-        $repos = self::filtered($viewer, [...$filters, 'repo' => ''], false)->where('threads.repo', '!=', Thread::UNKNOWN_REPOSITORY)->distinct()->orderBy('threads.repo')->pluck('threads.repo')->map(fn (mixed $repo): string => (string) $repo)->all();
+        $repos = array_values(self::filtered($viewer, [...$filters, 'repo' => ''], false)->where('threads.repo', '!=', Thread::UNKNOWN_REPOSITORY)->distinct()->orderBy('threads.repo')->pluck('threads.repo')->map(fn (mixed $repo): string => (string) $repo)->all());
 
         return ['sources' => $sources, 'starters' => $starters, 'repos' => $repos];
     }
@@ -170,6 +170,9 @@ final class ThreadLogQuery
     /**
      * The one definition of a thread's pull request: its first repository with
      * one, primary before changes. The rows read the same subquery.
+     *
+     * @param  literal-string  $column
+     * @return literal-string
      */
     private static function pullRequestSubquery(string $column): string
     {

@@ -62,6 +62,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $last_refresh_commit
  * @property int|null $destroy_after_hours
  * @property string|null $wip_commit_sha
+ * @property int|null $created_by_user_id
  * @property string|null $local_repo_path
  * @property string|null $git_author_name
  * @property string|null $git_author_email
