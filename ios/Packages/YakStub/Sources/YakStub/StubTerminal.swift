@@ -76,7 +76,9 @@ final class StubTerminalFeature: StubFeature, @unchecked Sendable {
     }
 
     private static func variant(for scenario: String) -> WorkspaceVariant? {
-        WorkspaceVariant(rawValue: scenario) ?? (scenario == Scenario.serverFixtures.rawValue ? .workspace : nil)
+        // Scenarios of other features that also serve the workspace files.
+        let sharing = [Scenario.serverFixtures.rawValue, StubPreviewPlay.failingWithFiles.rawValue, "changes-files"]
+        return WorkspaceVariant(rawValue: scenario) ?? (sharing.contains(scenario) ? .workspace : nil)
     }
 
     // MARK: Lifecycle

@@ -25,6 +25,8 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
     private var contentValue = "<?php\nclass Importer {}\n"
     private var restoreCount = 0
     var canEdit = true
+    private var contentOffline = false
+    func setContentOffline(_ value: Bool) { lock.withLock { contentOffline = value } }
 
     var requests: [String] { lock.withLock { log } }
     func count(_ prefix: String) -> Int { requests.filter { $0.hasPrefix(prefix) }.count }
@@ -88,6 +90,7 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
                 throw URLError(.notConnectedToInternet)
             }
         } else if path.hasSuffix("/files/content") {
+            if lock.withLock({ contentOffline }) { throw URLError(.notConnectedToInternet) }
             body = file("aaaa", lock.withLock { contentValue })
         } else if path.hasSuffix("/files") {
             body = query.contains("path=src") ? Self.src : Self.tree

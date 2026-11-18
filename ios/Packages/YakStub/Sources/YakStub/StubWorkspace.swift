@@ -301,6 +301,14 @@ final class StubWorkspace: @unchecked Sendable {
                 return edited("scenario-file-text", text: saved, path: path, readOnly: readOnly)
             }
             return edited("scenario-file-text", text: nil, path: path, readOnly: readOnly)
+        case ".yak/preview.yml":
+            return edited(
+                "scenario-file-text", text: state.savedTexts[path] ?? "port: 5173\ncold_start: npm run dev\n",
+                path: path, readOnly: readOnly, language: "yaml", hash: Self.hash(path.count))
+        case "app/Uploads/RetryUpload.php":
+            return edited(
+                "scenario-file-text", text: state.savedTexts[path] ?? "<?php\n\nfinal class RetryUpload\n{\n}\n",
+                path: path, readOnly: readOnly, language: "php", hash: Self.hash(path.count))
         case "README.md", "tests/ImporterTest.php":
             let text =
                 state.savedTexts[path]

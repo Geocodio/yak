@@ -11,6 +11,24 @@ struct FilePageView: View {
     let toggleViewed: () -> Void
     let retry: () -> Void
     let openWeb: () -> Void
+    /// Opens this file in the Files editor; nil when the person cannot edit it from here.
+    var edit: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Editing starts from a diff only for a file that still exists, is text and fits the diff: a deleted, binary or
+    /// too large file stays a diff, and so does a page whose file is gone.
+    static func canEdit(
+        file: DiffFileSummary, state: FilePageState?, canDrive: Bool, filesAvailable: Bool, primaryRepo: String?
+    ) -> Bool {
+        // The editor's `.repo` scope shows the thread's primary repository only.
+        guard canDrive, filesAvailable, file.repo == primaryRepo, file.status != .deleted, !file.isBinary,
+            !file.isTooLarge
+        else { return false }
+        switch state {
+        case .binary, .tooLarge, .gone: return false
+        default: return true
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -49,18 +67,47 @@ struct FilePageView: View {
                 Text("files.notInPullRequest").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("files.notInPullRequest")
             }
-            Button(action: toggleViewed) {
+            // Two actions that must not clip stack at accessibility text sizes, as the bar below does.
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 0) {
+                    viewedButton
+                    editButton
+                }
+            } else {
+                HStack(spacing: 16) {
+                    viewedButton
+                    editButton
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var editButton: some View {
+        if let edit {
+            Button(action: edit) {
                 Label {
-                    Text(isViewed ? "files.viewed.on" : "files.viewed.off")
+                    Text("files.page.edit")
                 } icon: {
-                    Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+                    Image(systemName: "pencil").accessibilityHidden(true)
                 }
                 .font(.footnote.weight(.semibold)).frame(minHeight: 44)
             }
-            .foregroundStyle(.primary)
-            .accessibilityLabel(Text(isViewed ? "files.viewed.label.on" : "files.viewed.label.off"))
-            .accessibilityIdentifier("files.viewed")
+            .foregroundStyle(.primary).accessibilityIdentifier("files.page.edit")
         }
+    }
+
+    private var viewedButton: some View {
+        Button(action: toggleViewed) {
+            Label {
+                Text(isViewed ? "files.viewed.on" : "files.viewed.off")
+            } icon: {
+                Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+            }
+            .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel(Text(isViewed ? "files.viewed.label.on" : "files.viewed.label.off"))
+        .accessibilityIdentifier("files.viewed")
     }
 
     @ViewBuilder private var counts: some View {

@@ -90,6 +90,61 @@ import YakKit
     await fixture.finish()
 }
 
+@MainActor @Test func anOfflineHandOffShowsTheFileOnceTheConnectionReturns() async throws {
+    let fixture = try await FilesFixture()
+    fixture.transport.setContentOffline(true)
+    #expect(await fixture.model.open(path: "src/Importer.php", edit: true))
+    let document = try #require(fixture.model.document)
+    #expect(await fixture.eventually { document.hasFailedToLoad })
+    // Asking again while still offline keeps the failed document and does not lose the wish to edit.
+    #expect(await fixture.model.open(path: "src/Importer.php", edit: true))
+    fixture.transport.setContentOffline(false)
+    await fixture.model.networkChanged(isOnline: true)
+    #expect(await fixture.eventually { document.viewedText != nil && document.isEditing })
+    await fixture.finish()
+}
+
+@MainActor @Test func aHandOffDuringAnOpenWaitsForIt() async throws {
+    let fixture = try await FilesFixture()
+    async let first = fixture.model.open(path: "src/Importer.php", edit: false)
+    async let second = fixture.model.open(path: "README.md", edit: false)
+    let results = await (first, second)
+    #expect(results.0 && results.1)
+    #expect(fixture.model.openPath == "README.md")
+    await fixture.finish()
+}
+
+@MainActor @Test func aHandOffToAnotherFileKeepsTheDraftOfTheFirst() async throws {
+    let fixture = try await FilesFixture()
+    await fixture.model.open(path: "src/Importer.php", edit: true)
+    let document = try #require(fixture.model.document)
+    #expect(await fixture.eventually { document.isEditing })
+    document.setText("typed line\n")
+    #expect(await fixture.eventually { document.isDirty })
+    await fixture.model.open(path: "README.md", edit: true)
+    #expect(fixture.model.openPath == "README.md")
+    #expect(fixture.transport.count("PUT") == 0)
+    await fixture.model.open(path: "src/Importer.php", edit: false)
+    let reopened = try #require(fixture.model.document)
+    #expect(await fixture.eventually { reopened.isEditing && reopened.text == "typed line\n" })
+    await fixture.finish()
+}
+
+@MainActor @Test func aHandOffToTheSameFileLeavesTheEditorAlone() async throws {
+    let fixture = try await FilesFixture()
+    await fixture.model.open(path: "src/Importer.php", edit: true)
+    let document = try #require(fixture.model.document)
+    #expect(await fixture.eventually { document.isEditing })
+    document.setText("typed line\n")
+    #expect(await fixture.eventually { document.isDirty })
+    let before = fixture.transport.count("GET /api/app/v1/threads/d0e515ef/files/content")
+    await fixture.model.open(path: "src/Importer.php", edit: true)
+    #expect(fixture.model.document === document)
+    #expect(document.text == "typed line\n" && document.isEditing)
+    #expect(fixture.transport.count("GET /api/app/v1/threads/d0e515ef/files/content") == before)
+    await fixture.finish()
+}
+
 @Test func treeDisplayPutsNotesUnderTheirFolder() {
     func row(_ path: String, depth: Int, directory: Bool, state: FolderState? = nil, empty: Bool = false) -> FileTreeRow
     {
