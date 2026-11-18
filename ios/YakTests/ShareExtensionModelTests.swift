@@ -37,6 +37,19 @@ private struct ImageProvider: ShareItemProvider {
     func loadText(maximumBytes: Int) async throws -> Data { Data() }
 }
 
+private final class LockableTokenStore: TokenStore, @unchecked Sendable {
+    private let base = InMemoryTokenStore()
+    private let lock = NSLock()
+    private var isLocked = false
+    func lock(_ value: Bool) { lock.withLock { isLocked = value } }
+    func token(for instance: UUID) throws -> String? {
+        if lock.withLock({ isLocked }) { throw CocoaError(.fileReadNoPermission) }
+        return try base.token(for: instance)
+    }
+    func setToken(_ token: String, for instance: UUID) throws { try base.setToken(token, for: instance) }
+    func removeToken(for instance: UUID) throws { try base.removeToken(for: instance) }
+}
+
 @MainActor
 private struct Rig {
     let model: ShareExtensionModel
@@ -95,6 +108,38 @@ struct ShareExtensionModelTests {
         await out.model.start([])
         #expect(out.model.phase == .signedOut("Example Yak"))
         #expect(!out.model.canSend)
+    }
+
+    @Test func anUnreadableKeychainIsNotSignedOutAndRetryRecovers() async throws {
+        let tokens = LockableTokenStore()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let instances = InstanceStore(
+            defaults: UserDefaults(suiteName: UUID().uuidString)!, tokens: tokens, now: { Date() })
+        _ = try await instances.add(
+            url: URL(string: "https://yak.example.com")!, name: "Example Yak", userName: "Test person", token: "t")
+        tokens.lock(true)
+        let model = ShareExtensionModel(
+            instances: instances, tokens: tokens, files: DiskFileStore(root: folder), sender: RecordingSender(),
+            clock: SystemClock(), fetchOptions: { _, _ in throw APIFailure.network(.notConnectedToInternet) })
+        await model.start([])
+        #expect(model.phase == .unreadable)
+        tokens.lock(false)
+        await model.retry()
+        #expect(model.phase == .ready)
+    }
+
+    @Test func severalReadyInstancesAreOfferedAndTheChoiceIsUsed() async throws {
+        let rig = try await Rig()
+        let second = try await rig.instances.add(
+            url: URL(string: "https://other.example.com")!, name: "Other Yak", userName: "Test person", token: "t2")
+        await rig.model.start([])
+        #expect(rig.model.readyInstances.count == 2)
+        let current = try #require(rig.model.instance)
+        let other = try #require(rig.model.readyInstances.first { $0.id != current.id })
+        await rig.model.choose(other)
+        #expect(rig.model.instance?.id == other.id)
+        _ = second
+        #expect(rig.model.phase == .ready)
     }
 
     @Test func theContextShowsAtOnceAndOfflineIsNoted() async throws {

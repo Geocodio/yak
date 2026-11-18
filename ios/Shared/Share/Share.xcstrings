@@ -31,6 +31,16 @@
         }
       }
     },
+    "share.instance.menu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to"
+          }
+        }
+      }
+    },
     "share.minText %lld" : {
       "localizations" : {
         "en" : {
@@ -357,6 +367,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add a message"
+          }
+        }
+      }
+    },
+    "share.unreadable.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not read your sign-in from the device. Try again in a moment."
+          }
+        }
+      }
+    },
+    "share.unreadable.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open your sign-in"
           }
         }
       }

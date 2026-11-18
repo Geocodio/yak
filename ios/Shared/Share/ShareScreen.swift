@@ -47,7 +47,7 @@ struct ShareScreen: View {
             .disabled(model.phase == .saving)
             .accessibilityIdentifier("share.cancel")
             Spacer()
-            Text(verbatim: model.instance?.name ?? "Yak").font(.headline).accessibilityIdentifier("share.instance")
+            instanceTitle
             Spacer()
             if showsSend {
                 Button {
@@ -68,9 +68,37 @@ struct ShareScreen: View {
         .padding(.horizontal, 12).padding(.vertical, 4)
     }
 
+    /// The instance's name; a menu of the instances that can send when there are several.
+    @ViewBuilder private var instanceTitle: some View {
+        let name = model.instance?.name ?? "Yak"
+        if model.readyInstances.count > 1, model.phase == .ready {
+            Menu {
+                ForEach(model.readyInstances) { candidate in
+                    Button {
+                        Task { await model.choose(candidate) }
+                    } label: {
+                        if candidate.id == model.instance?.id { Image(systemName: "checkmark") }
+                        Text(verbatim: candidate.name)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: name).font(.headline).lineLimit(1)
+                    Image(systemName: "chevron.down").font(.caption.weight(.bold)).accessibilityHidden(true)
+                }
+                .foregroundStyle(.primary).frame(minHeight: 44)
+            }
+            .accessibilityLabel(ShareText.text("share.instance.menu"))
+            .accessibilityValue(name)
+            .accessibilityIdentifier("share.instance")
+        } else {
+            Text(verbatim: name).font(.headline).accessibilityIdentifier("share.instance")
+        }
+    }
+
     private var showsSend: Bool {
         switch model.phase {
-        case .noInstance, .signedOut: false
+        case .noInstance, .signedOut, .unreadable: false
         default: true
         }
     }
@@ -83,6 +111,16 @@ struct ShareScreen: View {
             empty(
                 title: Text(ShareText.resource("share.signedOut.title \(name)")),
                 detail: ShareText.text("share.signedOut.body"))
+        case .unreadable:
+            VStack(spacing: 12) {
+                empty(title: ShareText.text("share.unreadable.title"), detail: ShareText.text("share.unreadable.body"))
+                Button {
+                    Task { await model.retry() }
+                } label: {
+                    ShareText.text("share.retry").frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered).accessibilityIdentifier("share.retryStart")
+            }
         case .loading: ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
         case .ready, .saving: sheet
         }

@@ -7,40 +7,85 @@ import YakKit
     import os
 #endif
 
-/// A streamed download: the response, then the body in chunks. Production wraps `URLSession.bytes(for:)` on an
-/// ephemeral session with no cookies and no cache, read in 64 KB chunks; tests script it and count chunks read.
+/// A streamed download: the response, then the body in chunks. Production uses one shared ephemeral session with no
+/// cookies and no cache and a delegate per task that hands over what the network delivers; tests script it and count
+/// chunks read.
 protocol AttachmentFetching: Sendable {
     func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>)
 }
 
 struct URLSessionAttachmentFetcher: AttachmentFetching {
-    func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>) {
+    private static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
         configuration.urlCache = nil
-        let (bytes, response) = try await URLSession(configuration: configuration).bytes(for: request)
-        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        let stream = AsyncThrowingStream<Data, any Error> { continuation in
-            let reading = Task {
-                do {
-                    var chunk = Data()
-                    for try await byte in bytes {
-                        chunk.append(byte)
-                        if chunk.count >= AttachmentImageLoader.chunkSize {
-                            continuation.yield(chunk)
-                            chunk = Data()
-                        }
-                    }
-                    if !chunk.isEmpty { continuation.yield(chunk) }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in reading.cancel() }
+        return URLSession(configuration: configuration)
+    }()
+
+    func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>) {
+        let delegate = ChunkDelegate()
+        let task = Self.session.dataTask(with: request)
+        task.delegate = delegate
+        return try await withTaskCancellationHandler {
+            let response = try await delegate.response(of: task)
+            return (response, delegate.chunks)
+        } onCancel: {
+            task.cancel()
         }
-        return (http, stream)
+    }
+
+    /// Hands the response to `response(of:)` and each piece of the body to `chunks`, as the network delivers it.
+    private final class ChunkDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        private let lock = NSLock()
+        private var responder: CheckedContinuation<HTTPURLResponse, any Error>?
+        private var sink: AsyncThrowingStream<Data, any Error>.Continuation?
+        let chunks: AsyncThrowingStream<Data, any Error>
+
+        override init() {
+            var made: AsyncThrowingStream<Data, any Error>.Continuation!
+            chunks = AsyncThrowingStream { made = $0 }
+            super.init()
+            sink = made
+        }
+
+        func response(of task: URLSessionDataTask) async throws -> HTTPURLResponse {
+            sink?.onTermination = { _ in task.cancel() }
+            return try await withCheckedThrowingContinuation { continuation in
+                lock.withLock { responder = continuation }
+                task.resume()
+            }
+        }
+
+        private func answer(_ result: Result<HTTPURLResponse, any Error>) {
+            let waiting = lock.withLock {
+                defer { responder = nil }
+                return responder
+            }
+            waiting?.resume(with: result)
+        }
+
+        func urlSession(
+            _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+            completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+        ) {
+            guard let http = response as? HTTPURLResponse else {
+                answer(.failure(URLError(.badServerResponse)))
+                completionHandler(.cancel)
+                return
+            }
+            answer(.success(http))
+            completionHandler(.allow)
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            sink?.yield(data)
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+            answer(.failure(error ?? URLError(.badServerResponse)))
+            sink?.finish(throwing: error)
+        }
     }
 }
 

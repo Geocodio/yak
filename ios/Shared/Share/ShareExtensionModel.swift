@@ -8,6 +8,8 @@ final class ShareExtensionModel {
     enum Phase: Equatable {
         case noInstance
         case signedOut(String)
+        /// The Keychain could not be read: not the same as signed out, and worth another try.
+        case unreadable
         case loading, ready, saving
     }
 
@@ -27,6 +29,8 @@ final class ShareExtensionModel {
     private(set) var form: NewThreadForm?
     private(set) var model: String?
     private(set) var instance: Instance?
+    /// Every instance that can send; the sheet offers a menu when there are several.
+    private(set) var readyInstances: [Instance] = []
 
     private let instances: InstanceStore
     private let tokens: any TokenStore
@@ -39,6 +43,8 @@ final class ShareExtensionModel {
     /// One key for every attempt to send this share, so a retry never becomes a second message.
     private let sendKey = UUID()
     private var importTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Never>?
+    private var providers: [any ShareItemProvider] = []
 
     init(
         instances: InstanceStore, tokens: any TokenStore, files: DiskFileStore, sender: any ShareSending,
@@ -68,26 +74,57 @@ final class ShareExtensionModel {
     // MARK: Start
 
     func start(_ providers: [any ShareItemProvider]) async {
-        var found = await instances.active()
-        if found == nil { found = await instances.all().first }
-        guard let chosen = found else {
+        self.providers = providers
+        let all = await instances.all()
+        guard !all.isEmpty else {
             phase = .noInstance
             return
         }
-        instance = chosen
-        guard await instances.state(of: chosen.id) == .ready, let token = try? tokens.token(for: chosen.id),
-            !token.isEmpty
-        else {
-            phase = .signedOut(chosen.name)
+        var ready: [Instance] = []
+        var isAnyUnreadable = false
+        for candidate in all {
+            switch await instances.state(of: candidate.id) {
+            case .ready:
+                if let token = try? tokens.token(for: candidate.id), !token.isEmpty { ready.append(candidate) }
+            case .tokenUnreadable: isAnyUnreadable = true
+            default: break
+            }
+        }
+        readyInstances = ready
+        let active = await instances.active()
+        guard let chosen = ready.first(where: { $0.id == active?.id }) ?? ready.first else {
+            instance = active ?? all.first
+            phase = isAnyUnreadable ? .unreadable : .signedOut((active ?? all[0]).name)
             return
         }
+        await use(chosen)
+        await importItems(providers)
+        await refreshTask?.value
+    }
+
+    /// Starts over after a failed start.
+    func retry() async {
+        phase = .loading
+        await start(providers)
+    }
+
+    /// Sends to another instance: its saved context and repositories replace the current ones.
+    func choose(_ chosen: Instance) async {
+        guard chosen.id != instance?.id, phase == .ready else { return }
+        refreshTask?.cancel()
+        await use(chosen)
+        await refreshTask?.value
+    }
+
+    private func use(_ chosen: Instance) async {
+        guard let token = try? tokens.token(for: chosen.id) else { return }
+        instance = chosen
         self.token = token
+        isOffline = false
         context = ShareContextStore.read(instance: chosen.id, files: files)
         rebuildForm()
         phase = .ready
-        let refresh = Task { await refreshOptions(chosen, token: token) }
-        await importItems(providers)
-        await refresh.value
+        refreshTask = Task { await refreshOptions(chosen, token: token) }
     }
 
     private func importItems(_ providers: [any ShareItemProvider]) async {
@@ -120,6 +157,7 @@ final class ShareExtensionModel {
         }
         do {
             let options = try await fetchOptions(chosen, token)
+            guard instance?.id == chosen.id else { return }
             isOffline = false
             let isSaved = context != nil
             var current =
