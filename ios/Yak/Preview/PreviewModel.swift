@@ -331,6 +331,7 @@ final class PreviewModel {
             report(await backend.retryRestore())
             isPerforming = nil
         case .openTerminal: focus(.terminal)
+        case .editManifest: break  // the card offers it only once Files can open the manifest
         case .showConversation: focus(.chat)
         case .openInBrowser:
             isPerforming = action
