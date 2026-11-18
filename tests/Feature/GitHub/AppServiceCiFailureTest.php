@@ -15,6 +15,7 @@ it('reads the workflow path and head repository of a run', function () {
         'api.github.com/repos/acme/app/actions/runs/99' => Http::response([
             'path' => '.github/workflows/ci.yml',
             'name' => 'CI',
+            'event' => 'push',
             'head_repository' => ['full_name' => 'fork/app'],
             'head_branch' => 'feature',
             'head_sha' => 'abc123',
@@ -24,6 +25,7 @@ it('reads the workflow path and head repository of a run', function () {
     expect(app(AppService::class)->getWorkflowRun(1, 'acme/app', 99))->toBe([
         'path' => '.github/workflows/ci.yml',
         'name' => 'CI',
+        'event' => 'push',
         'head_repository_full_name' => 'fork/app',
         'head_branch' => 'feature',
         'head_sha' => 'abc123',

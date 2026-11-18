@@ -31,10 +31,12 @@ it('turns two red branches into one ci-failure task end to end', function () {
     $github->shouldReceive('getWorkflowRun')->andReturn([
         'path' => '.github/workflows/security.yml',
         'name' => 'Security',
+        'event' => 'push',
         'head_repository_full_name' => 'acme/widgets',
         'head_branch' => 'feature/a',
         'head_sha' => 'sha',
     ]);
+    $github->shouldReceive('isTag')->andReturn(false);
     $github->shouldReceive('getJobLogExcerpt')->andReturn('Found GHSA-cfgh-2345-jmpq in lodash');
     $github->shouldReceive('getBranchHeadSha')->andReturn('default-head');
     $github->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);

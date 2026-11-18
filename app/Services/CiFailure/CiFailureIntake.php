@@ -14,6 +14,13 @@ use Illuminate\Http\Request;
 class CiFailureIntake
 {
     /**
+     * Workflow run events whose runs execute code the repository itself
+     * controls. Runs triggered by issues, comments or pull_request_target
+     * execute on the default branch for an outsider's action.
+     */
+    public const array TRUSTED_EVENTS = ['push', 'pull_request', 'schedule', 'merge_group', 'workflow_dispatch'];
+
+    /**
      * The repository when the event is a completed failure, timeout or
      * success on a branch and job that count, otherwise null.
      */

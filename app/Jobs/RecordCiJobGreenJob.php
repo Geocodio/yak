@@ -34,14 +34,23 @@ class RecordCiJobGreenJob implements ShouldQueue
             return;
         }
 
+        $installationId = (int) config('yak.channels.github.installation_id');
+
         $run = $github->getWorkflowRun(
-            (int) config('yak.channels.github.installation_id'),
+            $installationId,
             (string) $repository->github_full_name,
             (int) data_get($this->payload, 'workflow_job.run_id'),
         );
 
         if ($run['head_repository_full_name'] !== $repository->github_full_name
+            || ! in_array($run['event'], CiFailureIntake::TRUSTED_EVENTS, true)
             || $run['head_sha'] !== (string) data_get($this->payload, 'workflow_job.head_sha')) {
+            return;
+        }
+
+        $branch = (string) data_get($this->payload, 'workflow_job.head_branch');
+
+        if ($branch !== $repository->default_branch && $github->isTag($installationId, (string) $repository->github_full_name, $branch)) {
             return;
         }
 

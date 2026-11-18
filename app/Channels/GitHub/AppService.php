@@ -1310,7 +1310,7 @@ GRAPHQL;
     /**
      * One workflow run. Any non-2xx response throws.
      *
-     * @return array{path: string, name: string, head_repository_full_name: ?string, head_branch: ?string, head_sha: string}
+     * @return array{path: string, name: string, event: string, head_repository_full_name: ?string, head_branch: ?string, head_sha: string}
      */
     public function getWorkflowRun(int $installationId, string $repoSlug, int $runId): array
     {
@@ -1322,10 +1322,22 @@ GRAPHQL;
         return [
             'path' => (string) ($run['path'] ?? ''),
             'name' => (string) ($run['name'] ?? ''),
+            'event' => (string) ($run['event'] ?? ''),
             'head_repository_full_name' => $run['head_repository']['full_name'] ?? null,
             'head_branch' => $run['head_branch'] ?? null,
             'head_sha' => (string) ($run['head_sha'] ?? ''),
         ];
+    }
+
+    /**
+     * Whether `$name` is a tag of the repository. A tag run reports the tag
+     * name as its head branch. Any failed lookup counts as not a tag.
+     */
+    public function isTag(int $installationId, string $repoSlug, string $name): bool
+    {
+        return $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/git/ref/tags/" . self::encodeRef($name))
+            ->successful();
     }
 
     /**

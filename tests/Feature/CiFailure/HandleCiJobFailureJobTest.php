@@ -32,7 +32,8 @@ beforeEach(function () {
 function fakeFailureGitHub(array $overrides = []): AppService
 {
     $options = array_merge([
-        'run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'head_repository_full_name' => 'acme/widgets', 'head_sha' => 'x', 'head_branch' => 'main'],
+        'run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'event' => 'push', 'head_repository_full_name' => 'acme/widgets', 'head_sha' => 'x', 'head_branch' => 'main'],
+        'isTag' => false,
         'excerpt' => 'boom',
         'ancestor' => true,
         'pullRequest' => null,
@@ -63,6 +64,7 @@ function fakeFailureGitHub(array $overrides = []): AppService
     };
 
     $GLOBALS['ciFailureGitHubCallsUnderLock'] = [];
+    $mock->shouldReceive('isTag')->andReturnUsing($guarded($options['isTag']));
     $mock->shouldReceive('getJobLogExcerpt')->andReturnUsing($guarded($options['excerpt']));
     $mock->shouldReceive('getBranchHeadSha')->andReturnUsing($guarded('default-head'));
     $mock->shouldReceive('compareCommits')->andReturnUsing($guarded(['status' => 'diverged', 'merge_base_sha' => 'merge-base']));
@@ -126,6 +128,24 @@ it('ignores fork runs with a fork_run observation', function () {
     expect(CiJobFailure::count())->toBe(0)
         ->and(ciFailureTasks()->count())->toBe(0)
         ->and(Observation::where('kind', 'ci_failure.fork_run')->count())->toBe(1);
+});
+
+it('ignores runs triggered by an untrusted event with an untrusted_event observation', function (string $event) {
+    fakeFailureGitHub(['run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'event' => $event, 'head_repository_full_name' => 'acme/widgets', 'head_sha' => 'x', 'head_branch' => 'main']]);
+
+    runFailureJob($this->repository);
+
+    expect(CiJobFailure::count())->toBe(0)
+        ->and(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.untrusted_event')->count())->toBe(1);
+})->with(['issues', 'issue_comment', 'pull_request_target']);
+
+it('ignores a failure on a tag', function () {
+    fakeFailureGitHub(['isTag' => true]);
+
+    runFailureJob($this->repository, ['head_branch' => 'v1.2.0']);
+
+    expect(CiJobFailure::count())->toBe(0);
 });
 
 it('creates a ci-failure Fix task with context and claims when qualified', function () {

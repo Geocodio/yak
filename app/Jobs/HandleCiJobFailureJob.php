@@ -11,6 +11,7 @@ use App\Models\CiJobFailure;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\CiFailure\CiFailureIntake;
 use App\Services\CiFailure\CiFailureQualifier;
 use App\Services\CiFailure\CiFailureTaskCreator;
 use App\Services\ObservationRecorder;
@@ -58,6 +59,18 @@ class HandleCiJobFailureJob implements ShouldQueue
         if ($run['head_repository_full_name'] !== $repository->github_full_name) {
             $this->declined($repository, 'ci_failure.fork_run', $run['path'] . ':' . $jobName, "{$jobName} failed in a run from a fork, so it is ignored.");
 
+            return;
+        }
+
+        if (! in_array($run['event'], CiFailureIntake::TRUSTED_EVENTS, true)) {
+            $this->declined($repository, 'ci_failure.untrusted_event', $run['path'] . ':' . $jobName, "{$jobName} failed in a run triggered by a {$run['event']} event, so it is ignored.");
+
+            return;
+        }
+
+        $branch = (string) ($job['head_branch'] ?? '');
+
+        if ($branch !== $repository->default_branch && $github->isTag($installationId, $repository->github_full_name, $branch)) {
             return;
         }
 

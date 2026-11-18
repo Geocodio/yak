@@ -121,14 +121,16 @@ function ciFailureGreenPayload(string $branch = 'main'): array
 /**
  * @param  array<string, mixed>  $payload
  */
-function runCiFailureGreenJob(Repository $repository, array $payload, string $headRepository): void
+function runCiFailureGreenJob(Repository $repository, array $payload, string $headRepository, string $event = 'push', bool $isTag = false): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
         'api.github.com/repos/acme/widgets/actions/runs/77' => Http::response([
             'head_repository' => ['full_name' => $headRepository],
             'head_sha' => 'sha-1',
+            'event' => $event,
         ]),
+        'api.github.com/repos/acme/widgets/git/ref/tags/*' => Http::response([], $isTag ? 200 : 404),
     ]);
 
     app()->call([new RecordCiJobGreenJob($repository->id, $payload), 'handle']);
@@ -184,6 +186,23 @@ it('ignores a green whose run head sha differs from the job', function () {
     runCiFailureGreenJob($this->repository, $payload, 'acme/widgets');
 
     expect(CiDefaultBranchGreen::count())->toBe(0);
+});
+
+it('ignores a green from a run triggered by an untrusted event', function () {
+    $failure = widgetsFailure('main');
+
+    runCiFailureGreenJob($this->repository, ciFailureGreenPayload(), 'acme/widgets', 'issue_comment');
+
+    expect($failure->fresh()->resolved_at)->toBeNull()
+        ->and(CiDefaultBranchGreen::count())->toBe(0);
+});
+
+it('ignores a green from a tag run', function () {
+    $failure = widgetsFailure('v1.2.0');
+
+    runCiFailureGreenJob($this->repository, ciFailureGreenPayload('v1.2.0'), 'acme/widgets', 'push', isTag: true);
+
+    expect($failure->fresh()->resolved_at)->toBeNull();
 });
 
 /**
