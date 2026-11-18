@@ -19,6 +19,7 @@ use App\Services\Threads\ThreadEventWindow;
 use App\Services\Threads\ThreadQuestionEvents;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\ContractFixture;
 use Tests\Support\InMemoryThreadEventWindow;
 
@@ -29,6 +30,8 @@ beforeEach(function () {
     $this->window = new InMemoryThreadEventWindow;
     app()->instance(ThreadEventWindow::class, $this->window);
     Event::fake([ThreadEventBroadcast::class]);
+    // The after-turn job runs on a queue in production, after the turn events. The sync queue would run it inside the listener loop, in whatever order the filesystem lists the listeners.
+    Queue::fake();
 
     $this->user = User::factory()->create(['name' => 'Test person']);
     $this->thread = Thread::factory()->create(['created_by_user_id' => $this->user->id, 'owner_user_id' => $this->user->id, 'title' => 'Retry failed uploads']);
