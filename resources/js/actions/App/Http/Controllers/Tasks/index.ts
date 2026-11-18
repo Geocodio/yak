@@ -1,28 +1,8 @@
 import TaskRedirectController from './TaskRedirectController'
-import StoreTaskController from './StoreTaskController'
-import DismissSetupCardController from './DismissSetupCardController'
-import TaskController from './TaskController'
-import TaskActionController from './TaskActionController'
-import CoOwnerDecisionController from './CoOwnerDecisionController'
-import EarlyWarningController from './EarlyWarningController'
-import TaskMessageController from './TaskMessageController'
-import QueuedMessageController from './QueuedMessageController'
-import TaskClarificationAnswerController from './TaskClarificationAnswerController'
-import RequestReReviewController from './RequestReReviewController'
 import PullRequestImageController from './PullRequestImageController'
 
 const Tasks = {
     TaskRedirectController: Object.assign(TaskRedirectController, TaskRedirectController),
-    StoreTaskController: Object.assign(StoreTaskController, StoreTaskController),
-    DismissSetupCardController: Object.assign(DismissSetupCardController, DismissSetupCardController),
-    TaskController: Object.assign(TaskController, TaskController),
-    TaskActionController: Object.assign(TaskActionController, TaskActionController),
-    CoOwnerDecisionController: Object.assign(CoOwnerDecisionController, CoOwnerDecisionController),
-    EarlyWarningController: Object.assign(EarlyWarningController, EarlyWarningController),
-    TaskMessageController: Object.assign(TaskMessageController, TaskMessageController),
-    QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
-    TaskClarificationAnswerController: Object.assign(TaskClarificationAnswerController, TaskClarificationAnswerController),
-    RequestReReviewController: Object.assign(RequestReReviewController, RequestReReviewController),
     PullRequestImageController: Object.assign(PullRequestImageController, PullRequestImageController),
 }
 

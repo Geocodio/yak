@@ -9,14 +9,11 @@ use App\Jobs\RunFollowUpJob;
 use App\Models\Artifact;
 use App\Models\TaskRun;
 use App\Models\Thread;
-use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
-use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\FakeSandboxManager;
 
 require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
@@ -87,41 +84,6 @@ test('the dispatcher accepts ResearchFollowUpJob as a claimable job', function (
 | Dashboard
 |--------------------------------------------------------------------------
 */
-
-test('the composer offers a research follow-up question on a finished research task', function () {
-    $this->actingAs(User::factory()->create());
-    $task = finishedResearchTask();
-
-    $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('composer.state', 'follow_up')
-            ->where('composer.placeholder', 'Ask Yak a follow-up question about this research…'));
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
-
-test('the task message controller starts a research follow-up', function () {
-    Queue::fake();
-    $this->actingAs(User::factory()->create());
-    $task = finishedResearchTask();
-
-    $this->post(route('tasks.messages.store', $task), ['message' => 'Which is cheapest?'])
-        ->assertRedirect(TaskPageUrl::forOrLog($task))
-        ->assertSessionHas('success', 'Sent to Yak. It will answer in this conversation.');
-
-    expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(1);
-    Queue::assertPushed(ResearchFollowUpJob::class);
-});
-
-test('the research artifact link points at the newest report in the conversation', function () {
-    $this->actingAs(User::factory()->create());
-    $head = finishedResearchTask();
-    Artifact::create(['yak_task_id' => $head->id, 'type' => 'research', 'role' => null, 'filename' => 'research.html', 'disk_path' => "{$head->id}/research.html", 'size_bytes' => 1]);
-    $child = finishedResearchTask(['parent_task_id' => $head->id]);
-    Artifact::create(['yak_task_id' => $child->id, 'type' => 'research', 'role' => null, 'filename' => 'research.html', 'disk_path' => "{$child->id}/research.html", 'size_bytes' => 1]);
-
-    $this->get(route('tasks.show', $head))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $child->public_id, 'filename' => 'research.html'])));
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 /*
 |--------------------------------------------------------------------------

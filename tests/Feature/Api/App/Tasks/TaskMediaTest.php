@@ -114,31 +114,6 @@ it('rewrites research artifact links to signed file links', function () {
     $this->get($artifactUrl)->assertForbidden();
 });
 
-it('leaves the web body unchanged', function () {
-    $task = mediaTask($this->user, ['mode' => TaskMode::Research]);
-    Storage::disk('artifacts')->put('research.html', '<p>report</p>');
-    Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
-
-    $this->actingAs($this->user)->get(route('tasks.show', $task))
-        ->assertInertia(fn ($page) => $page->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => 'k3m9p2qa', 'filename' => 'research.html'])));
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
-
-it('keeps the session links in the web thread', function () {
-    $task = mediaTask($this->user, ['mode' => TaskMode::Review, 'context' => json_encode([
-        'pr_number' => 42, 'body' => '![Screenshot](https://github.com/user-attachments/assets/' . MEDIA_PR_ASSET . ')',
-    ])]);
-    $fixTask = mediaTask($this->user, ['public_id' => 'n4q8r2xd']);
-    $attachment = TaskAttachment::factory()->for($fixTask, 'task')->create(['original_name' => 'before.png']);
-
-    foreach ([[$task, '/tasks/k3m9p2qa/pr-images/' . MEDIA_PR_ASSET], [$fixTask, "/task-attachments/{$attachment->id}"]] as [$shown, $link]) {
-        $this->actingAs($this->user)->get(route('tasks.show', $shown))
-            ->assertInertia(function ($page) use ($link) {
-                $json = str_replace('\\/', '/', json_encode($page->toArray()['props']));
-                expect($json)->toContain($link)->and($json)->not->toContain('app-media/');
-            });
-    }
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
-
 describe('signed pull request images', function () {
     beforeEach(function () {
         config()->set('yak.channels.github.installation_id', 99999);

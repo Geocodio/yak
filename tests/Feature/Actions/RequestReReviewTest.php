@@ -1,11 +1,12 @@
 <?php
 
+use App\Actions\RequestReReview;
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Support\TaskPageUrl;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -65,13 +66,6 @@ function fakeOpenPr(array $overrides = []): void
     ]);
 }
 
-it('redirects unauthenticated visitors to login', function () {
-    $task = makeReviewTask();
-
-    $this->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('login'));
-});
-
 it('dispatches an incremental review when a prior review exists, then redirects to the new task', function () {
     $task = makeReviewTask();
 
@@ -88,10 +82,9 @@ it('dispatches an incremental review when a prior review exists, then redirects 
 
     fakeOpenPr();
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect()
-        ->assertSessionHas('success', 'Re-review requested. A fresh review is now running for this PR -- this page updates live as it progresses.');
+    $outcome = app(RequestReReview::class)($task);
+
+    expect($outcome->isError)->toBeFalse()->and($outcome->sentence)->toBe('Re-review requested. A fresh review is now running for this PR -- this page updates live as it progresses.');
 
     $new = YakTask::query()
         ->where('mode', TaskMode::Review)
@@ -110,9 +103,7 @@ it('falls back to a full review when no prior review is on file', function () {
     $task = makeReviewTask();
     fakeOpenPr();
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect();
+    app(RequestReReview::class)($task);
 
     $new = YakTask::query()
         ->where('mode', TaskMode::Review)
@@ -139,10 +130,9 @@ it('redirects to the existing in-flight task when a review for the same head SHA
         'context' => json_encode(['pr_number' => 77, 'head_sha' => 'new-head-sha']),
     ]);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(TaskPageUrl::forOrLog($existing))
-        ->assertSessionHas('error', "A re-review for this PR is already in progress. Showing the run that's already underway.");
+    $outcome = app(RequestReReview::class)($task);
+
+    expect($outcome->isError)->toBeTrue()->and($outcome->task->is($existing))->toBeTrue()->and($outcome->sentence)->toBe("A re-review for this PR is already in progress. Showing the run that's already underway.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(2);
 });
@@ -151,10 +141,9 @@ it('bails to the original task page for closed PRs', function () {
     $task = makeReviewTask();
     fakeOpenPr(['state' => 'closed']);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(TaskPageUrl::forOrLog($task))
-        ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
+    $outcome = app(RequestReReview::class)($task);
+
+    expect($outcome->isError)->toBeTrue()->and($outcome->task->is($task))->toBeTrue()->and($outcome->sentence)->toBe("This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
@@ -163,10 +152,9 @@ it('bails to the original task page for draft PRs', function () {
     $task = makeReviewTask();
     fakeOpenPr(['draft' => true]);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect(TaskPageUrl::forOrLog($task))
-        ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
+    $outcome = app(RequestReReview::class)($task);
+
+    expect($outcome->isError)->toBeTrue()->and($outcome->task->is($task))->toBeTrue()->and($outcome->sentence)->toBe("This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
@@ -188,10 +176,9 @@ it('requests a review from a task that opened the PR', function () {
 
     fakeOpenPr(['user' => ['login' => 'yak-bot[bot]']]);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertRedirect()
-        ->assertSessionHas('success', 'Review requested. Yak is now reviewing this PR -- this page updates live as it progresses.');
+    $outcome = app(RequestReReview::class)($task);
+
+    expect($outcome->isError)->toBeFalse()->and($outcome->sentence)->toBe('Review requested. Yak is now reviewing this PR -- this page updates live as it progresses.');
 
     $review = YakTask::where('mode', TaskMode::Review)->sole();
     $ctx = json_decode((string) $review->context, true);
@@ -206,15 +193,11 @@ it('404s on tasks without a PR', function () {
         'pr_url' => null,
     ]);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertNotFound();
+    expect(fn () => app(RequestReReview::class)($task))->toThrow(HttpException::class);
 });
 
 it('404s when the repo has pr review disabled', function () {
     $task = makeReviewTask(['repo' => ['pr_review_enabled' => false]]);
 
-    $this->actingAs(User::factory()->create())
-        ->post(route('tasks.re-request-review', $task))
-        ->assertNotFound();
+    expect(fn () => app(RequestReReview::class)($task))->toThrow(HttpException::class);
 });

@@ -2,13 +2,12 @@ import { useForm } from '@inertiajs/react';
 import { Button, Textarea, cn } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
-import { store as storeTaskAnswers } from '@/routes/tasks/clarification-answers';
 import { store as storeThreadAnswers } from '@/routes/threads/clarification-answers';
 import type { QuestionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
 
-export function QuestionsForm({ taskId, threadId, questions, who = 'Yak', footer = 'Yak continues the task with your answers. Skipped questions are left to its judgment.' }: { taskId: string; threadId?: string; questions: QuestionData[]; who?: string; footer?: string }) {
+export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak continues the task with your answers. Skipped questions are left to its judgment.' }: { threadId: string; questions: QuestionData[]; who?: string; footer?: string }) {
     const form = useForm<{ answers: Record<string, { choices: string[]; other: string | null }>; note: string }>({ answers: {}, note: '' });
     const [answers, setAnswers] = useState<Record<string, Answer>>(() =>
         Object.fromEntries(questions.map((question) => [question.id, { choices: [], other: null, otherOpen: false }])),
@@ -41,7 +40,7 @@ export function QuestionsForm({ taskId, threadId, questions, who = 'Yak', footer
             ),
             note: data.note,
         }));
-        form.post(threadId !== undefined ? storeThreadAnswers.url(threadId) : storeTaskAnswers.url(taskId), { preserveScroll: true });
+        form.post(storeThreadAnswers.url(threadId), { preserveScroll: true });
     };
 
     const title = questions.length === 1 ? `${who} has a question before it can continue` : `${who} has ${questions.length} questions before it can continue`;
