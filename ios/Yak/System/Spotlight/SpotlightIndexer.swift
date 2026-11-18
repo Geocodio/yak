@@ -77,8 +77,8 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             begin: { name, expiration in
                 UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: expiration)
             },
-            end: { UIApplication.shared.endBackgroundTask($0) }
-        ) { await self.reindex() }
+            end: { UIApplication.shared.endBackgroundTask($0) },
+            work: { await self.reindex() })
     }
 
     private func runOnce() async {
