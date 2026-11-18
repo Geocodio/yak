@@ -95,4 +95,47 @@ import YakKit
         secondReader.cancel()
         #expect(received.count == 1, "a delivered action is not delivered again")
     }
+
+    private struct AllowingAuthenticator: DeviceOwnerAuthenticator {
+        func capability() async -> CapabilityReading { .unknown }
+        func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult { .success }
+        func cancel() {}
+    }
+
+    private func lockedController() -> AppLockController {
+        let settings = PrivacySettings(store: PushMemoryDefaults())
+        settings.appLockOn = true
+        return AppLockController(settings: settings, authenticator: AllowingAuthenticator(), clock: ManualClock())
+    }
+
+    @Test func aQuickActionThatArrivesWhileLockedOpensOnlyAfterTheUnlock() async throws {
+        QuickActions.reset()
+        let controller = lockedController()
+        var opened: [URL] = []
+        let router = Task { @MainActor in
+            await AppParts.route(QuickActions.links(), through: controller) { opened.append($0) }
+        }
+        await Task.yield()
+        let item = try #require(QuickActions.shortcutItems(instance: instance, snapshot: nil).first)
+        #expect(QuickActions.deliver(item))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(opened.isEmpty, "nothing opens under the lock")
+        await controller.requestUnlock()
+        for _ in 0..<100 where opened.isEmpty { await Task.yield() }
+        router.cancel()
+        #expect(opened.count == 1)
+    }
+
+    @Test func anIntentLinkThatArrivesWhileLockedOpensOnlyAfterTheUnlockAndTheNewestWins() async {
+        let controller = lockedController()
+        var opened: [URL] = []
+        let first = URL(string: "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef")!
+        let second = URL(string: "yak://new-thread?instance=https%3A%2F%2Fyak.example.com")!
+        AppParts.open(first, through: controller) { opened.append($0) }
+        AppParts.open(second, through: controller) { opened.append($0) }
+        #expect(opened.isEmpty)
+        await controller.requestUnlock()
+        for _ in 0..<100 where opened.isEmpty { await Task.yield() }
+        #expect(opened == [second])
+    }
 }
