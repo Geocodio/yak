@@ -24,7 +24,9 @@ private final class ScriptedFetcher: AttachmentFetching, @unchecked Sendable {
     var lastRequest: URLRequest? { lock.withLock { requests.last } }
     var chunkCount: Int { lock.withLock { chunksRead } }
 
-    func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>) {
+    func fetch(_ request: URLRequest, limit: Int) async throws -> (
+        HTTPURLResponse, AsyncThrowingStream<Data, any Error>
+    ) {
         lock.withLock { requests.append(request) }
         let response = HTTPURLResponse(
             url: request.url!, statusCode: status, httpVersion: nil,
@@ -145,5 +147,66 @@ struct AttachmentImageLoaderTests {
         #expect(second.pathExtension == "pdf")
         #expect(second.lastPathComponent.count <= 120)
         #expect(second.path.hasPrefix(caches.path))
+    }
+}
+
+@Suite struct AttachmentChunkDelegateTests {
+    private final class Cancels: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+        var count: Int { lock.withLock { value } }
+        func hit() { lock.withLock { value += 1 } }
+    }
+
+    private func response(status: Int = 200, length: Int? = nil) -> HTTPURLResponse {
+        HTTPURLResponse(
+            url: URL(string: "https://yak.example.com/app-media/1")!, statusCode: status, httpVersion: nil,
+            headerFields: length.map { ["Content-Length": String($0)] })!
+    }
+
+    @Test func aBodyOverTheLimitWithoutALengthIsCancelledAtTheLimit() async throws {
+        let cancels = Cancels()
+        let delegate = AttachmentChunkDelegate(limit: 100, cancel: { cancels.hit() })
+        #expect(delegate.receive(response: response()))
+        delegate.receive(data: Data(count: 60))
+        delegate.receive(data: Data(count: 60))
+        delegate.receive(data: Data(count: 60))
+        #expect(cancels.count == 1)
+        var buffered = 0
+        do {
+            for try await chunk in delegate.chunks { buffered += chunk.count }
+            Issue.record("the stream ended as if the body were whole")
+        } catch {
+            #expect((error as? URLError)?.code == .dataLengthExceedsMaximum)
+        }
+        #expect(buffered <= 100)
+    }
+
+    @Test func anAnnouncedLengthOverTheLimitIsCancelledBeforeAnyBody() async throws {
+        let cancels = Cancels()
+        let delegate = AttachmentChunkDelegate(limit: 100, cancel: { cancels.hit() })
+        #expect(!delegate.receive(response: response(length: 101)))
+        #expect(cancels.count == 1)
+        var buffered = 0
+        for try await chunk in delegate.chunks { buffered += chunk.count }
+        #expect(buffered == 0)
+    }
+
+    @Test func aFailureStatusIsCancelledBeforeAnyBody() {
+        let cancels = Cancels()
+        let delegate = AttachmentChunkDelegate(limit: 100, cancel: { cancels.hit() })
+        #expect(!delegate.receive(response: response(status: 500)))
+        #expect(cancels.count == 1)
+    }
+
+    @Test func aConsumerThatStopsEarlyCancelsTheTask() async throws {
+        let cancels = Cancels()
+        var delegate: AttachmentChunkDelegate? = AttachmentChunkDelegate(limit: 1000, cancel: { cancels.hit() })
+        #expect(delegate?.receive(response: response()) == true)
+        delegate?.receive(data: Data(count: 10))
+        let chunks = try #require(delegate?.chunks)
+        for try await _ in chunks { break }
+        delegate = nil
+        #expect(cancels.count >= 1)
     }
 }

@@ -7,11 +7,13 @@ import YakKit
     import os
 #endif
 
-/// A streamed download: the response, then the body in chunks. Production uses one shared ephemeral session with no
-/// cookies and no cache and a delegate per task that hands over what the network delivers; tests script it and count
-/// chunks read.
+/// A streamed download: the response, then the body in chunks. `limit` is the most bytes the fetcher may deliver;
+/// production cancels the network task at that point, so the bytes buffered for the consumer never pass it. It uses one
+/// shared ephemeral session with no cookies and no cache and a delegate per task; tests script it and count chunks.
 protocol AttachmentFetching: Sendable {
-    func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>)
+    func fetch(_ request: URLRequest, limit: Int) async throws -> (
+        HTTPURLResponse, AsyncThrowingStream<Data, any Error>
+    )
 }
 
 struct URLSessionAttachmentFetcher: AttachmentFetching {
@@ -23,69 +25,115 @@ struct URLSessionAttachmentFetcher: AttachmentFetching {
         return URLSession(configuration: configuration)
     }()
 
-    func fetch(_ request: URLRequest) async throws -> (HTTPURLResponse, AsyncThrowingStream<Data, any Error>) {
-        let delegate = ChunkDelegate()
+    func fetch(_ request: URLRequest, limit: Int) async throws -> (
+        HTTPURLResponse, AsyncThrowingStream<Data, any Error>
+    ) {
         let task = Self.session.dataTask(with: request)
+        let delegate = AttachmentChunkDelegate(limit: limit, cancel: { task.cancel() })
         task.delegate = delegate
         return try await withTaskCancellationHandler {
-            let response = try await delegate.response(of: task)
+            let response = try await withCheckedThrowingContinuation { continuation in
+                delegate.waitForResponse(continuation)
+                task.resume()
+            }
             return (response, delegate.chunks)
         } onCancel: {
             task.cancel()
         }
     }
+}
 
-    /// Hands the response to `response(of:)` and each piece of the body to `chunks`, as the network delivers it.
-    private final class ChunkDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
-        private let lock = NSLock()
-        private var responder: CheckedContinuation<HTTPURLResponse, any Error>?
-        private var sink: AsyncThrowingStream<Data, any Error>.Continuation?
-        let chunks: AsyncThrowingStream<Data, any Error>
+/// Hands the response and then each piece of the body to a stream, and cancels the download itself when the status
+/// is not a success, the announced length is over the limit, the bytes received pass the limit, or the consumer
+/// stops reading. The stream never holds more than `limit` bytes plus the piece that crossed it.
+final class AttachmentChunkDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private let limit: Int
+    private let cancel: @Sendable () -> Void
+    private var responder: CheckedContinuation<HTTPURLResponse, any Error>?
+    private var received = 0
+    private var isStopped = false
+    private let sink: AsyncThrowingStream<Data, any Error>.Continuation
+    let chunks: AsyncThrowingStream<Data, any Error>
 
-        override init() {
-            var made: AsyncThrowingStream<Data, any Error>.Continuation!
-            chunks = AsyncThrowingStream { made = $0 }
-            super.init()
-            sink = made
+    init(limit: Int, cancel: @escaping @Sendable () -> Void) {
+        self.limit = limit
+        self.cancel = cancel
+        var made: AsyncThrowingStream<Data, any Error>.Continuation!
+        chunks = AsyncThrowingStream(bufferingPolicy: .unbounded) { made = $0 }
+        sink = made
+        super.init()
+        sink.onTermination = { [cancel] _ in cancel() }
+    }
+
+    func waitForResponse(_ continuation: CheckedContinuation<HTTPURLResponse, any Error>) {
+        lock.withLock { responder = continuation }
+    }
+
+    private func answer(_ result: Result<HTTPURLResponse, any Error>) {
+        let waiting = lock.withLock {
+            defer { responder = nil }
+            return responder
         }
+        waiting?.resume(with: result)
+    }
 
-        func response(of task: URLSessionDataTask) async throws -> HTTPURLResponse {
-            sink?.onTermination = { _ in task.cancel() }
-            return try await withCheckedThrowingContinuation { continuation in
-                lock.withLock { responder = continuation }
-                task.resume()
-            }
+    /// True when the download may continue.
+    func receive(response: URLResponse) -> Bool {
+        guard let http = response as? HTTPURLResponse else {
+            answer(.failure(URLError(.badServerResponse)))
+            return false
         }
+        answer(.success(http))
+        guard (200..<300).contains(http.statusCode), http.expectedContentLength <= Int64(limit) else {
+            stop(error: nil)
+            return false
+        }
+        return true
+    }
 
-        private func answer(_ result: Result<HTTPURLResponse, any Error>) {
-            let waiting = lock.withLock {
-                defer { responder = nil }
-                return responder
-            }
-            waiting?.resume(with: result)
+    func receive(data: Data) {
+        let total = lock.withLock {
+            received += data.count
+            return received
         }
+        if total > limit {
+            stop(error: URLError(.dataLengthExceedsMaximum))
+        } else {
+            sink.yield(data)
+        }
+    }
 
-        func urlSession(
-            _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
-            completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
-        ) {
-            guard let http = response as? HTTPURLResponse else {
-                answer(.failure(URLError(.badServerResponse)))
-                completionHandler(.cancel)
-                return
-            }
-            answer(.success(http))
-            completionHandler(.allow)
-        }
+    func finish(error: (any Error)?) {
+        answer(.failure(error ?? URLError(.badServerResponse)))
+        sink.finish(throwing: error)
+    }
 
-        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-            sink?.yield(data)
+    /// Cancels the task and ends the stream; an error tells the consumer the body was cut short.
+    private func stop(error: (any Error)?) {
+        let wasStopped = lock.withLock {
+            defer { isStopped = true }
+            return isStopped
         }
+        if wasStopped { return }
+        cancel()
+        sink.finish(throwing: error)
+    }
 
-        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-            answer(.failure(error ?? URLError(.badServerResponse)))
-            sink?.finish(throwing: error)
-        }
+    func urlSession(
+        _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        completionHandler(receive(response: response) ? .allow : .cancel)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        receive(data: data)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        // A cancel the delegate asked for ends the stream quietly; the consumer judged the size already.
+        finish(error: lock.withLock { isStopped } ? nil : error)
     }
 }
 
@@ -131,7 +179,7 @@ actor AttachmentImageLoader {
     /// Streams the body through `consume`, which gets every chunk; stops as soon as the limit is passed.
     private func stream(_ link: URL, consume: (Data) throws -> Void) async -> Download? {
         do {
-            let (response, chunks) = try await fetcher.fetch(request(link))
+            let (response, chunks) = try await fetcher.fetch(request(link), limit: limit)
             if response.statusCode == 403 { return .expired }
             guard (200..<300).contains(response.statusCode) else { return .failed }
             if response.expectedContentLength > Int64(limit) { return .failed }
