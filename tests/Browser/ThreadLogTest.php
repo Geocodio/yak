@@ -81,3 +81,25 @@ it('offers a retry when loading more threads fails', function () {
     $page->click('[data-testid="thread-log-retry"]')
         ->assertScript("document.querySelectorAll('[data-testid^=\"thread-log-row-\"]').length", 60);
 });
+
+it('opens a thread in a new tab on a ctrl-click, a cmd-click and a middle-click, and keeps the page', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = Thread::factory()->create(['title' => 'Open me in a tab']);
+    $rowTestId = 'thread-log-row-' . $thread->public_id;
+
+    $page = visit(route('threads.log'))->assertSee('Open me in a tab')->assertNoJavaScriptErrors();
+
+    $openedPath = fn (string $init): ?string => parse_url((string) $page->script(<<<JS
+        (() => {
+            let opened = null;
+            window.open = (url) => { opened = url; };
+            document.querySelector('[data-testid="{$rowTestId}"] td').dispatchEvent(new MouseEvent({$init}));
+            return opened;
+        })()
+    JS), PHP_URL_PATH);
+
+    expect($openedPath("'click', { bubbles: true, ctrlKey: true }"))->toBe(route('threads.show', $thread, false))
+        ->and($openedPath("'click', { bubbles: true, metaKey: true }"))->toBe(route('threads.show', $thread, false))
+        ->and($openedPath("'auxclick', { bubbles: true, button: 1 }"))->toBe(route('threads.show', $thread, false));
+    $page->assertPathIs('/threads/log');
+});
