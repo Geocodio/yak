@@ -14,13 +14,14 @@ use Illuminate\Support\Facades\Log;
  * request, so only Linear, dashboard, email and automated tasks send direct
  * messages. The starter hears about every event that needs a person,
  * including the result of a follow-up on their task. A different responsible
- * user hears only once, when the pull request is first ready.
+ * user hears only once, when the pull request is first ready, or, for a
+ * ci-failure task, when it fails or ends without a pull request.
  */
 class DirectMessageRecipients
 {
     private const array STARTER_SOURCES = ['linear', 'dashboard', 'email'];
 
-    private const array RESPONSIBLE_SOURCES = ['linear', 'dashboard', 'sentry', 'flaky-test'];
+    private const array RESPONSIBLE_SOURCES = ['linear', 'dashboard', 'sentry', 'flaky-test', 'ci-failure'];
 
     private const array PUSHING_TYPES = [
         NotificationType::Clarification,
@@ -49,7 +50,9 @@ class DirectMessageRecipients
 
         $responsible = in_array($task->source, self::RESPONSIBLE_SOURCES, true) ? $task->responsibleUser : null;
 
-        if ($responsible !== null && $this->isPullRequestReady($task, $type) && ! $responsible->is($starter)) {
+        if ($responsible !== null
+            && ($this->isPullRequestReady($task, $type) || $this->isUnfixedCiFailure($task, $type))
+            && ! $responsible->is($starter)) {
             $recipients[] = $responsible;
         }
 
@@ -62,6 +65,18 @@ class DirectMessageRecipients
 
             return false;
         }));
+    }
+
+    /**
+     * A ci-failure task has no starter to tell and no pull request to carry
+     * the news, so its responsible user hears when it fails or ends without a
+     * pull request. CiFailureNotificationGate decides whether a repeat is
+     * worth another message.
+     */
+    private function isUnfixedCiFailure(YakTask $task, NotificationType $type): bool
+    {
+        return $task->source === 'ci-failure'
+            && ($type === NotificationType::Error || ($type === NotificationType::Result && $task->pr_url === null));
     }
 
     private function isPullRequestReady(YakTask $task, NotificationType $type): bool

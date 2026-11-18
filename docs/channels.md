@@ -101,6 +101,7 @@ Without them the Connect GitHub button cannot complete, so nobody links an accou
 The GitHub App subscribes to:
 
 - `check_suite.completed`: CI result processing
+- `workflow_job.completed` (**Workflow jobs**): spots GitHub Actions jobs that fail on several branches for a shared cause, so Yak can open one PR to fix it
 - `pull_request.closed`: merge/close tracking (also denormalizes onto `pr_reviews`)
 - `pull_request.opened` / `ready_for_review` / `reopened`: triggers a full PR review when `pr_review_enabled` is on
 - `pull_request.synchronize`: refreshes the branch preview and re-runs the `yak / config` check. It does not trigger a review
@@ -114,7 +115,7 @@ The GitHub App subscribes to:
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
 
-> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
+> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Workflow jobs** (or shared CI failures go unnoticed), **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
 
 ### Accepting new permissions
 

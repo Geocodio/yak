@@ -57,12 +57,12 @@ it('finds the merged pull request that introduced a commit', function () {
     Http::fake(fakeInstallationToken() + [
         'api.github.com/repos/acme/api/commits/*/pulls' => Http::response([
             ['number' => 7, 'title' => 'Open PR', 'html_url' => 'https://github.com/acme/api/pull/7', 'merged_at' => null],
-            ['number' => 1482, 'title' => 'Loosen review limits', 'html_url' => 'https://github.com/acme/api/pull/1482', 'merged_at' => '2026-10-09T10:00:00Z'],
+            ['number' => 1482, 'title' => 'Loosen review limits', 'html_url' => 'https://github.com/acme/api/pull/1482', 'merged_at' => '2026-10-09T10:00:00Z', 'user' => ['login' => 'octocat']],
         ]),
     ]);
 
     expect(app(AppService::class)->findPullRequestForCommit(99999, 'acme/api', str_repeat('b', 40)))
-        ->toBe(['number' => 1482, 'title' => 'Loosen review limits', 'url' => 'https://github.com/acme/api/pull/1482']);
+        ->toBe(['number' => 1482, 'title' => 'Loosen review limits', 'url' => 'https://github.com/acme/api/pull/1482', 'author' => 'octocat']);
 });
 
 it('returns no pull request when GitHub cannot list them', function () {

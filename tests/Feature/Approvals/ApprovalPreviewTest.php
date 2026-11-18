@@ -394,7 +394,7 @@ function waitingRow(Repository $repository, int $number = 7, string $sha = 'sha7
     ]);
 }
 
-function reviewTask(string $status, string $sha, int $number = 7): YakTask
+function approvalPreviewReviewTask(string $status, string $sha, int $number = 7): YakTask
 {
     return YakTask::factory()->create([
         'mode' => TaskMode::Review, 'status' => $status, 'external_id' => "https://github.com/acme/api/pull/{$number}", 'context' => json_encode(['head_sha' => $sha]),
@@ -403,7 +403,7 @@ function reviewTask(string $status, string $sha, int $number = 7): YakTask
 
 it('marks a waiting row reviewing only while a review task runs at its head commit', function (string $status, string $sha, bool $expected) {
     waitingRow($this->repo);
-    reviewTask($status, $sha);
+    approvalPreviewReviewTask($status, $sha);
 
     expect(ApprovalSettingsPageData::openPullRequests($this->repo)['rows'][0])->toMatchArray(['waiting' => true, 'reviewing' => $expected]);
 })->with([
