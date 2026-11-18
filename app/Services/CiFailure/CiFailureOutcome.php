@@ -18,6 +18,12 @@ enum CiFailureOutcome: string
     /** Recorded for a failed task that never produced an outcome line. */
     case Infrastructure = 'infrastructure';
 
+    /** Recorded when the task was cancelled or expired before it finished. */
+    case Cancelled = 'cancelled';
+
+    /** Recorded when the task's pull request was closed without merging. */
+    case PullRequestClosed = 'pr_closed';
+
     private const string LINE_PATTERN = '/^CI-FAILURE-OUTCOME: (fixed|unverified_fix|already_fixed|not_shared|covered_by_pr #\d+|cannot_fix)$/m';
 
     /**

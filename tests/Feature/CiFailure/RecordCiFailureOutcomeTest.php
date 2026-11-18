@@ -189,7 +189,7 @@ it('skips the notification job when the gate says no and sends otherwise', funct
 
 it('does not gate a result that carries a fix', function () {
     [$task] = ciFailureTaskWithClaim();
-    $task->updateQuietly(['status' => TaskStatus::Success, 'result_summary' => 'CI-FAILURE-OUTCOME: fixed']);
+    $task->updateQuietly(['status' => TaskStatus::Success, 'result_summary' => 'CI-FAILURE-OUTCOME: fixed', 'pr_url' => 'https://github.com/acme/widgets/pull/5']);
 
     CiFailureNotificationGate::remember($task, false);
     $this->mock(DirectMessageRecipients::class)->shouldReceive('for')->once()->andReturn([]);
@@ -210,4 +210,46 @@ it('sets fix_merge_sha when the reconciler records a merged ci-failure PR', func
     $this->artisan('yak:reconcile-pr-state')->assertSuccessful();
 
     expect($claim->fresh()->fix_merge_sha)->toBe('reconciled-sha');
+});
+
+it('backs off without notifying when a task is cancelled or expires', function (TaskStatus $status) {
+    [$task, $claim] = ciFailureTaskWithClaim();
+
+    finishCiFailureTask($task, $status, null);
+
+    expect($claim->fresh()->last_outcome)->toBe('cancelled')
+        ->and($claim->fresh()->attempt_count)->toBe(1)
+        ->and($claim->fresh()->blocked_until)->not->toBeNull()
+        ->and(CiFailureNotificationGate::shouldNotify($task->fresh()))->toBeFalse();
+})->with([TaskStatus::Cancelled, TaskStatus::Expired]);
+
+it('treats a fix that never opened a pull request as cannot_fix', function (string $outcome) {
+    [$task, $claim] = ciFailureTaskWithClaim();
+
+    finishCiFailureTask($task, TaskStatus::Success, outcomeLine($outcome));
+
+    expect($claim->fresh()->last_outcome)->toBe('cannot_fix')
+        ->and($claim->fresh()->attempt_count)->toBe(1)
+        ->and($claim->fresh()->blocked_until)->not->toBeNull();
+})->with(['fixed', 'unverified_fix']);
+
+it('counts a ci-failure pull request closed unmerged as a failed attempt', function () {
+    [$task, $claim] = ciFailureTaskWithClaim(task: ['pr_url' => 'https://github.com/acme/widgets/pull/5']);
+    $claim->update(['last_outcome' => 'fixed']);
+
+    app(RecordPullRequestOutcome::class)->record($task->pr_url, merged: false);
+    app(RecordPullRequestOutcome::class)->record($task->pr_url, merged: false);
+
+    expect($claim->fresh()->last_outcome)->toBe('pr_closed')
+        ->and($claim->fresh()->attempt_count)->toBe(1)
+        ->and((int) round(now()->diffInHours($claim->fresh()->blocked_until, true)))->toBe(24);
+});
+
+it('does not back off when a ci-failure pull request merges', function () {
+    [$task, $claim] = ciFailureTaskWithClaim(task: ['pr_url' => 'https://github.com/acme/widgets/pull/5']);
+
+    app(RecordPullRequestOutcome::class)->record($task->pr_url, merged: true, mergeCommitSha: 'merge-sha');
+
+    expect($claim->fresh()->attempt_count)->toBe(0)
+        ->and($claim->fresh()->blocked_until)->toBeNull();
 });

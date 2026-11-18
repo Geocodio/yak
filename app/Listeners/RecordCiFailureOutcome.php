@@ -26,7 +26,8 @@ class RecordCiFailureOutcome
     {
         $task = $event->task;
 
-        if ($task->source !== CiFailureTaskCreator::SOURCE || ! in_array($event->to, [TaskStatus::Success, TaskStatus::Failed], true)) {
+        if ($task->source !== CiFailureTaskCreator::SOURCE
+            || ! in_array($event->to, [TaskStatus::Success, TaskStatus::Failed, TaskStatus::Cancelled, TaskStatus::Expired], true)) {
             return;
         }
 
@@ -44,13 +45,26 @@ class RecordCiFailureOutcome
 
         $summary = $task->result_summary;
         $isFailed = $event->to === TaskStatus::Failed;
-        $outcome = $isFailed && ! CiFailureOutcome::hasLine($summary) ? CiFailureOutcome::Infrastructure : CiFailureOutcome::fromSummary($summary);
-        $backsOff = $isFailed || $outcome === CiFailureOutcome::CannotFix;
+        $isStopped = in_array($event->to, [TaskStatus::Cancelled, TaskStatus::Expired], true);
+        $outcome = match (true) {
+            $isStopped => CiFailureOutcome::Cancelled,
+            $isFailed && ! CiFailureOutcome::hasLine($summary) => CiFailureOutcome::Infrastructure,
+            default => CiFailureOutcome::fromSummary($summary),
+        };
+
+        // A fix that never became a pull request fixed nothing.
+        if ($event->to === TaskStatus::Success
+            && $task->pr_url === null
+            && in_array($outcome, [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true)) {
+            $outcome = CiFailureOutcome::CannotFix;
+        }
+
+        $backsOff = $isFailed || $isStopped || $outcome === CiFailureOutcome::CannotFix;
         $shouldNotify = false;
 
         foreach ($claims as $claim) {
             $shouldNotify = $shouldNotify
-                || ($outcome !== CiFailureOutcome::Infrastructure && $claim->last_outcome !== $outcome->value);
+                || (! in_array($outcome, [CiFailureOutcome::Infrastructure, CiFailureOutcome::Cancelled], true) && $claim->last_outcome !== $outcome->value);
 
             if ($backsOff) {
                 $claim->recordFailedAttempt($outcome->value);

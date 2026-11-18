@@ -131,7 +131,7 @@ class SendNotificationJob implements ShouldQueue
 
         $isUnfixed = $this->type === NotificationType::Error
             || ($this->type === NotificationType::Result
-                && ! in_array(CiFailureOutcome::fromSummary($this->task->result_summary), [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true));
+                && ($this->task->pr_url === null || ! in_array(CiFailureOutcome::fromSummary($this->task->result_summary), [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true)));
 
         return $isUnfixed && ! CiFailureNotificationGate::shouldNotify($this->task);
     }
