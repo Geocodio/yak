@@ -120,7 +120,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
      */
     private function failForUnresolvedRepository(): void
     {
-        $activeSlugList = Repository::where('is_active', true)->pluck('slug')->all();
+        $activeSlugList = array_values(Repository::where('is_active', true)->pluck('slug')->map(fn (mixed $slug): string => (string) $slug)->all());
         $activeSlugs = implode(', ', $activeSlugList);
         $message = $this->task->repo === 'unknown'
             ? "Could not determine which repo to use. Add `repo: <slug>` to the task description, or mark a repo as default. Active repos: {$activeSlugs}."

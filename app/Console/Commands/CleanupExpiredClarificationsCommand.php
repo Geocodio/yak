@@ -75,7 +75,7 @@ class CleanupExpiredClarificationsCommand extends Command
             return $askedAt;
         }
 
-        return $task->clarification_expires_at->subDays((int) config('yak.clarification_ttl_days', 7));
+        return ($task->clarification_expires_at ?? now()->toImmutable())->subDays((int) config('yak.clarification_ttl_days', 7));
     }
 
     /**
