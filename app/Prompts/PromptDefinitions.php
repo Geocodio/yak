@@ -191,6 +191,14 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-same-cause-check' => [
+                'view' => 'prompts.agents.same-cause-check',
+                'label' => 'Same-Cause Check',
+                'description' => 'Instructions for the SameCauseCheck, which compares two failed CI job log excerpts and reports whether both show the same root error. It can only decline a match, never create one.',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'agents-risk-area-guess' => [
                 'view' => 'prompts.agents.risk-area-guess',
                 'label' => 'Risk Area Guesser',

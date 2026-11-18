@@ -290,6 +290,12 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'agents-same-cause-check' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
             'agents-risk-area-guess' => [
                 [
                     'label' => 'Static content',
