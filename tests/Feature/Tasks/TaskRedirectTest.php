@@ -8,6 +8,7 @@ use App\Models\ThreadShare;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->actingAs(User::factory()->create()));
 
@@ -181,4 +182,42 @@ it('sends a guest from the task log to the login page', function () {
     auth()->logout();
 
     $this->get(route('tasks'))->assertRedirect(route('login'));
+});
+
+it('gives a waiting old conversation its thread when its link is opened, and reuses it', function () {
+    $this->withoutVite();
+    $root = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $followUp = YakTask::factory()->awaitingClarification()->withClarificationQuestions()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
+
+    $response = $this->get(route('tasks.show', $followUp))->assertStatus(301);
+
+    $thread = Thread::query()->withoutGlobalScopes()->sole();
+    expect($root->fresh()->thread_id)->toBe($thread->id)->and($followUp->fresh()->thread_id)->toBe($thread->id);
+    $response->assertRedirect(route('threads.show', $thread));
+
+    $this->get(route('tasks.show', $root))->assertStatus(301)->assertRedirect(route('threads.show', $thread));
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
+
+    $this->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
+        ->where('question.taskId', $followUp->public_id)->has('question.questions'));
+});
+
+it('creates no thread for a review or a setup task', function () {
+    Repository::factory()->create(['slug' => 'acme/widgets']);
+    $review = YakTask::factory()->create(['mode' => TaskMode::Review, 'repo' => 'acme/widgets', 'pr_number' => 42, 'thread_id' => null]);
+    $setup = YakTask::factory()->create(['mode' => TaskMode::Setup, 'repo' => 'acme/widgets', 'thread_id' => null]);
+
+    $this->get(route('tasks.show', $review))->assertStatus(301);
+    $this->get(route('tasks.show', $setup))->assertStatus(301);
+
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('creates no thread for a task the viewer cannot see', function () {
+    $thread = Thread::factory()->private()->create();
+    $task = YakTask::factory()->awaitingClarification()->create(['thread_id' => $thread->id]);
+
+    $this->get(route('tasks.show', $task))->assertNotFound();
+
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
 });

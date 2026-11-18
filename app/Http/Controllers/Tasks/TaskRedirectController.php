@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Tasks;
 
+use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RepositoryRunData;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadFactory;
 use App\Support\TaskPageUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,7 +16,11 @@ use Illuminate\Http\Request;
 /**
  * Old task links keep working for good: each one answers 301 to the page the
  * task lives on now. A task the viewer may not see answers 404, like an
- * unknown one.
+ * unknown one. A fix or research conversation that began before threads
+ * existed and is still live has no thread until its next run, so opening the
+ * link of one that waits on a person gives the conversation its thread first
+ * (a finished or running one without a thread stays without).
+ * Reviews, setup runs and repository research never get one.
  */
 class TaskRedirectController extends Controller
 {
@@ -22,9 +30,33 @@ class TaskRedirectController extends Controller
             ->where(ctype_digit($task) ? 'id' : 'public_id', $task)
             ->first() ?? abort(404);
 
+        $this->giveWaitingConversationItsThread($found);
+
         $url = TaskPageUrl::for($found, null, $request->only(['t', 'repo', 'log'])) ?? abort(404);
 
         return redirect()->to($url, 301);
+    }
+
+    private function giveWaitingConversationItsThread(YakTask $found): void
+    {
+        if ($found->mode === TaskMode::Review || RepositoryRunData::isRepositoryRun($found) || TaskPageUrl::for($found) !== null) {
+            return;
+        }
+
+        $root = $found->rootTask();
+
+        $waitsOnPerson = fn (YakTask $task): bool => in_array($task->status, [TaskStatus::AwaitingClarification, TaskStatus::AwaitingCoOwner], true);
+
+        if ($root->thread_id !== null || ! ($waitsOnPerson($found) || $waitsOnPerson($root))) {
+            return;
+        }
+
+        $thread = app(ThreadFactory::class)->forTask($root);
+
+        YakTask::query()->withoutGlobalScopes()->whereIn('id', $root->conversation()->pluck('id'))->whereNull('thread_id')
+            ->get()->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
+
+        $found->setAttribute('thread_id', $thread->id);
     }
 
     public function index(Request $request): RedirectResponse
