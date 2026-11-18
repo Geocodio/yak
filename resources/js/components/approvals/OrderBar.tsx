@@ -61,7 +61,7 @@ export function OrderBar({ live, draft, slug, isSaving, error, approvedDelta, on
                 {error && <p role="alert" className="mt-1 text-[13px] text-fail">{error}</p>}
             </div>
             <div className="flex flex-wrap gap-2">
-                <Button onClick={onDiscard} disabled={isSaving}>Discard</Button>
+                <Button className="h-12 px-5" onClick={onDiscard} disabled={isSaving}>Discard</Button>
                 <button
                     type="button"
                     data-testid="approvals-transmit"
