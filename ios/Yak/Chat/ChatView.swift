@@ -22,9 +22,12 @@ struct ChatView: View {
     /// was, how tall the viewport was, and how many rows there were. When the page has arrived above it, the row is
     /// scrolled back to the same place by its identity, so the estimated height of the new rows plays no part.
     @State private var rowCountWhenRequested: Int?
+    /// The ids of the rows there were when the page was asked for; the rows added since are the page.
+    @State private var rowIDsWhenRequested: Set<String> = []
     /// That row as of the last layout before the page arrived; once the rows have changed, it is not updated.
     @State private var anchorBeforePage: PlaceAnchor?
-    /// The row put back after a page of earlier messages, held there until the person scrolls or jumps to the end.
+    /// The row put back after a page of earlier messages, held until the page's documents have arrived, the person
+    /// reaches the end or moves the list by any means, or the row is gone.
     @State private var placeHeld: HeldPlace?
     @State private var rowFrames = RowFrames()
     @State private var viewportHeight: CGFloat = 0
@@ -50,11 +53,6 @@ struct ChatView: View {
         var height: CGFloat
         var viewportHeight: CGFloat
         var rowCount: Int
-    }
-
-    private struct HeldPlace {
-        var id: String
-        var fraction: CGFloat
     }
 
     private struct HistoryTrigger: Equatable {
@@ -123,17 +121,18 @@ struct ChatView: View {
             guard trigger.isVisible, trigger.isAsked, trigger.state == .available else { return }
             isHistoryVisible = false
             rowCountWhenRequested = thread.rows.count
+            rowIDsWhenRequested = Set(thread.rows.map(\.id))
             anchorBeforePage = anchorRow()
             Task { await thread.loadOlder() }
         }
         .onChange(of: thread.rows.count) { _, count in restorePlace(rowCount: count) }
-        .onChange(of: thread.documents.count) { applyHeldPlace() }
+        .onChange(of: thread.documents.count) { settleHeldPlace() }
         .onScrollPhaseChange { _, phase in
             isPersonScrolling = [.tracking, .interacting, .decelerating].contains(phase)
-            if [.tracking, .interacting].contains(phase) {
-                placeHeld = nil
-                hasPersonScrolled = true
-            }
+            // The app's own scrolls run without animation, so an animated or decelerating scroll is the person's or
+            // the system's (status-bar tap, keyboard, VoiceOver, scroll indicator).
+            if [.tracking, .interacting, .animating, .decelerating].contains(phase) { placeHeld = nil }
+            if [.tracking, .interacting].contains(phase) { hasPersonScrolled = true }
         }
         .onChange(of: thread.historyState) { old, new in
             guard old == .loading, new != .loading, let requested = rowCountWhenRequested else { return }
@@ -158,6 +157,7 @@ struct ChatView: View {
         viewportHeight = new.viewportHeight
         guard new.contentHeight != old.contentHeight else {
             isNearBottom = new.distanceFromBottom <= Self.stickDistance
+            if isNearBottom { placeHeld = nil }
             return
         }
         // Until the person touches the list, the end stays in view however late or in how many steps the rows and
@@ -165,6 +165,7 @@ struct ChatView: View {
         if !isPersonScrolling, !hasPersonScrolled || old.distanceFromBottom <= Self.stickDistance {
             withTransaction(Self.still) { position.scrollTo(edge: .bottom) }
             isNearBottom = true
+            placeHeld = nil
         }
     }
 
@@ -193,22 +194,38 @@ struct ChatView: View {
     /// same placement is applied again as their documents arrive, until the person scrolls or jumps to the end. A
     /// slow device can parse the page's first document many seconds after its rows, so no clock ends the hold.
     private func restorePlace(rowCount: Int) {
+        if let held = placeHeld, !thread.rows.contains(where: { $0.id == held.id }) { placeHeld = nil }
         guard let requested = rowCountWhenRequested, rowCount > requested, let anchor = anchorBeforePage else { return }
         rowCountWhenRequested = nil
         let room = anchor.viewportHeight - anchor.height
         let fraction = room > 1 ? min(max(anchor.top / room, 0), 1) : 0
-        placeHeld = HeldPlace(id: anchor.id, fraction: fraction)
+        let awaited = Set(thread.rows.compactMap(\.markdownItemKey)).subtracting(rowIDsWhenRequested)
+        placeHeld = HeldPlace(id: anchor.id, fraction: fraction, awaitedIDs: awaited)
         applyHeldPlace()
         Task {
             // The lazy stack can correct its estimates after the first pass.
             try? await Task.sleep(for: .milliseconds(60))
-            applyHeldPlace()
+            settleHeldPlace()
         }
     }
 
     private func applyHeldPlace() {
         guard let held = placeHeld, !isPersonScrolling else { return }
         withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0, y: held.fraction)) }
+    }
+
+    /// Applies the held place and ends the hold when its page is complete or its row is gone.
+    private func settleHeldPlace() {
+        guard let held = placeHeld else { return }
+        switch held.status(
+            hasDocument: { thread.documents[$0] != nil }, hasRow: { id in thread.rows.contains { $0.id == id } })
+        {
+        case .holding: applyHeldPlace()
+        case .complete:
+            applyHeldPlace()
+            placeHeld = nil
+        case .anchorGone: placeHeld = nil
+        }
     }
 
     private func jumpToLatest() {
@@ -253,6 +270,16 @@ struct ChatView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: isNearBottom)
+    }
+}
+
+extension ConversationRow {
+    /// The row's id when its text is rendered as Markdown, so it gets a document once parsed.
+    fileprivate var markdownItemKey: String? {
+        guard case .entry(.event(let item), _) = self, item.kind == .text || item.kind == .result,
+            let text = item.text, !text.isEmpty
+        else { return nil }
+        return item.key
     }
 }
 

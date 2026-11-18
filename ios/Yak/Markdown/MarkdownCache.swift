@@ -52,7 +52,7 @@ actor MarkdownCache<Renderer: MarkdownRendering> {
                 await parse(key: item.key, text: text)
             }
         }
-        guard latestRequest.count > Self.capacity else { return }
+        guard !items.isEmpty, latestRequest.count > Self.capacity else { return }
         let listed = Set(items.map(\.key))
         // Every key that was ever parsed has a request, also one whose first parse is still running.
         for key in latestRequest.keys where !listed.contains(key) {

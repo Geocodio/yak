@@ -189,10 +189,11 @@ private func makeItem(_ key: String, _ text: String, streaming: Bool = false) ->
         #expect(await cache.document(for: kept) == "kept")
     }
 
-    /// A snapshot that briefly lists nothing, as while reconnecting, keeps the documents of a short thread.
+    /// A snapshot that briefly lists nothing, as while reconnecting, drops nothing, also for a thread above the
+    /// capacity.
     @Test func aBrieflyEmptyListParsesNothingAgain() async {
         let (cache, counter, _) = makeCache()
-        let items = (0..<10).map { makeItem("key-\($0)", "text \($0)") }
+        let items = (0..<(MarkdownCache<CountingRenderer>.capacity + 200)).map { makeItem("key-\($0)", "text \($0)") }
         await cache.update(with: items)
         await cache.update(with: [])
         await cache.update(with: items)
