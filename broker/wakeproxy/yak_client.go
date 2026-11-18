@@ -41,6 +41,15 @@ type YakClient interface {
 	Activity(ctx context.Context, address string) error
 }
 
+// defaultYakHTTPClient opens a new connection per request. The listener poll never idles, so a reused connection
+// would stay on the old host after Yak's DNS record moves.
+var defaultYakHTTPClient = func() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = true
+
+	return &http.Client{Timeout: 15 * time.Second, Transport: transport}
+}()
+
 // HTTPYakClient talks to /internal/ssh/* with a bearer token.
 type HTTPYakClient struct {
 	BaseURL string
@@ -72,7 +81,7 @@ func (c *HTTPYakClient) do(ctx context.Context, method, path string, payload any
 
 	client := c.HTTP
 	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
+		client = defaultYakHTTPClient
 	}
 
 	response, err := client.Do(request)
