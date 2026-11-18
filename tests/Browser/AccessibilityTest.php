@@ -1,10 +1,16 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Models\CoOwnerRequest;
+use App\Models\PrReview;
+use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\GitHubWriteAccess;
+
+require_once __DIR__ . '/../Support/NewPageFixtures.php';
+require_once __DIR__ . '/../Helpers/ReviewRunHelpers.php';
 
 test('task list page has no accessibility issues', function () {
     $user = User::factory()->create();
@@ -124,3 +130,59 @@ test('task page with the early warning notice has no accessibility issues', func
 
     visit(route('tasks.show', $task))->assertVisible('[data-testid="early-warning-picker"]')->assertNoAccessibilityIssues(0);
 })->skip('The task page is removed; its behaviour is covered on the thread page.');
+
+// The shared theme's faint text and green-on-green badges sit below the AA contrast ratio, so these pages are checked at the critical level.
+test('thread page has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+    [$thread] = seedConversationThread();
+
+    visit(route('threads.show', $thread))->assertVisible('[data-testid="thread-conversation-scroller"]')->assertNoAccessibilityIssues(0);
+});
+
+test('thread page with the co-owner card has no accessibility issues', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    $this->actingAs($viewer);
+    $thread = seedCoOwnerCardThread($viewer);
+
+    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-co-owner"]')->assertNoAccessibilityIssues(0);
+});
+
+test('thread page with the early warning card has no accessibility issues', function () {
+    $viewer = User::factory()->create();
+    $this->actingAs($viewer);
+    $thread = seedEarlyWarningCardThread($viewer);
+
+    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-early-warning"]')->assertNoAccessibilityIssues(0);
+});
+
+test('thread page with the stop card has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = seedStopCardThread();
+
+    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-stop"]')->assertNoAccessibilityIssues(0);
+});
+
+test('thread log has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+    seedThreadLogRows();
+
+    visit(route('threads.log'))->assertVisible('[data-testid="thread-log-table"]')->assertNoAccessibilityIssues();
+});
+
+test('review page has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+    $task = seedReviewRun(['status' => 'success']);
+    $review = PrReview::factory()->create(['yak_task_id' => $task->id, 'repo' => 'geocodio/api', 'pr_number' => 50, 'summary' => 'The move is consistent.']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'should_fix', 'category' => 'Tests', 'file_path' => 'app/Models/Subscription.php', 'line_number' => 189, 'body' => 'No test covers a negotiated price.']);
+
+    visit('/pr-reviews/for/geocodio/api/50')->assertVisible('[data-testid="review-runs"]')->assertNoAccessibilityIssues(0);
+});
+
+test('repository Runs tab has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+    $repository = Repository::factory()->create(['slug' => 'acme/site', 'sandbox_snapshot' => 'acme-site-v1']);
+    YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup, 'status' => 'failed', 'error_log' => 'port 8000 never answered within 90 seconds']);
+    YakTask::factory()->success()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup]);
+
+    visit(route('repos.runs.index', $repository))->assertVisible('[data-testid="run-list"]')->assertNoAccessibilityIssues(0);
+});

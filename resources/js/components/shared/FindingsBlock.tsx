@@ -107,11 +107,21 @@ function FindingsTable({ findings }: { findings: NonNullable<FindingsData> }) {
 
                                 return (
                                     <Fragment key={index}>
-                                        <tr className="cursor-pointer border-b border-hair align-top hover:bg-panel-2" onClick={() => toggle(index)} data-testid="finding-row" aria-expanded={isOpen}>
+                                        <tr className="cursor-pointer border-b border-hair align-top hover:bg-panel-2" onClick={() => toggle(index)} data-testid="finding-row">
                                             <td className="py-2 pr-3">
-                                                <Badge tone={SEVERITY_TONE[comment.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>
-                                                    {(SEVERITY_LABEL[comment.severity as keyof typeof SEVERITY_LABEL] ?? comment.severity).toLowerCase()}
-                                                </Badge>
+                                                <button
+                                                    type="button"
+                                                    aria-expanded={isOpen}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        toggle(index);
+                                                    }}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <Badge tone={SEVERITY_TONE[comment.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>
+                                                        {(SEVERITY_LABEL[comment.severity as keyof typeof SEVERITY_LABEL] ?? comment.severity).toLowerCase()}
+                                                    </Badge>
+                                                </button>
                                             </td>
                                             <td className="py-2 pr-3 text-muted">{comment.category}</td>
                                             <td className="py-2 pr-3 font-mono text-muted">
