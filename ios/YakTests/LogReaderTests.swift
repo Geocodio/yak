@@ -14,7 +14,8 @@ import Testing
         let collector = LogCollector()
         let started = Date()
         try await LogReader().read(since: Date().addingTimeInterval(-600), limit: 5_000, into: collector)
-        #expect(Date().timeIntervalSince(started) < 5)
+        // Five seconds on a quiet Mac; a hosted machine reads the log store more slowly.
+        #expect(Date().timeIntervalSince(started) < 5 * TestTimeScale.factor)
         #expect(collector.snapshot().contains { $0.message.contains(marker) })
     }
 }
