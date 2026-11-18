@@ -363,6 +363,8 @@ export type TranscriptEntry = {
     /** Seconds from a tool call to its output. */
     durationSeconds?: number | null;
     isTruncated?: boolean;
+    /** The input is one shell command string, shown with a `$ ` prompt. */
+    isShellCommand?: boolean;
     input?: string | null;
     output?: string | null;
     html?: string;

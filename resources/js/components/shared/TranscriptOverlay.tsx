@@ -19,6 +19,8 @@ export type TranscriptPaging = {
     /** The last request for a further page failed; the loaded steps stay and Retry asks for that page again. */
     moreFailed: boolean;
     onLoadMore: () => void;
+    /** The server answered 429: searches came too fast. */
+    isRateLimited?: boolean;
     /** Searching asks the server, so the list is not filtered here. */
     onSearch: (query: string) => void;
 };
@@ -101,7 +103,11 @@ export function TranscriptOverlay({
     const sel = idx >= 0 ? idx : 0;
     const selectedId = idx >= 0 ? rows[idx].id : null;
     const outOfWindow = selectedLogId !== null && idx < 0;
-    const hasNextStep = rows.length > 0 && (idx < 0 || sel < rows.length - 1 || paging?.hasMore === true);
+    const isSearching = query.trim() !== '';
+    // With the open step out of the list a search sends either button to the first result; a deep link still paging in
+    // keeps both disabled until its step is in the list.
+    const canJumpIn = idx >= 0 || isSearching;
+    const hasNextStep = rows.length > 0 && canJumpIn && (idx < 0 || sel < rows.length - 1 || paging?.hasMore === true);
 
     // A cold open (the header button, no `?log=`) has nothing selected yet:
     // pick the first row once so a fetch has something to ask for. A deep
@@ -235,7 +241,6 @@ export function TranscriptOverlay({
         return null;
     }
 
-    const isSearching = query.trim() !== '';
     const isReady = paging === undefined || paging.status === 'ready';
     const stepNumber = (row: TranscriptRow, index: number) => row.number ?? index + 1;
     const currentIndex = current === undefined ? -1 : rows.findIndex((row) => row.id === current.id);
@@ -312,7 +317,7 @@ export function TranscriptOverlay({
                             )}
                             {paging?.status === 'error' && (
                                 <li className="flex flex-col items-start gap-2 p-4 text-[12px] text-fail" data-testid="transcript-error">
-                                    The log could not be loaded.
+                                    {paging.isRateLimited ? 'Searching too fast, try again.' : 'The log could not be loaded.'}
                                     <Button variant="secondary" onClick={paging.onRetry} data-testid="transcript-retry">
                                         Retry
                                     </Button>
@@ -367,8 +372,7 @@ export function TranscriptOverlay({
                             {current ? (
                                 <>
                                     <p className="sr-only" role="status" data-testid="transcript-step-announcement">
-                                        Step {sel + 1} of {rows.length}
-                                        {paging?.hasMore ? '+' : ''}, {stepKind(current)}
+                                        Step {currentNumber}, {stepKind(current)}
                                     </p>
                                     {outOfWindow && <p className="mb-2 text-[11px] text-faint">This step is not in the list now</p>}
                                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -421,7 +425,7 @@ export function TranscriptOverlay({
                                         )
                                     ) : (
                                         <>
-                                            <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.tool === 'Bash' && current.input ? `$ ${current.input}` : current.input}</Block>
+                                            <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.isShellCommand && current.input ? `$ ${current.input}` : current.input}</Block>
                                             <Block title="Output" error={current.error}>
                                                 {current.output}
                                             </Block>
@@ -436,7 +440,7 @@ export function TranscriptOverlay({
                             )}
                         </div>
                         <div className="flex shrink-0 gap-2 border-t border-hair px-[18px] py-3">
-                            <Button variant="secondary" className="h-8" onClick={() => step(-1)} disabled={rows.length === 0 || (idx >= 0 && sel <= 0)} data-testid="log-prev">
+                            <Button variant="secondary" className="h-8" onClick={() => step(-1)} disabled={rows.length === 0 || !canJumpIn || (idx >= 0 && sel <= 0)} data-testid="log-prev">
                                 Previous step
                             </Button>
                             <Button variant="secondary" className="h-8" onClick={() => step(1)} disabled={!hasNextStep} pending={advanceFrom !== null} data-testid="log-next">

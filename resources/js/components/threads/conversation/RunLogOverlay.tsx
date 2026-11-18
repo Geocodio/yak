@@ -53,7 +53,7 @@ export function RunLogOverlay({
 }) {
     const isDesktop = useMediaQuery('(min-width: 768px)');
     const url = target === null ? null : target.kind === 'url' ? target.id : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
-    const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry, search } = useRunLog(url, isLive);
+    const { entries, status, hasMore, isLoadingMore, moreFailed, isRateLimited, loadMore, retry, search } = useRunLog(url, isLive);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const lastEntry = useRef<TranscriptEntry | undefined>(undefined);
     const targetKey = target === null ? '' : `${target.kind}:${target.id}`;
@@ -79,18 +79,18 @@ export function RunLogOverlay({
     }
 
     // Only a thread's log has an address that opens it again; a pull request's or a repository's does not.
-    const writeUrl = (patch: { log: number | undefined }) => {
+    const writeUrl = (patch: { log?: number; run?: string }) => {
         if (target.kind !== 'url') {
             replaceTaskQuery(patch);
         }
     };
     const select = (entryId: number) => {
         setSelectedId(entryId);
-        writeUrl({ log: entryId });
+        writeUrl({ log: entryId, run: undefined });
     };
     const close = (open: boolean) => {
         if (!open) {
-            writeUrl({ log: undefined });
+            writeUrl({ log: undefined, run: undefined });
             onClose();
         }
     };
@@ -99,12 +99,14 @@ export function RunLogOverlay({
     const goToRun = (offset: number) => {
         const sibling = runs[position + offset];
         if (sibling !== undefined && onSelectRun !== undefined) {
+            // The run is the address until its first step is open, so a reload in between opens this run.
+            writeUrl({ log: undefined, run: sibling.target.id });
             onSelectRun({ ...sibling.target, entryId: null });
         }
     };
     const runLine = [canMoveBetweenRuns ? `Run ${position + 1} of ${runs.length}` : null, position >= 0 ? runs[position].meta : null].filter((part) => part !== null && part !== '').join(' · ') || target.headline;
     const linkFor = threadId === '' || target.kind === 'url' ? undefined : (entryId: number) => `${window.location.origin}${showThread.url({ thread: threadId }, { query: { log: entryId } })}`;
-    const paging = { status, onRetry: retry, emptyText: EMPTY_TEXT, hasMore, isLoadingMore, moreFailed, onLoadMore: loadMore };
+    const paging = { isRateLimited, status, onRetry: retry, emptyText: EMPTY_TEXT, hasMore, isLoadingMore, moreFailed, onLoadMore: loadMore };
     // A search can drop the open step from the list; its detail stays until another step is picked.
     const found = entries.find((candidate) => candidate.id === selectedId);
     lastEntry.current = found ?? (lastEntry.current?.id === selectedId ? lastEntry.current : undefined);

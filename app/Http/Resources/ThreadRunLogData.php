@@ -222,10 +222,11 @@ final class ThreadRunLogData
     }
 
     /**
-     * The sequences of the steps after the cursor that match a search, in order: a step matches by its own text, or
-     * by the output of its tool call. The output rows are matched in one scan and mapped to their call from the ids
-     * on the call events, read once, so the cost does not grow with the number of matches; a page takes the first
-     * of the sequences and the rest are reached by the cursor.
+     * The sequences of the steps after the cursor that match a search, in order, at most a page and one more: a step
+     * matches by its own text, or by the output of its tool call. The output rows are matched in one scan that reads
+     * only their tool-use ids, and the call events are walked in sequence order in batches of 100 until a page and one
+     * more have matched, so the work stops with the page however long the run is. The page is the first of the merged
+     * lists and the cursor reaches the rest.
      *
      * @param  array{start: int, end: ?int}  $bounds
      * @param  Builder<ThreadEvent>  $steps  the steps after the cursor
@@ -233,16 +234,21 @@ final class ThreadRunLogData
      */
     private static function matchingSequences(Thread $thread, array $bounds, Builder $steps, string $search): array
     {
+        $limit = self::PAGE_SIZE + 1;
         $pattern = self::likePattern($search);
-        $own = (clone $steps)->whereRaw("payload like ? escape '|'", [$pattern])->pluck('sequence')->map(fn (mixed $sequence): int => (int) $sequence)->all();
+        $own = (clone $steps)->whereRaw("payload like ? escape '|'", [$pattern])->orderBy('sequence')->limit($limit)->pluck('sequence')->map(fn (mixed $sequence): int => (int) $sequence)->all();
         $callIds = self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereRaw("payload like ? escape '|'", [$pattern])->select('payload->toolUseId as call_id')->pluck('call_id')
             ->map(fn (mixed $id): string => trim((string) $id, '"'))->filter()->flip();
         $byOutput = [];
 
         if ($callIds->isNotEmpty()) {
-            foreach ($steps->where('payload->role', 'assistant')->get(['sequence', 'payload']) as $event) {
+            foreach ($steps->where('payload->role', 'assistant')->select(['sequence', 'payload'])->lazyById(100, 'sequence') as $event) {
                 if (collect(self::toolCalls($event))->contains(fn (array $call): bool => $callIds->has((string) ($call['id'] ?? '')))) {
                     $byOutput[] = (int) $event->sequence;
+
+                    if (count($byOutput) >= $limit) {
+                        break;
+                    }
                 }
             }
         }
@@ -250,7 +256,7 @@ final class ThreadRunLogData
         $sequences = array_values(array_unique([...$own, ...$byOutput]));
         sort($sequences);
 
-        return $sequences;
+        return array_slice($sequences, 0, $limit);
     }
 
     /**
@@ -330,6 +336,7 @@ final class ThreadRunLogData
             'tool' => $name,
             'text' => Str::limit(trim($name . ' ' . $subject), 200),
             'subject' => Str::limit($subject, 500),
+            'isShellCommand' => count($calls) === 1 && $name === 'Bash' && isset($input['command']),
             'durationSeconds' => $found === [] ? null : (int) abs($event->created_at->diffInSeconds(max(array_column($found, 'at')))),
             'error' => in_array(true, array_column($found, 'isError'), true),
             'input' => count($calls) === 1 && $name === 'Bash' && isset($input['command'])

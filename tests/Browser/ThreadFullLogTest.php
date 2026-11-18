@@ -189,9 +189,9 @@ it('shows shell commands with a prompt and announces the step to a screen reader
     visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))
         ->assertVisible(FULL_LOG)
         ->assertSee('$ echo one')
-        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 1 of 2, Run')
+        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 1, Run')
         ->click('[data-testid="log-next"]')
-        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 2 of 2, Run');
+        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 2, Run');
 });
 
 it('keeps Next step disabled until the log has loaded and then enables it', function () {
@@ -206,4 +206,39 @@ it('keeps Next step disabled until the log has loaded and then enables it', func
         ->assertSee('echo one')
         ->assertAttributeMissing('[data-testid="log-next"]', 'disabled')
         ->assertNoJavaScriptErrors();
+});
+
+it('says so when searches come too fast and recovers on Retry', function () {
+    [$thread, , $ids] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]]);
+
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))->assertVisible(FULL_LOG);
+    $page->script('window.__limited = true; (() => { const original = window.fetch; window.fetch = (url, options) => window.__limited && String(url).includes("search=") ? Promise.resolve(new Response("{}", { status: 429, headers: { "Content-Type": "application/json" } })) : original(url, options); })();');
+    $page->fill('[data-testid="transcript-search"]', 'two')
+        ->assertSeeIn('[data-testid="transcript-error"]', 'Searching too fast, try again.');
+    $page->script('window.__limited = false');
+    $page->click('[data-testid="transcript-retry"]')
+        ->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches')
+        ->assertNoJavaScriptErrors();
+});
+
+it('opens the run named in the address on its first step', function () {
+    [$thread, $runs] = fullLogThread([[['echo one', 'one']], [['echo three', 'three']]]);
+
+    visit(route('threads.show', ['thread' => $thread, 'run' => $runs[1]->id]))
+        ->assertVisible(FULL_LOG)
+        ->assertSeeIn('[data-testid="transcript-run-line"]', 'Run 2 of 2')
+        ->assertSee('echo three')
+        ->assertNoJavaScriptErrors();
+});
+
+it('does not ask again for a searched log while the run is live', function () {
+    [$thread, , $ids] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]], 'running');
+
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))->assertVisible(FULL_LOG);
+    $page->fill('[data-testid="transcript-search"]', 'two')->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches');
+    $count = fn () => $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("search=")).length');
+    $before = $count();
+    $page->wait(7);
+
+    expect($before)->toBeGreaterThan(0)->and($count())->toBe($before);
 });

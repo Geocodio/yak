@@ -236,7 +236,7 @@ export type ThreadPageData = {
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
     /** Web only: the run and entry a `?log=` link names, or null. */
-    openLog: { runId: string; entryId: number } | null;
+    openLog: { runId: string; entryId: number | null } | null;
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */
