@@ -70,7 +70,7 @@ struct FilesPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files")
         .accessibilityHidden(!isPaneShown)

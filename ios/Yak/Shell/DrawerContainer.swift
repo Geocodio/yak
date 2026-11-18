@@ -21,7 +21,7 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                 dynamicTypeSize.isAccessibilitySize ? geometry.size.width - 44 : min(330, geometry.size.width - 60)
             let progress = reduceMotion ? (isOpen ? 1 : 0) : openProgress(width: width)
             ZStack(alignment: .leading) {
-                Color.yakCard.ignoresSafeArea()
+                Color.yakBackground.ignoresSafeArea()
                 drawer
                     .frame(width: width)
                     .frame(maxHeight: .infinity)

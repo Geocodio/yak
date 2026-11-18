@@ -198,7 +198,7 @@ struct ThreadLayoutView: View {
                 GeometryReader { proxy in
                     OverviewSidePanel(thread: thread, width: Double(proxy.size.width)) { scene.select(.overview) }
                 }
-                .background(Color.yakBackground)
+                .background(.yakPage)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             }
             if let entry = forcedBar.map({ Optional($0) }) ?? plan.bars[slot.position] {

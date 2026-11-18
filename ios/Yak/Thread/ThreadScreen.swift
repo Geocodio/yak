@@ -126,7 +126,8 @@ struct ThreadScreen: View {
                 .collectingPaneSlots(into: slots)
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
-            .background(Color.yakBackground)
+            .background(.yakPage)
+            .environment(\.hasSystemStrip, hasStrip)
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)

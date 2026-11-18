@@ -64,7 +64,7 @@ private struct ShareSheetForm: View {
             .padding(.horizontal, 16).padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .safeAreaInset(edge: .top, spacing: 0) {
             SheetHeader(title: "share.title") {
                 Button("overview.cancel") { close() }.yakShortcut(.cancel).disabled(model.isSaving)
@@ -78,7 +78,7 @@ private struct ShareSheetForm: View {
                 .fontWeight(.semibold).foregroundStyle(Color.primary)
                 .disabled(!model.canSave).accessibilityIdentifier("share.save")
             }
-            .background(Color.yakBackground)
+            .background(.yakPage)
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
     }

@@ -89,10 +89,10 @@ extension Color {
     static let yakBar = board(dark: 0x1F2024, light: 0xFFFFFF)
     /// The hairline around a bar: `--gb`.
     static let yakBarBorder = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.14, lightAlpha: 0.08)
-    /// A quiet control's fill: `--fill`.
-    static let yakFill = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.10, lightAlpha: 0.06)
-    /// A pressed or selected control's fill: `--fill2`.
-    static let yakFillStrong = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.14, lightAlpha: 0.10)
+    /// A quiet control's fill, opaque: `--fill` laid over the page, so text on it keeps its contrast.
+    static let yakFill = board(dark: 0x262729, light: 0xEBEBEC)
+    /// A pressed or selected control's fill, opaque: `--fill2` laid over the page.
+    static let yakFillStrong = board(dark: 0x2D2E30, light: 0xE2E2E3)
     /// The line between rows: `--line`.
     static let yakLine = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.09, lightAlpha: 0.08)
     /// The terminal's page: `--term`.
@@ -125,4 +125,21 @@ extension Font {
     static let yakChip = Font.footnote.weight(.semibold)
     /// The terminal: 13 pt monospaced.
     static let yakTerminal = Font.system(.footnote, design: .monospaced)
+}
+
+extension EnvironmentValues {
+    /// True in a thread that the system's vertical pane strip stands beside.
+    @Entry var hasSystemStrip = false
+}
+
+/// The page color. In dark beside the system's pane strip it is black, because the strip's glass pill keeps the
+/// contrast of its labels only over black.
+struct PageStyle: ShapeStyle {
+    func resolve(in environment: EnvironmentValues) -> Color {
+        environment.hasSystemStrip && environment.colorScheme == .dark ? .black : .yakBackground
+    }
+}
+
+extension ShapeStyle where Self == PageStyle {
+    static var yakPage: PageStyle { PageStyle() }
 }

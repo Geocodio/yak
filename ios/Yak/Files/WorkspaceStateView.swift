@@ -125,7 +125,7 @@ struct WorkspaceStateView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.state")
     }

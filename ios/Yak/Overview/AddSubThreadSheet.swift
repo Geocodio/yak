@@ -91,7 +91,7 @@ private struct AddSubThreadForm: View {
             }
             .padding(.horizontal, 16).padding(.bottom, 24)
         }
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             SheetHeader(title: "addSubThread.title") {
@@ -107,7 +107,7 @@ private struct AddSubThreadForm: View {
             } confirm: {
                 addButton
             }
-            .background(Color.yakBackground)
+            .background(.yakPage)
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
         .task(id: inputBlocked) {

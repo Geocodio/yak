@@ -23,7 +23,7 @@ struct PreviewCardView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("preview.card.\(Self.identifier(of: card.kind))")
     }
@@ -327,7 +327,7 @@ struct PreviewMessageCard<Actions: View>: View {
         ZStack {
             card
         }
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }
@@ -355,7 +355,7 @@ struct PreviewSkeleton: View {
 
     var body: some View {
         ZStack { skeleton }
-            .background(Color.yakBackground)
+            .background(.yakPage)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("preview.card.checking")
     }

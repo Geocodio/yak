@@ -43,7 +43,7 @@ struct OverviewPane: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(onClosePanel == nil ? "overview" : "overview.panel")
         .task(id: thread.threadID) { await run() }
@@ -104,7 +104,7 @@ private struct OverviewScroll: View {
         .scrollEdgeEffectHidden(true, for: .top)
         // An opaque strip under the status bar and the navigation bar keeps scrolled text from showing through them.
         .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear.frame(height: 0).background(Color.yakBackground, ignoresSafeAreaEdges: .top)
+            Color.clear.frame(height: 0).background(.yakPage, ignoresSafeAreaEdges: .top)
         }
         .paneBarRow(key: isOwner) {
             if isOwner {

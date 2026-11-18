@@ -516,9 +516,9 @@ struct SetupOutputSheet: View {
                 Button("overview.done") { dismiss() }.fontWeight(.semibold).foregroundStyle(Color.primary)
                     .accessibilityIdentifier("overview.setupOutput.done")
             }
-            .background(Color.yakBackground)
+            .background(.yakPage)
         }
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .presentationBackground(Color.yakBackground)
         .accessibilityIdentifier("overview.setupOutput")
     }

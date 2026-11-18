@@ -187,7 +187,7 @@ struct PreviewPane: View {
                     ProgressView()
                     Text("preview.signingIn").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.yakBackground)
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(.yakPage)
                 .accessibilityElement(children: .combine).accessibilityIdentifier("preview.signingIn")
             }
         case .problem(let problem): problemCard(problem, model)
