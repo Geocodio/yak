@@ -119,8 +119,20 @@ import XCTest
         XCTAssertTrue(opened, "Quick Look did not appear")
         // Quick Look's close control is a button named "close" with this identifier on the current SDK.
         let close = app.buttons["QLOverlayDoneButtonAccessibilityIdentifier"]
-        XCTAssertTrue(close.waitForExistence(timeout: Wait.appear))
-        close.tap()
+        XCTAssertTrue(close.waitForExistence(timeout: Wait.appear), "Quick Look has no close control")
+        // A tap that lands while Quick Look is still presenting is swallowed on a hosted simulator, so the tap
+        // repeats until the close control is gone, and each step fails by its own name.
+        let hittable = NSPredicate(format: "isHittable == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: hittable, object: close)], timeout: Wait.appear)
+        let closeGone = NSPredicate(format: "exists == false")
+        var closed = false
+        for _ in 0..<4 where !closed {
+            if close.exists, close.isHittable { close.tap() }
+            closed =
+                XCTWaiter().wait(
+                    for: [XCTNSPredicateExpectation(predicate: closeGone, object: close)], timeout: 15) == .completed
+        }
+        XCTAssertTrue(closed, "tapping Quick Look's close control did not close it")
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: preview)], timeout: Wait.appear)
     }
