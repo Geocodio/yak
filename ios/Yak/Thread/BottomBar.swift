@@ -32,7 +32,7 @@ struct BottomBar: View {
     private var bar: some View {
         layout
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Design.Space.barPadding)
+            .padding(.horizontal, Design.Space.barPadding).padding(.vertical, Design.Space.compact)
             .background { BarSurface() }
             .padding(.horizontal, Design.Space.barInset).padding(.bottom, Design.Space.tight)
             .simultaneousGesture(swipe)

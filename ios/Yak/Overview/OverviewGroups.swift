@@ -41,8 +41,8 @@ struct OverviewRow<Subtitle: View, Trailing: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             trailing.layoutPriority(1)
         }
-        .padding(.horizontal, Design.Space.rowInset).padding(.vertical, Design.Space.compact)
-        .frame(minHeight: Design.Size.listRow)
+        .padding(.horizontal, Design.Space.rowInset).padding(.vertical, 10)
+        .frame(minHeight: 44)
         .accessibilityElement(children: .contain)
     }
 }

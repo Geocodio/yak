@@ -13,8 +13,8 @@ enum Design {
         static let medium: CGFloat = 12
         static let large: CGFloat = 16
         static let section: CGFloat = 24
-        /// Left and right of text, bubbles and the composer's pane (the boards' 18 point body inset).
-        static let pageInset: CGFloat = 18
+        /// Left and right of text, bubbles and the cards of every pane, so all panes line up.
+        static let pageInset: CGFloat = 16
         /// Left and right of a list of grouped rows (the boards' 14 point inset around a group).
         static let groupInset: CGFloat = 14
         /// Left and right inside a group's row.
