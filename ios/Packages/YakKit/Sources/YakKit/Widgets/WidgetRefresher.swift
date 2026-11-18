@@ -45,11 +45,18 @@ public struct WidgetRefresher: Sendable {
     private let instances: InstanceStore
     private let tokens: any TokenStore
     private let environment: SessionEnvironment
+    private let isStillPaired: @Sendable (UUID) async -> Bool
 
-    public init(instances: InstanceStore, tokens: any TokenStore, environment: SessionEnvironment) {
+    /// `isStillPaired` is asked before a snapshot is saved; a caller whose instance list may change in another
+    /// process passes one that reads the stored list afresh. It defaults to `instances`.
+    public init(
+        instances: InstanceStore, tokens: any TokenStore, environment: SessionEnvironment,
+        isStillPaired: (@Sendable (UUID) async -> Bool)? = nil
+    ) {
         self.instances = instances
         self.tokens = tokens
         self.environment = environment
+        self.isStillPaired = isStillPaired ?? { id in await instances.all().contains { $0.id == id } }
     }
 
     /// The configured instance, or the most recently used one when `instance` is nil.
@@ -132,6 +139,9 @@ public struct WidgetRefresher: Sendable {
     private func finish(_ outcome: Loaded?, target: Instance, saved: WidgetSnapshot?) async -> WidgetRefresh {
         switch outcome {
         case .list(let list):
+            guard await isStillPaired(target.id) else {
+                return WidgetRefresh(instance: nil, snapshot: nil, state: .instanceMissing, isFresh: false)
+            }
             let snapshot = WidgetSnapshot.make(
                 from: list, instanceName: target.name, now: environment.clock.now())
             await Cache(instance: target.id, files: environment.files, clock: environment.clock)

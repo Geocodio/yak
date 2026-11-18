@@ -97,6 +97,18 @@ class FastLanesTest < Minitest::Test
     end
   end
 
+  def test_failed_tests_names_only_failed_cases
+    test_case = ->(name, result) {
+      {"nodeType" => "Test Case", "result" => result, "nodeIdentifierURL" => "test://com.apple.xcode/Yak/YakUITests/PairingSmokeTests/#{name}",
+       "children" => [{"nodeType" => "Failure Message", "name" => "x"}]}
+    }
+    results = {"testNodes" => [{"nodeType" => "Test Plan", "children" => [{"nodeType" => "UI test bundle", "children" => [
+      {"nodeType" => "Test Suite", "children" => [test_case.call("testA", "Failed"), test_case.call("testB", "Passed"), test_case.call("testC", "Skipped")]}
+    ]}]}]}
+    assert_equal ["YakUITests/PairingSmokeTests/testA"], FastLanes.failed_tests(results)
+    assert_empty FastLanes.failed_tests({"testNodes" => []})
+  end
+
   def test_runner_never_started
     assert FastLanes.runner_never_started?("x\nYakUITests-Runner encountered an error (Failed to establish communication with the test runner. (Underlying Error: Channel disconnected))")
     assert FastLanes.runner_never_started?("Test Suite 'Selected tests' passed\nExecuted 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds\n")

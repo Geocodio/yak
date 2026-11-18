@@ -48,6 +48,8 @@ Limit of push trust: every instance this phone is paired with holds the same dev
 
 To send a real alert to a simulator, save a payload built from one of those files (set `yak.instance` to the stub's address) as `alert.apns` with a `"Simulator Target Bundle"` entry and run `xcrun simctl push <device> <bundle identifier> alert.apns`.
 
+Widget scenarios: `widgets-busy` and `widgets-empty` (the `mine` thread list is the busy or the empty widget list), `widgets-old-server` (`PUT push-tokens/widget` answers 404) and `widgets-other-environment` (409 `push_environment_mismatch`). `GET /__stub/widgets` answers the widget `tokens` the stub holds and the number of `deletes`; `StubControl.widgetTokens()` reads the tokens. Widget, intent and quick action launch arguments, all Debug only: `-yakTestScreen widget-gallery` with `YAK_TEST_GALLERY_STATE` (`needs-you`, `busy`, `empty`, `private-first`, `long-title`, `huge-count`, `stale`, `no-instance`, `instance-missing`, `needs-pairing`, `not-loaded`, `placeholder`), `-yakTestIntent start-thread|needs-me|open-last` (runs the intent's rules against the stub and shows the sentence in the label `intent.result`) and `-yakTestQuickAction new-thread|open` (delivers the quick action that launched the app). The Home Screen is not driven by a test: what a widget shows is proven by the unit tests of the widget content and by the gallery, which draws every family at its real size.
+
 The launch argument `-yakTestSkipWebSession YES` keeps the system web sign-in sheet closed, so the waiting screen of the typed-address flow can be seen and tested.
 
 ## Walkthrough
@@ -71,7 +73,7 @@ Each company builds and signs its own app. You do these steps once, in this orde
 8. Do each row that bootstrap marks "check by hand" or "needs a person" in the developer portal. Likely:
    - Register the app group and assign it to all three identifiers (the API cannot).
    - Turn on Broadcast Capability under Push Notifications for `<id>`.
-   - Push Notifications is enabled on both `<id>` and `<id>.widgets`. The app uses it for alerts and Live Activity tokens. The widget extension carries `aps-environment` for widget pushes, and automatic signing needs the capability on its identifier to make its profile.
+   - Push Notifications is enabled on both `<id>` and `<id>.widgets`. On `<id>.widgets` it carries the widget push token; keep the app group and the Keychain group on it too. The app uses it for alerts and Live Activity tokens. The widget extension carries `aps-environment` for widget pushes, and automatic signing needs the capability on its identifier to make its profile.
    - Turn on Time Sensitive Notifications on `<id>`.
    - Debug builds get sandbox push tokens and Release builds get production tokens. An instance set to `production` pushes only to TestFlight builds, and a Release build run from Xcode gets a sandbox token that Apple refuses.
    - Invite anyone listed as "not an App Store Connect user yet".

@@ -135,19 +135,20 @@ import XCTest
     }
 
     private func audit() throws {
-        let page = AuditRules.Page(app)
-        let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [self, page, auditBars] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+        try auditTwice(app) { [app] in
+            let page = AuditRules.Page(app)
+            let auditBars = AuditRules.Bars(app)
+            return { issue in
+                let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                    if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                }
+                // The page's own content is the app's, not ours to restyle.
+                if AuditRules.isInsidePage(issue, page: page) { return true }
+                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+                return false
             }
-            // The page's own content is the app's, not ours to restyle.
-            if AuditRules.isInsidePage(issue, page: page) { return true }
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            XCTFail("audit: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "none")")
-            return true
         }
     }
 }
