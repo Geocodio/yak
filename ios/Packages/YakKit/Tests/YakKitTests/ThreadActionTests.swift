@@ -326,16 +326,26 @@ private func rateLimited(after seconds: Int) -> FakeTransport.Result {
     #expect(await rig.transport.requests(on: route).count == 1)
 }
 
-@Test func aForbiddenActionMakesTheThreadReadOnlyEvenAfterTheShowRefreshes() async throws {
+private func forbiddenStop(refreshedCanDrive: Bool) async throws -> ConversationSnapshot {
     let rig = try await makeRig()
     let route = "POST threads/\(threadID)/stop"
     await rig.transport.on(route, .json(403, #"{"error":"forbidden","message":"Only the owner can do that."}"#))
-    let before = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
-    #expect(before.show?.canDrive == true)
+    let page = String(decoding: try Scenarios.data("scenario-thread-question"), as: UTF8.self)
+    await rig.transport.on(
+        showRoute,
+        .json(200, page.replacingOccurrences(of: "\"canDrive\": true", with: "\"canDrive\": \(refreshedCanDrive)")))
     let outcome = await rig.engine.stopTurn()
     #expect(outcome == .refused(code: "forbidden", message: "Only the owner can do that.", fieldErrors: [:]))
-    // The refresh after the action asks the server again, and the server still says the person can drive.
-    let snapshot = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    return try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+}
+
+@Test func aForbiddenActionLeavesTheServersCanDriveInChargeWhenThePageSaysTheyCanDrive() async throws {
+    let snapshot = try await forbiddenStop(refreshedCanDrive: true)
+    #expect(snapshot.show?.canDrive == true)
+}
+
+@Test func aForbiddenActionShowsTheReadOnlyBarWhenThePageSaysTheyCannotDrive() async throws {
+    let snapshot = try await forbiddenStop(refreshedCanDrive: false)
     #expect(snapshot.show?.canDrive == false)
     let bar = ComposerBarState.make(
         composer: snapshot.show?.composer.state, canDrive: snapshot.show?.canDrive, turn: snapshot.turn, notice: nil,

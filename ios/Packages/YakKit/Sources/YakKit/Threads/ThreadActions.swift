@@ -148,7 +148,7 @@ extension ThreadEngine {
     }
 
     private func markSlow(_ waitID: UUID) {
-        guard !isClosed else { return }
+        guard !isClosed, !Task.isCancelled else { return }
         slowWaits.insert(waitID)
         changed(isStored: false)
     }

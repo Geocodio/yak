@@ -56,7 +56,7 @@ public actor ThreadEngine {
     private var isOpenFinished = false
     private var problem: ThreadProblem?
     /// The server refused an action as `forbidden`: the person can read this thread but not change it. It holds
-    /// until the thread closes, so a refreshed page cannot bring the controls back.
+    /// until the next fresh page, whose own `canDrive` then decides.
     var isForbidden = false
     /// Actions that are waiting out a `rate_limited` answer for longer than five seconds.
     var slowWaits: Set<UUID> = []
@@ -301,6 +301,8 @@ public actor ThreadEngine {
         }
         guard !isClosed, !Task.isCancelled, generation == refreshGeneration else { return nil }
         show = fetched
+        // The server's `canDrive` is the answer; the flag only covers the time until this page arrives.
+        isForbidden = false
         isOffline = false
         problem = nil
         changed(isStored: true)
