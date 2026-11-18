@@ -8,6 +8,8 @@ use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Models\YakTask;
 
+require_once __DIR__ . '/../Support/NewPageFixtures.php';
+
 /**
  * A thread with a running turn that has made `$steps` Bash calls, and a first reply of text.
  *
@@ -85,19 +87,19 @@ it('keeps the conversation out from under the side panel on a short viewport', f
     expect($rects['messageRight'])->toBeLessThanOrEqual($rects['asideLeft']);
 });
 
-it('collapses the composer to one line on a phone until it is focused', function () {
-    [$thread] = runningStepsThread(2);
+it('keeps the composer and its Send button on screen at 375 px with a card above it', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = seedStopCardThread();
 
-    // A phone-width `resize()` rather than `->on()->mobile()`: the layout only depends on viewport width,
-    // and the device emulation's touch input does not focus a textarea on `click()` in this plugin version.
     $page = visit(route('threads.show', $thread));
-    $page->resize(375, 812);
+    $page->resize(375, 812)->assertVisible('[data-testid="card-stop"]')->assertVisible('[data-testid="thread-send"]');
 
-    $collapsedHeight = $page->script('document.querySelector(\'[data-testid="thread-composer"]\').getBoundingClientRect().height');
-    expect($collapsedHeight)->toBeLessThan(80);
+    $fits = $page->script(<<<'JS'
+        (() => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
+            const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+            return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
+        }))()
+    JS);
 
-    $page->click('[data-testid="thread-composer-input"]');
-    $expandedHeight = $page->script('document.querySelector(\'[data-testid="thread-composer"]\').getBoundingClientRect().height');
-    expect($expandedHeight)->toBeGreaterThan($collapsedHeight + 40);
-    $page->assertVisible('[data-testid="thread-send"]');
-})->todo('The thread composer is a fixed two-row box with its toolbar on a phone; the task composer was one line until focused.');
+    expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]]);
+});
