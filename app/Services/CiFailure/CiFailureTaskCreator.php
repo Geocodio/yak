@@ -21,6 +21,15 @@ class CiFailureTaskCreator
 {
     public const SOURCE = 'ci-failure';
 
+    /** Bytes of log kept per excerpt, from the end where the failure is. */
+    public const EXCERPT_BYTES = 8000;
+
+    /** Branches whose log excerpt goes into the task context. */
+    public const EXCERPT_BRANCHES = 4;
+
+    /** tasks.context is a 65,535 byte TEXT column; the encoded context stays below this. */
+    public const CONTEXT_BYTES = 60000;
+
     public function __construct(private readonly AppService $appService) {}
 
     /**
@@ -35,7 +44,7 @@ class CiFailureTaskCreator
         $lines = (int) config('yak.ci_failure.log_excerpt_lines');
         $excerpts = [];
 
-        foreach ($qualification->evidence as $row) {
+        foreach (self::distinctBranchEvidence($qualification->evidence)->take(self::EXCERPT_BRANCHES) as $row) {
             $excerpts[$row->job_id] = $this->appService->getJobLogExcerpt($installationId, $repository->github_full_name, $row->job_id, $lines);
         }
 
@@ -54,7 +63,7 @@ class CiFailureTaskCreator
      */
     public function create(Repository $repository, CiFailureQualification $qualification, array $gathered): ?YakTask
     {
-        $evidence = $qualification->evidence;
+        $evidence = self::distinctBranchEvidence($qualification->evidence);
         /** @var CiJobFailure|null $failure */
         $failure = $evidence->first();
 
@@ -63,11 +72,10 @@ class CiFailureTaskCreator
         }
 
         $failures = [];
-        $excerpts = [];
+        $excerptTimes = [];
 
-        foreach ($evidence as $row) {
-            $excerpt = $gathered['excerpts'][$row->job_id] ?? null;
-            $excerpts[] = (string) $excerpt;
+        foreach ($evidence->values() as $index => $row) {
+            $excerpt = $index < self::EXCERPT_BRANCHES ? $this->capExcerpt($gathered['excerpts'][$row->job_id] ?? null) : null;
             $failures[] = [
                 'branch' => $row->branch,
                 'head_sha' => $row->head_sha,
@@ -75,9 +83,13 @@ class CiFailureTaskCreator
                 'failed_step' => $row->failed_step,
                 'log_excerpt' => $excerpt,
             ];
+
+            if ($excerpt !== null) {
+                $excerptTimes[$index] = $row->failed_at->getTimestamp();
+            }
         }
 
-        $advisoryIds = $this->advisoryIds(implode("\n", $excerpts));
+        $advisoryIds = $this->advisoryIds(implode("\n", array_column($failures, 'log_excerpt')));
         $testNames = self::sharedTestNames($evidence);
         $greenAt = CiDefaultBranchGreen::latestFor($failure->repo, $failure->workflow_name, $failure->job_name);
 
@@ -98,8 +110,10 @@ class CiFailureTaskCreator
             $context['advisory_ids'] = $advisoryIds;
         }
 
-        $oldest = $evidence->sortBy('failed_at')->firstOrFail();
-        $newest = $evidence->sortByDesc('failed_at')->firstOrFail();
+        $encodedContext = $this->encodeWithinLimit($context, $excerptTimes);
+
+        $oldest = $qualification->evidence->sortBy('failed_at')->firstOrFail();
+        $newest = $qualification->evidence->sortByDesc('failed_at')->firstOrFail();
 
         $author = $gathered['author'];
 
@@ -111,7 +125,7 @@ class CiFailureTaskCreator
             'external_url' => $newest->job_url,
             'mode' => TaskMode::Fix,
             'description' => $this->description($repository, $failure, $evidence, $advisoryIds),
-            'context' => json_encode($context),
+            'context' => $encodedContext,
             'source' => self::SOURCE,
             'responsible_name' => $resolver->resolve(null, $author, $repository->slug),
             'responsible_user_id' => $resolver->resolveUser(null, null, $repository->slug)?->id,
@@ -120,6 +134,52 @@ class CiFailureTaskCreator
         TaskLogger::info($task, 'Task created', ['source' => self::SOURCE, 'repo' => $repository->slug]);
 
         return $task;
+    }
+
+    /**
+     * The newest failure per branch, the triggering failure's branch first.
+     *
+     * @param  Collection<int, CiJobFailure>  $evidence
+     * @return Collection<int, CiJobFailure>
+     */
+    public static function distinctBranchEvidence(Collection $evidence): Collection
+    {
+        return $evidence
+            ->groupBy('branch')
+            ->map(fn (Collection $rows): CiJobFailure => $rows->sortByDesc('failed_at')->firstOrFail())
+            ->values();
+    }
+
+    private function capExcerpt(?string $excerpt): ?string
+    {
+        if ($excerpt === null || strlen($excerpt) <= self::EXCERPT_BYTES) {
+            return $excerpt;
+        }
+
+        return mb_strcut($excerpt, strlen($excerpt) - self::EXCERPT_BYTES);
+    }
+
+    /**
+     * Encodes the context, dropping excerpts oldest-first until it fits.
+     *
+     * @param  array<string, mixed>  $context
+     * @param  array<int, int>  $excerptTimes  failure index => failed_at timestamp, for failures that carry an excerpt
+     */
+    private function encodeWithinLimit(array $context, array $excerptTimes): string
+    {
+        asort($excerptTimes);
+
+        do {
+            $encoded = (string) json_encode($context, JSON_INVALID_UTF8_SUBSTITUTE);
+
+            if (strlen($encoded) < self::CONTEXT_BYTES || $excerptTimes === []) {
+                return $encoded;
+            }
+
+            $oldestIndex = array_key_first($excerptTimes);
+            unset($excerptTimes[$oldestIndex]);
+            $context['failures'][$oldestIndex]['log_excerpt'] = null;
+        } while (true);
     }
 
     /**
@@ -182,7 +242,7 @@ class CiFailureTaskCreator
             return "Fix CI: {$failure->job_name} (" . implode(', ', $advisoryIds) . ')';
         }
 
-        $branchCount = $evidence->pluck('branch')->unique()->count();
+        $branchCount = $evidence->count();
 
         return $branchCount > 1
             ? "Fix CI: {$failure->job_name} failing on {$branchCount} branches"
