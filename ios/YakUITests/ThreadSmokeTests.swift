@@ -260,6 +260,53 @@ import XCTest
         XCTAssertTrue(stub.lastMessage().contains("Then update the docs"))
     }
 
+    /// Smoke test 7: the pane button switches panes by a tap and by press and slide, a pane the thread does not have is
+    /// not offered, and a pane that is not shown is absent from the screen.
+    func testPaneButtonSwitchesPanesAndAHiddenPaneIsAbsent() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
+        row.tap()
+        let conversation = app.descendants(matching: .any)["conversation"]
+        XCTAssertTrue(conversation.waitForExistence(timeout: Wait.appear))
+        let menu = app.buttons["pane.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: Wait.appear))
+        XCTAssertEqual(menu.value as? String, "Chat")
+        func item(_ name: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        }
+        // A tap opens the menu with the panes this thread has, and none it lacks.
+        menu.tap()
+        for name in ["Chat", "Files", "Overview"] {
+            XCTAssertTrue(item(name).waitForExistence(timeout: Wait.appear), name)
+        }
+        for name in ["Preview", "Terminal"] { XCTAssertFalse(item(name).exists, name) }
+        let overviewFrame = item("Overview").frame
+        item("Files").tap()
+        XCTAssertEqual(menu.value as? String, "Files")
+        // The chat is not shown: Files is on screen and the chat cannot be reached.
+        XCTAssertTrue(app.descendants(matching: .any)["files"].waitForExistence(timeout: Wait.appear))
+        wait(
+            for: [
+                XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == false"), object: conversation)
+            ],
+            timeout: Wait.appear)
+        // Press, slide to Overview and release in one motion; the menu opens where it did before.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.8,
+            thenDragTo: origin.withOffset(CGVector(dx: overviewFrame.midX, dy: overviewFrame.midY)))
+        let shown = NSPredicate(format: "value == %@", "Overview")
+        wait(for: [XCTNSPredicateExpectation(predicate: shown, object: menu)], timeout: Wait.appear)
+        XCTAssertEqual(menu.value as? String, "Overview")
+        menu.tap()
+        item("Chat").tap()
+        XCTAssertTrue(conversation.waitForExistence(timeout: Wait.appear))
+        try audit()
+    }
+
     /// A `/clear` starts a new thread, and the screen follows it.
     func testAClearOpensTheNewThread() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
