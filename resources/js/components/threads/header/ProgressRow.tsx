@@ -13,7 +13,7 @@ const BAR: Record<ThreadProgress['steps'][number]['state'], string> = {
 /** The staged row under the header: Received through Pull request. It scrolls sideways when the screen is narrow. */
 export function ProgressRow({ progress }: { progress: ThreadProgress }) {
     return (
-        <ol aria-label="Progress" className="m-0 flex shrink-0 list-none items-center gap-4 overflow-x-auto border-b border-hair px-4 py-2 text-[12.5px] whitespace-nowrap text-muted sm:px-5" data-testid="thread-progress-row">
+        <ol aria-label="Progress" className="relative m-0 flex shrink-0 list-none items-center gap-4 overflow-x-auto border-b border-hair px-4 py-2 text-[12.5px] whitespace-nowrap text-muted sm:px-5" data-testid="thread-progress-row">
             {progress.steps.map((step) => (
                 <li
                     key={step.key}

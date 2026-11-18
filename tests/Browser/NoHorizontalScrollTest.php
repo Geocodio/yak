@@ -129,6 +129,7 @@ function assertFitsAPhone(string $path): void
         })()
     JS);
 
+    expect($report['viewport'])->toBe(375, "{$path}: the layout viewport grew to {$report['viewport']}px");
     expect($report['docWidth'])->toBeLessThanOrEqual($report['viewport'], "{$path}: document is {$report['docWidth']}px wide");
     expect($report['wide'])->toBe([], "{$path}: elements past the right edge: " . implode(', ', $report['wide']));
     expect($report['scrollers'])->toBe([], "{$path}: sideways scrollers: " . implode(', ', $report['scrollers']));
