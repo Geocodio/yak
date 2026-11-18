@@ -23,7 +23,7 @@ struct ThreadPlaceholder: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("conversation")
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if showsThreadsButton {

@@ -33,7 +33,7 @@ private struct LinkPairingOverlay: View {
             if let pairingModel = model.linkPairing { content(pairingModel.state) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .background(Color.yakBackground.ignoresSafeArea())
         .task(id: model.linkPairing?.state) {
             showsChecking = false
             guard model.linkPairing?.state == .checking else { return }
@@ -57,7 +57,7 @@ private struct LinkPairingOverlay: View {
                 .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .background(Color.yakBackground.ignoresSafeArea())
         .accessibilityAddTraits(.isModal)
         .transition(.opacity)
     }

@@ -7,12 +7,12 @@ extension View {
     /// The card's own surface: a soft tint on the whole card, with room around its content.
     func questionCardSurface() -> some View {
         padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+            .background(Color.yakCard, in: .rect(cornerRadius: 16))
     }
 
     /// The surface of an option, a review row and a text field inside the card.
     func questionFieldSurface() -> some View {
-        background(Color(.systemBackground), in: .rect(cornerRadius: 12))
+        background(Color.yakBackground, in: .rect(cornerRadius: 12))
     }
 }
 

@@ -21,7 +21,7 @@ struct FileViewer: View {
                 }
                 content
             }
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("files.viewerScreen")
         }

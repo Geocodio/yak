@@ -30,14 +30,14 @@ struct NewThreadScreen: View {
         Group {
             if isCompactWidth, scene.state.isDrawerOpen {
                 // The drawer covers the screen; it renders nothing, so the keyboard drops and nothing under the drawer is read.
-                Color(.systemBackground)
+                Color.yakBackground
             } else if let model {
                 NewThreadContent(
                     model: model, app: app, needsYouCount: needsYouCount, isCompactWidth: isCompactWidth,
                     isSidebarOpen: scene.state.isDrawerOpen,
                     openDrawer: { scene.setDrawerOpen(true) }, openWeb: { openWeb(instanceURL) })
             } else {
-                Color(.systemBackground)
+                Color.yakBackground
             }
         }
         .task(id: Opening(isSessionActive: isSessionActive, openCount: scene.newThreadOpenCount)) { await run() }
@@ -116,7 +116,7 @@ private struct NewThreadContent: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollBounceBehavior(.basedOnSize)
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if !scrollsBottom, !hasNoRepositories { bottom }
             }
@@ -455,7 +455,7 @@ private struct NewThreadContent: View {
                 }
             }
             .frame(width: 36, height: 36)
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(Color.yakBackground)
             .background(Color.primary, in: .circle)
             .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
@@ -584,7 +584,7 @@ private struct ChipLabel: View {
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 12).frame(minHeight: 44)
-        .background(Color(.tertiarySystemFill), in: .capsule)
+        .background(Color.yakFill, in: .capsule)
         .contentShape(.capsule)
     }
 }
@@ -597,7 +597,7 @@ private struct LoadingChips: View {
     var body: some View {
         HStack(spacing: 8) {
             ForEach([112, 76, 96], id: \.self) { width in
-                Capsule().fill(Color(.tertiarySystemFill)).frame(width: CGFloat(width), height: 44)
+                Capsule().fill(Color.yakFill).frame(width: CGFloat(width), height: 44)
             }
             Spacer(minLength: 0)
         }

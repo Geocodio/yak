@@ -46,7 +46,7 @@ struct FileEditor: View {
                 ConflictView(model: document, theirs: theirs).frame(maxWidth: 560)
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .sheet(
             isPresented: Binding(
                 get: { !isRegular && theirs != nil && !dismissedConflict }, set: { dismissedConflict = !$0 })

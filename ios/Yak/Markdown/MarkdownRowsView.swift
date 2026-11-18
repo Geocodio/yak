@@ -221,11 +221,11 @@ private struct CodeBlock: View {
         } action: { _, new in
             hasMoreToTheRight = new
         }
-        .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 10))
+        .background(Color.yakBubble, in: .rect(cornerRadius: 10))
         .overlay(alignment: .trailing) {
             if hasMoreToTheRight {
                 LinearGradient(
-                    colors: [Color(.secondarySystemFill).opacity(0), Color(.secondarySystemFill)],
+                    colors: [Color.yakBubble.opacity(0), Color.yakBubble],
                     startPoint: .leading, endPoint: .trailing
                 )
                 .frame(width: 28).clipShape(.rect(cornerRadius: 10))
@@ -271,7 +271,7 @@ private struct TableBlock: View {
             }
             .padding(12)
         }
-        .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 10))
+        .background(Color.yakBubble, in: .rect(cornerRadius: 10))
     }
 }
 

@@ -21,7 +21,7 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                 dynamicTypeSize.isAccessibilitySize ? geometry.size.width - 44 : min(330, geometry.size.width - 60)
             let progress = reduceMotion ? (isOpen ? 1 : 0) : openProgress(width: width)
             ZStack(alignment: .leading) {
-                Color(.secondarySystemBackground).ignoresSafeArea()
+                Color.yakCard.ignoresSafeArea()
                 drawer
                     .frame(width: width)
                     .frame(maxHeight: .infinity)
@@ -31,7 +31,7 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                     .simultaneousGesture(dragGesture(width: width))
                 detail
                     .background {
-                        RoundedRectangle(cornerRadius: 28 * progress).fill(Color(.systemBackground))
+                        RoundedRectangle(cornerRadius: 28 * progress).fill(Color.yakBackground)
                             .ignoresSafeArea()
                     }
                     .overlay(

@@ -25,7 +25,7 @@ struct FilesEverythingView: FilesModeView {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .paneBarRow(key: barKey) { barRow }
             .task { await model.start() }
             .task(id: thread.fileOpenRequest) {
