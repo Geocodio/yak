@@ -7,6 +7,7 @@ use App\DataTransferObjects\ThreadMessageResult;
 use App\Enums\MessageDelivery;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\TurnMessageKind;
@@ -76,7 +77,7 @@ class ThreadMessageSender
         }
 
         if (! $thread->hasRepository()) {
-            if ($input->queueWithoutRepository && $input->intent === null && ! ClearCommand::matches($input->text)) {
+            if ($input->queueWithoutRepository && $input->intent === null && ! ClearCommand::matches($input->text) && $thread->headTask()?->status !== TaskStatus::Cancelled) {
                 return $this->queueUntilRepository($thread, $user, $input);
             }
 
@@ -109,7 +110,11 @@ class ThreadMessageSender
      */
     private function queueUntilRepository(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
     {
-        $message = $this->turns->steer($thread, $input->text, $user, $input->model, $input->storeAttachments, 'thread', $input->sendKey, true, $input->effort);
+        try {
+            $message = $this->turns->steer($thread, $input->text, $user, $input->model, $input->storeAttachments, 'thread', $input->sendKey, true, $input->effort);
+        } catch (ThreadNotOwnedByYak) {
+            throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
+        }
 
         return new ThreadMessageResult('queued', $message->uuid, null);
     }

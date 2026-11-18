@@ -126,9 +126,13 @@ final class ThreadCardsData
      */
     public static function webRepositoryQuestion(Thread $thread, User $viewer): ?array
     {
+        if ($thread->hasRepository() || ! $thread->isOpen() || $thread->is_legacy) {
+            return null;
+        }
+
         $head = ThreadTasks::head($thread);
 
-        if ($head === null || ! $thread->isOpen() || $thread->is_legacy || $thread->hasRepository() || $head->status === TaskStatus::Cancelled) {
+        if ($head === null || $head->status === TaskStatus::Cancelled) {
             return null;
         }
 
@@ -256,7 +260,7 @@ final class ThreadCardsData
         $tasksByThread = YakTask::query()->withoutGlobalScopes()
             ->whereIn('thread_id', $threadIds)
             ->orderBy('id')
-            ->get(['id', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id', 'repo', 'session_id', 'clarification_options'])
+            ->get(['id', 'status', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id', 'repo', 'session_id', 'clarification_options'])
             ->groupBy('thread_id');
 
         $activeSlugs = null;

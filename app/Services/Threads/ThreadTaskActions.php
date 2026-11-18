@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Actions\RequestReReview;
 use App\DataTransferObjects\ReReviewOutcome;
 use App\DataTransferObjects\TaskActionOutcome;
+use App\Enums\TaskStatus;
 use App\Exceptions\ThreadActionRefused;
 use App\Models\Thread;
 use App\Models\User;
@@ -121,6 +122,10 @@ final class ThreadTaskActions
     {
         if ($thread->hasRepository()) {
             throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_ALREADY_PICKED, 'This thread already has a repository.');
+        }
+
+        if ($head->status === TaskStatus::Cancelled) {
+            throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_NOT_OFFERED, 'This request was cancelled.');
         }
 
         if (! $mayPickAnyActive && ! in_array($repo, RepoClarificationResolver::offeredOptions($head), true)) {

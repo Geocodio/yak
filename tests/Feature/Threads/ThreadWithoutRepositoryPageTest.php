@@ -2,12 +2,16 @@
 
 use App\Enums\SteeringMode;
 use App\Enums\TaskStatus;
+use App\Http\Resources\ThreadCardsData;
+use App\Http\Resources\ThreadRequestData;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -89,7 +93,7 @@ it('does not let a viewer who cannot drive the thread pick a repository', functi
     $viewer = User::factory()->create();
     $this->thread->shares()->create(['user_id' => $viewer->id]);
 
-    $this->actingAs($viewer)->post("/threads/{$this->thread->public_id}/repository-answer", ['repo' => 'acme/api']);
+    $this->actingAs($viewer)->post("/threads/{$this->thread->public_id}/repository-answer", ['repo' => 'acme/api'])->assertForbidden();
 
     expect($this->thread->fresh()->hasRepository())->toBeFalse();
 });
@@ -121,4 +125,43 @@ it('puts a queued composer message into the first prompt once the repository is 
 
     expect($run->prompt)->toContain('Also fix the timezone.')->toContain('Fix the login bug')
         ->and(PendingSteeringMessage::query()->where('text', 'Also fix the timezone.')->doesntExist() || PendingSteeringMessage::takeableFor($task)->isEmpty())->toBeTrue();
+});
+
+it('refuses a repository answer after the request was cancelled, dispatching nothing', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/api', 'is_active' => true]);
+    $this->task->update(['status' => TaskStatus::Cancelled]);
+
+    foreach (['acme/web', 'acme/api'] as $repo) {
+        $this->post("/threads/{$this->thread->public_id}/repository-answer", ['repo' => $repo])->assertSessionHas('error');
+    }
+
+    expect($this->thread->fresh()->hasRepository())->toBeFalse()->and($this->task->fresh()->status)->toBe(TaskStatus::Cancelled);
+    Queue::assertNothingPushed();
+});
+
+it('shows the standard progress, not a repository wait, after the request was cancelled', function () {
+    $this->task->update(['status' => TaskStatus::Cancelled]);
+
+    $this->get("/threads/{$this->thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('progress.steps', fn ($steps) => collect($steps)->doesntContain(fn ($step) => $step['key'] === 'waiting_for_repository')));
+});
+
+it('refuses a composer message after the request was cancelled instead of queueing it', function () {
+    $this->task->update(['status' => TaskStatus::Cancelled]);
+
+    $this->postJson("/threads/{$this->thread->public_id}/messages", ['message' => 'Never delivered'])->assertStatus(422);
+
+    expect(PendingSteeringMessage::query()->where('text', 'Never delivered')->exists())->toBeFalse();
+});
+
+it('adds no head task query to the page of a thread that has a repository', function () {
+    app(ThreadFactory::class)->attachRepository($this->thread, 'acme/web');
+    $this->task->update(['repo' => 'acme/web', 'status' => TaskStatus::Running]);
+    $thread = $this->thread->fresh();
+
+    DB::enableQueryLog();
+    expect(ThreadRequestData::waitingForRepositoryProgress($thread))->toBeNull()
+        ->and(ThreadCardsData::webRepositoryQuestion($thread, $this->user))->toBeNull()
+        ->and(DB::getQueryLog())->toBeEmpty();
 });

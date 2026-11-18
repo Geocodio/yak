@@ -89,6 +89,21 @@ it('shows the repository question', function () {
     ContractFixture::assertMatches('app', 'thread-repository-question', $response->json(), [...CARD_SHOW_VOLATILE, 'request.starter.key']);
 });
 
+it('lists a thread waiting for a repository as a repository question, and drops a cancelled one', function () {
+    $task = YakTask::factory()->create(['repo' => 'unknown', 'source' => 'slack', 'description' => 'Retry failed uploads', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $this->user->id, 'clarification_options' => ['example/api'], 'session_id' => null]);
+    $thread = app(ThreadFactory::class)->forRequestWithoutRepository($task);
+
+    $this->getJson('/api/app/v1/threads', $this->headers)->assertOk()
+        ->assertJsonPath('needsYou.0.id', $thread->public_id)
+        ->assertJsonPath('needsYou.0.needsYouReason', 'repository_question')
+        ->assertJsonPath('needsYou.0.needsYouLabel', 'Which repository?');
+
+    $task->update(['status' => TaskStatus::Cancelled]);
+
+    $this->getJson(appThreadPath($thread), $this->headers)->assertOk()->assertJsonPath('repositoryQuestion', null)->assertJsonPath('card', 'stopped');
+    expect(collect($this->getJson('/api/app/v1/threads', $this->headers)->json('needsYou'))->pluck('id')->all())->not->toContain($thread->public_id);
+});
+
 it('shows a waiting co-owner request', function () {
     $repository = Repository::factory()->create(['slug' => 'example-api', 'github_full_name' => 'example/api']);
     $coOwner = User::factory()->withGitHub()->create(['name' => 'Second person']);

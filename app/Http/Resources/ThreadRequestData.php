@@ -86,9 +86,13 @@ final class ThreadRequestData
      */
     public static function waitingForRepositoryProgress(Thread $thread): ?array
     {
+        if ($thread->hasRepository() || ! $thread->isOpen()) {
+            return null;
+        }
+
         $head = ThreadTasks::head($thread);
 
-        if ($head === null || ! $thread->isOpen() || $thread->hasRepository() || ! RepoClarificationResolver::awaitingRepoChoice($head)) {
+        if ($head === null || $head->status === TaskStatus::Cancelled || ! RepoClarificationResolver::awaitingRepoChoice($head)) {
             return null;
         }
 
