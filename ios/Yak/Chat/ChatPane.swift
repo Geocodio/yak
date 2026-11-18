@@ -34,8 +34,9 @@ private struct ChatPane: View {
             if case .conversation = thread.loadPresentation {
                 QuestionCard(
                     model: thread.question, canAnswer: thread.snapshot?.show?.canDrive ?? false,
-                    isOffline: thread.isOffline, paneHeight: paneHeight)
-                    .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
+                    isOffline: thread.isOffline, paneHeight: paneHeight
+                )
+                .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
             }
         }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)

@@ -110,7 +110,9 @@ struct ChatView: View {
         .scrollEdgeEffectHidden(true, for: [.top, .bottom])
         // The list never scrolls sideways, yet a change of its height can leave it offset by the 16 points of side
         // padding, which shifts every row to the left edge; the offset is put back at once.
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, x in
+        .onScrollGeometryChange(for: CGFloat.self) {
+            $0.contentOffset.x
+        } action: { _, x in
             if x != 0 { withTransaction(Self.still) { position.scrollTo(x: 0) } }
         }
         .onScrollGeometryChange(for: Metrics.self) { geometry in

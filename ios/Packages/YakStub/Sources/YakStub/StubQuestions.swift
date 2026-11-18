@@ -28,7 +28,8 @@ final class StubQuestions: StubFeature, @unchecked Sendable {
     }
 
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? {
-        if context.scenario == "question-readonly", route.hasPrefix("GET threads/"), !route.dropFirst(12).contains("/") {
+        if context.scenario == "question-readonly", route.hasPrefix("GET threads/"), !route.dropFirst(12).contains("/")
+        {
             return readOnlyShow(context: context)
         }
         guard route.hasPrefix("POST threads/"), route.hasSuffix("/clarification-answers"),

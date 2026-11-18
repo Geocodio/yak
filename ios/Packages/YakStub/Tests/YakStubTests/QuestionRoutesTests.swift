@@ -57,7 +57,8 @@ import Testing
 
     @Test func theReadOnlyScenarioTakesTheRightToDriveFromTheShow() throws {
         let context = StubContext(
-            scenario: "question-readonly", baseURL: "http://127.0.0.1", fixtures: try fixtures(), threads: StubThreads(),
+            scenario: "question-readonly", baseURL: "http://127.0.0.1", fixtures: try fixtures(),
+            threads: StubThreads(),
             core: { .reply(status: 200, contentType: "application/json", body: Data(#"{"canDrive":true}"#.utf8)) })
         let reply = try #require(
             StubQuestions().answer(
