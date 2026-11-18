@@ -96,7 +96,8 @@ struct ChatView: View {
                     NoticeCard(notice: notice, thread: thread)
                 }
             }
-            .scrollTargetLayout()
+            // No `scrollTargetLayout()`: with one, a change of the list's height re-anchors the position to a row's
+            // leading edge, which sits inside the side padding and moves the list sideways by that padding.
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
         }
@@ -211,7 +212,8 @@ struct ChatView: View {
 
     private func applyHeldPlace() {
         guard let held = placeHeld, !isPersonScrolling else { return }
-        withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0, y: held.fraction)) }
+        // A horizontal anchor of 0.5 centres the row as wide as the list, so the list does not move sideways.
+        withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0.5, y: held.fraction)) }
     }
 
     /// Applies the held place and ends the hold when its page is complete or its row is gone.

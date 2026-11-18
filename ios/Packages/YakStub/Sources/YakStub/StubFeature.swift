@@ -71,6 +71,8 @@ enum StubFeatures {
         StubPush(),
         StubPreviewFeature(),
         StubWalkthroughVideo(),
+        // Before the changes feature, which answers the core thread's show in every scenario.
+        StubQuestions(),
         StubChanges(),
         StubTerminalFeature.shared,
         StubFilesControl(),

@@ -10142,6 +10142,26 @@
         }
       }
     },
+    "question.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "question.card.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question from Yak"
+          }
+        }
+      }
+    },
     "question.chip %lld" : {
       "localizations" : {
         "en" : {
@@ -10170,6 +10190,206 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak has a question"
+          }
+        }
+      }
+    },
+    "question.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This question was closed."
+          }
+        }
+      }
+    },
+    "question.closed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your answers were not sent."
+          }
+        }
+      }
+    },
+    "question.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        }
+      }
+    },
+    "question.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Try again."
+          }
+        }
+      }
+    },
+    "question.failed.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "question.field" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your answer"
+          }
+        }
+      }
+    },
+    "question.multiHint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose all that apply"
+          }
+        }
+      }
+    },
+    "question.next" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "question.note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a note for Yak (optional)"
+          }
+        }
+      }
+    },
+    "question.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Your answers stay here until you send them."
+          }
+        }
+      }
+    },
+    "question.progress %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question %lld of %lld"
+          }
+        }
+      }
+    },
+    "question.readOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people who can drive this thread can answer."
+          }
+        }
+      }
+    },
+    "question.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "question.review.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this answer"
+          }
+        }
+      }
+    },
+    "question.review.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your answers"
+          }
+        }
+      }
+    },
+    "question.send" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send answers"
+          }
+        }
+      }
+    },
+    "question.sending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending answers"
+          }
+        }
+      }
+    },
+    "question.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "question.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak needs an answer"
+          }
+        }
+      }
+    },
+    "question.typeAnswer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type a different answer"
           }
         }
       }
@@ -12022,16 +12242,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Back"
-          }
-        }
-      }
-    },
-    "task.questions.edit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this answer"
           }
         }
       }

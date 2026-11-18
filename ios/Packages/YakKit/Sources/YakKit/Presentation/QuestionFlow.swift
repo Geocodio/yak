@@ -30,6 +30,18 @@ public struct QuestionFlow: Equatable, Sendable {
         } else {
             step = .review
         }
+        if let typing = draft.typing, questions.indices.contains(typing) { step = .typing(typing) }
+    }
+
+    /// The draft to save while the field holds unconfirmed text: the text is the answer, and the draft remembers
+    /// that the field was open. Without text it is the plain draft.
+    public func draft(typing text: String) -> QuestionDraft {
+        guard case .typing(let index) = step, !text.trimmedForAnswer.isEmpty else { return draft }
+        var copy = self
+        copy.submitTyped(text)
+        var saved = copy.draft
+        saved.typing = index
+        return saved
     }
 
     /// The draft to save; a blank note is written as nil.
