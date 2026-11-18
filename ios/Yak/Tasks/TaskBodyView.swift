@@ -6,6 +6,8 @@ import YakKit
 /// goes to the app's browser sheet, and the view is as tall as its content.
 struct TaskBodyView: UIViewRepresentable {
     let entry: TaskConversationEntry
+    /// The signed-in server; its own images may load, every other remote load is blocked.
+    let serverOrigin: URL
     let openLink: (URL) -> Void
     @Binding var height: CGFloat
 
@@ -29,17 +31,18 @@ struct TaskBodyView: UIViewRepresentable {
 
     func updateUIView(_ view: WKWebView, context: Context) {
         context.coordinator.parent = self
-        let html = Self.document(entry)
+        let html = Self.document(entry, serverOrigin: serverOrigin)
         guard html != context.coordinator.loaded else { return }
         context.coordinator.loaded = html
         view.loadHTMLString(html, baseURL: nil)
     }
 
     /// One entry inside the app's stylesheet. Its label is native text above the view.
-    static func document(_ entry: TaskConversationEntry) -> String {
+    static func document(_ entry: TaskConversationEntry, serverOrigin: URL) -> String {
         let sections = entry.bodyHtml
         return """
             <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="Content-Security-Policy" content="\(contentSecurityPolicy(serverOrigin: serverOrigin))">
             <style>
             :root { color-scheme: light dark; }
             body { font: -apple-system-body; margin: 0; padding: 0; color: CanvasText; background: transparent;
@@ -50,6 +53,15 @@ struct TaskBodyView: UIViewRepresentable {
             img { max-width: 100%; height: auto; border-radius: 8px; }
             </style></head><body>\(sections)</body></html>
             """
+    }
+
+    /// Nothing loads from outside the page except images from the signed-in server's own origin (scheme, host and port).
+    static func contentSecurityPolicy(serverOrigin: URL) -> String {
+        var origin = ""
+        if let scheme = serverOrigin.scheme, let host = serverOrigin.host() {
+            origin = " \(scheme)://\(host)" + (serverOrigin.port.map { ":\($0)" } ?? "")
+        }
+        return "default-src 'none'; style-src 'unsafe-inline'; img-src data:\(origin)"
     }
 
     static func label(_ kind: String) -> String {
@@ -95,6 +107,7 @@ struct TaskBodyView: UIViewRepresentable {
 /// One conversation entry: its label as a heading, then its rendered body.
 struct TaskEntryView: View {
     let entry: TaskConversationEntry
+    let serverOrigin: URL
     let openLink: (URL) -> Void
     @State private var height: CGFloat = 24
 
@@ -102,7 +115,8 @@ struct TaskEntryView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: TaskBodyView.label(entry.kind)).font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.yakMuted).accessibilityAddTraits(.isHeader)
-            TaskBodyView(entry: entry, openLink: openLink, height: $height).frame(height: max(height, 24))
+            TaskBodyView(entry: entry, serverOrigin: serverOrigin, openLink: openLink, height: $height).frame(
+                height: max(height, 24))
         }
     }
 }

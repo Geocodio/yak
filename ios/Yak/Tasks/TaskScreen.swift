@@ -69,7 +69,7 @@ struct TaskScreen: View {
                     if !task.thread.isEmpty {
                         VStack(alignment: .leading, spacing: 16) {
                             ForEach(Array(task.thread.enumerated()), id: \.offset) { _, entry in
-                                TaskEntryView(entry: entry, openLink: openWeb)
+                                TaskEntryView(entry: entry, serverOrigin: instanceURL, openLink: openWeb)
                             }
                         }
                         .accessibilityIdentifier("task.body")

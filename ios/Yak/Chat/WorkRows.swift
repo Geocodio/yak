@@ -58,7 +58,7 @@ struct LegacyAnswerView: View {
 
     var body: some View {
         TaskEntryView(
-            entry: TaskConversationEntry(kind: "yak", bodyHtml: answer.html),
+            entry: TaskConversationEntry(kind: "yak", bodyHtml: answer.html), serverOrigin: thread.instanceURL,
             openLink: { browserURL = BrowserLink(url: $0) }
         )
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
