@@ -177,7 +177,8 @@ import XCTest
         JourneyWait.until(stop, within: 45, "the stop button while the held turn runs", in: self)
         // Only the fake runner writes this line (the held turn's tool call): a server with no runner never shows it.
         JourneyWait.until(
-            app.staticTexts["Running scrubbed command 1"], within: 30, "the runner's step line of the held turn", in: self)
+            app.staticTexts["Running scrubbed command 1"], within: 30, "the runner's step line of the held turn",
+            in: self)
         XCTAssertEqual(composerPlaceholder, "Steer Yak")
         field.tap()
         field.typeText("Also cover the empty file case")

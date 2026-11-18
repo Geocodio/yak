@@ -65,7 +65,8 @@ import XCTest
         XCTAssertEqual(response.statusCode, 302, "revoking \(name) answered \(response.statusCode)")
         let (flash, _) = try await send("GET", "/settings/devices")
         XCTAssertTrue(
-            String(decoding: flash, as: UTF8.self).contains("Revoked \(name)."), "the page does not say \(name) was revoked")
+            String(decoding: flash, as: UTF8.self).contains("Revoked \(name)."),
+            "the page does not say \(name) was revoked")
     }
 
     /// The asset version in the page's Inertia data.
