@@ -80,6 +80,10 @@ private struct OverviewScroll: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 topLines
+                if let request = thread.snapshot?.show?.request {
+                    RequestGroupView(request: request, open: { browserTarget = BrowserTarget(url: $0) })
+                    if let progress = thread.snapshot?.show?.progress { ProgressGroupView(progress: progress) }
+                }
                 if let content {
                     if content.subThreads != nil || shouldShowSubThreadsPlaceholder {
                         SubThreadsGroupView(

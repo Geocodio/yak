@@ -21,6 +21,8 @@ final class ThreadModel {
     private(set) var engine: ThreadEngine?
     /// Lives as long as the model, so typed text survives a retry and a slow load.
     let composer: ComposerModel
+    /// The card the server names above the bar, other than the question.
+    @ObservationIgnored private(set) lazy var cards = ThreadCardModel(thread: self)
     /// The open question round, answered in the card above the bar.
     let question = QuestionModel(canDrive: nil)
     /// The session had no engine to give, so there is nothing to wait for.
@@ -38,6 +40,8 @@ final class ThreadModel {
     private(set) var isNoticeActionRunning = false
     /// The name of the signed-in person, to tell their messages from other people's.
     private(set) var ownName: String?
+    /// The send notice already shown as the action line, so one is said once.
+    @ObservationIgnored private var shownNoticeID: UUID?
 
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
@@ -113,6 +117,14 @@ final class ThreadModel {
     var panes: [PaneID] { Panes.available(server: snapshot?.show?.panes) }
     var connectionLine: ConnectionLine? { snapshot.flatMap(ConnectionLine.make) }
     var statusDot: ThreadStatusDot { ThreadStatusDot.make(snapshot) }
+    var statusTone: Tone? { snapshot?.show?.request?.status.tone }
+    /// "Step 5 of 7: CI failed" for the failed step, else the current one.
+    var stepLine: String? {
+        guard let progress = snapshot?.show?.progress, let step = progress.attentionStep,
+            let index = progress.steps.firstIndex(of: step)
+        else { return nil }
+        return String(localized: "thread.step \(index + 1) \(progress.steps.count) \(step.label)")
+    }
     var loadPresentation: ThreadLoadPresentation {
         if couldNotOpen, snapshot == nil { return .serverError(message: String(localized: "load.openFailed")) }
         return ThreadLoadPresentation.make(snapshot?.load ?? .loading)
@@ -252,6 +264,10 @@ extension ThreadModel {
         let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
         rows = builtRows
+        if let notice = next.lastSendNotice, notice.id != shownNoticeID {
+            shownNoticeID = notice.id
+            setActionLine(notice.text)
+        }
         if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         requestMarkdown(for: next.entries)
     }
@@ -331,6 +347,13 @@ extension ThreadModel {
 
     func retryRestore() async {
         await performNoticeAction { await $0.retryRestore() }
+    }
+
+    /// The work actions of the thread's menu; a refusal or failure is said in the action line.
+    func performWork(_ action: ThreadWorkAction) async {
+        guard let engine else { return show(.failed(.offline)) }
+        clearActionLine()
+        show(await engine.perform(action))
     }
 
     func loadOlder() async {

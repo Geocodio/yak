@@ -64,8 +64,9 @@ struct EntryView: View {
             UnsentView(item: item, isOffline: thread.isOffline, thread: thread)
         case .delivered(let delivery):
             DeliveredView(delivery: delivery)
-        case .milestone, .retry, .legacyAnswer:
-            EmptyView()
+        case .milestone(let milestone): MilestoneRow(milestone: milestone)
+        case .retry(let message): RetryDivider(message: message)
+        case .legacyAnswer(let answer): LegacyAnswerView(answer: answer, thread: thread)
         }
     }
 }
@@ -111,6 +112,7 @@ private struct PersonMessageView: View {
             if let otherName {
                 Text(otherName).font(.caption).foregroundStyle(Color.yakMuted)
             }
+            if let via = message.via { ViaCaption(via: via, isReply: message.isReply) }
             MessageBubble {
                 Text(verbatim: String(message.text.prefix(displayedTextLimit))).textSelection(.enabled)
             }

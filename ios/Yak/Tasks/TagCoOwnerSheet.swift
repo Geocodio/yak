@@ -2,8 +2,8 @@ import SwiftUI
 import YakKit
 
 /// Asks a co-owner early, or says it is not needed. The names come from the server's list of people who can approve.
-struct TagCoOwnerSheet: View {
-    let model: TaskModel
+struct TagCoOwnerSheet<Model: CoOwnerDecisionHost>: View {
+    let model: Model
     let fallbackName: String?
     let close: () -> Void
 
@@ -27,7 +27,7 @@ struct TagCoOwnerSheet: View {
                     ForEach(people) { person in
                         Button {
                             Task {
-                                if await model.perform(.tag(userID: person.id)) { close() }
+                                if await model.decide(.tag(userID: person.id)) { close() }
                             }
                         } label: {
                             Text(verbatim: person.name).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -47,7 +47,7 @@ struct TagCoOwnerSheet: View {
                 Section {
                     Button {
                         Task {
-                            if await model.perform(.decline) { close() }
+                            if await model.decide(.decline) { close() }
                         }
                     } label: {
                         Text("task.tag.notNeeded").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

@@ -31,6 +31,11 @@ struct ComposerBar: View {
                 .background(Color.yakDanger.opacity(0.1), in: .rect(cornerRadius: 12))
                 .accessibilityElement(children: .combine).accessibilityIdentifier("composer.problem")
             }
+            if composer.bar.line != nil {
+                Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12)
+                    .accessibilityIdentifier("composer.legacyLine")
+            }
             AttachmentStrip(composer: composer)
             PasteImageButton(composer: composer)
             if let reason = composer.bar.unavailable {
@@ -67,11 +72,15 @@ struct ComposerBar: View {
 
     private func field(_ text: Binding<String>) -> some View {
         let isSteering = composer.bar.placeholder == .steerYak
+        let isRetrying = composer.bar.placeholder == .replyToTryAgain
+        let isContinuing = composer.bar.line != nil
         // The short words fit the field at the largest text sizes, where the full ones are cut.
         let placeholder: LocalizedStringKey =
             dynamicTypeSize.isAccessibilitySize
-            ? (isSteering ? "composer.steer.short" : "composer.message.short")
-            : (isSteering ? "composer.steer" : "composer.message")
+            ? (isSteering ? "composer.steer.short" : (isRetrying ? "composer.retry.short" : "composer.message.short"))
+            : (isSteering
+                ? "composer.steer"
+                : (isRetrying ? "composer.retry" : (isContinuing ? "composer.continue" : "composer.message")))
         return TextField(placeholder, text: text, axis: .vertical)
             .lineLimit(1...6)
             .focused($isFocused)

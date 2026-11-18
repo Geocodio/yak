@@ -20,6 +20,11 @@ public struct AppTaskDetail: Codable, Equatable, Sendable {
 public struct TaskConversationEntry: Codable, Equatable, Sendable {
     public let kind: String
     public let bodyHtml: String
+
+    public init(kind: String, bodyHtml: String) {
+        self.kind = kind
+        self.bodyHtml = bodyHtml
+    }
 }
 
 public struct TaskProgressStep: Codable, Equatable, Sendable {

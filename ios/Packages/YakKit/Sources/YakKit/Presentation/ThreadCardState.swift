@@ -46,6 +46,14 @@ public enum ThreadCardState: Equatable, Sendable {
         }
     }
 
+    /// True when a card other than the question waits for the person: it is drawn and has something to press.
+    public var needsYou: Bool {
+        switch self {
+        case .none, .question, .unknown: false
+        default: !hasNoButtons
+        }
+    }
+
     /// True when the card is drawn but offers nothing to press.
     public var hasNoButtons: Bool {
         switch self {

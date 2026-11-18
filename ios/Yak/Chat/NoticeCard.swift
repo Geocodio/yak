@@ -8,6 +8,8 @@ struct NoticeCard: View {
     let thread: ThreadModel
 
     private enum Action { case continueTurn, retryRestore, none }
+    @Environment(SceneModel.self) private var scene: SceneModel?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var action: Action {
         switch notice.kind {
@@ -35,6 +37,14 @@ struct NoticeCard: View {
             }
             if notice.kind == "usage_limit", let resetsAt = RelativeAge.parse(notice.resetsAt) {
                 Countdown(until: resetsAt)
+            }
+            if notice.kind == "moved", let threadID = notice.threadId {
+                Button {
+                    scene?.open(thread: threadID, isCompactWidth: horizontalSizeClass == .compact)
+                } label: {
+                    Text("chat.notice.openMoved").fixedSize(horizontal: false, vertical: true)
+                }
+                .buttonStyle(.bordered).tint(.primary).controlSize(.large).accessibilityIdentifier("notice.moved.open")
             }
             switch action {
             case .continueTurn:

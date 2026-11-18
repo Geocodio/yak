@@ -5,14 +5,7 @@ import YakKit
 /// One open task: reads the feed's snapshots, sends the person's decisions and actions once, and hands the screen
 /// finished values. The rules for what is offered are YakKit's; this class only carries them to the views.
 @MainActor @Observable
-final class TaskModel {
-    enum Candidates: Equatable {
-        case loading
-        /// `isChecking`: the server stopped before it reached everyone, so the list is asked for again.
-        case loaded([CoOwnerCandidate], isChecking: Bool)
-        case failed
-    }
-
+final class TaskModel: CoOwnerDecisionHost {
     /// The most refresh rounds spent on a candidate list that is not complete yet.
     static let candidateRounds = 5
     static let candidateDelay: Duration = .seconds(2)
@@ -32,7 +25,7 @@ final class TaskModel {
     /// Kept across a refusal, so typed words are never lost.
     var feedback = ""
     private(set) var feedbackError: String?
-    private(set) var candidates: Candidates = .loading
+    private(set) var candidates: CoOwnerCandidateList = .loading
     /// The open round of clarification questions while the viewer can answer them.
     private(set) var questionFlow: QuestionFlow?
     private(set) var isSendingAnswers = false
@@ -72,6 +65,21 @@ final class TaskModel {
     var menu: [TaskMenuItem] { task.map(TaskMenu.items) ?? [] }
     var earlyWarning: EarlyWarningRow { task.map(EarlyWarningRow.make) ?? .none }
     var isSending: Bool { sending != nil }
+    var isApproving: Bool { sending == .approve }
+    var holdReasons: [String] { task?.coOwner?.holdReasons ?? [] }
+    var repositoryName: String { task?.task.repo ?? "" }
+
+    @discardableResult
+    func decide(_ decision: CoOwnerDecision) async -> Bool {
+        switch decision {
+        case .approve: await perform(.approve)
+        case .requestChanges(let feedback): await perform(.requestChanges(feedback: feedback))
+        case .reject: await perform(.reject)
+        case .withdraw: await perform(.withdraw)
+        case .decline: await perform(.decline)
+        case .tag(let userID): await perform(.tag(userID: userID))
+        }
+    }
 
     func start() async {
         guard feed == nil else { return }

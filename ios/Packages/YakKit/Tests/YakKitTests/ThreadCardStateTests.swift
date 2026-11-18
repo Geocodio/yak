@@ -196,3 +196,18 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
         #expect(targets.isEmpty)
     }
 }
+
+@Suite struct ThreadCardNeedsYouTests {
+    @Test func aCardWithButtonsNeedsThePersonAndAReaderDoesNot() throws {
+        let stopped = ThreadCardState.make(show: try show(["card": #""stopped""#]), isForbidden: false)
+        #expect(stopped.needsYou)
+        let reader = ThreadCardState.make(show: try show(["card": #""stopped""#]), isForbidden: true)
+        #expect(!reader.needsYou)
+        #expect(!ThreadCardState.none.needsYou)
+    }
+
+    @Test func theActivityLineNamesACardThatNeedsThePerson() throws {
+        let snapshot = ConversationSnapshot(show: try show(["card": #""repository_question""#]))
+        #expect(ActivityLine.make(snapshot) == .needsYou)
+    }
+}

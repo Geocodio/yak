@@ -15,9 +15,13 @@ private struct ChatPane: View {
     @Environment(SceneModel.self) private var scene
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var paneHeight: CGFloat = 600
+    @State private var browserURL: BrowserLink?
 
     var body: some View {
         VStack(spacing: 0) {
+            if case .conversation = thread.loadPresentation, let request = thread.snapshot?.show?.request {
+                ThreadRequestRow(request: request, open: { browserURL = BrowserLink(url: $0) })
+            }
             ZStack {
                 if case .conversation = thread.loadPresentation {
                     ChatView(thread: thread, openThread: openThread)
@@ -32,11 +36,7 @@ private struct ChatPane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if case .conversation = thread.loadPresentation {
-                QuestionCard(
-                    model: thread.question,
-                    isOffline: thread.isOffline, paneHeight: paneHeight
-                )
-                .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
+                ThreadCardHost(thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) })
             }
         }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
@@ -50,6 +50,7 @@ private struct ChatPane: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
+        .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
     }
 
     private func openThread(_ id: String) {

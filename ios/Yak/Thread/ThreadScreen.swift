@@ -26,6 +26,7 @@ struct ThreadScreen: View {
     @State private var isShareOpen = false
     @State private var slots = PaneSlots()
     @State private var isThreadSheetOpen = false
+    @State private var isConfirmingCancel = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -141,6 +142,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(
                             title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
+                            tone: thread.statusTone, stepLine: thread.stepLine,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
                     }
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
@@ -222,7 +224,16 @@ struct ThreadScreen: View {
     }
 
     private func threadMenu(_ thread: ThreadModel, shownPane: PaneID) -> some View {
-        Menu {
+        let workItems = ThreadMenu.items(show: thread.snapshot?.show, isForbidden: false)
+        return Menu {
+            ForEach(workItems.filter { !$0.isDestructive }) { item in
+                Button {
+                    Task { await thread.performWork(item.action) }
+                } label: {
+                    Text(Self.title(of: item))
+                }
+                .accessibilityIdentifier("thread.menu.work.\(item.id)")
+            }
             if thread.snapshot?.show?.canDrive == true {
                 Button {
                     isAddSubThreadOpen = true
@@ -251,11 +262,36 @@ struct ThreadScreen: View {
             } label: {
                 Label("thread.copyLink", systemImage: "link")
             }
+            if workItems.contains(where: \.isDestructive) {
+                Button(role: .destructive) {
+                    isConfirmingCancel = true
+                } label: {
+                    Text("thread.menu.cancelRequest")
+                }
+                .accessibilityIdentifier("thread.menu.work.cancel")
+            }
         } label: {
             Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
         .accessibilityLabel("thread.menu")
         .accessibilityIdentifier("thread.menu")
+        .confirmationDialog("task.cancel.title", isPresented: $isConfirmingCancel, titleVisibility: .visible) {
+            Button("task.cancel.confirm", role: .destructive) { Task { await thread.performWork(.cancel) } }
+            Button("task.cancel.keep", role: .cancel) {}
+        } message: {
+            Text("task.cancel.message")
+        }
+    }
+
+    private static func title(of item: ThreadMenuItem) -> LocalizedStringKey {
+        switch item.action {
+        case .retry: "common.retry"
+        case .setUpAndContinue: "thread.card.stopped.setUp"
+        case .requestReview: "thread.menu.requestReview"
+        case .retryRender: "thread.menu.retryRender"
+        case .move(let repo): "thread.card.move \(repo)"
+        default: "thread.menu"
+        }
     }
 
     @ViewBuilder private var copiedToast: some View {
