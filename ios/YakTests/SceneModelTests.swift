@@ -149,7 +149,7 @@ private func sideBySideInputs() -> LayoutInputs {
     let scene = SceneModel(state: SceneState())
     let panes: [PaneID] = [.chat, .preview, .files]
     let state = PaneState(focused: .chat, second: .preview)
-    scene.updatePlan(PaneLayoutRules.plan(state, available: panes, inputs: sideBySideInputs()))
+    scene.updatePlan(PaneLayoutRules.plan(state, available: panes, inputs: sideBySideInputs()), ownedBy: "t")
     #expect(scene.isShown(.chat) && scene.isShown(.preview))
     #expect(!scene.isShown(.files))
 }
@@ -221,7 +221,8 @@ private func compactInputs() -> LayoutInputs {
     let scene = SceneModel(state: SceneState(threadID: thread, focusedPane: .preview))
     scene.updatePlan(
         PaneLayoutRules.plan(
-            PaneState(focused: .preview), available: [.chat, .preview, .overview], inputs: compactInputs()))
+            PaneState(focused: .preview), available: [.chat, .preview, .overview], inputs: compactInputs()),
+        ownedBy: "t")
     return scene
 }
 
@@ -230,7 +231,8 @@ private func compactInputs() -> LayoutInputs {
     scene.commandFocus(.overview)
     #expect(scene.state.focusedPane == .overview)
     scene.updatePlan(
-        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview, .overview], inputs: compactInputs()))
+        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview, .overview], inputs: compactInputs()),
+        ownedBy: "t")
     scene.toggleOverview()
     #expect(scene.state.focusedPane == .preview)
 }
@@ -241,7 +243,8 @@ private func compactInputs() -> LayoutInputs {
     scene.open(thread: "a1b2c3d4", isCompactWidth: true)
     scene.focus(pane: .overview)
     scene.updatePlan(
-        PaneLayoutRules.plan(PaneState(focused: .overview), available: [.chat, .overview], inputs: compactInputs()))
+        PaneLayoutRules.plan(PaneState(focused: .overview), available: [.chat, .overview], inputs: compactInputs()),
+        ownedBy: "t")
     scene.toggleOverview()
     #expect(scene.state.focusedPane == .chat)
 }
@@ -258,4 +261,25 @@ private func compactInputs() -> LayoutInputs {
     let other = SceneModel(
         state: restored, request: .thread(instance: active, id: "a1b2c3d4"), activeInstance: active)
     #expect(other.state.focusedPane == .chat && other.state.secondPane == nil && other.state.behindPane == nil)
+}
+
+@MainActor @Test func theOldScreensDisappearDoesNotClearTheNewThreadsPlan() {
+    let scene = SceneModel(state: SceneState(threadID: "d0e515ef", focusedPane: .chat))
+    let first = PaneLayoutRules.plan(PaneState(focused: .chat), available: [.chat, .preview], inputs: compactInputs())
+    scene.updatePlan(first, ownedBy: "d0e515ef")
+    scene.updatePlan(first, ownedBy: "a1b2c3d4")
+    scene.clearPlan(ownedBy: "d0e515ef")
+    #expect(scene.plan != nil)
+    scene.clearPlan(ownedBy: "a1b2c3d4")
+    #expect(scene.plan == nil)
+}
+
+@MainActor @Test func theOverviewReturnsToChatWhenThePaneBeforeIsGone() {
+    let scene = sceneWithOverviewAsPane()
+    scene.commandFocus(.overview)
+    scene.updatePlan(
+        PaneLayoutRules.plan(PaneState(focused: .overview), available: [.chat, .overview], inputs: compactInputs()),
+        ownedBy: "t")
+    scene.toggleOverview()
+    #expect(scene.state.focusedPane == .chat)
 }

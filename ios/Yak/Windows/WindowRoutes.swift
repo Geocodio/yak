@@ -1,5 +1,29 @@
 import Foundation
+import SwiftUI
+import UIKit
 import YakKit
+
+/// The one answer to "does this window offer several windows": the app supports several scenes and the window has
+/// regular width and height. An iPhone never has both, so it never takes the iPad's window paths.
+@MainActor
+enum SeveralWindows {
+    static func isAvailable(isCompactWidth: Bool, isCompactHeight: Bool) -> Bool {
+        isAvailable(
+            supportsMultipleScenes: UIApplication.shared.supportsMultipleScenes, isCompactWidth: isCompactWidth,
+            isCompactHeight: isCompactHeight)
+    }
+
+    nonisolated static func isAvailable(
+        supportsMultipleScenes: Bool, isCompactWidth: Bool, isCompactHeight: Bool
+    ) -> Bool {
+        supportsMultipleScenes && !isCompactWidth && !isCompactHeight
+    }
+}
+
+extension EnvironmentValues {
+    /// Set once by the shell from `SeveralWindows`; the row menus and the buttons read it.
+    @Entry var hasSeveralWindows = false
+}
 
 /// Opening a window. The view passes `{ openWindow(value: $0) }`; tests pass a recording closure.
 @MainActor

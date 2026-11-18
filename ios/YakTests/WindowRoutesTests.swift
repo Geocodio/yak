@@ -36,3 +36,11 @@ import YakKit
     // A wide iPhone shows the placeholder, as it always did.
     #expect(!NoThreadView.isShown(supportsMultipleWindows: false, isCompactWidth: false))
 }
+
+@MainActor @Test func severalWindowsNeedSeveralScenesAndARegularWindow() {
+    #expect(SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: false, isCompactHeight: false))
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: false, isCompactWidth: false, isCompactHeight: false))
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: true, isCompactHeight: false))
+    // A large iPhone held sideways is regular wide and compact high.
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: false, isCompactHeight: true))
+}

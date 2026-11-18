@@ -7,7 +7,7 @@ struct SubThreadRowView: View {
     let model: OverviewModel
     let askToDrop: (SubThreadRow) -> Void
 
-    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+    @Environment(\.hasSeveralWindows) private var supportsMultipleWindows
     @Environment(SceneModel.self) private var scene
 
     /// "Open in new window" is part of the menu whenever the system has several windows.

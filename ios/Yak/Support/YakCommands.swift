@@ -12,6 +12,8 @@ struct SceneCommands {
     let toggleSidebar: () -> Void
     let overview: () -> Void
     let settings: () -> Void
+    /// Whether this window offers New Window; see `SeveralWindows`.
+    let hasSeveralWindows: Bool
 }
 
 extension FocusedValues {
@@ -29,10 +31,9 @@ struct YakCommands: Commands {
             Button(AppShortcut.newThread.title) { scene?.newThread() }.yakShortcut(.newThread).disabled(scene == nil)
             Button(AppShortcut.newWindow.title) {
                 WindowRoutes.newWindow(
-                    open: { openWindow(value: $0) },
-                    supportsMultipleWindows: UIApplication.shared.supportsMultipleScenes)
+                    open: { openWindow(value: $0) }, supportsMultipleWindows: scene?.hasSeveralWindows ?? false)
             }
-            .yakShortcut(.newWindow).disabled(!UIApplication.shared.supportsMultipleScenes)
+            .yakShortcut(.newWindow).disabled(!(scene?.hasSeveralWindows ?? false))
         }
         CommandGroup(after: .sidebar) {
             Button(AppShortcut.toggleSidebar.title) { scene?.toggleSidebar() }.yakShortcut(.toggleSidebar)

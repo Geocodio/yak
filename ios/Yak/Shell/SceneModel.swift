@@ -209,15 +209,27 @@ final class SceneModel {
         if plan?.overviewIsPanel == true {
             select(.overview)
         } else if state.focusedPane == .overview {
-            select(paneBeforeOverview)
+            // The pane before may be gone (the server hid it, or the window got narrower); Chat is always there.
+            select(plan?.available.contains(paneBeforeOverview) == false ? .chat : paneBeforeOverview)
         } else {
             paneBeforeOverview = state.focusedPane
             select(.overview)
         }
     }
 
-    func updatePlan(_ plan: SlotPlan?) {
+    /// The thread whose layout set `plan`.
+    private var planOwner: String?
+
+    func updatePlan(_ plan: SlotPlan?, ownedBy owner: String) {
+        planOwner = owner
         if self.plan != plan { self.plan = plan }
+    }
+
+    /// Clears the plan when a layout goes away, unless a newer thread's layout has already set its own.
+    func clearPlan(ownedBy owner: String) {
+        guard planOwner == owner else { return }
+        planOwner = nil
+        plan = nil
     }
 
     /// The pane in the focused slot, or the focused pane when no layout has reported yet.

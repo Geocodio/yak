@@ -6,7 +6,7 @@ struct OpenInNewWindowButton: View {
     let threadID: String
     let instanceID: UUID
 
-    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+    @Environment(\.hasSeveralWindows) private var supportsMultipleWindows
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {

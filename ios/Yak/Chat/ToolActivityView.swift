@@ -36,15 +36,15 @@ struct ToolActivityView: View {
             HStack(spacing: 8) {
                 if isTinted { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 InlineOrStacked {
+                    // The id is on the text, so a text size change redraws it while the row keeps its expanded state.
                     Text(verbatim: item.text ?? "").font(.subheadline.weight(.medium))
-                        .fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
                     if isTinted, let start = RelativeAge.parse(item.at) { ElapsedView(since: start) }
                 }
             }
         }
         .padding(.horizontal, isTinted ? 10 : 0)
         .background(isTinted ? Color(.systemBlue).opacity(0.14) : .clear, in: .rect(cornerRadius: 10))
-        .id(dynamicTypeSize)
         .accessibilityIdentifier(isTinted ? "step.current" : "tools.\(item.key)")
     }
 }

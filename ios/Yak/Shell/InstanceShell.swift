@@ -20,11 +20,15 @@ struct InstanceShell: View {
     /// The thread the tasks route opened over; a different thread closes the route.
     @State private var tasksOverThreadID: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
+    private var hasSeveralWindows: Bool {
+        SeveralWindows.isAvailable(isCompactWidth: isCompactWidth, isCompactHeight: verticalSizeClass == .compact)
+    }
     /// The list loads and polls only while the drawer is on screen and the app is in front.
     private var isListVisible: Bool { drawerBinding.wrappedValue && scenePhase == .active }
 
@@ -88,6 +92,7 @@ struct InstanceShell: View {
         .sheet(isPresented: isBrowsing) {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
+        .environment(\.hasSeveralWindows, hasSeveralWindows)
         .focusedSceneValue(\.sceneCommands, hasSheetOpen ? nil : sceneCommands)
         .overlay(alignment: .bottom) { otherInstanceNotice }
     }
@@ -162,9 +167,7 @@ struct InstanceShell: View {
                 isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
             )
         } else {
-            if NoThreadView.isShown(
-                supportsMultipleWindows: UIApplication.shared.supportsMultipleScenes, isCompactWidth: isCompactWidth)
-            {
+            if NoThreadView.isShown(supportsMultipleWindows: hasSeveralWindows, isCompactWidth: isCompactWidth) {
                 NoThreadView { scene.openNewThread(repo: nil, text: nil) }
             } else {
                 ThreadPlaceholder(
@@ -218,7 +221,7 @@ struct InstanceShell: View {
             newThread: { scene.openNewThread(repo: nil, text: nil) },
             toggleSidebar: { scene.setDrawerOpen(!scene.state.isDrawerOpen) },
             overview: { scene.toggleOverview() },
-            settings: { scene.isSettingsOpen = true })
+            settings: { scene.isSettingsOpen = true }, hasSeveralWindows: hasSeveralWindows)
     }
 
     /// A window that was asked for a thread of another instance says so for a few seconds.
