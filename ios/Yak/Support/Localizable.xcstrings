@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "Markdown" : {
       "localizations" : {
         "en" : {
@@ -2790,6 +2800,66 @@
         }
       }
     },
+    "drop.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop to attach"
+          }
+        }
+      }
+    },
+    "drop.tooLarge.many %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld files are larger than %2$@, the most this Yak accepts."
+          }
+        }
+      }
+    },
+    "drop.tooLarge.one %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is larger than %2$@, the most this Yak accepts."
+          }
+        }
+      }
+    },
+    "drop.tooMany %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld files were not attached. You can attach up to %2$lld."
+          }
+        }
+      }
+    },
+    "drop.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attachments are not available right now."
+          }
+        }
+      }
+    },
+    "drop.unreadable %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files could not be read."
+          }
+        }
+      }
+    },
     "files.asleep.detail" : {
       "localizations" : {
         "en" : {
@@ -5456,6 +5526,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shown as plain text from here, because this message is very long."
+          }
+        }
+      }
+    },
+    "menu.thread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
           }
         }
       }
@@ -8182,6 +8262,26 @@
         }
       }
     },
+    "pane.divider.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize panes"
+          }
+        }
+      }
+    },
+    "pane.divider.value %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld percent for %2$@"
+          }
+        }
+      }
+    },
     "pane.files" : {
       "localizations" : {
         "en" : {
@@ -8218,6 +8318,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preview"
+          }
+        }
+      }
+    },
+    "pane.slot.shown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown"
+          }
+        }
+      }
+    },
+    "pane.slot.shownBeside" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown beside"
           }
         }
       }
@@ -10430,6 +10550,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Needs you on %@"
+          }
+        }
+      }
+    },
+    "row.openInNewWindow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in new window"
           }
         }
       }
@@ -14136,6 +14266,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This video format cannot be played on this device."
+          }
+        }
+      }
+    },
+    "window.noThread.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a thread on the left, or start a new one."
+          }
+        }
+      }
+    },
+    "window.noThread.start" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a thread"
+          }
+        }
+      }
+    },
+    "window.noThread.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No thread open"
+          }
+        }
+      }
+    },
+    "window.otherInstance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That thread is not on this Yak. It may be on another one, or that Yak was removed."
+          }
+        }
+      }
+    },
+    "window.privateThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A private thread"
           }
         }
       }

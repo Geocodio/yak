@@ -65,7 +65,7 @@ private struct HealthyInstanceTransport: HTTPTransport {
     }
 }
 
-@MainActor private func makeLinkModel(
+@MainActor func makeLinkModel(
     observers: [any InstanceLifecycleObserver] = [], observerTimeout: Duration = .seconds(5)
 ) -> (AppModel, InstanceStore) {
     let tokens = InMemoryTokenStore()
@@ -422,4 +422,190 @@ private final class SleeperCount: @unchecked Sendable {
     #expect(await instances.active()?.url.host() == "first.example.com")
     #expect(model.taskToOpen == "k3m9p2qa")
     #expect(model.browserURL == nil)
+}
+
+@MainActor @Test func aLinkGoesToTheLastActiveScene() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    first.applyColdStart(.drawer(.mine))
+    second.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    let address = URL(string: "https://first.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(second.state.threadID == "a1b2c3d4" && first.state.threadID == nil)
+    model.sceneDisconnected(second)
+    await model.handle(link: .thread(instance: address, id: "e5f6g7h8"))
+    #expect(first.state.threadID == "e5f6g7h8")
+}
+
+@MainActor @Test func aLinkWithNoSceneConnectedWaitsForTheColdStart() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let link = DeepLink.thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4")
+    await model.handle(link: link)
+    #expect(model.takeLaunchLink() == link)
+    #expect(model.routingScene == nil)
+}
+
+// MARK: Several windows
+
+@MainActor @Test func twoInstanceSwitchesBothResetTheWindow() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    model.sceneBecameActive(scene)
+    let all = await instances.all()
+    let first = try #require(all.first { $0.url.host() == "first.example.com" })
+    let second = try #require(all.first { $0.url.host() == "second.example.com" })
+    scene.applyColdStart(.thread("a1b2c3d4"))
+    await model.activate(first)
+    #expect(scene.state.instanceID == first.id && scene.state.threadID == nil && !scene.hasAppliedColdStart)
+    scene.applyColdStart(.thread("e5f6g7h8"))
+    await model.activate(second)
+    #expect(scene.state.instanceID == second.id && scene.state.threadID == nil && !scene.hasAppliedColdStart)
+}
+
+@MainActor @Test func aWindowThatBecomesActiveAgainIsRegisteredAgain() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    model.sceneDisconnected(scene)
+    #expect(model.connectedSceneCount == 0)
+    model.sceneBecameActive(scene)
+    #expect(model.connectedSceneCount == 1 && model.routingScene === scene)
+    let first = try #require(await instances.all().first { $0.url.host() == "first.example.com" })
+    scene.applyColdStart(.thread("a1b2c3d4"))
+    await model.activate(first)
+    #expect(scene.state.instanceID == first.id && scene.state.threadID == nil)
+}
+
+@MainActor @Test func oneWindowLeavingDoesNotPauseTheOthers() async {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    #expect(await model.scenePhaseChanged(first, to: .active) == .none)
+    #expect(await model.scenePhaseChanged(second, to: .active) == .none)
+    #expect(await model.scenePhaseChanged(second, to: .background) == .none)
+    #expect(!model.isInBackground)
+    #expect(await model.scenePhaseChanged(first, to: .background) == .enteredBackground)
+    #expect(model.isInBackground)
+    #expect(await model.scenePhaseChanged(second, to: .active) == .enteredForeground)
+    #expect(!model.isInBackground)
+}
+
+@MainActor @Test func aLinkWithTwoWindowsOpensNoThirdWindow() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    first.applyColdStart(.drawer(.mine))
+    second.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    await model.handle(url: URL(string: "yak://thread?instance=https%3A%2F%2Ffirst.example.com&id=a1b2c3d4")!)
+    await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "e5f6g7h8"))
+    #expect(model.connectedSceneCount == 2)
+    #expect(first.state.threadID == nil && second.state.threadID == "e5f6g7h8")
+}
+
+@MainActor @Test func theAppWideValuesAreTakenByTheRoutingWindowOnly() {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    model.taskToOpen = "k3m9p2qa"
+    #expect(model.takeTaskToOpen(for: first) == nil && model.taskToOpen == "k3m9p2qa")
+    #expect(model.takeTaskToOpen(for: second) == "k3m9p2qa" && model.taskToOpen == nil)
+    model.browserURL = URL(string: "https://yak.example.com/settings")!
+    #expect(model.presentsSheets(in: second) && !model.presentsSheets(in: first))
+    // The window that opened the sheet keeps it when the other one comes to the front.
+    model.sceneBecameActive(first)
+    #expect(model.presentsSheets(in: second) && !model.presentsSheets(in: first))
+    model.browserURL = nil
+    #expect(model.presentsSheets(in: first) && !model.presentsSheets(in: second))
+    model.addressToConnect = URL(string: "https://other.example.com")!
+    #expect(model.presentsSheets(in: first) && !model.presentsSheets(in: second))
+}
+
+@MainActor @Test func aLinkGoesToTheWindowThatReceivedIt() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    first.applyColdStart(.drawer(.mine))
+    second.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    await model.handle(
+        url: URL(string: "yak://thread?instance=https%3A%2F%2Ffirst.example.com&id=a1b2c3d4")!, in: first)
+    #expect(first.state.threadID == "a1b2c3d4" && second.state.threadID == nil)
+}
+
+@MainActor @Test func aWindowThatIsReleasedLeavesTheRegistryAndACoverNeverRemovesIt() async {
+    let (model, _) = makeLinkModel()
+    var scene: SceneModel? = model.makeSceneModel(restored: nil)
+    let other = model.makeSceneModel(restored: nil)
+    model.sceneBecameActive(other)
+    _ = await model.scenePhaseChanged(scene!, to: .active)
+    #expect(model.connectedSceneCount == 2)
+    // A full-screen cover going up and down touches nothing in the model: both windows stay and still route.
+    #expect(model.routingScene === scene || model.routingScene === other)
+    scene = nil
+    #expect(model.connectedSceneCount == 1)
+    #expect(await model.scenePhaseChanged(other, to: .background) == .enteredBackground)
+}
+
+@MainActor @Test func aWindowRecordsItsPhaseWhenItStartsSoItCannotBlockThePause() async {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    _ = await model.scenePhaseChanged(first, to: .background)
+    // The second window started in the background and its phase never changed afterwards.
+    #expect(await model.scenePhaseChanged(second, to: .background) == .enteredBackground)
+}
+
+@MainActor @Test func theExplanationStaysInTheWindowThatClaimedIt() {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    model.sceneBecameActive(first)
+    #expect(model.presentsExplanation(in: first, isShowing: true))
+    model.sceneBecameActive(second)
+    #expect(model.presentsExplanation(in: first, isShowing: true))
+    #expect(!model.presentsExplanation(in: second, isShowing: true))
+    #expect(!model.presentsExplanation(in: first, isShowing: false))
+    #expect(model.presentsExplanation(in: second, isShowing: true))
+}
+
+@MainActor @Test func aLinkThatArrivesWhileACoverIsUpIsHandledByTheStillRegisteredWindow() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let scene = model.makeSceneModel(restored: nil)
+    scene.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(scene)
+    // A cover goes up over the window: the window stays registered, so the link has somewhere to go.
+    await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4"))
+    #expect(scene.state.threadID == "a1b2c3d4" && model.takeLaunchLink() == nil)
+}
+
+@MainActor @Test func appWideWorkIsClaimedOncePerAppStateChange() async {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    #expect(model.claimActiveAnnouncement() && !model.claimActiveAnnouncement())
+    #expect(model.claimBackgroundAnnouncement() && !model.claimBackgroundAnnouncement())
+    await model.scenePhaseChanged(first, to: .background)
+    await model.scenePhaseChanged(second, to: .background)
+    #expect(model.claimActiveAnnouncement())
+    await model.scenePhaseChanged(first, to: .active)
+    #expect(model.claimBackgroundAnnouncement())
 }

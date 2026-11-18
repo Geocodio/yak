@@ -114,18 +114,21 @@ final class StubPreviewFeature: StubFeature, @unchecked Sendable {
 
     /// The `server-fixtures` scenario answers the preview routes with the server's own fixtures.
     private func serverFixtureReply(route: String, context: StubContext) -> StubReply? {
-        let base = "\(Self.threadID)/preview/"
+        // Any thread of the fixtures has the same preview, so a thread opened beside its chat finds one.
+        let parts = route.split(separator: "/")
+        guard parts.count == 4, parts[0].hasSuffix("threads"), parts[2] == "preview" else { return nil }
+        let action = "\(parts[0].split(separator: " ")[0]) \(parts[3])"
         func json(_ name: String, status: Int = 200) -> StubReply {
             var object = context.fixtures.serverFirst(name, baseURL: context.baseURL)
             if object["url"] is String { object["url"] = preview.pagesBaseURL + "/" }
             let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data("{}".utf8)
             return StubReply(answer: .reply(status: status, contentType: "application/json", body: data))
         }
-        switch route {
-        case "GET threads/\(base)status": return json("thread-preview-status")
-        case "POST threads/\(base)ticket": return json("thread-preview-ticket")
-        case "POST threads/\(base)restore": return json("thread-preview-restore", status: 202)
-        case "POST threads/\(base)warm", "POST threads/\(base)heartbeat":
+        switch action {
+        case "GET status": return json("thread-preview-status")
+        case "POST ticket": return json("thread-preview-ticket")
+        case "POST restore": return json("thread-preview-restore", status: 202)
+        case "POST warm", "POST heartbeat":
             return StubReply(answer: .reply(status: 204, contentType: "application/json", body: Data()))
         default: return nil
         }

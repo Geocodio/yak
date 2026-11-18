@@ -7,6 +7,12 @@ struct SubThreadRowView: View {
     let model: OverviewModel
     let askToDrop: (SubThreadRow) -> Void
 
+    @Environment(\.hasSeveralWindows) private var supportsMultipleWindows
+    @Environment(SceneModel.self) private var scene
+
+    /// "Open in new window" is part of the menu whenever the system has several windows.
+    private var hasMenu: Bool { row.actions.count > 1 || (supportsMultipleWindows && scene.activeInstance != nil) }
+
     var body: some View {
         HStack(spacing: 0) {
             Button {
@@ -26,9 +32,9 @@ struct SubThreadRowView: View {
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("overview.child.\(row.id)")
-            if row.actions.count > 1 { menu }
+            if hasMenu { menu }
         }
-        .padding(.trailing, row.actions.count > 1 ? 0 : 16)
+        .padding(.trailing, hasMenu ? 0 : 16)
     }
 
     private var titleLine: some View {
@@ -91,6 +97,9 @@ struct SubThreadRowView: View {
                 } label: {
                     Text("overview.child.split")
                 }
+            }
+            if let instance = scene.activeInstance {
+                OpenInNewWindowButton(threadID: row.id, instanceID: instance)
             }
             if row.actions.contains(.drop) {
                 Button(role: .destructive) {

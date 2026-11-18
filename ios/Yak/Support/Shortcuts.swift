@@ -51,6 +51,17 @@ extension AppShortcut {
     }
 }
 
+extension WindowTitle {
+    /// The scene title: empty with none, the thread's title, or "A private thread", never a private thread's title.
+    var text: String {
+        switch self {
+        case .none: ""
+        case .thread(let title): title
+        case .privateThread: String(localized: "window.privateThread")
+        }
+    }
+}
+
 private struct InputBlockedKey: EnvironmentKey { static let defaultValue = false }
 
 extension EnvironmentValues {

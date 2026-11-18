@@ -88,7 +88,7 @@ struct YakApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(for: WindowRequest.self) { $request in
             #if DEBUG
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
@@ -103,20 +103,24 @@ struct YakApp: App {
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
-                    rootView.preferredColorScheme(TestMode.colorScheme())
+                    rootView($request).preferredColorScheme(TestMode.colorScheme())
                         .overlay(alignment: .top) {
                             if let intent = TestMode.intentName { IntentTestResultView(name: intent) }
                         }
                 }
             #else
-                rootView
+                rootView($request)
             #endif
         }
+        .commands { YakCommands() }
     }
 
-    private var rootView: some View {
-        RootView(model: model)
+    private func rootView(_ request: Binding<WindowRequest?>) -> some View {
+        RootView(model: model, request: request, appLock: parts.system.appLock)
+            // An open window takes a link, a widget tap or an activity; none of them opens another window.
+            .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
             .appRoot(parts, model: model)
+            .task { model.followQuickActions(through: parts.system.appLock) }
             .task {
                 delegate.attach(parts.push)
                 delegate.attach(uploads: parts.uploads)

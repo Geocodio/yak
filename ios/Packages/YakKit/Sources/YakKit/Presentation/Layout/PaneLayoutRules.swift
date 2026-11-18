@@ -315,6 +315,18 @@ public enum PaneLayoutRules {
         return min(max(value, stackedFractionRange.lowerBound), stackedFractionRange.upperBound)
     }
 
+    /// The fraction kept inside the range and also far enough from both ends that neither slot is shorter than
+    /// `minimumSlotHeight` of the `availableHeight`. Where the height cannot hold two such slots the split is even.
+    public static func clampedFraction(_ value: Double, availableHeight: Double, minimumSlotHeight: Double) -> Double {
+        let base = clampedFraction(value)
+        guard availableHeight.isFinite, availableHeight > 0, minimumSlotHeight.isFinite, minimumSlotHeight > 0 else {
+            return base
+        }
+        let share = minimumSlotHeight / availableHeight
+        guard share < 0.5 else { return 0.5 }
+        return min(max(base, share), 1 - share)
+    }
+
     // MARK: Internals
 
     private static func isFirstOfPair(_ position: SlotPosition) -> Bool { position == .leading || position == .lower }

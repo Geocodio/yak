@@ -13,6 +13,7 @@ CORE_SMOKE_CLASSES = %w[
   LaunchTests
   PairingSmokeTests
   ThreadSmokeTests
+  LayoutSmokeTests
 ].freeze
 
 # The most failed tests a UI test run retries; more than this many failing at once is not machine noise.
