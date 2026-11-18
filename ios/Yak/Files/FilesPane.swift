@@ -35,6 +35,7 @@ extension PaneDescriptor {
 struct FilesPane: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
+    @Environment(\.isPaneShown) private var isPaneShown
     @State private var selected: FilesMode?
     @State private var opened: [FilesMode] = []
 
@@ -55,7 +56,7 @@ struct FilesPane: View {
                             AnyView(type.init(thread: thread, scene: scene))
                                 .opacity(mode == current ? 1 : 0)
                                 .allowsHitTesting(mode == current)
-                                .accessibilityHidden(mode != current)
+                                .accessibilityHidden(mode != current || !isPaneShown)
                         }
                     }
                 }

@@ -26,6 +26,8 @@ struct ThreadLayoutView: View {
     @State private var liveFraction: Double?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The least height a stacked slot keeps: its marker and its bar.
+    @ScaledMetric(relativeTo: .body) private var minimumSlotHeight: CGFloat = 150
 
     private var hasLoadedPanes: Bool { thread.snapshot?.show?.panes != nil }
     private var cornerRadius: CGFloat { hasStrip ? 28 : 24 }
@@ -44,13 +46,13 @@ struct ThreadLayoutView: View {
                 .onChange(of: inputs.isKeyboardOnLowerHalf) { place(plan) }
         }
         .readsHinge(into: hinge)
-        .onDisappear { scene.updatePlan(nil) }
+        .onDisappear { scene.clearPlan(ownedBy: thread.threadID) }
     }
 
     /// Hands the plan to the scene and the host. In the laptop pose with the keyboard on the lower half, the pane that
     /// is not focused is hidden (alive, no frame) until the keyboard closes.
     private func place(_ plan: SlotPlan) {
-        scene.updatePlan(plan)
+        scene.updatePlan(plan, ownedBy: thread.threadID)
         model.show(plan)
         if plan.arrangement == .laptop, hinge.isKeyboardOnLowerHalf {
             for slot in plan.slots where slot.position != plan.focusedPosition { model.clear(slot.position) }
@@ -101,8 +103,8 @@ struct ThreadLayoutView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("thread.detail")
-        .accessibilityValue(plan.arrangement.rawValue)
+        // The arrangement is in the identifier, which VoiceOver never speaks; the layout tests read it from there.
+        .accessibilityIdentifier("thread.detail.\(plan.arrangement.rawValue)")
     }
 
     @ViewBuilder private func slotLayer(_ plan: SlotPlan, focused: PaneID) -> some View {
@@ -148,7 +150,9 @@ struct ThreadLayoutView: View {
             let hasHandle = plan.arrangement.hasDragHandle
             let band = hasHandle ? PaneDivider.bandHeight : 6
             let available = max(0, proxy.size.height - band)
-            let fraction = PaneLayoutRules.clampedFraction(liveFraction ?? plan.upperFraction ?? 0.5)
+            let fraction = PaneLayoutRules.clampedFraction(
+                liveFraction ?? plan.upperFraction ?? 0.5, availableHeight: Double(available),
+                minimumSlotHeight: Double(minimumSlotHeight))
             let upper = plan.slots.first { $0.position == .upper }
             let lower = plan.slots.first { $0.position == .lower }
             VStack(spacing: 0) {

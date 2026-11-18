@@ -41,7 +41,7 @@ struct PreviewPane: View {
             if let model {
                 if hasShownPage, let dataStore {
                     PreviewWebView(model: model, dataStore: dataStore)
-                        .accessibilityHidden(model.card?.kind != .page)
+                        .accessibilityHidden(model.card?.kind != .page || !isPaneShown)
                 }
                 // A card or page change fades; the fade is opacity only, so it also suits Reduce Motion.
                 Group { layer(model) }

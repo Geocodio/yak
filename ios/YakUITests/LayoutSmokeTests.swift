@@ -20,8 +20,14 @@ import XCTest
 
     private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
 
-    private var detail: XCUIElement { element("thread.detail") }
-    private var arrangement: String { detail.value as? String ?? "" }
+    /// The thread's detail container; its identifier ends in the arrangement.
+    private var detail: XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'thread.detail.'"))
+            .firstMatch
+    }
+    private var arrangement: String {
+        detail.exists ? String(detail.identifier.dropFirst("thread.detail.".count)) : ""
+    }
     private var isNarrowWindow: Bool { app.windows.firstMatch.frame.width < 700 }
 
     private func openThread() {
@@ -50,8 +56,6 @@ import XCTest
                     if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
                     if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
                 }
-                // On a wide screen the audit reports contrast on the thread screen without naming an element.
-                if issue.auditType == .contrast, issue.element == nil { return true }
                 // An element entirely outside the screen shows no pixels to measure.
                 if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
                 // Text behind a bar is covered by the bar.
@@ -214,8 +218,6 @@ import XCTest
         app.typeKey("1", modifierFlags: .command)
         waitForFocusedPane("chat", "Command 1 focuses Chat")
         XCTAssertTrue(Set(slotLabels().values).isSuperset(of: ["Chat", "Preview"]))
-        // Audited before Files opens: once Files has been shown, its hidden pane's banner is reported for contrast.
-        try audit()
         app.typeKey("3", modifierFlags: .command)
         waitForFocusedPane("files", "Command 3 focuses Files")
         // This thread has no Terminal: Command 4 is disabled and changes nothing.
@@ -223,6 +225,8 @@ import XCTest
         waitForFocusedPane("files", "Command 4 does nothing without a Terminal")
         app.typeKey("1", modifierFlags: .command)
         waitForFocusedPane("chat", "Command 1 returns to Chat")
+        // Files has been shown and is hidden again; none of its elements may remain in the accessibility tree.
+        try audit()
         // The Overview is a side panel on a wide window and a pane on a narrow one.
         app.typeKey("5", modifierFlags: .command)
         XCTAssertTrue(["chat", "overview"].contains(focusedPaneName()), "Command 5 leaves a pane in focus")
@@ -235,11 +239,7 @@ import XCTest
         app.typeKey(",", modifierFlags: .command)
         let settings = app.navigationBars["Settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: Wait.appear))
-        // Escape is pressed first. The sheet has not closed on it in the simulator (an open finding, see the report), so the
-        // close button ends the test's sheet and the test checks that the sheet then goes.
         app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
-        poll { !settings.exists }
-        if settings.exists { app.buttons["Close"].firstMatch.tap() }
         poll { !settings.exists }
         XCTAssertFalse(settings.exists, "the Settings sheet closes")
     }

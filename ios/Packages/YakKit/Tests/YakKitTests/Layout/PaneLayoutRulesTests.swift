@@ -366,6 +366,16 @@ private let bookInputs = LayoutInputs(
         #expect(plan.upperFraction == result)
     }
 
+    @Test func aSlotIsNeverShorterThanItsMinimumWhereTheHeightAllowsIt() {
+        // 0.3 of 400 is 120, under the 150 minimum: the share moves up.
+        #expect(PaneLayoutRules.clampedFraction(0.3, availableHeight: 400, minimumSlotHeight: 150) == 0.375)
+        #expect(PaneLayoutRules.clampedFraction(0.7, availableHeight: 400, minimumSlotHeight: 150) == 0.625)
+        // Room to spare changes nothing; no room for two minimum slots splits evenly.
+        #expect(PaneLayoutRules.clampedFraction(0.4, availableHeight: 1000, minimumSlotHeight: 150) == 0.4)
+        #expect(PaneLayoutRules.clampedFraction(0.7, availableHeight: 250, minimumSlotHeight: 150) == 0.5)
+        #expect(PaneLayoutRules.clampedFraction(0.7, availableHeight: .nan, minimumSlotHeight: 150) == 0.7)
+    }
+
     @Test func storedStateThatContradictsItselfIsRepaired() throws {
         let same = PaneLayoutRules.availableChanged(
             state: PaneState(focused: .preview, second: .preview), available: all, inputs: outer)
