@@ -2460,6 +2460,16 @@
         }
       }
     },
+    "files.notInPullRequest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in the pull request"
+          }
+        }
+      }
+    },
     "files.open.failed" : {
       "localizations" : {
         "en" : {
