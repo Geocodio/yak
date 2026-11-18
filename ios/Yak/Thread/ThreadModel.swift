@@ -21,6 +21,8 @@ final class ThreadModel {
     private(set) var engine: ThreadEngine?
     /// Lives as long as the model, so typed text survives a retry and a slow load.
     let composer: ComposerModel
+    /// The open question round, answered in the card above the bar.
+    let question = QuestionModel()
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
     /// The rows of the conversation, with the day dividers, from the newest snapshot.
@@ -158,6 +160,7 @@ final class ThreadModel {
         }
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
+        question.use(backend: LiveQuestionBackend(engine: opened))
         await opened.setVisible(isVisible)
         if ownName == nil { ownName = await session.me()?.user.name }
         readingTask = Task { [weak self] in
@@ -168,6 +171,8 @@ final class ThreadModel {
                 guard !Task.isCancelled else { return }
                 self.onSnapshot(next)
                 self.composer.update(snapshot: next)
+                if let show = next.show { await self.question.update(question: show.question) }
+                if !next.isOffline { self.question.connectionRestored() }
             }
         }
     }
