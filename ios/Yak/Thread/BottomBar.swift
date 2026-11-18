@@ -36,6 +36,7 @@ struct BottomBar: View {
             .padding(.horizontal, 8).padding(.bottom, 4)
             .simultaneousGesture(swipe)
             .accessibilityElement(children: .contain)
+            .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
             .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
     }
 
@@ -96,6 +97,21 @@ struct BarSurface: View {
                 .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
         } else {
             Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 28))
+        }
+    }
+}
+
+/// A bar of a two-slot layout names its pane, so VoiceOver tells the bars apart. The one bar of a single pane carries
+/// no label.
+private struct SlotBarLabel: ViewModifier {
+    let isInSlot: Bool
+    let pane: PaneID
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if isInSlot {
+            content.accessibilityLabel(Text(PaneCatalog.descriptor(for: pane)?.name ?? ""))
+        } else {
+            content
         }
     }
 }

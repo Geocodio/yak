@@ -101,14 +101,14 @@ private func sideBySideInputs() -> LayoutInputs {
 @MainActor @Test func aStoredStateWithoutTheNewFieldsDecodes() {
     let stored = Data(#"{"threadID":"e5f6g7h8","focusedPane":"chat","isDrawerOpen":true,"filter":"mine"}"#.utf8)
     let state = SceneModel.restoredState(from: stored)
-    #expect(state.secondPane == nil && !state.secondPaneLeads && state.lastSecondPane == nil)
+    #expect(state.secondPane == nil && !state.secondPaneLeads)
     #expect(state.stackedFraction == 0.5 && state.instanceID == nil)
 }
 
 @MainActor @Test func theNewFieldsRoundTrip() throws {
     let state = SceneState(
         instanceID: UUID(), threadID: "e5f6g7h8", focusedPane: .preview, secondPane: .chat, secondPaneLeads: true,
-        lastSecondPane: .files, stackedFraction: 0.6)
+        stackedFraction: 0.6)
     let data = try JSONEncoder().encode(state)
     #expect(SceneModel.restoredState(from: data) == state)
 }
@@ -166,7 +166,7 @@ private func sideBySideInputs() -> LayoutInputs {
         #"{"threadID":"e5f6g7h8","focusedPane":"files","secondPane":"whiteboard","lastSecondPane":"whiteboard"}"#.utf8)
     let state = SceneModel.restoredState(from: stored)
     #expect(state.threadID == "e5f6g7h8" && state.focusedPane == .files)
-    #expect(state.secondPane == nil && state.lastSecondPane == nil)
+    #expect(state.secondPane == nil)
 }
 
 @MainActor @Test func anOversizedStoredSceneIsIgnored() {
@@ -187,11 +187,11 @@ private func sideBySideInputs() -> LayoutInputs {
     #expect(scene.windowValue == nil)
 }
 
-@MainActor @Test func applyWritesThePaneFieldsAndRemembersTheLastSecond() {
+@MainActor @Test func applyWritesThePaneFields() {
     let scene = SceneModel(state: SceneState())
     scene.apply(PaneState(focused: .preview, second: .chat, secondLeads: true, stackedFraction: 9))
     #expect(scene.state.focusedPane == .preview && scene.state.secondPane == .chat)
-    #expect(scene.state.lastSecondPane == .chat && scene.state.stackedFraction == 0.7)
+    #expect(scene.state.stackedFraction == 0.7)
 }
 
 @MainActor @Test func aTaskLinkForAnUnpairedAddressAsksToPair() {
@@ -211,4 +211,51 @@ private func sideBySideInputs() -> LayoutInputs {
     #expect(
         outcome
             == .switchInstanceThenOpenTaskPage(other, URL(string: "https://other.example.com/tasks/k3m9p2qa")!))
+}
+
+private func compactInputs() -> LayoutInputs {
+    LayoutInputs(isCompactWidth: true, isCompactHeight: false, detailWidth: 400, hasVerticalToolbarEdge: false)
+}
+
+@MainActor private func sceneWithOverviewAsPane(thread: String = "d0e515ef") -> SceneModel {
+    let scene = SceneModel(state: SceneState(threadID: thread, focusedPane: .preview))
+    scene.updatePlan(
+        PaneLayoutRules.plan(
+            PaneState(focused: .preview), available: [.chat, .preview, .overview], inputs: compactInputs()))
+    return scene
+}
+
+@MainActor @Test func commandFiveRecordsThePaneItLeavesAndTheTitleReturnsThere() {
+    let scene = sceneWithOverviewAsPane()
+    scene.commandFocus(.overview)
+    #expect(scene.state.focusedPane == .overview)
+    scene.updatePlan(
+        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview, .overview], inputs: compactInputs()))
+    scene.toggleOverview()
+    #expect(scene.state.focusedPane == .preview)
+}
+
+@MainActor @Test func theOverviewReturnPaneResetsWithTheThread() {
+    let scene = sceneWithOverviewAsPane()
+    scene.commandFocus(.overview)
+    scene.open(thread: "a1b2c3d4", isCompactWidth: true)
+    scene.focus(pane: .overview)
+    scene.updatePlan(
+        PaneLayoutRules.plan(PaneState(focused: .overview), available: [.chat, .overview], inputs: compactInputs()))
+    scene.toggleOverview()
+    #expect(scene.state.focusedPane == .chat)
+}
+
+@MainActor @Test func aRestoredWindowKeepsItsPanesWhenTheRequestNamesItsThread() {
+    let active = UUID()
+    let restored = SceneState(
+        instanceID: active, threadID: "d0e515ef", focusedPane: .preview, isDrawerOpen: false, secondPane: .chat,
+        behindPane: .files)
+    let kept = SceneModel(
+        state: restored, request: .thread(instance: active, id: "d0e515ef"), activeInstance: active)
+    #expect(kept.state.focusedPane == .preview && kept.state.secondPane == .chat && kept.state.behindPane == .files)
+    #expect(kept.hasAppliedColdStart)
+    let other = SceneModel(
+        state: restored, request: .thread(instance: active, id: "a1b2c3d4"), activeInstance: active)
+    #expect(other.state.focusedPane == .chat && other.state.secondPane == nil && other.state.behindPane == nil)
 }

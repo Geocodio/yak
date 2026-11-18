@@ -51,13 +51,11 @@ struct InstanceShell: View {
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: model.taskToOpen, initial: true) {
-            guard let id = model.taskToOpen else { return }
-            model.taskToOpen = nil
-            openTasks(.task(id))
+            if let id = model.takeTaskToOpen(for: scene) { openTasks(.task(id)) }
         }
         .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
-        .onChange(of: model.push?.pending, initial: true) { _, pending in showPending(pending) }
+        .onChange(of: model.push?.pending, initial: true) { showPending() }
         .sheet(isPresented: showsAccount) {
             if let push = model.push {
                 SettingsScreen(app: model, push: push, active: instance, onClose: { scene.isSettingsOpen = false })
@@ -90,20 +88,17 @@ struct InstanceShell: View {
         .sheet(isPresented: isBrowsing) {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
-        .focusedSceneValue(\.sceneCommands, sceneCommands)
-        .onChange(of: scenePhase, initial: true) { if scenePhase == .active { model.sceneBecameActive(scene) } }
-        .onDisappear { model.sceneDisconnected(scene) }
+        .focusedSceneValue(\.sceneCommands, hasSheetOpen ? nil : sceneCommands)
         .overlay(alignment: .bottom) { otherInstanceNotice }
     }
 
     /// A push tap that needs a screen of its own: the connect flow or the browser.
-    private func showPending(_ pending: PushPending?) {
-        guard let pending else { return }
+    private func showPending() {
+        guard let pending = model.takePendingPush(for: scene) else { return }
         switch pending {
         case .pairing(let address): model.addressToConnect = address
         case .webPage(let url): model.browserURL = url
         }
-        model.push?.clearPending()
     }
 
     // MARK: Layout
@@ -167,11 +162,14 @@ struct InstanceShell: View {
                 isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
             )
         } else {
-            if isCompactWidth {
-                ThreadPlaceholder(
-                    title: nil, isNewThread: false, showsThreadsButton: true, openDrawer: { scene.setDrawerOpen(true) })
-            } else {
+            if NoThreadView.isShown(
+                supportsMultipleWindows: UIApplication.shared.supportsMultipleScenes, isCompactWidth: isCompactWidth)
+            {
                 NoThreadView { scene.openNewThread(repo: nil, text: nil) }
+            } else {
+                ThreadPlaceholder(
+                    title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
+                    openDrawer: { scene.setDrawerOpen(true) })
             }
         }
     }
@@ -205,11 +203,17 @@ struct InstanceShell: View {
         Binding(get: { scene.isSettingsOpen }, set: { scene.isSettingsOpen = $0 })
     }
 
+    /// A sheet of this window is open: the menu commands wait for it to close.
+    private var hasSheetOpen: Bool {
+        scene.isSettingsOpen || scene.isThreadSheetOpen || showsSwitcher || isConnecting.wrappedValue
+            || isBrowsing.wrappedValue
+    }
+
     /// The menu commands of this window: Command N, K, backslash, 1 to 5, I and comma.
     private var sceneCommands: SceneCommands {
         SceneCommands(
             availablePanes: scene.plan?.available ?? [],
-            focusPane: { scene.select($0) },
+            focusPane: { scene.commandFocus($0) },
             searchThreads: { scene.requestSearchFocus() },
             newThread: { scene.openNewThread(repo: nil, text: nil) },
             toggleSidebar: { scene.setDrawerOpen(!scene.state.isDrawerOpen) },
@@ -233,11 +237,15 @@ struct InstanceShell: View {
     }
 
     private var isConnecting: Binding<Bool> {
-        Binding(get: { model.addressToConnect != nil }, set: { if !$0 { model.addressToConnect = nil } })
+        Binding(
+            get: { model.addressToConnect != nil && model.presentsSheets(in: scene) },
+            set: { if !$0 { model.addressToConnect = nil } })
     }
 
     private var isBrowsing: Binding<Bool> {
-        Binding(get: { model.browserURL != nil }, set: { if !$0 { model.browserURL = nil } })
+        Binding(
+            get: { model.browserURL != nil && model.presentsSheets(in: scene) },
+            set: { if !$0 { model.browserURL = nil } })
     }
 
     // MARK: Thread list and cold start

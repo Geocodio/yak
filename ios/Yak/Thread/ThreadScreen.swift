@@ -25,6 +25,7 @@ struct ThreadScreen: View {
     @State private var isAddSubThreadOpen = false
     @State private var isShareOpen = false
     @State private var slots = PaneSlots()
+    @State private var isThreadSheetOpen = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -51,6 +52,8 @@ struct ThreadScreen: View {
         }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
+        .onChange(of: isAddSubThreadOpen || isShareOpen) { _, isOpen in scene.isThreadSheetOpen = isOpen }
+        .onDisappear { scene.isThreadSheetOpen = false }
         // A `/clear` starts a new thread; the window follows it.
         .onChange(of: model?.replacementThreadID) { _, replacement in
             if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
@@ -105,6 +108,7 @@ struct ThreadScreen: View {
             .background(Color(.systemBackground))
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
             .toolbarBackground(Color(.systemBackground), for: .navigationBar)

@@ -32,7 +32,7 @@ struct YakCommands: Commands {
                     open: { openWindow(value: $0) },
                     supportsMultipleWindows: UIApplication.shared.supportsMultipleScenes)
             }
-            .yakShortcut(.newWindow)
+            .yakShortcut(.newWindow).disabled(!UIApplication.shared.supportsMultipleScenes)
         }
         CommandGroup(after: .sidebar) {
             Button(AppShortcut.toggleSidebar.title) { scene?.toggleSidebar() }.yakShortcut(.toggleSidebar)

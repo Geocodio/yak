@@ -51,6 +51,17 @@ extension AppShortcut {
     }
 }
 
+extension WindowTitle {
+    /// The scene title: empty with none, the thread's title, or "A private thread", never a private thread's title.
+    var text: String {
+        switch self {
+        case .none: ""
+        case .thread(let title): title
+        case .privateThread: String(localized: "window.privateThread")
+        }
+    }
+}
+
 extension View {
     /// Gives the control the shortcut. This is the only place the app writes `.keyboardShortcut(`.
     func yakShortcut(_ shortcut: AppShortcut) -> some View {

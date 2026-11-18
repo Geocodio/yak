@@ -19,8 +19,6 @@ struct SceneState: Codable, Equatable {
     var secondPaneLeads = false
     /// The pane the Overview panel covers while it is open.
     var behindPane: PaneID?
-    /// The last pane that sat beside the focused one.
-    var lastSecondPane: PaneID?
     /// The upper slot's share of the height in the stacked layout.
     var stackedFraction: Double = 0.5
 }
@@ -28,7 +26,7 @@ struct SceneState: Codable, Equatable {
 extension SceneState {
     private enum CodingKeys: String, CodingKey {
         case instanceID, threadID, focusedPane, isDrawerOpen, isNewThreadOpen, filter, isOverviewPanelOpen
-        case secondPane, secondPaneLeads, behindPane, lastSecondPane, stackedFraction
+        case secondPane, secondPaneLeads, behindPane, stackedFraction
     }
 
     /// A stored state from an earlier version has no panel field and reads as closed.
@@ -43,7 +41,6 @@ extension SceneState {
         focusedPane = pane(.focusedPane) ?? .chat
         secondPane = pane(.secondPane)
         behindPane = pane(.behindPane)
-        lastSecondPane = pane(.lastSecondPane)
         secondPaneLeads = try container.decodeIfPresent(Bool.self, forKey: .secondPaneLeads) ?? false
         stackedFraction = try container.decodeIfPresent(Double.self, forKey: .stackedFraction) ?? 0.5
         isDrawerOpen = try container.decodeIfPresent(Bool.self, forKey: .isDrawerOpen) ?? false
@@ -64,7 +61,10 @@ enum LinkOutcome: Equatable {
 /// Where one window is: the open thread, the focused pane, the drawer and the new-thread screen.
 @MainActor @Observable
 final class SceneModel {
-    private(set) var state: SceneState
+    private(set) var state: SceneState {
+        // The pane the Overview returns to belongs to the thread, as it did when the thread screen held it.
+        didSet { if oldValue.threadID != state.threadID { paneBeforeOverview = .chat } }
+    }
     private(set) var hasAppliedColdStart = false
     /// Shows "Signed in as <name>" in the drawer once after a pairing.
     var justPairedUserName: String?
@@ -85,6 +85,8 @@ final class SceneModel {
     private(set) var plan: SlotPlan?
     /// Whether Settings is presented in this window. Not restored.
     var isSettingsOpen = false
+    /// Whether a sheet of the thread screen (add sub-thread, share) is open in this window. Not restored.
+    var isThreadSheetOpen = false
     /// A requested thread belonged to another instance: the window says so until the notice is dismissed.
     private(set) var showsOtherInstanceNotice = false
 
@@ -102,13 +104,20 @@ final class SceneModel {
         if let request {
             hasAppliedColdStart = true
             let id = request.threadToOpen(activeInstance: activeInstance)
+            // A restored window whose thread is the requested one keeps its panes and panels; any other window starts
+            // on Chat.
+            let isRestoredThread =
+                id != nil && id == state.threadID
+                && WindowRequest.keepsRestoredThread(storedInstance: state.instanceID, activeInstance: activeInstance)
             self.state.threadID = id
             self.state.instanceID = activeInstance
             self.state.isNewThreadOpen = false
-            self.state.focusedPane = .chat
-            self.state.secondPane = nil
-            self.state.behindPane = nil
-            self.state.isDrawerOpen = id == nil
+            if !isRestoredThread {
+                self.state.focusedPane = .chat
+                self.state.secondPane = nil
+                self.state.behindPane = nil
+                self.state.isDrawerOpen = id == nil
+            }
             if case .thread = request, id == nil { showsOtherInstanceNotice = true }
         } else {
             applyInstanceRule(to: activeInstance)
@@ -165,7 +174,6 @@ final class SceneModel {
         state.secondPaneLeads = paneState.secondLeads
         state.behindPane = paneState.behind
         state.stackedFraction = PaneLayoutRules.clampedFraction(paneState.stackedFraction)
-        if let second = paneState.second, second != .overview { state.lastSecondPane = second }
     }
 
     /// A pane picked in a bar, the rail, the row or by Command 1 to 5. `slot` is the bar whose menu was used.
@@ -185,6 +193,15 @@ final class SceneModel {
 
     /// The pane the Overview returns to when it leaves the pane slot.
     private var paneBeforeOverview: PaneID = .chat
+
+    /// A pane picked by Command 1 to 5. Command 5 is the Overview: it records the pane it leaves, so the title or
+    /// Command I returns there.
+    func commandFocus(_ pane: PaneID) {
+        if pane == .overview, plan?.overviewIsPanel != true, state.focusedPane != .overview {
+            paneBeforeOverview = state.focusedPane
+        }
+        select(pane)
+    }
 
     /// The title, Command I and Command 5: where the Overview is a side panel the rules toggle the panel; elsewhere it
     /// is a pane that the same command leaves again for the pane before it.

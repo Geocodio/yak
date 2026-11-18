@@ -10835,7 +10835,17 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "That thread is on another Yak. Switch to it in the instance list."
+            "value" : "That thread is not on this Yak. It may be on another one, or that Yak was removed."
+          }
+        }
+      }
+    },
+    "window.privateThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A private thread"
           }
         }
       }
