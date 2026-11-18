@@ -67,11 +67,11 @@ class StoppedTaskReplies
         try {
             $this->taskActions->retry($task);
         } catch (ThreadActionRefused) {
-            $note->delete();
+            $note->withdraw();
 
             return self::CANNOT_RETRY;
         } catch (Throwable $exception) {
-            $note->delete();
+            $note->withdraw();
             report($exception);
 
             return self::TRY_AGAIN_LATER;

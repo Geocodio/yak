@@ -1,10 +1,12 @@
 <?php
 
 use App\DataTransferObjects\ClarificationQuestion;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Models\CoOwnerRequest;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadShare;
@@ -12,6 +14,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\ThreadView;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CoOwner\GitHubWriteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Tests\Support\ContractFixture;
@@ -165,4 +168,22 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $user->id], isPhone: false);
     $this->getJson(appThreadPath($thread), $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
     $this->postJson(appThreadPath($thread, '/seen'), [], $computerHeaders)->assertUnauthorized();
+});
+
+it('bounds the GitHub permission check of the co-owner panel on the app route only', function () {
+    $user = User::factory()->withGitHub(login: 'test-person')->create();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+    $thread = Thread::query()->findOrFail($task->fresh()->thread_id);
+    $bounds = [];
+    $this->mock(GitHubWriteAccess::class)->shouldReceive('check')
+        ->andReturnUsing(function ($repository, $viewer, bool $isTimeBounded = false) use (&$bounds): string {
+            $bounds[] = $isTimeBounded;
+
+            return 'write';
+        });
+
+    $this->getJson(route('app.threads.show', $thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('coOwner.viewer.access', 'write');
+
+    expect($bounds)->toContain(true)->not->toContain(false);
 });

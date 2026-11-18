@@ -365,6 +365,7 @@ class TaskActions
                 'review_replies' => null,
                 'started_at' => null,
                 'completed_at' => null,
+                'resume_after_setup_at' => null,
                 'updated_at' => now(),
             ]);
 

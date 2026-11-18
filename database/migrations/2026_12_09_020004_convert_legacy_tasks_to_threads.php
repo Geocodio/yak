@@ -6,7 +6,6 @@ use App\Enums\ThreadVisibility;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\LegacyTaskThreads;
-use App\Services\Threads\ThreadFactory;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
@@ -17,26 +16,28 @@ return new class extends Migration
      */
     private const int STALE_AFTER_DAYS = 7;
 
+    /**
+     * A conversation that is still live stays without a thread: the migration
+     * runs as root, and the worker creates the thread (and its session store
+     * files) as its own user when the task next runs.
+     */
     public function up(): void
     {
         $staleBefore = now()->subDays(self::STALE_AFTER_DAYS);
         $converter = app(LegacyTaskThreads::class);
-        $threads = app(ThreadFactory::class);
 
         YakTask::query()
             ->withoutGlobalScopes()
             ->whereNull('parent_task_id')
             ->whereNull('thread_id')
             ->whereIn('mode', [TaskMode::Fix->value, TaskMode::Research->value])
-            ->chunkById(100, function ($tasks) use ($converter, $threads, $staleBefore): void {
+            ->chunkById(100, function ($tasks) use ($converter, $staleBefore): void {
                 foreach ($tasks as $task) {
                     try {
                         $isFinished = $task->conversation()->every(fn (YakTask $member): bool => ! in_array($member->status->value, TaskStatus::activeValues(), true) || $member->updated_at < $staleBefore);
 
                         if ($isFinished) {
                             $converter->convert($task);
-                        } else {
-                            $threads->forTask($task);
                         }
                     } catch (Throwable $exception) {
                         report($exception);

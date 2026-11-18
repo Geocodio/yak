@@ -18,7 +18,9 @@ use Illuminate\Support\Str;
 /**
  * Tasks with no open thread that need a person: a question they were asked,
  * or a co-owner decision they owe. A task item is listed only for a task with
- * no open thread, because an open thread's row already says so.
+ * no open thread, because an open thread's row already says so. The app list
+ * also keeps a pending co-owner decision on an open thread as a task item,
+ * which the installed app opens the decision screen from.
  */
 class NeedsYouTasks
 {
@@ -27,10 +29,10 @@ class NeedsYouTasks
     /**
      * @return list<array{type: 'task', taskId: string, threadId: ?string, title: string, needsYouReason: 'question'|'co_owner', needsYouLabel: string, isPrivate: bool, lastActivityAt: string}>
      */
-    public static function for(User $user, ?string $search = null): array
+    public static function for(User $user, ?string $search = null, bool $includesCoOwnerOnOpenThread = false): array
     {
         // Thread facts come from joins, so no relation scoped to the signed-in person is involved.
-        $query = self::matching($user)
+        $query = self::matching($user, $includesCoOwnerOnOpenThread)
             ->leftJoin('threads as item_thread', 'item_thread.id', '=', 'tasks.thread_id')
             ->leftJoin('threads as item_root', 'item_root.id', '=', DB::raw('coalesce(item_thread.root_thread_id, item_thread.id)'))
             ->select('tasks.*', 'item_thread.status as item_thread_status', 'item_thread.public_id as item_thread_public_id', 'item_root.visibility as item_root_visibility')
@@ -80,7 +82,7 @@ class NeedsYouTasks
     /**
      * @return Builder<YakTask>
      */
-    private static function matching(User $user): Builder
+    private static function matching(User $user, bool $includesCoOwnerOnOpenThread = false): Builder
     {
         $coOwnerTaskIds = CoOwnerRequest::query()
             ->select('task_id')
@@ -90,9 +92,9 @@ class NeedsYouTasks
         $query = YakTask::withoutGlobalScopes();
         VisibleTaskScope::constrain($query, 'tasks', $user->id);
 
-        return $query->where(function (Builder $query) use ($user, $coOwnerTaskIds): void {
+        return $query->where(function (Builder $query) use ($user, $coOwnerTaskIds, $includesCoOwnerOnOpenThread): void {
             $query->where(fn (Builder $coOwner) => $coOwner->whereIn('tasks.id', $coOwnerTaskIds)
-                ->where(fn (Builder $open) => self::withoutOpenThread($open)))
+                ->unless($includesCoOwnerOnOpenThread, fn (Builder $withoutThread) => $withoutThread->where(fn (Builder $open) => self::withoutOpenThread($open))))
                 ->orWhere(fn (Builder $question) => self::question($question, $user));
         });
     }

@@ -284,15 +284,14 @@ it('answers sent and keeps one follow-up when opening the new thread fails', fun
     expect(YakTask::query()->count())->toBe($before + 1)->and($reported)->toBe(['transcript unreadable']);
 });
 
-it('gives an active old task an open thread and a finished one a legacy thread in the migration', function () {
+it('leaves an active old task without a thread and gives a finished one a legacy thread in the migration', function () {
     $waiting = YakTask::factory()->awaitingClarification()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
     $done = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
 
     (require base_path('database/migrations/2026_12_09_020004_convert_legacy_tasks_to_threads.php'))->up();
 
-    $open = Thread::query()->withoutGlobalScopes()->find($waiting->fresh()->thread_id);
     $closed = Thread::query()->withoutGlobalScopes()->find($done->fresh()->thread_id);
-    expect($open->isOpen())->toBeTrue()->and($open->is_legacy)->toBeFalse()
+    expect($waiting->fresh()->thread_id)->toBeNull()
         ->and($closed->is_legacy)->toBeTrue()->and($closed->isOpen())->toBeFalse();
 });
 
@@ -339,17 +338,17 @@ it('closes a conversation whose only active member went stale and gives every fo
         ->and(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
 });
 
-it('keeps a recently active conversation live and still gives its follow-ups the thread', function () {
+it('leaves a recently active conversation without a thread for the worker to create', function () {
     $root = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
     $first = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
     $second = YakTask::factory()->pending()->create(['thread_id' => null, 'parent_task_id' => $first->id, 'repo' => 'acme/widgets']);
 
     runLegacyMigration();
 
-    $thread = Thread::query()->withoutGlobalScopes()->findOrFail($root->fresh()->thread_id);
-    expect($thread->isOpen())->toBeTrue()
-        ->and($first->fresh()->thread_id)->toBe($thread->id)
-        ->and($second->fresh()->thread_id)->toBe($thread->id);
+    expect($root->fresh()->thread_id)->toBeNull()
+        ->and($first->fresh()->thread_id)->toBeNull()
+        ->and($second->fresh()->thread_id)->toBeNull()
+        ->and(Thread::query()->withoutGlobalScopes()->count())->toBe(0);
 });
 
 it('attaches the old follow-ups of a root that already has a live thread', function () {

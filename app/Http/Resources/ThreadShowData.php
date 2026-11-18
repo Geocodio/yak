@@ -92,7 +92,7 @@ final class ThreadShowData
     /**
      * @return ThreadShow
      */
-    public static function build(Thread $thread, User $viewer): array
+    public static function build(Thread $thread, User $viewer, bool $isTimeBounded = false): array
     {
         $legacy = $thread->is_legacy ? LegacyConversation::for($thread) : null;
 
@@ -112,7 +112,7 @@ final class ThreadShowData
             'question' => ThreadQuestionData::for($thread),
             'milestones' => ThreadMilestonesData::for($thread),
             ...ThreadRequestData::for($thread, $viewer),
-            ...ThreadCardsData::for($thread, $viewer),
+            ...ThreadCardsData::for($thread, $viewer, $isTimeBounded),
         ]);
     }
 

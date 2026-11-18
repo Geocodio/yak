@@ -8,6 +8,7 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\User;
@@ -194,3 +195,17 @@ it('clears the stop when a task is rerouted, with or without a thread repository
 
     expect($task->fresh()->stop_kind)->toBeNull()->and($task->fresh()->stop_summary)->toBeNull();
 })->with([true, false]);
+
+it('removes the files of the note when the retry is refused', function (): void {
+    Queue::fake();
+    $task = stoppedTask(['status' => TaskStatus::Success]);
+
+    app(StoppedTaskReplies::class)->handle(
+        $task,
+        'again',
+        'dashboard',
+        afterNoteQueued: fn (PendingSteeringMessage $note) => TaskAttachment::factory()->for($task, 'task')->create(['pending_steering_message_id' => $note->id]),
+    );
+
+    expect(PendingSteeringMessage::count())->toBe(0)->and(TaskAttachment::count())->toBe(0);
+});

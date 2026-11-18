@@ -24,7 +24,7 @@ final class AppThreadListData
     {
         $list = ThreadList::for($user, $filter, $search, $sources, $starters);
         $hasListFilters = $sources !== [] || $starters !== [];
-        $taskItems = $filter === ThreadListFilter::Closed || $hasListFilters ? [] : NeedsYouTasks::for($user, $search);
+        $taskItems = $filter === ThreadListFilter::Closed || $hasListFilters ? [] : NeedsYouTasks::for($user, $search, includesCoOwnerOnOpenThread: true);
         $needsYou = [...self::typed($list['needsYou']), ...$taskItems];
 
         usort($needsYou, fn (array $a, array $b): int => match (true) {

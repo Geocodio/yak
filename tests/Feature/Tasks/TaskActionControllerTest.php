@@ -313,6 +313,7 @@ test('reroute moves the task to a new repo and restarts it', function () {
         'pr_url' => null,
         'pr_body_update' => 'stale description',
         'review_replies' => ['abc' => 'stale reply'],
+        'resume_after_setup_at' => now(),
     ]);
 
     $this->post(route('threads.move', $task->thread), ['repo' => 'api'])
@@ -323,6 +324,7 @@ test('reroute moves the task to a new repo and restarts it', function () {
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
     expect($task->fresh()->pr_body_update)->toBeNull();
     expect($task->fresh()->review_replies)->toBeNull();
+    expect($task->fresh()->resume_after_setup_at)->toBeNull();
 });
 
 test('reroute restamps dispatched_at through AgentJobDispatcher', function () {

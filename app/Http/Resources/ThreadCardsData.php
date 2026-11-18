@@ -45,7 +45,7 @@ final class ThreadCardsData
     /**
      * @return ThreadCards
      */
-    public static function for(Thread $thread, User $viewer): array
+    public static function for(Thread $thread, User $viewer, bool $isTimeBounded = false): array
     {
         $head = ThreadTasks::head($thread);
 
@@ -56,7 +56,7 @@ final class ThreadCardsData
         $canDrive = app(ThreadAccess::class)->canDrive($viewer, $thread);
         $root = ThreadTasks::request($thread) ?? $head;
         $coOwnerRequest = ThreadTasks::coOwnerRequest($thread);
-        $coOwner = CoOwnerPanelData::forRequest($coOwnerRequest, $viewer);
+        $coOwner = CoOwnerPanelData::forRequest($coOwnerRequest, $viewer, $isTimeBounded);
 
         $coOwnerCard = $coOwner === null ? null : [
             ...$coOwner,
