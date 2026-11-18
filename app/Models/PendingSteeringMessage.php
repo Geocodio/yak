@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  */
 class PendingSteeringMessage extends Model
 {
+    /** Sources whose text belongs to the channel it came from. */
+    public const array CHANNEL_SOURCES = ['slack', 'linear', 'github_review'];
+
     protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key'];
 
     /**
@@ -182,11 +185,12 @@ class PendingSteeringMessage extends Model
     }
 
     /**
-     * Only the signed-in person who wrote a message can change its text; channel messages and older rows have no author.
+     * Only the signed-in person who wrote a message can change its text, and not for a message from a channel: the
+     * text of a Slack, Linear or GitHub reply belongs to its channel, whoever it maps to.
      */
     public function canEditTextBy(?User $user): bool
     {
-        return $user !== null && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
+        return $user !== null && ! in_array($this->source, self::CHANNEL_SOURCES, true) && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
     }
 
     /**

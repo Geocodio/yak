@@ -201,3 +201,36 @@ it('keeps the web-only queued list out of the app API thread show', function () 
 
     $this->getJson(appThreadPath($thread), phoneHeadersFor($author))->assertOk()->assertJsonMissingPath('queuedMessages');
 });
+
+it('refuses a text edit of a channel message on the web and app routes, even from the person it maps to, but lets its mode switch', function () {
+    [$thread, $author] = queuedListThread();
+    $slack = PendingSteeringMessage::queueFor($thread->headTask(), 'from slack', 'slack', authorName: $author->name, authorUserId: $author->id);
+    $slack->forceFill(['uuid' => (string) Str::uuid()])->save();
+    $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+
+    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $slack->id]), ['text' => 'rewritten'])
+        ->assertSessionHas('error', QueuedMessages::NOT_YOUR_MESSAGE_SENTENCE);
+    $this->patchJson(appThreadPath($thread, "/queued-messages/{$slack->uuid}"), ['text' => 'rewritten'], phoneHeadersFor($author))->assertForbidden();
+    expect($slack->fresh()->text)->toBe('from slack');
+
+    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $slack->id]), ['mode' => 'steer'])->assertRedirect();
+    expect($slack->fresh()->mode)->toBe(SteeringMode::Steer);
+    $this->actingAs($author)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
+        ->where('queuedMessages', fn ($queued) => collect($queued)->firstWhere('id', $slack->id)['canEditText'] === false));
+});
+
+it('keeps the source of a channel reply once it is steered into the turn', function () {
+    [$thread, $author] = queuedListThread();
+    $slack = PendingSteeringMessage::queueFor($thread->headTask(), 'from slack', 'slack', authorName: 'Sam');
+    $slack->forceFill(['uuid' => (string) Str::uuid()])->save();
+    $run = $thread->runs()->latest('id')->firstOrFail();
+    ThreadTurnMessage::query()->create([
+        'task_run_id' => $run->id, 'uuid' => $slack->uuid, 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent,
+        'text' => $slack->text, 'pending_steering_message_id' => $slack->id,
+    ]);
+
+    $this->actingAs($author)->get(route('threads.show', $thread))->assertInertia(fn (Assert $page) => $page
+        ->where('messages', fn ($messages) => collect($messages)->contains(fn ($message) => $message['text'] === 'from slack'
+            && $message['via']['key'] === 'slack' && $message['via']['label'] === 'Slack' && $message['isReply'] === true && $message['authorName'] === 'Sam'))
+        ->where('queuedMessages', fn ($queued) => collect($queued)->every(fn ($row) => $row['id'] !== $slack->id)));
+});

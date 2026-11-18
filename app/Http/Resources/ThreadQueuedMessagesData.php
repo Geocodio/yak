@@ -49,7 +49,7 @@ final class ThreadQueuedMessagesData
                 'canSteer' => $message->canSteer(),
                 'canSwitch' => $canDrive,
                 'canRemove' => $canDrive,
-                'canEditText' => $canDrive && $message->source === 'thread' && $message->canEditTextBy($viewer),
+                'canEditText' => $canDrive && $message->canEditTextBy($viewer),
                 'attachments' => array_values($message->attachments->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all()),
             ])
             ->values()

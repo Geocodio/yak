@@ -85,7 +85,7 @@ final class ThreadMessagesData
             $references = array_values(array_filter(array_column($attachments, 'reference')));
 
             $author = $steer !== null
-                ? self::author(null, $steer->author_name)
+                ? self::channelReply($steer) + self::author(null, $steer->author_name)
                 : (($run->task !== null && $firstRunIds->contains($run->id))
                     ? self::author($run->task, $run->task->author?->name, $run->task->author_name, $run->driver?->name, $run->task->startedBy?->name)
                     : self::author(null, $run->driver?->name));
@@ -192,6 +192,23 @@ final class ThreadMessagesData
             'attachments' => $attachments,
             'attachmentIds' => array_values($files->pluck('id')->map(fn ($id): int => (int) $id)->all()),
         ];
+    }
+
+    /**
+     * A message that came from Slack, Linear or a GitHub review keeps its source once it is steered into a turn.
+     *
+     * @return array{via?: array{key: string, label: string, reference: null, url: null}, isReply?: true}
+     */
+    private static function channelReply(PendingSteeringMessage $pending): array
+    {
+        $source = match ($pending->source) {
+            'slack' => ThreadSource::Slack,
+            'linear' => ThreadSource::Linear,
+            'github_review' => ThreadSource::Github,
+            default => null,
+        };
+
+        return $source === null ? [] : ['via' => ['key' => $source->value, 'label' => $source->label(), 'reference' => null, 'url' => null], 'isReply' => true];
     }
 
     /**
