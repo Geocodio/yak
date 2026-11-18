@@ -32,7 +32,7 @@ public actor ThreadEngine {
 
     let client: APIClient
     let cache: Cache
-    private let clock: any YakClock
+    let clock: any YakClock
     private let frameInterval: Duration
     private let cacheSaveDelay: Duration
     private let broadcast = Broadcast(ConversationSnapshot())
@@ -55,6 +55,11 @@ public actor ThreadEngine {
     /// True once `open()` has restored the cache; until then live input waits so it cannot be overwritten.
     private var isOpenFinished = false
     private var problem: ThreadProblem?
+    /// The server refused an action as `forbidden`: the person can read this thread but not change it. It holds
+    /// until the thread closes, so a refreshed page cannot bring the controls back.
+    var isForbidden = false
+    /// Actions that are waiting out a `rate_limited` answer for longer than five seconds.
+    var slowWaits: Set<UUID> = []
     private var lastDiffUpdateSequence: Int?
     private(set) var isClosed = false
     var actionTasks: [String: Task<ThreadActionOutcome, Never>] = [:]
@@ -535,7 +540,7 @@ public actor ThreadEngine {
 
     // MARK: Snapshots
 
-    private func changed(isStored: Bool) {
+    func changed(isStored: Bool) {
         scheduleSnapshot()
         if isStored { scheduleCacheSave() }
     }
@@ -577,6 +582,8 @@ public actor ThreadEngine {
                     || message.sendKey?.lowercased() == delivery.sendKey.uuidString.lowercased()
             }
         }
+        var visibleShow = show
+        if isForbidden { visibleShow?.canDrive = false }
         let projection = ConversationProjection.project(state)
         let read = tracker.track(projection.readSequences.keys)
         let entries = ConversationMerge.merge(
@@ -585,13 +592,13 @@ public actor ThreadEngine {
             delivered: deliveries)
         broadcast.send(
             ConversationSnapshot(
-                load: load, show: show, entries: entries,
+                load: load, show: visibleShow, entries: entries,
                 currentStepKey: ConversationMerge.currentStepKey(in: entries, turn: state.turn),
                 waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
                 didOlderFail: didOlderFail,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
-                lastDiffUpdateSequence: lastDiffUpdateSequence))
+                lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty))
     }
 }

@@ -581,6 +581,16 @@
         }
       }
     },
+    "chat.action.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
     "chat.announce.finished" : {
       "localizations" : {
         "en" : {

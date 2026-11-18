@@ -457,3 +457,14 @@ private final class ThreadRecorder: @unchecked Sendable {
     #expect(model.replacementThreadID == nil)
     await fixture.session.stop()
 }
+
+@MainActor @Test func aSlowRateLimitedActionShowsTheTakingLongerLine() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    #expect(model.actionLine == nil)
+    await model.apply(ConversationSnapshot(load: .ready, isActionSlow: true))
+    #expect(model.actionLine == String(localized: "chat.action.slow"))
+    await model.apply(ConversationSnapshot(load: .ready))
+    #expect(model.actionLine == nil)
+    await fixture.session.stop()
+}

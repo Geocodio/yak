@@ -28,7 +28,7 @@ final class ThreadModel {
     /// The parsed Markdown of the text items, by item key. An item has none until its first parse is done.
     private(set) var documents: [String: AppMarkdownRenderer.Document] = [:]
     /// A short message about a refused or failed action, cleared after six seconds or on the next action.
-    private(set) var actionLine: String?
+    private var reportedActionLine: String?
     /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
     private(set) var announcement: String?
     private(set) var announcementSerial = 0
@@ -84,6 +84,12 @@ final class ThreadModel {
         markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
             self?.markdownChanged(key)
         }
+    }
+
+    /// The words for a refused or failed action; while an action waits out the server's rate limit for more than five
+    /// seconds, the line that says so.
+    var actionLine: String? {
+        reportedActionLine ?? (snapshot?.isActionSlow == true ? String(localized: "chat.action.slow") : nil)
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -182,7 +188,7 @@ final class ThreadModel {
         markdownTask = nil
         flushTask = nil
         actionLineTask = nil
-        actionLine = nil
+        reportedActionLine = nil
         dirtyMarkdownKeys = []
         await markdownCache?.clear()
         guard engine != nil else { return }
@@ -378,18 +384,18 @@ extension ThreadModel {
     private func setActionLine(_ text: String) {
         actionLineSerial += 1
         let mine = actionLineSerial
-        actionLine = text
+        reportedActionLine = text
         actionLineTask?.cancel()
         actionLineTask = Task { [weak self] in
             do { try await self?.session.clock.sleep(for: .seconds(6)) } catch { return }
             guard let self, self.actionLineSerial == mine else { return }
-            self.actionLine = nil
+            self.reportedActionLine = nil
         }
     }
 
     private func clearActionLine() {
         actionLineSerial += 1
         actionLineTask?.cancel()
-        actionLine = nil
+        reportedActionLine = nil
     }
 }

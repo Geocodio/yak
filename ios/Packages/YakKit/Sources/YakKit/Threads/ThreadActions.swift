@@ -100,10 +100,14 @@ extension ThreadEngine {
         let task = Task { () -> ThreadActionOutcome in
             let outcome: ThreadActionOutcome
             do throws(APIFailure) {
-                _ = try await self.client.send(endpoint)
+                _ = try await self.sendWaitingOutRateLimit(endpoint)
                 outcome = .done
             } catch {
                 outcome = ThreadActionOutcome(error)
+            }
+            if case .refused("forbidden", _, _) = outcome, !self.isClosed {
+                self.isForbidden = true
+                self.changed(isStored: false)
             }
             if outcome == .done { await onDone?(self) }
             if outcome != .failed(.offline) { await self.refreshShow() }
@@ -112,6 +116,41 @@ extension ThreadEngine {
         }
         actionTasks[key] = task
         return await task.value
+    }
+
+    /// The longest `Retry-After` an action waits out by itself; a longer wait is shown as the server's refusal.
+    static let longestSilentWait = Duration.seconds(30)
+    /// After this long the person is told the action is taking longer.
+    static let slowActionAfter = Duration.seconds(5)
+
+    /// Sends an action. A `rate_limited` answer is waited out once, as the server asked, and the request is sent again;
+    /// the wait ends when the engine closes. After five seconds the snapshot says the action is slow.
+    private func sendWaitingOutRateLimit<Response: Decodable & Sendable>(
+        _ endpoint: Endpoint<Response>
+    ) async throws(APIFailure) -> Response {
+        do { return try await client.send(endpoint) } catch {
+            guard case .server(let refusal) = error, refusal.status == 429 else { throw error }
+            let wait = Duration.seconds(refusal.retryAfterSeconds ?? 2)
+            guard wait <= Self.longestSilentWait else { throw error }
+            let waitID = UUID()
+            let slowTimer = Task { [weak self] in
+                guard let self else { return }
+                do { try await self.clock.sleep(for: Self.slowActionAfter) } catch { return }
+                await self.markSlow(waitID)
+            }
+            defer {
+                slowTimer.cancel()
+                if slowWaits.remove(waitID) != nil { changed(isStored: false) }
+            }
+            do { try await clock.sleep(for: wait) } catch { throw .network(.cancelled) }
+            return try await client.send(endpoint)
+        }
+    }
+
+    private func markSlow(_ waitID: UUID) {
+        guard !isClosed else { return }
+        slowWaits.insert(waitID)
+        changed(isStored: false)
     }
 
     /// Removes a saved draft that belongs to another round, or to none, once the page is known.
