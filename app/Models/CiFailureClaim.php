@@ -58,6 +58,33 @@ class CiFailureClaim extends Model
     }
 
     /**
+     * Whether the recent fix merge sha is the only reason this claim is live,
+     * so a failure whose head contains the sha is no longer covered by it.
+     */
+    public function isLiveOnlyByFixMergeSha(): bool
+    {
+        if ($this->fix_merge_sha === null || $this->created_at === null) {
+            return false;
+        }
+
+        $window = now()->subHours((int) config('yak.ci_failure.claim_window_hours'));
+
+        if ($this->created_at->lt($window)) {
+            return false;
+        }
+
+        if (($this->blocked_until !== null && $this->blocked_until->isFuture())
+            || ($this->skipped_pr_url !== null)) {
+            return false;
+        }
+
+        $task = $this->task;
+
+        return $task === null
+            || (! in_array($task->status->value, TaskStatus::activeValues(), true) && ! $task->prIsOpen());
+    }
+
+    /**
      * Claims that still suppress a new task for the repository: the claiming
      * task is active or has an open PR, the claim is blocked, or it is a
      * recent skip or recent fix. A claim with a fix merge sha is only live

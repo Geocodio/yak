@@ -23,7 +23,36 @@ class CiFailureTaskCreator
 
     public function __construct(private readonly AppService $appService) {}
 
-    public function create(Repository $repository, CiFailureQualification $qualification): ?YakTask
+    /**
+     * Fetches everything the task needs from GitHub, so create() can run
+     * under a lock without network calls.
+     *
+     * @return array{excerpts: array<int, string|null>, author: string|null}
+     */
+    public function gather(Repository $repository, CiFailureQualification $qualification): array
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $lines = (int) config('yak.ci_failure.log_excerpt_lines');
+        $excerpts = [];
+
+        foreach ($qualification->evidence as $row) {
+            $excerpts[$row->job_id] = $this->appService->getJobLogExcerpt($installationId, $repository->github_full_name, $row->job_id, $lines);
+        }
+
+        $failure = $qualification->evidence->first();
+        $author = null;
+
+        if ($failure !== null && $failure->branch === $repository->default_branch) {
+            $author = $this->appService->findPullRequestForCommit($installationId, $repository->github_full_name, $failure->head_sha)['author'] ?? null;
+        }
+
+        return ['excerpts' => $excerpts, 'author' => $author];
+    }
+
+    /**
+     * @param  array{excerpts: array<int, string|null>, author: string|null}  $gathered
+     */
+    public function create(Repository $repository, CiFailureQualification $qualification, array $gathered): ?YakTask
     {
         $evidence = $qualification->evidence;
         /** @var CiJobFailure|null $failure */
@@ -33,14 +62,11 @@ class CiFailureTaskCreator
             return null;
         }
 
-        $installationId = (int) config('yak.channels.github.installation_id');
-        $lines = (int) config('yak.ci_failure.log_excerpt_lines');
-
         $failures = [];
         $excerpts = [];
 
         foreach ($evidence as $row) {
-            $excerpt = $this->appService->getJobLogExcerpt($installationId, $repository->github_full_name, $row->job_id, $lines);
+            $excerpt = $gathered['excerpts'][$row->job_id] ?? null;
             $excerpts[] = (string) $excerpt;
             $failures[] = [
                 'branch' => $row->branch,
@@ -75,11 +101,7 @@ class CiFailureTaskCreator
         $oldest = $evidence->sortBy('failed_at')->first();
         $newest = $evidence->sortByDesc('failed_at')->first();
 
-        $author = null;
-
-        if ($failure->branch === $repository->default_branch) {
-            $author = $this->appService->findPullRequestForCommit($installationId, $repository->github_full_name, $failure->head_sha)['author'] ?? null;
-        }
+        $author = $gathered['author'];
 
         $resolver = app(ResponsiblePersonResolver::class);
 

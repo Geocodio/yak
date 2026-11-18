@@ -47,11 +47,27 @@ function fakeFailureGitHub(array $overrides = []): AppService
         $mock->shouldReceive('getWorkflowRun')->andReturn($options['run']);
     }
 
-    $mock->shouldReceive('getJobLogExcerpt')->andReturn($options['excerpt']);
-    $mock->shouldReceive('getBranchHeadSha')->andReturn('default-head');
-    $mock->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
-    $mock->shouldReceive('isAncestor')->andReturn($options['ancestor']);
-    $mock->shouldReceive('findPullRequestForCommit')->andReturn($options['pullRequest']);
+    // Each call tries the repo lock: failing to get it means a GitHub call ran while the lock was held.
+    $guarded = function (mixed $value) {
+        return function () use ($value) {
+            $lock = Cache::lock('ci-failure:acme/widgets', 30);
+
+            if ($lock->get()) {
+                $lock->release();
+            } else {
+                $GLOBALS['ciFailureGitHubCallsUnderLock'][] = true;
+            }
+
+            return $value;
+        };
+    };
+
+    $GLOBALS['ciFailureGitHubCallsUnderLock'] = [];
+    $mock->shouldReceive('getJobLogExcerpt')->andReturnUsing($guarded($options['excerpt']));
+    $mock->shouldReceive('getBranchHeadSha')->andReturnUsing($guarded('default-head'));
+    $mock->shouldReceive('compareCommits')->andReturnUsing($guarded(['status' => 'diverged', 'merge_base_sha' => 'merge-base']));
+    $mock->shouldReceive('isAncestor')->andReturnUsing($guarded($options['ancestor']));
+    $mock->shouldReceive('findPullRequestForCommit')->andReturnUsing($guarded($options['pullRequest']));
 
     app()->instance(AppService::class, $mock);
 
@@ -261,4 +277,25 @@ it('rethrows for retry when the run lookup fails and creates no task', function 
     expect(fn () => runFailureJob($this->repository))->toThrow(RuntimeException::class);
 
     expect(ciFailureTasks()->count())->toBe(0);
+});
+
+it('keeps suppressing when a claim is blocked even though the branch contains the fix sha', function () {
+    fakeFailureGitHub(['ancestor' => true]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'blocked_until' => now()->addDay()]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('does not call GitHub while holding the repo lock', function () {
+    fakeFailureGitHub(['pullRequest' => ['number' => 3, 'title' => 't', 'url' => 'u', 'author' => 'Jane Dev']]);
+    CiFailureClaim::factory()->create(['job_name' => 'Other Job', 'fix_merge_sha' => 'fixsha']);
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Static Analysis', 'failed_step' => 'Run phpstan']);
+
+    runFailureJob($this->repository, ['head_branch' => 'feature/b']);
+
+    expect(ciFailureTasks()->count())->toBe(1)
+        ->and($GLOBALS['ciFailureGitHubCallsUnderLock'])->toBe([]);
 });

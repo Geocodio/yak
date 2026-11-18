@@ -67,9 +67,24 @@ class HandleCiJobFailureJob implements ShouldQueue
             return;
         }
 
+        // Every GitHub call happens before the lock; the locked section only
+        // touches the database, so the lock cannot expire mid-transaction.
+        $qualification = app(CiFailureQualifier::class)->qualify($repository, $failure);
+
+        if (! $qualification->qualifies) {
+            if (in_array($qualification->reason, ['different_causes', 'shared_parent', 'stale_after_green', 'deferred_to_flaky_scan'], true)) {
+                $this->declined($repository, 'ci_failure.' . $qualification->reason, $failure->job_name, "{$failure->job_name} failed on {$failure->branch}, but it does not qualify ({$qualification->reason}).");
+            }
+
+            return;
+        }
+
+        $gathered = app(CiFailureTaskCreator::class)->gather($repository, $qualification);
+        $containsFix = $this->fixAncestry($github, $repository, $failure);
+
         $task = Cache::lock("ci-failure:{$repository->slug}", 30)->block(
             10,
-            fn (): ?YakTask => DB::transaction(fn (): ?YakTask => $this->gate($github, $repository, $failure)),
+            fn (): ?YakTask => DB::transaction(fn (): ?YakTask => $this->gate($repository, $failure, $qualification, $gathered, $containsFix)),
         );
 
         if ($task === null) {
@@ -145,15 +160,37 @@ class HandleCiJobFailureJob implements ShouldQueue
         return $failure;
     }
 
-    private function gate(AppService $github, Repository $repository, CiJobFailure $failure): ?YakTask
+    /**
+     * Whether the failure's head contains each live claim's fix merge sha.
+     *
+     * @return array<string, bool>
+     */
+    private function fixAncestry(AppService $github, Repository $repository, CiJobFailure $failure): array
     {
-        $qualification = app(CiFailureQualifier::class)->qualify($repository, $failure);
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $ancestry = [];
 
-        if (! $qualification->qualifies) {
-            if (in_array($qualification->reason, ['different_causes', 'shared_parent', 'stale_after_green', 'deferred_to_flaky_scan'], true)) {
-                $this->declined($repository, 'ci_failure.' . $qualification->reason, $failure->job_name, "{$failure->job_name} failed on {$failure->branch}, but it does not qualify ({$qualification->reason}).");
-            }
+        foreach (CiFailureClaim::liveFor($repository->slug)->pluck('fix_merge_sha')->filter()->unique() as $sha) {
+            $ancestry[$sha] = $github->isAncestor($installationId, $repository->github_full_name, $sha, $failure->head_sha);
+        }
 
+        return $ancestry;
+    }
+
+    /**
+     * Database-only: runs under the repository lock.
+     *
+     * @param  array<string, mixed>  $gathered
+     * @param  array<string, bool>  $containsFix
+     */
+    private function gate(Repository $repository, CiJobFailure $failure, CiFailureQualification $qualification, array $gathered, array $containsFix): ?YakTask
+    {
+        $stillUnresolved = CiJobFailure::query()
+            ->unresolved()
+            ->whereIn('id', $qualification->evidence->pluck('id'))
+            ->count();
+
+        if ($stillUnresolved !== $qualification->evidence->count()) {
             return null;
         }
 
@@ -179,7 +216,7 @@ class HandleCiJobFailureJob implements ShouldQueue
             return null;
         }
 
-        $claim = $this->liveClaim($github, $repository, $failure, $keys);
+        $claim = $this->liveClaim($repository, $failure, $keys, $containsFix);
 
         if ($claim !== null) {
             $this->declined($repository, 'ci_failure.already_claimed', $failure->job_name, "{$failure->job_name} is still failing, but Yak already has it covered.", $claim->task, $claim->skipped_pr_url);
@@ -187,7 +224,7 @@ class HandleCiJobFailureJob implements ShouldQueue
             return null;
         }
 
-        $task = app(CiFailureTaskCreator::class)->create($repository, $qualification);
+        $task = app(CiFailureTaskCreator::class)->create($repository, $qualification, $gathered);
 
         if ($task === null) {
             return null;
@@ -227,18 +264,17 @@ class HandleCiJobFailureJob implements ShouldQueue
 
     /**
      * @param  list<array{job_name: string, test_class: string|null}>  $keys
+     * @param  array<string, bool>  $containsFix
      */
-    private function liveClaim(AppService $github, Repository $repository, CiJobFailure $failure, array $keys): ?CiFailureClaim
+    private function liveClaim(Repository $repository, CiJobFailure $failure, array $keys, array $containsFix): ?CiFailureClaim
     {
-        $installationId = (int) config('yak.channels.github.installation_id');
-
         return CiFailureClaim::liveFor($repository->slug)
             ->filter(fn (CiFailureClaim $claim): bool => $claim->workflow_path === $failure->workflow_path
                 && collect($keys)->contains(fn (array $key): bool => $key['test_class'] !== null
                     ? $claim->test_class === $key['test_class']
                     : $claim->test_class === null && $claim->job_name === $key['job_name']))
-            ->first(fn (CiFailureClaim $claim): bool => $claim->fix_merge_sha === null
-                || ! $github->isAncestor($installationId, $repository->github_full_name, $claim->fix_merge_sha, $failure->head_sha));
+            ->first(fn (CiFailureClaim $claim): bool => ! $claim->isLiveOnlyByFixMergeSha()
+                || ! ($containsFix[$claim->fix_merge_sha] ?? false));
     }
 
     private function declined(Repository $repository, string $kind, string $subject, string $summary, ?YakTask $task = null, ?string $referenceUrl = null): void
