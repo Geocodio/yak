@@ -11,6 +11,26 @@ struct SceneState: Codable, Equatable {
     var isDrawerOpen = false
     var isNewThreadOpen = false
     var filter: ThreadListFilter = .mine
+    /// The Overview shows beside the conversation on a wide window; it stays open across threads.
+    var isOverviewPanelOpen = false
+}
+
+extension SceneState {
+    private enum CodingKeys: String, CodingKey {
+        case instanceID, threadID, focusedPane, isDrawerOpen, isNewThreadOpen, filter, isOverviewPanelOpen
+    }
+
+    /// A stored state from an earlier version has no panel field and reads as closed.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        instanceID = try container.decodeIfPresent(UUID.self, forKey: .instanceID)
+        threadID = try container.decodeIfPresent(String.self, forKey: .threadID)
+        focusedPane = try container.decodeIfPresent(PaneID.self, forKey: .focusedPane) ?? .chat
+        isDrawerOpen = try container.decodeIfPresent(Bool.self, forKey: .isDrawerOpen) ?? false
+        isNewThreadOpen = try container.decodeIfPresent(Bool.self, forKey: .isNewThreadOpen) ?? false
+        filter = try container.decodeIfPresent(ThreadListFilter.self, forKey: .filter) ?? .mine
+        isOverviewPanelOpen = try container.decodeIfPresent(Bool.self, forKey: .isOverviewPanelOpen) ?? false
+    }
 }
 
 enum LinkOutcome: Equatable {
@@ -18,6 +38,7 @@ enum LinkOutcome: Equatable {
     case switchInstance(Instance)
     case unknownInstance(URL)
     case openTaskPage(URL)
+    case switchInstanceThenOpenTaskPage(Instance, URL)
 }
 
 /// Where one window is: the open thread, the focused pane, the drawer and the new-thread screen.
@@ -96,6 +117,7 @@ final class SceneModel {
     /// Leaves the open thread, so a wide window shows its empty detail next to the always visible list.
     func closeThread() { state.threadID = nil }
     func focus(pane: PaneID) { state.focusedPane = pane }
+    func setOverviewPanelOpen(_ open: Bool) { state.isOverviewPanelOpen = open }
     /// Whether `pane` is on screen. A pane or its model that pauses work, polls or shows a chip only while visible
     /// asks this, never `focusedPane` itself, so a layout that shows two panes changes only this body.
     /// With `panes`, a focused pane the thread does not have counts as chat, the pane the thread screen then shows.
@@ -126,7 +148,14 @@ final class SceneModel {
         case .pair:
             return .handled
         case .task(let address, let id):
-            return .openTaskPage(address.appending(path: "tasks").appending(path: id))
+            guard let target = Self.instance(at: address, active: active, instances: instances) else {
+                return .unknownInstance(address)
+            }
+            let page = target.url.appending(path: "tasks").appending(path: id)
+            if target.id == active.id { return .openTaskPage(page) }
+            hasAppliedColdStart = true
+            state.instanceID = target.id
+            return .switchInstanceThenOpenTaskPage(target, page)
         case .thread(let address, let id):
             guard let target = Self.instance(at: address, active: active, instances: instances) else {
                 return .unknownInstance(address)

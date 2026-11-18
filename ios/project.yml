@@ -1,4 +1,7 @@
 name: Yak
+include:
+  - path: YakWidgets/target.yml
+    relativePaths: false
 configFiles:
   Debug: Config.xcconfig
   Release: Config.xcconfig
@@ -63,6 +66,13 @@ targets:
         UILaunchScreen: {}
         YakAppGroup: $(YAK_APP_GROUP)
         YakAppBundleID: $(YAK_BUNDLE_ID)
+        NSSupportsLiveActivities: true
+        YakPushBundleID: $(YAK_BUNDLE_ID)
+        YakPushEnvironment: $(YAK_PUSH_ENVIRONMENT)
+        BGTaskSchedulerPermittedIdentifiers:
+          - $(YAK_BUNDLE_ID).refresh
+        UIBackgroundModes:
+          - fetch
   YakTests:
     type: bundle.unit-test
     platform: iOS

@@ -58,10 +58,14 @@ struct InstanceShell: View {
         }
         .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
+        .onChange(of: model.push?.pending, initial: true) { _, pending in showPending(pending) }
         .sheet(isPresented: $showsAccount) {
-            SignedInView(model: model, instance: instance, onClose: { showsAccount = false })
-                .linkPairingStatus(model, sheetDepth: 1)
-                .countsAsOpenSheet(model)
+            if let push = model.push {
+                SettingsScreen(app: model, push: push, active: instance, onClose: { showsAccount = false })
+                    .linkPairingStatus(model, sheetDepth: 1)
+                    .countsAsOpenSheet(model)
+                    .presentationBackground(Color(.systemGroupedBackground))
+            }
         }
         .sheet(isPresented: $showsSwitcher) {
             InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
@@ -88,6 +92,16 @@ struct InstanceShell: View {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
         .background { shortcuts }
+    }
+
+    /// A push tap that needs a screen of its own: the connect flow or the browser.
+    private func showPending(_ pending: PushPending?) {
+        guard let pending else { return }
+        switch pending {
+        case .pairing(let address): model.addressToConnect = address
+        case .webPage(let url): model.browserURL = url
+        }
+        model.push?.clearPending()
     }
 
     // MARK: Layout
@@ -141,7 +155,7 @@ struct InstanceShell: View {
                 initialTitle: listState?.list?.title(ofThread: threadID), instanceURL: instance.url,
                 needsYouCount: drawerModel?.needsYouCount ?? 0, isSessionActive: status == .active,
                 isCoveredByDrawer: isCompactWidth && drawerBinding.wrappedValue, isCompactWidth: isCompactWidth,
-                openWeb: { model.browserURL = $0 }
+                openWeb: { model.browserURL = $0 }, push: model.push
             )
             .id(threadID)
         } else if scene.state.isNewThreadOpen {
@@ -205,11 +219,14 @@ struct InstanceShell: View {
     /// Shows the list while the session is active and applies the cold start on the first unsearched `mine` list.
     private func followThreadList() async {
         guard status == .active, let feed = await session.threadList() else { return }
-        let drawer = DrawerModel(feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock())
+        let drawer = DrawerModel(
+            feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock(),
+            overview: await session.overviewActions())
         drawerModel = drawer
         await drawer.setVisible(isListVisible)
         for await state in await feed.states() {
             listState = state
+            await model.push?.refreshBadge()
             await applyColdStartIfNeeded(state)
         }
         await drawer.setVisible(false)

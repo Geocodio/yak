@@ -73,7 +73,9 @@ import XCTest
     /// to inner elements too, so the largest match is the sheet, and a match that is too small to be one fails the
     /// test instead of excusing findings inside the sheet.
     private func sheetFrame(named name: String) -> CGRect? {
-        let identifiers = ["model-picker": "model.picker", "camera-denied": "composer.cameraDenied"]
+        let identifiers = [
+            "model-picker": "model.picker", "camera-denied": "composer.cameraDenied",
+        ]
         guard let identifier = identifiers[name] else { return nil }
         let frames = app.otherElements.matching(identifier: identifier).allElementsBoundByIndex.map(\.frame)
         guard let sheet = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) else { return nil }
@@ -172,6 +174,9 @@ import XCTest
             {
                 return true
             }
+            // The Live Activity gallery draws each presentation in a fixed-size frame that mirrors the system's capped
+            // sizes, so only text size and clipping findings are excused; contrast and missing labels are judged.
+            if name.hasPrefix("live-"), [.dynamicType, .textClipped].contains(issue.auditType) { return true }
             // The audit cannot match some text under the dimming of a sheet to an element.
             if issue.auditType == .elementDetection, issue.element == nil,
                 ["signed-in-add-sheet", "pair-again-address-sheet", "model-picker", "camera-denied"].contains(name)

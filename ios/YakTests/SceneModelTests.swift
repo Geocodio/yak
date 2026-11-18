@@ -53,11 +53,21 @@ private func instance(_ address: String) -> Instance {
 
 @MainActor @Test func aRestoredStateRoundTrips() throws {
     let state = SceneState(
-        threadID: "e5f6g7h8", focusedPane: .chat, isDrawerOpen: true, isNewThreadOpen: false, filter: .everyone)
+        threadID: "e5f6g7h8", focusedPane: .chat, isDrawerOpen: true, isNewThreadOpen: false, filter: .everyone,
+        isOverviewPanelOpen: true)
     let data = try JSONEncoder().encode(state)
     #expect(SceneModel.restoredState(from: data) == state)
     #expect(SceneModel.restoredState(from: Data("garbage".utf8)) == SceneState())
     #expect(SceneModel.restoredState(from: nil) == SceneState())
+}
+
+@MainActor @Test func aStoredStateWithoutThePanelFieldReadsAsClosed() {
+    let stored = Data(
+        #"{"threadID":"e5f6g7h8","focusedPane":"chat","isDrawerOpen":true,"isNewThreadOpen":false,"filter":"mine"}"#
+            .utf8)
+    let state = SceneModel.restoredState(from: stored)
+    #expect(state.threadID == "e5f6g7h8")
+    #expect(!state.isOverviewPanelOpen)
 }
 
 @MainActor @Test func resettingTheWindowForAnotherInstanceStartsOver() {
@@ -80,4 +90,23 @@ private func instance(_ address: String) -> Instance {
     scene.focus(pane: .files)
     #expect(scene.isShown(.files))
     #expect(!scene.isShown(.chat))
+}
+
+@MainActor @Test func aTaskLinkForAnUnpairedAddressAsksToPair() {
+    let active = instance("https://yak.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.task(instance: URL(string: "https://evil.example.com")!, id: "12345")
+    let outcome = scene.handle(link, active: active, instances: [active], isCompactWidth: true)
+    #expect(outcome == .unknownInstance(URL(string: "https://evil.example.com")!))
+}
+
+@MainActor @Test func aTaskLinkForAnotherPairedInstanceSwitchesToIt() {
+    let active = instance("https://yak.example.com")
+    let other = instance("https://other.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.task(instance: URL(string: "https://other.example.com")!, id: "k3m9p2qa")
+    let outcome = scene.handle(link, active: active, instances: [active, other], isCompactWidth: true)
+    #expect(
+        outcome
+            == .switchInstanceThenOpenTaskPage(other, URL(string: "https://other.example.com/tasks/k3m9p2qa")!))
 }

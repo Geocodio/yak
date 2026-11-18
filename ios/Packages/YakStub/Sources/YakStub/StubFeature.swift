@@ -67,10 +67,12 @@ extension StubFeature {
 enum StubFeatures {
     /// One line per feature.
     static let all: [any StubFeature] = [
+        StubPush(),
         StubPreviewFeature(),
         StubChanges(),
         StubTerminalFeature.shared,
         StubFilesControl(),
+        StubOverview(),
     ]
 }
 

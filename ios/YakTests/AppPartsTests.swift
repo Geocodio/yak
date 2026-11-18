@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import YakKit
 
 @testable import Yak
 
@@ -11,21 +12,33 @@ import Testing
         return defaults
     }
 
+    private func context(defaults: any KeyValueStore = PushMemoryDefaults()) -> AppPartsContext {
+        let tokens = InMemoryTokenStore()
+        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
+        return AppPartsContext(
+            instances: instances, tokens: tokens,
+            makeEnvironment: {
+                .app(version: "0.0.0", system: "Unit test", files: InMemoryFileStore(), allowsInsecureRealtime: false)
+            }, defaults: defaults)
+    }
+
     @Test func thePreviewRecordsLiveInTheStoreItWasGiven() {
         let given = Self.defaults()
-        let parts = AppParts.make(storage: nil, isTestMode: true, defaults: given)
+        let parts = AppParts.make(storage: nil, isTestMode: true, context: context(defaults: given))
         #expect((parts.previewData.defaults as AnyObject) === given)
     }
 
-    @Test func partsObserveOnlyThePreviewData() {
-        let parts = AppParts.make(storage: nil, isTestMode: false, defaults: Self.defaults())
-        #expect(parts.observers.count == 1)
+    @Test func pushAndThePreviewDataAreTheObserversOfAFreshApp() {
+        let parts = AppParts.make(storage: nil, isTestMode: false, context: context())
+        #expect(parts.observers.count == 2)
+        #expect(parts.observers.first is PushController)
+        #expect(parts.observers.last is PreviewWebDataObserver)
         #expect(parts.storage == nil)
     }
 
     @Test func testModeAndReleaseBuildTheSameParts() {
-        let release = AppParts.make(storage: nil, isTestMode: false, defaults: Self.defaults())
-        let test = AppParts.make(storage: nil, isTestMode: true, defaults: Self.defaults())
+        let release = AppParts.make(storage: nil, isTestMode: false, context: context())
+        let test = AppParts.make(storage: nil, isTestMode: true, context: context())
         #expect(release.partTypeNames == test.partTypeNames)
     }
 }

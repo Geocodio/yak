@@ -41,4 +41,5 @@ func placementFollowsSizeClassesAndTheStrip(
 @Test func filesIsBuiltOnlyWithAMode() {
     #expect(Panes.built.contains(.files) == !FilesMode.built.isEmpty)
     #expect(Panes.built.contains(.chat))
+    #expect(Panes.built.contains(.overview))
 }
