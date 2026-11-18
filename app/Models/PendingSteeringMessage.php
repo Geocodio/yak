@@ -269,7 +269,7 @@ class PendingSteeringMessage extends Model
             foreach ($messages->where('source', '!=', 'system') as $message) {
                 $row = ThreadTurnMessage::query()->updateOrCreate(
                     ['pending_steering_message_id' => $message->id],
-                    ['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => $message->text, 'send_key' => $message->send_key, ...$message->conversationAuthor()],
+                    ['task_run_id' => $run->id, 'uuid' => $message->uuid ?? (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => $message->text, 'send_key' => $message->send_key, ...$message->conversationAuthor()],
                 );
                 $row->forceFill(['created_at' => $message->created_at])->save();
 

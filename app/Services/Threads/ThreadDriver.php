@@ -537,7 +537,7 @@ class ThreadDriver
         $message->forceFill(['state' => $state])->save();
 
         if ($uuid === (string) $run->getAttribute('prompt_uuid')) {
-            ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('kind', TurnMessageKind::Steer)->whereNull('pending_steering_message_id')->where('state', TurnMessageState::Sent)->update(['state' => $state]);
+            ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('kind', TurnMessageKind::Steer)->whereNull('pending_steering_message_id')->where('created_at', '<=', $message->created_at)->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued])->update(['state' => $state]);
         }
 
         $column = match ($state) {

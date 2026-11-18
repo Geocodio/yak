@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\TaskRunKind;
-use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadMessagesData;
 use App\Models\PendingSteeringMessage;
@@ -10,7 +10,9 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Str;
 
 require_once __DIR__ . '/../../Support/ThreadTurnsHelpers.php';
 
@@ -101,6 +103,29 @@ it('keeps the source and author of a steered channel message after its pending r
     app(ThreadTurns::class)->start($task, '', null, null, TaskRunKind::FollowUp);
 
     expect(conversationOf($thread)[0])->toMatchArray(['authorName' => 'Linus', 'isReply' => true])
-        ->and(PendingSteeringMessage::query()->whereKey($queued->id)->exists())->toBeFalse()
-        ->and(TurnMessageKind::Steer->value)->toBe('steer');
+        ->and(PendingSteeringMessage::query()->whereKey($queued->id)->exists())->toBeFalse();
+});
+
+it('keeps the pending message uuid on its drained row', function () {
+    [$thread, $task] = threadReadyForNextTurn();
+    $queued = PendingSteeringMessage::queueFor($task, 'Typed on the phone', 'thread', authorName: 'Ada Author');
+    $queued->forceFill(['uuid' => (string) Str::uuid()])->save();
+
+    app(ThreadTurns::class)->start($task, '', null, null, TaskRunKind::FollowUp);
+
+    expect(conversationOf($thread)[0]['uuid'])->toBe($queued->uuid);
+});
+
+it('moves drained rows to read with the prompt, through queued, started and completed', function () {
+    [$thread, $task] = threadReadyForNextTurn();
+    PendingSteeringMessage::queueFor($task, 'Queued before', 'slack', authorName: 'Grace Hopper');
+    $run = app(ThreadTurns::class)->start($task, 'New one', null, null, TaskRunKind::FollowUp, shownText: 'New one');
+    $driver = app(ThreadDriver::class);
+    $move = new ReflectionMethod($driver, 'moveMessage');
+
+    foreach ([TurnMessageState::Queued, TurnMessageState::Started, TurnMessageState::Completed] as $state) {
+        $move->invoke($driver, $run, $run->prompt_uuid, $state);
+    }
+
+    expect(array_column(conversationOf($thread), 'state'))->toBe(['read', 'read']);
 });
