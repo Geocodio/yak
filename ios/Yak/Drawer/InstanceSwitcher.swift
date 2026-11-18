@@ -19,6 +19,7 @@ struct InstanceSwitcher: View {
 
     @State private var instances: [Instance] = []
     @State private var showsAdd = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var switcher: InstanceSwitchModel
 
     var body: some View {
@@ -36,7 +37,9 @@ struct InstanceSwitcher: View {
                     Button {
                         showsAdd = true
                     } label: {
-                        Label("signedIn.add", systemImage: "plus").frame(minHeight: 44, alignment: .leading)
+                        Label("signedIn.add", systemImage: "plus").fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(Color.yakAction).frame(minHeight: 44, alignment: .leading)
+                            .id(dynamicTypeSize)
                     }
                     .accessibilityIdentifier("switcher.add")
                 }
@@ -90,9 +93,10 @@ struct InstanceSwitcher: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(instance.name).font(.body).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(instance.url.host() ?? instance.url.absoluteString).font(.footnote)
-                        .foregroundStyle(Color.yakMuted)
-                    Text(statusLine(instance)).font(.footnote).foregroundStyle(Color.yakMuted)
+                    Text(instance.url.host() ?? instance.url.absoluteString).font(.footnote.weight(.medium))
+                        .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
+                    Text(statusLine(instance)).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 if switcher.switchingID == instance.id {
@@ -103,6 +107,7 @@ struct InstanceSwitcher: View {
             }
             .frame(minHeight: 44)
             .contentShape(.rect)
+            .id(dynamicTypeSize)
         }
         .buttonStyle(.plain)
         .disabled(switcher.isSwitching)

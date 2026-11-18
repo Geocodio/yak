@@ -13,12 +13,11 @@ struct InstanceTintTile: View {
         let tint = Self.color(for: instance.tint)
         Text(InstanceInitial.make(name: instance.name, host: instance.url.host()))
             .font(.headline.bold())
-            .foregroundStyle(tint ?? Color.primary)
+            .foregroundStyle(tint.map { $0.mix(with: .primary, by: 0.35) } ?? Color.primary)
             .frame(width: side, height: side)
             .background(
                 tint?.opacity(0.2) ?? Color(.systemGray4), in: .rect(cornerRadius: side * 11 / 36, style: .continuous)
             )
-            .accessibilityHidden(true)
     }
 
     /// Nil for a missing or unknown tint (the store has not loaded yet): the tile shows its neutral fill.
