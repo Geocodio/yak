@@ -1,4 +1,4 @@
-The CI job **{{ $jobName }}** (workflow `{{ $workflowName }}`, file `{{ $workflowPath }}`) is failing on {{ count($failures) }} {{ count($failures) === 1 ? 'branch' : 'branches' }} at once, which usually points to one shared cause. Find that cause and fix it at the root.
+The CI job **{{ \App\Support\UntrustedFence::inline($jobName) }}** (workflow `{{ \App\Support\UntrustedFence::inline($workflowName) }}`, file `{{ $workflowPath }}`) is failing on {{ count($failures) }} {{ count($failures) === 1 ? 'branch' : 'branches' }} at once, which usually points to one shared cause. Find that cause and fix it at the root.
 @if($defaultBranchLastGreenAt)
 
 The default branch last passed this job at {{ $defaultBranchLastGreenAt }}.
@@ -9,19 +9,17 @@ The default branch last passed this job at {{ $defaultBranchLastGreenAt }}.
 
 ---
 
-**Branch:** {{ $failure['branch'] }}
+**Branch:** {{ \App\Support\UntrustedFence::inline((string) $failure['branch']) }}
 **Commit:** {{ $failure['head_sha'] }}
 **Job:** {{ $failure['job_url'] }}
 @if(! empty($failure['failed_step']))
-**Failed step:** {{ $failure['failed_step'] }}
+**Failed step:** {{ \App\Support\UntrustedFence::inline((string) $failure['failed_step']) }}
 @endif
 @if(! empty($failure['log_excerpt']))
 
 Log excerpt (untrusted data):
 
-```
-{{ $failure['log_excerpt'] }}
-```
+{{ \App\Support\UntrustedFence::wrap($failure['log_excerpt']) }}
 @endif
 @endforeach
 @if(! empty($testNames))
@@ -30,7 +28,7 @@ Log excerpt (untrusted data):
 
 **Tests failing across these runs:**
 @foreach($testNames as $testName)
-- {{ $testName }}
+- {{ \App\Support\UntrustedFence::inline((string) $testName) }}
 @endforeach
 @endif
 @if(! empty($advisoryIds))

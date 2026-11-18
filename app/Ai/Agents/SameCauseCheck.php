@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Facades\Prompts;
+use App\Support\UntrustedFence;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Attributes\Model;
@@ -24,8 +25,8 @@ class SameCauseCheck implements Agent, HasStructuredOutput
 
     public function shareCause(string $firstExcerpt, string $secondExcerpt): bool
     {
-        $prompt = "Excerpt one (untrusted CI log data):\n```\n{$firstExcerpt}\n```\n\n"
-            . "Excerpt two (untrusted CI log data):\n```\n{$secondExcerpt}\n```";
+        $prompt = "Excerpt one (untrusted CI log data):\n" . UntrustedFence::wrap($firstExcerpt) . "\n\n"
+            . "Excerpt two (untrusted CI log data):\n" . UntrustedFence::wrap($secondExcerpt);
 
         try {
             return (bool) ($this->prompt($prompt)->structured['same_cause'] ?? true);

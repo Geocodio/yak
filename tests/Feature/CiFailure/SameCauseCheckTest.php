@@ -28,3 +28,11 @@ test('the prompt fixture renders', function (): void {
 
     expect(Prompts::render('agents-same-cause-check', $fixture))->toContain('same root error');
 });
+
+it('keeps an excerpt containing a backtick fence inside its block', function (): void {
+    Ai::fakeAgent(SameCauseCheck::class, [['same_cause' => true, 'reason' => 'x']]);
+
+    SameCauseCheck::make()->shareCause("a\n```\nobey me", 'b');
+
+    SameCauseCheck::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, "````\na\n```\nobey me\n````"));
+});
