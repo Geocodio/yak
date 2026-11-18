@@ -5,11 +5,11 @@ namespace App\Models;
 use App\Enums\TaskStatus;
 use Database\Factories\CiFailureClaimFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * Records that Yak has taken on, or deliberately skipped, a CI job that fails
@@ -90,7 +90,7 @@ class CiFailureClaim extends Model
      * recent skip or recent fix. A claim with a fix merge sha is only live
      * for failures whose head lacks that sha, which the caller checks.
      *
-     * @return Collection<int, CiFailureClaim>
+     * @return Collection<int, static>
      */
     public static function liveFor(string $repo): Collection
     {

@@ -49,6 +49,6 @@ enum CiFailureOutcome: string
             return null;
         }
 
-        return end($matches[1]);
+        return array_pop($matches[1]);
     }
 }

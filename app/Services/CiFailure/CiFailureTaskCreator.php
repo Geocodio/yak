@@ -98,8 +98,8 @@ class CiFailureTaskCreator
             $context['advisory_ids'] = $advisoryIds;
         }
 
-        $oldest = $evidence->sortBy('failed_at')->first();
-        $newest = $evidence->sortByDesc('failed_at')->first();
+        $oldest = $evidence->sortBy('failed_at')->firstOrFail();
+        $newest = $evidence->sortByDesc('failed_at')->firstOrFail();
 
         $author = $gathered['author'];
 
@@ -157,7 +157,7 @@ class CiFailureTaskCreator
      */
     private function openFixPullRequests(Repository $repository): array
     {
-        return YakTask::query()
+        return array_values(YakTask::query()
             ->where('repo', $repository->slug)
             ->where('source', self::SOURCE)
             ->whereNotNull('pr_url')
@@ -169,8 +169,7 @@ class CiFailureTaskCreator
                 'url' => $task->pr_url,
                 'title' => $task->description,
             ])
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**

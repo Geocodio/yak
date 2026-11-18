@@ -180,7 +180,7 @@ class HandleCiJobFailureJob implements ShouldQueue
     /**
      * Database-only: runs under the repository lock.
      *
-     * @param  array<string, mixed>  $gathered
+     * @param  array{excerpts: array<int, string|null>, author: string|null}  $gathered
      * @param  array<string, bool>  $containsFix
      */
     private function gate(Repository $repository, CiJobFailure $failure, CiFailureQualification $qualification, array $gathered, array $containsFix): ?YakTask
@@ -274,7 +274,7 @@ class HandleCiJobFailureJob implements ShouldQueue
                     ? $claim->test_class === $key['test_class']
                     : $claim->test_class === null && $claim->job_name === $key['job_name']))
             ->first(fn (CiFailureClaim $claim): bool => ! $claim->isLiveOnlyByFixMergeSha()
-                || ! ($containsFix[$claim->fix_merge_sha] ?? false));
+                || ! ($claim->fix_merge_sha !== null && ($containsFix[$claim->fix_merge_sha] ?? false)));
     }
 
     private function declined(Repository $repository, string $kind, string $subject, string $summary, ?YakTask $task = null, ?string $referenceUrl = null): void

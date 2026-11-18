@@ -55,7 +55,7 @@ class CiFailureQualifier
             return new CiFailureQualification(false, 'shared_parent', collect([$failure]));
         }
 
-        if (! $failure->isTestJob() && ! $this->sharesCause($repository, $failure, $candidates->sortByDesc('failed_at')->first())) {
+        if (! $failure->isTestJob() && ! $this->sharesCause($repository, $failure, $candidates->sortByDesc('failed_at')->firstOrFail())) {
             return new CiFailureQualification(false, 'different_causes', collect([$failure]));
         }
 

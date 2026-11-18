@@ -289,7 +289,7 @@ Per-channel gotchas:
 - **Slack.** The `channels:history` scope is needed to match thread replies to tasks.
 - **Linear.** Subscribe the webhook to **Agent session events** and keep the OAuth connection active. If `linear_oauth_connections.installer_user_id` is null, re-authorize from Yak's settings. A non-admin install looks successful but delivers no agent session events.
 - **Sentry.** The issue must reach the webhook (an issue alert rule with the Yak integration as action, which needs **Alert Rule Action** on) and clear the filters (not a CSP violation, not a transient infra error). Each rejection is logged to the `yak` channel with its reason. If `YAK_SENTRY_REQUIRED_TAG` is set, the event needs that tag.
-- **GitHub.** The App must be installed on the org and subscribed to `check_suite.completed` and `pull_request.closed`.
+- **GitHub.** The App must be installed on the org and subscribed to `check_suite.completed`, `workflow_job.completed` and `pull_request.closed`.
 
 ## Claude errors
 

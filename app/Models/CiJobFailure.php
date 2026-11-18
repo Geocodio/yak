@@ -72,7 +72,7 @@ class CiJobFailure extends Model
     }
 
     /**
-     * @return Builder<CiJobFailure>
+     * @return Builder<static>
      */
     public function prunable(): Builder
     {
