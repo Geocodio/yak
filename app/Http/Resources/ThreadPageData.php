@@ -12,6 +12,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadShare;
 use App\Models\ThreadStar;
 use App\Models\User;
@@ -58,7 +59,7 @@ final class ThreadPageData
      *     },
      *     canDrive: bool,
      *     diffTotals: ?array{additions: int, deletions: int, filesCount: int},
-     *     pullRequest: ?array{number: int, url: string, state: 'open'|'merged'|'closed'},
+     *     pullRequest: ?array{number: int, url: string},
      *     brief: ?array{text: string, kind: string, model: ?string, effort: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
      *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
@@ -85,7 +86,6 @@ final class ThreadPageData
                 'name' => $thread->name,
                 'title' => $thread->title,
                 'repo' => $thread->repo,
-                'hasRepository' => $thread->hasRepository(),
                 'kind' => $thread->kind->value,
                 'status' => $thread->status->value,
                 'visibility' => $thread->effectiveVisibility()->value,
@@ -153,13 +153,40 @@ final class ThreadPageData
     }
 
     /**
-     * @return ?array{number: int, url: string, state: 'open'|'merged'|'closed'}
+     * @return ?array{number: int, url: string}
      */
     public static function pullRequest(Thread $thread): ?array
     {
+        $repository = self::pullRequestRepository($thread);
+
+        return $repository === null ? null : ['number' => (int) $repository->pull_request_number, 'url' => (string) $repository->pull_request_url];
+    }
+
+    /**
+     * The pull request of the web page: the shared value plus its state, which the app API does not carry.
+     *
+     * @return ?array{number: int, url: string, state: 'open'|'merged'|'closed'}
+     */
+    public static function webPullRequest(Thread $thread): ?array
+    {
+        $repository = self::pullRequestRepository($thread);
+
+        if ($repository === null) {
+            return null;
+        }
+
+        return [
+            'number' => (int) $repository->pull_request_number,
+            'url' => (string) $repository->pull_request_url,
+            'state' => $repository->pull_request_state === 'merged' ? 'merged' : ($repository->pull_request_state === 'closed' ? 'closed' : 'open'),
+        ];
+    }
+
+    private static function pullRequestRepository(Thread $thread): ?ThreadRepository
+    {
         foreach ($thread->repositories as $repository) {
             if ($repository->role !== RepositoryRole::Context && $repository->pull_request_url !== null && $repository->pull_request_number !== null) {
-                return ['number' => $repository->pull_request_number, 'url' => $repository->pull_request_url, 'state' => in_array($repository->pull_request_state, ['merged', 'closed'], true) ? $repository->pull_request_state : 'open'];
+                return $repository;
             }
         }
 

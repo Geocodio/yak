@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ThreadCardsData;
+use App\Http\Resources\ThreadPageData;
 use App\Http\Resources\ThreadQueuedMessagesData;
 use App\Http\Resources\ThreadRequestData;
 use App\Http\Resources\ThreadRunLogData;
@@ -26,9 +27,11 @@ class ThreadController extends Controller
         $entryId = $request->query('log');
 
         $page = ThreadShowData::build($thread, $request->user() ?? abort(401));
+        $page['thread']['hasRepository'] = $thread->hasRepository();
 
         return Inertia::render('Threads/Show', [
             ...$page,
+            'pullRequest' => ThreadPageData::webPullRequest($thread),
             ...self::repositoryQuestionProps($thread, $request, $page['card']),
             ...(($waitingProgress = ThreadRequestData::waitingForRepositoryProgress($thread)) === null ? [] : ['progress' => $waitingProgress]),
             'turnAnchors' => $thread->is_legacy ? [] : ThreadShowData::turnAnchors($thread),
