@@ -54,6 +54,13 @@ final class FileDocumentModel {
     var canEdit: Bool { snapshot.canEdit }
     var isEditing: Bool { snapshot.edit != .notEditing }
     var isDirty: Bool { snapshot.isDirty }
+    /// The load ended in an error, so a reload can still give the file.
+    var hasFailedToLoad: Bool {
+        switch snapshot.phase {
+        case .failed, .unavailable: true
+        default: false
+        }
+    }
     var isSaving: Bool { snapshot.edit == .saving }
     var colorsStop: Bool { (viewedText?.utf16.count ?? 0) > Self.colorLimit }
 

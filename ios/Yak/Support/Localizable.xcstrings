@@ -3290,6 +3290,16 @@
         }
       }
     },
+    "files.offline.file.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file opens when the connection returns."
+          }
+        }
+      }
+    },
     "files.offline.line" : {
       "localizations" : {
         "en" : {
@@ -3436,6 +3446,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Binary file"
+          }
+        }
+      }
+    },
+    "files.page.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit file"
           }
         }
       }
@@ -8558,6 +8578,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Address copied"
+          }
+        }
+      }
+    },
+    "preview.line.filesDidNotOpen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files did not open. Try again."
           }
         }
       }
