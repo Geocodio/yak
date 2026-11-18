@@ -183,8 +183,7 @@ struct DrawerView: View {
                 row
             }
         }
-        .padding(.horizontal, Design.Space.large).padding(.top, Design.Space.compact + 2).padding(
-            .bottom, Design.Space.tight)
+        .padding(.horizontal, 16).padding(.vertical, 6)
     }
 
     private func tile(
@@ -201,7 +200,7 @@ struct DrawerView: View {
                 }
             }
             .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, minHeight: Design.Size.listRow)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
             .contentShape(.rect(cornerRadius: Design.Radius.row))
         }
@@ -242,11 +241,7 @@ struct DrawerView: View {
                     Section {
                         ForEach(section.rows) { row in
                             rowView(row, now: context.date, drawer: drawer)
-                                .listRowInsets(
-                                    .init(
-                                        top: 0, leading: Design.Space.compact, bottom: 0, trailing: Design.Space.compact
-                                    )
-                                )
+                                .listRowInsets(.init())
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                                 .transition(.opacity)
@@ -575,10 +570,9 @@ struct DrawerView: View {
                     .accessibilityIdentifier("drawer.clearSearch")
                 }
             }
-            .padding(.leading, Design.Space.large)
-            .frame(minHeight: Design.Size.bar)
-            .background(Color.yakBar, in: .capsule)
-            .overlay(Capsule().stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+            .padding(.leading, 12)
+            .frame(minHeight: 44)
+            .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
             HStack(spacing: 8) {
                 filterMenu(showsName: !isOneRow)
                 Button {
@@ -586,16 +580,16 @@ struct DrawerView: View {
                 } label: {
                     Image(systemName: "square.and.pencil").font(.body.weight(.semibold))
                         .foregroundStyle(Color.yakOnRust)
-                        .frame(minWidth: Design.Size.bar, minHeight: Design.Size.bar)
-                        .background(Color.yakRust, in: .circle)
+                        .frame(minWidth: 44, minHeight: 44).background(Color.yakRust, in: .rect(cornerRadius: 12))
                         .contentShape(.rect)
                 }
                 .accessibilityLabel("shell.startThread")
                 .accessibilityIdentifier("drawer.newThread")
             }
         }
-        .padding(.horizontal, Design.Space.barInset).padding(.vertical, Design.Space.compact)
+        .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Color.yakBackground)
+        .overlay(alignment: .top) { Divider() }
     }
 
     private var searchBinding: Binding<String> {
@@ -620,8 +614,8 @@ struct DrawerView: View {
                 Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
             }
             .foregroundStyle(.primary)
-            .padding(.horizontal, Design.Space.medium).frame(minHeight: Design.Size.control)
-            .background(Color.yakFillStrong, in: .capsule)
+            .padding(.horizontal, 12).frame(minHeight: 44)
+            .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
             .contentShape(.rect)
         }
         .tint(.primary)

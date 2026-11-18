@@ -12,7 +12,7 @@ struct DrawerRowView: View {
     var isRunning = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var indicatorSize = Design.Size.statusColumn
+    @ScaledMetric(relativeTo: .body) private var indicatorSize = 22.0
     @ScaledMetric(relativeTo: .body) private var indentation = 18.0
 
     var body: some View {
@@ -52,10 +52,10 @@ struct DrawerRowView: View {
                     if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.medium : Design.Space.compact))
-                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? Design.Space.medium : Design.Space.medium))
-                .padding(.vertical, Design.Space.small)
-                .frame(minHeight: Design.Size.row - 2 * Design.Space.small + Design.Space.small)
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
+                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? 12 : 20))
+                .padding(.vertical, 8)
+                .frame(minHeight: 44)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -190,9 +190,7 @@ struct DrawerIndicator: View {
         .accessibilityHidden(true)
     }
 
-    private func dot(_ color: Color) -> some View {
-        Circle().fill(color).frame(width: Design.Size.statusDot, height: Design.Size.statusDot)
-    }
+    private func dot(_ color: Color) -> some View { Circle().fill(color).frame(width: 10, height: 10) }
 
     private func glyph(_ name: String) -> some View {
         Image(systemName: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
