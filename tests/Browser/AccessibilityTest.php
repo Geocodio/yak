@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\TaskMode;
-use App\Models\CoOwnerRequest;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
@@ -12,55 +11,6 @@ use App\Services\CoOwner\GitHubWriteAccess;
 require_once __DIR__ . '/../Support/NewPageFixtures.php';
 require_once __DIR__ . '/../Support/AxeHelpers.php';
 require_once __DIR__ . '/../Helpers/ReviewRunHelpers.php';
-
-test('task list page has no accessibility issues', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    YakTask::factory()->success()->create();
-    YakTask::factory()->running()->create();
-    YakTask::factory()->failed()->create();
-
-    $page = visit(route('tasks'));
-
-    $page->assertNoAccessibilityIssues();
-})->skip('The task log is removed; the thread log replaces it.');
-
-test('task detail page has no accessibility issues', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $task = YakTask::factory()->success()->create([
-        'description' => 'Accessibility test task',
-        'result_summary' => 'Task completed successfully',
-    ]);
-
-    $page = visit(route('tasks.show', $task));
-
-    $page->assertNoAccessibilityIssues();
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
-
-test('task list page has no javascript errors', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    YakTask::factory()->count(3)->create();
-
-    $page = visit(route('tasks'));
-
-    $page->assertNoJavaScriptErrors();
-})->skip('The task log is removed; the thread log replaces it.');
-
-test('task detail page has no javascript errors', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $task = YakTask::factory()->success()->create();
-
-    $page = visit(route('tasks.show', $task));
-
-    $page->assertNoJavaScriptErrors();
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 test('dashboard pages have no javascript errors', function () {
     $user = User::factory()->create();
@@ -96,15 +46,6 @@ test('profile page with the GitHub card has no accessibility issues', function (
     visit(route('profile.edit'))->assertSee('GitHub account')->assertNoAccessibilityIssues(0);
 });
 
-test('held task page has no accessibility issues', function () {
-    $viewer = User::factory()->create();
-    $this->actingAs($viewer);
-    $task = YakTask::factory()->awaitingCoOwner()->create(['description' => 'Add security headers']);
-    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$viewer->id]]);
-
-    visit(route('tasks.show', $task))->assertVisible('[data-testid="co-owner-panel"]')->assertNoAccessibilityIssues(0);
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
-
 test('repository page with the gate status has no accessibility issues', function () {
     $repository = Repository::factory()->create(['github_full_name' => 'acme/api', 'default_branch' => 'main']);
     $owner = User::factory()->withGitHub(1, 'mathias')->create();
@@ -118,19 +59,6 @@ test('repository page with the gate status has no accessibility issues', functio
 
     visit(route('repos.settings.show', ['repository' => $repository, 'section' => 'review']))->assertVisible('[data-testid="co-owner-gate-status"]')->assertNoAccessibilityIssues(0);
 });
-
-test('task page with the early warning notice has no accessibility issues', function () {
-    $requester = User::factory()->create();
-    $this->actingAs($requester);
-    $repository = Repository::factory()->create(['slug' => 'o-r', 'github_full_name' => 'acme/api']);
-    $task = YakTask::factory()->create([
-        'repo' => $repository->slug,
-        'started_by_user_id' => $requester->id,
-        'early_warning' => ['areas' => [['name' => 'API response pipeline', 'risk' => 'high']], 'state' => 'shown'],
-    ]);
-
-    visit(route('tasks.show', $task))->assertVisible('[data-testid="early-warning-picker"]')->assertNoAccessibilityIssues(0);
-})->skip('The task page is removed; its behaviour is covered on the thread page.');
 
 // The shared theme's faint text and green-on-green badges sit below the AA contrast ratio, so the contrast rule is off and every other serious violation fails.
 test('thread page has no accessibility issues', function () {

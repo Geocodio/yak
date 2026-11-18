@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Models\User;
 use App\Models\YakTask;
@@ -15,7 +14,7 @@ beforeEach(function () {
 });
 
 it('submits answers and redirects to the task', function () {
-    $this->post(route('tasks.clarification-answers.store', $this->task), [
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), [
         'answers' => ['scope' => ['choices' => ['Small'], 'other' => null], 'data' => ['choices' => [], 'other' => 'Use staging']],
         'note' => 'Thanks',
     ])->assertRedirect(TaskPageUrl::forOrLog($this->task))->assertSessionHas('success', 'Sent to Yak.');
@@ -25,13 +24,13 @@ it('submits answers and redirects to the task', function () {
 });
 
 it('accepts a skipped question', function () {
-    $this->post(route('tasks.clarification-answers.store', $this->task), [
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), [
         'answers' => ['scope' => ['choices' => ['Small'], 'other' => null]],
     ])->assertSessionHasNoErrors();
 });
 
 it('rejects invalid answers', function (array $payload, string $errorKey) {
-    $this->post(route('tasks.clarification-answers.store', $this->task), $payload)->assertSessionHasErrors($errorKey);
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), $payload)->assertSessionHasErrors($errorKey);
     Queue::assertNotPushed(RunYakJob::class);
 })->with([
     'nothing answered' => [['answers' => ['scope' => ['choices' => [], 'other' => '  ']]], 'answers'],
@@ -45,27 +44,17 @@ it('rejects invalid answers', function (array $payload, string $errorKey) {
 
 it('tells a late submitter the questions were already answered', function () {
     $payload = ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]];
-    $this->post(route('tasks.clarification-answers.store', $this->task), $payload);
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), $payload);
 
-    $this->post(route('tasks.clarification-answers.store', $this->task), $payload)
-        ->assertSessionHas('error', 'These questions were already answered.');
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), $payload)
+        ->assertSessionHas('error', 'These questions were already answered or have expired. Reload the thread to see where it stands.');
     Queue::assertPushed(RunYakJob::class, 1);
-});
-
-it('answers on the conversation head when posted to the root task', function () {
-    $root = YakTask::factory()->create(['status' => TaskStatus::Success]);
-    $this->task->update(['parent_task_id' => $root->id]);
-
-    $this->post(route('tasks.clarification-answers.store', $root), ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]])
-        ->assertRedirect(TaskPageUrl::forOrLog($root));
-
-    expect($this->task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
 });
 
 it('flashes a busy message when the lock cannot be taken in time', function () {
     YakTask::updating(fn () => throw tap(new QueryException('mysql', 'select 1', [], new PDOException('Lock wait timeout exceeded')), fn ($exception) => $exception->errorInfo = [null, 1205, 'Lock wait timeout exceeded']));
 
-    $this->post(route('tasks.clarification-answers.store', $this->task), ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]])
+    $this->post(route('threads.clarification-answers.store', $this->task->thread), ['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]]])
         ->assertRedirect(TaskPageUrl::forOrLog($this->task))
         ->assertSessionHas('error', 'Yak is busy with this conversation. Try again in a few seconds.');
     Queue::assertNotPushed(RunYakJob::class);

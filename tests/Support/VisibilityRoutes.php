@@ -92,25 +92,6 @@ class VisibilityRoutes
         'threads.queued-messages.update' => ['PATCH', '/threads/{thread}/queued-messages/5', ['mode' => 'queue']],
         'threads.queued-messages.destroy' => ['DELETE', '/threads/{thread}/queued-messages/5'],
         'tasks.show' => ['GET', '/tasks/{task}'],
-        'tasks.log-entries' => ['GET', '/tasks/{task}/log-entries'],
-        'tasks.retry' => ['POST', '/tasks/{task}/retry'],
-        'tasks.setup-and-continue' => ['POST', '/tasks/{task}/setup-and-continue'],
-        'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
-        'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],
-        'tasks.retry-render' => ['POST', '/tasks/{task}/retry-render'],
-        'tasks.reroute' => ['POST', '/tasks/{task}/reroute', ['repo' => 'nope']],
-        'tasks.co-owner.approve' => ['POST', '/tasks/{task}/co-owner/approve'],
-        'tasks.co-owner.request-changes' => ['POST', '/tasks/{task}/co-owner/request-changes', ['comment' => 'x']],
-        'tasks.co-owner.reject' => ['POST', '/tasks/{task}/co-owner/reject'],
-        'tasks.co-owner.withdraw' => ['POST', '/tasks/{task}/co-owner/withdraw'],
-        'tasks.co-owner.check-access' => ['POST', '/tasks/{task}/co-owner/check-access'],
-        'tasks.co-owner.tag' => ['POST', '/tasks/{task}/co-owner/tag', ['user_id' => 1]],
-        'tasks.co-owner.decline' => ['POST', '/tasks/{task}/co-owner/decline'],
-        'tasks.messages.store' => ['POST', '/tasks/{task}/messages', ['message' => 'hello']],
-        'tasks.queued-messages.update' => ['PATCH', '/tasks/{task}/queued-messages/5', ['mode' => 'queue']],
-        'tasks.queued-messages.destroy' => ['DELETE', '/tasks/{task}/queued-messages/5'],
-        'tasks.clarification-answers.store' => ['POST', '/tasks/{task}/clarification-answers', ['answers' => []]],
-        'tasks.re-request-review' => ['POST', '/tasks/{task}/re-request-review', [], 502],
         'tasks.pr-images.show' => ['GET', '/tasks/{task}/pr-images/abc123', [], 404],
         'artifacts.show' => ['GET', '/artifacts/{task}/shot.png'],
         'artifacts.viewer' => ['GET', '/artifacts/{task}/viewer/shot.png'],
@@ -248,7 +229,6 @@ class VisibilityRoutes
             // Admin-only people list and role change; user records only, no thread data.
             'settings.people', 'settings.people.update',
             // Creates a task; reads nothing of another person's thread.
-            'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.
             'artifacts.public',
             // One shared file by its 26 character id: thread readers, or any signed-in user once the file is shared with the team; everyone else gets the missing-file 404.

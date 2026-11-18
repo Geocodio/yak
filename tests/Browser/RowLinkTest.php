@@ -2,7 +2,6 @@
 
 use App\Models\Repository;
 use App\Models\User;
-use App\Models\YakTask;
 
 beforeEach(function () {
     $this->actingAs(User::factory()->create());
@@ -34,12 +33,3 @@ test('cmd-click and middle-click on a repository row open the repository in a ne
     expect(modifierClickRow($page, 'repo-row-geocodio-dashboard', "'auxclick', { bubbles: true, button: 1 }"))->toBe($editPath);
     $page->assertPathIs('/repos');
 });
-
-test('ctrl-click on a task row opens the task in a new tab', function () {
-    $task = YakTask::factory()->create();
-
-    $page = visit('/tasks')->assertNoJavaScriptErrors();
-
-    expect(modifierClickRow($page, "task-row-{$task->public_id}", "'click', { bubbles: true, ctrlKey: true }"))->toBe(route('tasks.show', $task, false));
-    $page->assertPathIs('/tasks');
-})->skip('The task log is removed; the thread log replaces it.');

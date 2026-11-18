@@ -46,7 +46,7 @@ it('closes the thread and gives the task a new one in the other repository when 
     $followUp = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'parent_task_id' => $task->id, 'thread_id' => $old->id, 'pr_url' => null]);
     $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $old->id]);
 
-    $this->actingAs($this->user)->post(route('tasks.reroute', $task), ['repo' => 'api'])->assertRedirect();
+    $this->actingAs($this->user)->post(route('threads.move', Thread::query()->findOrFail($task->thread_id)), ['repo' => 'api'])->assertRedirect();
 
     $new = Thread::query()->findOrFail($task->fresh()->thread_id);
 
@@ -68,7 +68,7 @@ it('shows the moved notice and the source on the closed thread page', function (
     $task = slackTaskOn('web');
     $old = Thread::query()->findOrFail($task->thread_id);
 
-    $this->actingAs($this->user)->post(route('tasks.reroute', $task), ['repo' => 'api']);
+    $this->actingAs($this->user)->post(route('threads.move', Thread::query()->findOrFail($task->thread_id)), ['repo' => 'api']);
 
     $new = Thread::query()->findOrFail($task->fresh()->thread_id);
 
@@ -85,7 +85,7 @@ it('does not move a thread that has no repository yet, it only attaches the repo
     $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => Thread::UNKNOWN_REPOSITORY, 'source' => 'slack', 'status' => TaskStatus::AwaitingClarification]);
     $thread = Thread::query()->findOrFail($task->thread_id);
 
-    $this->actingAs($this->user)->post(route('tasks.reroute', $task), ['repo' => 'api']);
+    $this->actingAs($this->user)->post(route('threads.move', Thread::query()->findOrFail($task->thread_id)), ['repo' => 'api']);
 
     expect($task->fresh()->thread_id)->toBe($thread->id)
         ->and($thread->fresh()->repo)->toBe('api')
@@ -183,7 +183,7 @@ it('stops the running turn before it moves the task', function () {
     $fakes['sandbox']->shouldReceive('destroy')->once();
     $fakes['resolver']->shouldReceive('forNewThread')->andReturn(new ResolvedAccount(null, 'sonnet'));
 
-    $this->actingAs($this->user)->post(route('tasks.reroute', $task), ['repo' => 'api'])->assertRedirect();
+    $this->actingAs($this->user)->post(route('threads.move', Thread::query()->findOrFail($task->thread_id)), ['repo' => 'api'])->assertRedirect();
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Interrupted)
         ->and($task->fresh()->thread_id)->not->toBe($old->id)
@@ -197,7 +197,7 @@ it('refuses to move a task whose turn is still active after the stop', function 
     $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'thread_id' => $old->id, 'pr_url' => null, 'status' => TaskStatus::Running]);
     $this->mock(ThreadTurns::class)->shouldReceive('stop')->once();
 
-    $this->actingAs($this->user)->post(route('tasks.reroute', $task), ['repo' => 'api']);
+    $this->actingAs($this->user)->post(route('threads.move', Thread::query()->findOrFail($task->thread_id)), ['repo' => 'api']);
 
     expect($task->fresh()->repo)->toBe('web')
         ->and($task->fresh()->thread_id)->toBe($old->id)

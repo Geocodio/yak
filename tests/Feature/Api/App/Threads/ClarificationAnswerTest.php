@@ -95,7 +95,7 @@ it('enforces the limits', function (array $body, string $field) {
 it('answers question_closed when the round was answered elsewhere', function () {
     Queue::fake();
     [$thread, $user, $task] = threadWithOpenQuestions();
-    $this->actingAs($user)->post(route('tasks.clarification-answers.store', $task), ['answers' => ['on_failure' => ['choices' => ['Fail the whole batch'], 'other' => null]]])->assertRedirect();
+    $this->actingAs($user)->post(route('threads.clarification-answers.store', $thread), ['answers' => ['on_failure' => ['choices' => ['Fail the whole batch'], 'other' => null]]])->assertRedirect();
     $this->app['auth']->forgetGuards();
 
     $headers = phoneHeadersFor($user);
