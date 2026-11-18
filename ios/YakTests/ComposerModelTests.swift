@@ -828,6 +828,19 @@ private func snapshot(
         #expect(composer.problem == "You can attach up to 1 file.")
     }
 
+    @Test func aDropOfAsManyFilesAsFreePlacesAttachesAllOfThemWithTheRealCount() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        let drop = ComposerDropModel.make(for: composer)
+        let data = imageData()
+        await drop.receive(
+            count: composer.maximumFiles,
+            stat: { _ in (DroppedItem(byteCount: data.count, isImage: true), "a.png") },
+            load: { index, _ in (data, "file\(index).png", "image/png") })
+        #expect(composer.attachments.count == composer.maximumFiles)
+        #expect(drop.line == nil)
+    }
+
     @Test func editOnARefusedItemMovesItsFilesIntoTheDraftAndTheNextSendReallySendsThem() async throws {
         let backend = OutboxBackedComposerBackend()
         let composer = ComposerModel(key: .thread("d0e515ef"), backend: backend, clock: StepClock())

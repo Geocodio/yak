@@ -89,6 +89,8 @@ struct DroppedFiles {
                     finish(nil)
                     return
                 }
+                let isScoped = url.startAccessingSecurityScopedResource()
+                defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
                 let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { $0 }
                 finish(Stat(byteCount: size, name: url.lastPathComponent))
             }
@@ -106,7 +108,13 @@ struct DroppedFiles {
         let contentType = found.type.preferredMIMEType ?? "application/octet-stream"
         let read = await TimeBound.run(seconds: timeoutPerFile, fallback: Optional<Read>.none) { finish in
             _ = provider.loadInPlaceFileRepresentation(forTypeIdentifier: found.identifier) { url, _, error in
-                guard let url, error == nil, let handle = try? FileHandle(forReadingFrom: url) else {
+                guard let url, error == nil else {
+                    finish(nil)
+                    return
+                }
+                let isScoped = url.startAccessingSecurityScopedResource()
+                defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
+                guard let handle = try? FileHandle(forReadingFrom: url) else {
                     finish(nil)
                     return
                 }

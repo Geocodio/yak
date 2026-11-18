@@ -35,6 +35,15 @@ final class ComposerDropModel {
 
     var acceptsDrops: Bool { acceptsDropsNow() }
 
+    /// The drop model wired to a composer's own count, limits and `add`.
+    static func make(for composer: ComposerModel) -> ComposerDropModel {
+        ComposerDropModel(
+            acceptsDrops: { accepts(composer.bar) },
+            attached: { composer.attachments.count + composer.preparingCount },
+            limits: { (composer.maximumFiles, composer.maximumFileBytes) },
+            add: { data, name, type in await composer.add(data, fileName: name, contentType: type) })
+    }
+
     func clearLine() { line = nil }
 
     /// Whether a bar state takes drops: the field must be there.
@@ -55,7 +64,8 @@ final class ComposerDropModel {
             return
         }
         let looked = min(count, DropIntake.maximumItemsLooked)
-        let places = (limits.maxFiles < 0 || limits.maxFileBytes < 0) ? 0 : limits.maxFiles - max(0, attached())
+        let attachedAtStart = max(0, attached())
+        let places = (limits.maxFiles < 0 || limits.maxFileBytes < 0) ? 0 : limits.maxFiles - attachedAtStart
         let deadline = ContinuousClock.now.advanced(by: timeLimit)
         var attachedNow = 0
         var tooMany = max(0, count - looked)
@@ -72,7 +82,7 @@ final class ComposerDropModel {
             }
             let (item, name) = await stat(index)
             let decision = DropIntake.decide(
-                [item], attached: attached() + attachedNow, maxFiles: limits.maxFiles,
+                [item], attached: attachedAtStart + attachedNow, maxFiles: limits.maxFiles,
                 maxFileBytes: limits.maxFileBytes
             ).first
             switch decision {
@@ -133,12 +143,7 @@ private struct ComposerDropTarget: ViewModifier {
     @State private var isTargeted = false
 
     init(composer: ComposerModel) {
-        _model = State(
-            initialValue: ComposerDropModel(
-                acceptsDrops: { ComposerDropModel.accepts(composer.bar) },
-                attached: { composer.attachments.count + composer.preparingCount },
-                limits: { (composer.maximumFiles, composer.maximumFileBytes) },
-                add: { data, name, type in await composer.add(data, fileName: name, contentType: type) }))
+        _model = State(initialValue: ComposerDropModel.make(for: composer))
     }
 
     func body(content: Content) -> some View {
