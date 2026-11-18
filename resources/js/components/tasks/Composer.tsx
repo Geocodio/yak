@@ -6,10 +6,10 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { findTokens, tokenText } from '@/components/attachments/attachmentTokens';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
-import { latestQueued, QueuedMessages, STEERING_MODES } from '@/components/tasks/QueuedMessages';
+import { latestQueued, QueuedMessages, STEERING_MODES } from '@/components/shared/QueuedMessages';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { store as storeMessage } from '@/routes/tasks/messages';
-import { destroy as destroyQueued } from '@/routes/tasks/queued-messages';
+import { destroy as destroyQueued, update as updateQueued } from '@/routes/tasks/queued-messages';
 import type { SharedProps } from '@/types/shared';
 import type { ComposerData, MediaItem, QueuedMessage, SteeringMode } from '@/types/tasks';
 
@@ -177,7 +177,7 @@ export function Composer({
                     {...draft.dropzoneProps}
                 >
                     <AttachmentDropOverlay draft={draft} />
-                    <QueuedMessages taskId={taskId} messages={composer.queued} canEdit={!disabled} editingId={editingId} onEdit={editQueued} />
+                    <QueuedMessages messages={composer.queued} updateUrl={(message) => updateQueued.url({ task: taskId, message: message.id })} removeUrl={(message) => destroyQueued.url({ task: taskId, message: message.id })} canEdit={!disabled} editingId={editingId} onEdit={editQueued} />
                     <AttachmentTextarea
                         ref={editorRef}
                         inputRef={textareaRef}

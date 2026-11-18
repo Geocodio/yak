@@ -56,7 +56,7 @@ What a message does depends on the thread:
 - **A turn is running.** The composer reads **Add a message. Claude reads it as soon as it can.** Yak hands the message to the running turn, which steers Claude mid-work. If it cannot be delivered, Yak queues it and Claude reads it as a follow-up when the current work is done.
 - **The sandbox is rebuilding, the account is busy or the usage limit is hit.** The message is saved and Claude reads it when the turn can start. The composer says when.
 
-Queued messages are listed above the thread's composer. Edit or remove a queued message there: switch it between **Queue** and **Steer**, edit it, or **Remove from queue**.
+Messages saved while Yak works, but not yet handed to a turn, are listed inside the composer, above the text box. They show only there, not in the conversation, until Yak takes one in. Each row can switch between **Queue** and **Steer** (steering is offered only while a turn runs), be edited in place with **Save** and **Cancel** (only the person who wrote it can change its text; pressing the up arrow in an empty text box edits the newest one), or be removed with **Remove from queue**. Someone who can read the thread but not drive it sees the rows read-only. The list shows messages sent from the thread; a message queued from a channel such as Slack is not listed. An open thread page updates the list when a message is queued, changed, removed or taken in.
 
 | Control | What it does |
 | --- | --- |

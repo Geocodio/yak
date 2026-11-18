@@ -469,6 +469,8 @@ class ThreadTurns
                 $this->startQueuedAfterCompletedTurn($thread);
             }
 
+            ThreadShowChanged::publish($thread->id);
+
             return $message;
         }
 
@@ -492,6 +494,8 @@ class ThreadTurns
                 }
             }
         }
+
+        ThreadShowChanged::publish($thread->id);
 
         return $message;
     }

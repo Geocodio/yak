@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\RunnerState;
 use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\ThreadEventBroadcast;
 use App\Exceptions\ThreadActionRefused;
 use App\Models\CoOwnerRequest;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
@@ -14,12 +16,16 @@ use App\Models\YakTask;
 use App\Services\CoOwner\EarlyWarningState;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadShowChanged;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 require_once __DIR__ . '/RealtimeRedis.php';
+require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
+require_once __DIR__ . '/../../../Support/ThreadTurnsHelpers.php';
 
 beforeEach(function () {
     $this->withoutVite();
@@ -132,4 +138,30 @@ it('turns a refused thread action into a redirect back with the error, only on t
     $this->actingAs($this->user)->from('/somewhere')->post('/thread-refusal-test/other')
         ->assertStatus(500)
         ->assertSessionMissing('error');
+});
+
+it('publishes the thread state when a queued message is queued, edited, switched and withdrawn', function () {
+    [$thread, $run] = runningTurnFor();
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $author = User::factory()->create();
+    $thread->forceFill(['model' => 'sonnet', 'owner_user_id' => $author->id, 'created_by_user_id' => $author->id])->save();
+    $message = null;
+
+    expectShowChanged($thread, function () use ($thread, $author, &$message) {
+        $message = app(ThreadTurns::class)->steer($thread, 'Then update the docs', $author, null, source: 'thread', isQueueOnly: true);
+    });
+    expectShowChanged($thread, fn () => $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $message->id]), ['text' => 'Then the README'])->assertRedirect());
+    $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+    expectShowChanged($thread, fn () => $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $message->id]), ['mode' => 'steer'])->assertRedirect());
+    expectShowChanged($thread, fn () => $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $message->id]))->assertRedirect());
+});
+
+it('keeps the key the same for a message queued from a channel, which the page does not list', function () {
+    [$thread] = runningTurnFor();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $before = ThreadShowChanged::key($thread->id);
+
+    PendingSteeringMessage::query()->create(['root_task_id' => $task->id, 'text' => 'from slack', 'source' => 'slack', 'mode' => 'queue', 'uuid' => (string) Str::uuid()]);
+
+    expect(ThreadShowChanged::key($thread->id))->toBe($before);
 });

@@ -30,7 +30,7 @@ class ThreadShowChanged
 
     /**
      * One short string that changes whenever the question, repository, early warning,
-     * co-owner or stop cards of the thread change, the same for every viewer.
+     * co-owner or stop cards or the list of queued messages of the thread change, the same for every viewer.
      */
     public static function key(int $threadId): string
     {
@@ -43,13 +43,24 @@ class ThreadShowChanged
             ->orderByDesc('co_owner_requests.id')
             ->first(['co_owner_requests.id', 'co_owner_requests.status', 'co_owner_requests.asked_user_ids']);
 
+        $queued = DB::table('pending_steering_messages')
+            ->whereIn('root_task_id', DB::table('tasks')->where('thread_id', $threadId)->select('id'))
+            ->where('source', 'thread')
+            ->whereNotExists(fn ($delivered) => $delivered->from('thread_turn_messages')
+                ->where(fn ($match) => $match->whereColumn('thread_turn_messages.pending_steering_message_id', 'pending_steering_messages.id')
+                    ->orWhereColumn('thread_turn_messages.uuid', 'pending_steering_messages.uuid')))
+            ->orderBy('id')
+            ->get(['id', 'mode', 'text'])
+            ->map(fn (object $message): array => [$message->id, $message->mode, md5((string) $message->text)])
+            ->all();
+
         $warning = $root?->early_warning === null ? null : (json_decode((string) $root->early_warning, true)['state'] ?? null);
 
         return substr(md5(json_encode([
             $thread?->repo, $thread?->status,
             $head?->id, $head?->status, $head?->stop_kind, $head?->stop_summary, $head?->resume_after_setup_at !== null,
             $warning, $root?->tagged_co_owner_user_id,
-            $request?->id, $request?->status, $request?->asked_user_ids,
+            $request?->id, $request?->status, $request?->asked_user_ids, $queued,
         ], JSON_THROW_ON_ERROR)), 0, 12);
     }
 }

@@ -7,6 +7,7 @@ import { threadDataActions } from '@/commandPalette/threadDataActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { ThreadCards } from '@/components/threads/cards/ThreadCards';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
+import { splitQueuedMessages } from '@/components/threads/composer/queuedMessages';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
 import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { LegacyConversation } from '@/components/threads/conversation/LegacyConversation';
@@ -51,6 +52,7 @@ const DESKTOP_QUERY = '(min-width: 1024px)';
 
 export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, turnAnchors, messages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
     useFragmentScroll(thread.id, turnAnchors);
+    const { queued, conversation } = useMemo(() => splitQueuedMessages(messages), [messages]);
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
@@ -244,9 +246,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />}
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />}
                     <ThreadCards page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} />
-                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
+                    <ThreadComposer thread={thread} composer={composer} queued={queued} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
                 <ThreadDockPanel active={activeDock} isPhoneVisible={isPhoneDockVisible} panelProps={panelProps} />

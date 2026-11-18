@@ -70,6 +70,7 @@ class SteeringDelivery
             ThreadTurns::trackUuid($run, $uuid);
 
             $message->forceFill(['mode' => SteeringMode::Steer])->save();
+            ThreadShowChanged::publish($locked->id);
 
             return true;
         });

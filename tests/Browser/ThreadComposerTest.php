@@ -114,7 +114,7 @@ it('keeps the draft and shows the error for an overlong message', function () {
         ->assertScript("document.querySelector('[data-testid=\"thread-composer-input\"]').value.length", 20001);
 });
 
-it('keeps the composer enabled on a waiting thread and a sent message shows as not read yet', function () {
+it('keeps the composer enabled on a waiting thread and a sent message waits in the queued list', function () {
     [$user, $thread] = composerThread();
     $thread->update(['blocked_reason' => 'waiting_for_account']);
     TaskRun::factory()->create(['yak_task_id' => $thread->tasks()->first()->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::WaitingForAccount]);
@@ -125,7 +125,7 @@ it('keeps the composer enabled on a waiting thread and a sent message shows as n
         ->assertSeeIn('[data-testid="thread-composer-hint"]', 'Claude reads it when its turn starts.')
         ->fill('[data-testid="thread-composer-input"]', 'Hello')
         ->click('[data-testid="thread-send"]');
-    $page->wait(3)->assertVisible('[data-testid="thread-message-pending"]')->assertNoJavaScriptErrors();
+    $page->wait(3)->assertSeeIn('[data-testid="thread-queued-messages"]', 'Hello')->assertNoJavaScriptErrors();
 });
 
 it('shows a refused message with its reason and puts the text back on Edit', function () {
