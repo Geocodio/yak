@@ -43,6 +43,17 @@ public enum ThreadLoadState: Equatable, Sendable {
 }
 
 /// Everything the chat screen draws, as one value.
+/// The server's sentence about a sent message, keyed by the send it answers.
+public struct SendNotice: Equatable, Sendable, Identifiable {
+    public let id: UUID
+    public let text: String
+
+    public init(id: UUID, text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
 public struct ConversationSnapshot: Equatable, Sendable {
     public var load: ThreadLoadState
     public var show: ThreadShow?
@@ -70,6 +81,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
     public var lastDiffUpdateSequence: Int?
     /// An action waits out the server's `rate_limited` and has been waiting for more than five seconds.
     public var isActionSlow: Bool
+    /// The newest sentence the server gave with a send answer (the reply to a stopped thread); show it once per `id`.
+    public var lastSendNotice: SendNotice?
 
     public init(
         load: ThreadLoadState = .loading, show: ThreadShow? = nil, entries: [ConversationEntry] = [],
@@ -78,7 +91,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, hasOlderHistory: Bool = false,
         isLoadingOlder: Bool = false, didOlderFail: Bool = false, replacementThreadID: String? = nil,
         lastSequence: Int = 0,
-        problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil, isActionSlow: Bool = false
+        problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil, isActionSlow: Bool = false,
+        lastSendNotice: SendNotice? = nil
     ) {
         self.load = load
         self.show = show
@@ -98,5 +112,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.problem = problem
         self.lastDiffUpdateSequence = lastDiffUpdateSequence
         self.isActionSlow = isActionSlow
+        self.lastSendNotice = lastSendNotice
     }
 }

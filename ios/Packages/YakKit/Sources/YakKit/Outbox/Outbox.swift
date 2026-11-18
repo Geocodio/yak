@@ -575,7 +575,8 @@ public actor Outbox {
                     sendKey: item.id, attachments: attachments, references: references, intent: item.intent))
             return OutboxDelivery(
                 sendKey: item.id, target: item.target, status: result.status, messageUUID: result.uuid,
-                threadID: result.threadId ?? threadID, text: item.text, sentAt: clock.now())
+                threadID: result.threadId ?? threadID, text: item.text, sentAt: clock.now(),
+                notice: result.notice)
         case .newThread(let draft):
             let withModel = NewThreadDraft(
                 repo: draft.repo, mode: draft.mode, repositories: draft.repositories,
@@ -777,14 +778,14 @@ public actor Outbox {
         let item = stored[index]
         var decision: OutboxDecision
         switch outcome {
-        case .delivered(let status, let messageUUID, let answeredThread):
+        case .delivered(let status, let messageUUID, let answeredThread, let notice):
             var threadID = answeredThread
             if threadID == nil, case .thread(let target) = item.target { threadID = target }
             if let threadID {
                 finishWaiting(id)
                 let delivery = OutboxDelivery(
                     sendKey: id, target: item.target, status: status, messageUUID: messageUUID, threadID: threadID,
-                    text: item.text, sentAt: clock.now())
+                    text: item.text, sentAt: clock.now(), notice: notice)
                 for receiver in deliveryReceivers.values { receiver.yield(delivery) }
                 for receiver in updateReceivers.values { receiver.yield(.delivery(delivery)) }
                 stored.remove(at: index)

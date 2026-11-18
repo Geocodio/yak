@@ -469,3 +469,60 @@ func theTurnAndThreadEventsInEitherOrderRefreshOnce(turnFirst: Bool) async throw
     let snapshot = try await settled(rig.engine)
     #expect(snapshot.entries.contains { $0.id == "milestone:9:pushed:14" })
 }
+
+// MARK: Send answers with a notice
+
+private func hasDeliveredRow(_ snapshot: ConversationSnapshot) -> Bool {
+    snapshot.entries.contains { if case .delivered = $0 { true } else { false } }
+}
+
+@Test func aStoppedReplyShowsTheNoticeAndDropsTheDelivery() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    let sendKey = UUID()
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: sendKey, target: .thread(threadID), status: .sent, messageUUID: nil, threadID: threadID,
+            text: "Try the other branch", sentAt: rig.clock.now(), notice: "Trying again with your note."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice != nil }
+    #expect(snapshot.lastSendNotice == SendNotice(id: sendKey, text: "Trying again with your note."))
+    #expect(!hasDeliveredRow(snapshot) && snapshot.replacementThreadID == nil)
+}
+
+@Test func aSecondNoticeReplacesTheFirstAndARepeatOfOneChangesNothing() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    func delivery(_ key: UUID, _ notice: String) -> OutboxDelivery {
+        OutboxDelivery(
+            sendKey: key, target: .thread(threadID), status: .sent, messageUUID: nil, threadID: threadID, text: "x",
+            sentAt: rig.clock.now(), notice: notice)
+    }
+    let (first, second) = (UUID(), UUID())
+    await rig.engine.delivered(delivery(first, "One."))
+    await rig.engine.delivered(delivery(first, "One again."))
+    await rig.engine.delivered(delivery(second, "Two."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice?.id == second }
+    #expect(snapshot.lastSendNotice?.text == "Two.")
+}
+
+@Test func aSendWithARowAndANoticeKeepsItsDelivery() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: UUID(), target: .thread(threadID), status: .queued, messageUUID: "u-1", threadID: threadID,
+            text: "x", sentAt: rig.clock.now(), notice: "Yak is already on it. Your note is included."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice != nil }
+    #expect(hasDeliveredRow(snapshot))
+}
+
+@Test func aLegacySendOpensTheContinuingThread() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: UUID(), target: .thread(threadID), status: .sent, messageUUID: nil, threadID: "c0n71nue",
+            text: "Carry on", sentAt: rig.clock.now()))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.replacementThreadID != nil }
+    #expect(snapshot.replacementThreadID == "c0n71nue" && snapshot.lastSendNotice == nil)
+}

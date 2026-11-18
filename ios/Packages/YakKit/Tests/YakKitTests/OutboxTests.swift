@@ -65,6 +65,17 @@ private struct Harness {
         #expect(await outbox.items().isEmpty)
     }
 
+    @Test func theNoticeOfASendAnswerReachesTheDelivery() async throws {
+        let harness = Harness()
+        await harness.transport.on(
+            threadRoute, .json(200, #"{"status":"sent","uuid":null,"notice":"Trying again with your note."}"#))
+        let deliveries = StreamRecorder(await harness.outbox.deliveries())
+        _ = try await harness.outbox.enqueue(draft("Try again"))
+        let delivery = try await deliveries.next { _ in true }
+        #expect(delivery.notice == "Trying again with your note." && delivery.messageUUID == nil)
+        #expect(delivery.threadID == "d0e515ef")
+    }
+
     @Test func turnsSlowAfterFiveSeconds() async throws {
         let harness = Harness()
         let (transport, clock, outbox) = (harness.transport, harness.clock, harness.outbox)

@@ -50,6 +50,7 @@ public actor ThreadEngine {
     private var outboxItems: [OutboxItem] = []
     private var deliveries: [OutboxDelivery] = []
     private var replacementThreadID: String?
+    private var sendNotices: [SendNotice] = []
 
     private var hasOpened = false
     /// True once `open()` has restored the cache; until then live input waits so it cannot be overwritten.
@@ -183,7 +184,14 @@ public actor ThreadEngine {
 
     public func delivered(_ delivery: OutboxDelivery) async {
         guard !isClosed else { return }
-        if !deliveries.contains(where: { $0.sendKey == delivery.sendKey }) { deliveries.append(delivery) }
+        let isNoted = delivery.notice != nil
+        if isNoted, !sendNotices.contains(where: { $0.id == delivery.sendKey }) {
+            sendNotices.append(SendNotice(id: delivery.sendKey, text: delivery.notice ?? ""))
+        }
+        // A reply to a stopped thread has no message row of its own: the server's sentence says what happened, and
+        // the note shows when the retry takes it.
+        let hasNoRow = isNoted && delivery.messageUUID == nil && delivery.threadID == threadID
+        if !hasNoRow, !deliveries.contains(where: { $0.sendKey == delivery.sendKey }) { deliveries.append(delivery) }
         if delivery.threadID != threadID { replacementThreadID = delivery.threadID }
         changed(isStored: false)
         scheduleShowRefresh()
@@ -622,6 +630,6 @@ public actor ThreadEngine {
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
                 didOlderFail: didOlderFail,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
-                lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty))
+                lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty, lastSendNotice: sendNotices.last))
     }
 }

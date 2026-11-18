@@ -155,10 +155,12 @@ public struct OutboxDelivery: Equatable, Sendable {
     public let threadID: String
     public let text: String
     public let sentAt: Date
+    /// The server's sentence about what became of the message, such as the answer to a reply on a stopped thread.
+    public let notice: String?
 
     public init(
         sendKey: UUID, target: OutboxTarget, status: SendStatus, messageUUID: String?, threadID: String,
-        text: String, sentAt: Date
+        text: String, sentAt: Date, notice: String? = nil
     ) {
         self.sendKey = sendKey
         self.target = target
@@ -167,6 +169,7 @@ public struct OutboxDelivery: Equatable, Sendable {
         self.threadID = threadID
         self.text = text
         self.sentAt = sentAt
+        self.notice = notice
     }
 }
 
