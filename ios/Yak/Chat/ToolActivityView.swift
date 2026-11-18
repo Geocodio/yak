@@ -7,6 +7,7 @@ struct ToolActivityView: View {
     let isCurrentStep: Bool
     @Environment(\.chatStartsExpanded) private var startsExpanded
     @State private var isExpanded: Bool?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var expanded: Bool { isExpanded ?? startsExpanded }
 
@@ -36,12 +37,14 @@ struct ToolActivityView: View {
                 if isTinted { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 InlineOrStacked {
                     Text(verbatim: item.text ?? "").font(.subheadline.weight(.medium))
+                        .fixedSize(horizontal: false, vertical: true)
                     if isTinted, let start = RelativeAge.parse(item.at) { ElapsedView(since: start) }
                 }
             }
         }
         .padding(.horizontal, isTinted ? 10 : 0)
         .background(isTinted ? Color(.systemBlue).opacity(0.14) : .clear, in: .rect(cornerRadius: 10))
+        .id(dynamicTypeSize)
         .accessibilityIdentifier(isTinted ? "step.current" : "tools.\(item.key)")
     }
 }
