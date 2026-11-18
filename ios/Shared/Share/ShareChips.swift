@@ -5,6 +5,7 @@ import YakKit
 /// still being set up.
 struct ShareChips: View {
     let model: ShareExtensionModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var options: NewThreadOptions? { model.context?.options }
 
@@ -14,6 +15,7 @@ struct ShareChips: View {
                 HStack(spacing: 8) { chips(options, form) }
                 VStack(alignment: .leading, spacing: 8) { chips(options, form) }
             }
+            .id(dynamicTypeSize)
         } else if model.isRefreshingOptions {
             loadingSkeleton
         } else {
@@ -93,7 +95,9 @@ struct ShareChips: View {
 
 extension View {
     /// The system's bordered capsule in the primary color: its text size and contrast come from the system.
-    fileprivate func chip() -> some View { foregroundStyle(.primary) }
+    fileprivate func chip() -> some View {
+        foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true).frame(minHeight: 44)
+    }
 
     fileprivate func chipMenu() -> some View {
         buttonStyle(.bordered).buttonBorderShape(.capsule).tint(.primary).controlSize(.large)
