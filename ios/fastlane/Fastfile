@@ -5,6 +5,7 @@ IOS_ROOT = File.expand_path("..", __dir__)
 require_relative "lib/release_support"
 require_relative "lib/fast_lanes"
 import("Releasefile")
+import("E2eFastfile")
 
 # The classes the iPad and the Duo run (`core_only`). A new feature smoke test runs on the iPhone row only, and adds
 # its class here, one line, to run on the others.
@@ -13,6 +14,9 @@ CORE_SMOKE_CLASSES = %w[
   PairingSmokeTests
   ThreadSmokeTests
 ].freeze
+
+# The most failed tests a UI test run retries; more than this many failing at once is not machine noise.
+RETRY_LIMIT = 3
 
 platform :ios do
   desc "Generate the Xcode project from project.yml"
@@ -63,7 +67,7 @@ platform :ios do
 
   desc "UI smoke tests against the stub server: fastlane ui_smoke device:\"iPhone Duo\" only:testName. " \
        "Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). " \
-       "part:1 or part:2 runs one half of the classes, split by test count. Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
+       "part:1 or part:2 runs one half of the classes, split by test count. Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test (at most #{RETRY_LIMIT}) runs once more, in a second xcodebuild call, only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)"
   lane :ui_smoke do |options|
     device = options[:device] || "iPhone 18 Pro"
     with_stub do |port, build_directory|
@@ -237,7 +241,7 @@ platform :ios do
   def xcodebuild_base(device)
     "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
       "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \
-      "CODE_SIGNING_ALLOWED=NO"
+      "-skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO"
   end
 
   # One `xcodebuild build-for-testing` that every test run after it reuses (test-without-building, same derived data)
@@ -256,20 +260,51 @@ platform :ios do
   end
 
   # On CI, a step whose runner never connected (hosted simulator trouble, no test ran) gets a fresh boot and one more
-  # run. A run in which tests executed and failed is not repeated here.
+  # run. Returns whether the step passed; a run in which tests executed and failed is not repeated here.
   def run_test_step(command, device, result_path)
     failure = nil
     sh(command) { |status, output| failure = output unless status.success? }
-    return unless failure
-    if ci? && FastLanes.runner_never_started?(failure)
-      UI.important("The test runner never connected; rebooting #{device} and running the step once more")
-      FileUtils.rm_rf(result_path)
-      system("xcrun", "simctl", "shutdown", device, err: File::NULL)
-      sh("xcrun simctl bootstatus #{device.shellescape} -b")
-      sh(command)
-    else
-      UI.user_error!("xcodebuild test-without-building failed")
+    return true unless failure
+    return false unless ci? && FastLanes.runner_never_started?(failure)
+    UI.important("The test runner never connected; rebooting #{device} and running the step once more")
+    FileUtils.rm_rf(result_path)
+    system("xcrun", "simctl", "shutdown", device, err: File::NULL)
+    sh("xcrun simctl bootstatus #{device.shellescape} -b")
+    passed = false
+    sh(command) { |status, _| passed = status.success? }
+    passed
+  end
+
+  # On CI (or with retry:true), the tests that failed run once more in a separate xcodebuild call, and the step passes
+  # when they all pass then. A test that fails while a hosted machine is saturated often takes the test runner down
+  # with it, and xcodebuild's own -retry-tests-on-failure then never runs it again, so the lane does the retry. A test
+  # that passed on its retry is printed and annotated on the run, so flakiness stays visible.
+  def retry_failed_tests(device, result_path, options)
+    UI.user_error!("xcodebuild test-without-building failed") unless ci? || truthy?(options[:retry])
+    failed = FastLanes.failed_tests(JSON.parse(`xcrun xcresulttool get test-results tests --path #{result_path.shellescape} --compact`))
+    UI.user_error!("xcodebuild test-without-building failed, and no failed test is named in the results") if failed.empty?
+    UI.user_error!("#{failed.size} tests failed, too many to retry: #{failed.join(", ")}") if failed.size > RETRY_LIMIT
+    UI.important("Running the failed tests once more: #{failed.join(", ")}")
+    retry_path = result_path.sub(/\.xcresult\z/, "-retry.xcresult")
+    FileUtils.rm_rf(retry_path)
+    selection = failed.map { |test| "-only-testing:#{test}" }.join(" ")
+    UI.user_error!("Failed again on retry: #{failed.join(", ")}") unless run_test_step(yield(selection, retry_path), device, retry_path)
+    notice = "Passed on retry (failed once on this run): #{failed.join(", ")}"
+    UI.important(notice)
+    puts "::warning title=Flaky UI test::#{notice}" if ci?
+  end
+
+  # Installs and launches the app once and stops it, so the first test does not pay for the simulator's first launch
+  # of the app (and the first launch's caches) inside its launch timeout.
+  def warm_up(device)
+    app = File.join(IOS_ROOT, "build/DerivedData/Build/Products/Debug-iphonesimulator/Yak.app")
+    bundle = `/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" #{File.join(app, "Info.plist").shellescape}`.strip
+    return if bundle.empty?
+    unless system("xcrun", "simctl", "install", device, app) && system("xcrun", "simctl", "launch", device, bundle)
+      return UI.important("The warm-up launch failed; the tests launch the app themselves")
     end
+    sleep 5
+    system("xcrun", "simctl", "terminate", device, bundle, err: File::NULL)
   end
 
   def run_ui_tests(device, port, result_path, selection, environment, options)
@@ -278,11 +313,14 @@ platform :ios do
     with_simulator(device, options) do
       # A simulator that is still booting times out the first app launch, so the tests start on a booted one.
       sh("xcrun simctl bootstatus #{device.shellescape} -b")
-      # A hosted simulator sometimes fails to launch the app at all, so CI (or retry:true) gives a failed test one more try.
-      retry_flags = ci? || truthy?(options[:retry]) ? "-retry-tests-on-failure -test-iterations 2 " : ""
-      command = "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{selection} " \
-        "#{retry_flags}-resultBundlePath #{result_path.shellescape}"
-      run_test_step(command, device, result_path)
+      warm_up(device) if ci?
+      command = ->(tests, path) do
+        "cd #{IOS_ROOT.shellescape} && #{variables} xcodebuild test-without-building #{xcodebuild_base(device)} #{tests} " \
+          "-resultBundlePath #{path.shellescape}"
+      end
+      unless run_test_step(command.call(selection, result_path), device, result_path)
+        retry_failed_tests(device, result_path, options, &command)
+      end
     end
     # A selection that matches nothing still ends in TEST SUCCEEDED, so an empty run fails here.
     summary = JSON.parse(`xcrun xcresulttool get test-results summary --path #{result_path.shellescape} --compact`)
