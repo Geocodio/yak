@@ -17,10 +17,10 @@ export function SourceLink({ source, testId = 'source-link' }: { source: ThreadM
     const content = (
         <>
             <Mark className="size-3 shrink-0" aria-hidden />
-            {label}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
         </>
     );
-    const classes = 'inline-flex items-center gap-1 text-muted';
+    const classes = 'inline-flex min-w-0 max-w-full items-center gap-1 text-muted';
 
     return source.url ? (
         <a href={source.url} target="_blank" rel="noreferrer" className={`${classes} underline-offset-2 hover:text-body hover:underline`} data-testid={testId}>

@@ -280,7 +280,7 @@ export default function ForPr({ pr, runs, pullRequest, modelLabels }: Props) {
             </div>
 
             <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-5">
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
                     <div className="space-y-3" data-testid="review-runs">
                         {hasRuns ? (
                             runs.map((run, index) => (

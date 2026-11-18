@@ -316,8 +316,8 @@ export default function Runs({ header, runs, totalCount, selected, selectedUrl, 
                     <p>No runs yet. Run setup to prepare this repository.</p>
                 </div>
             ) : (
-                <div className="grid gap-6 lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
-                    <div className={cn(showDetailOnPhone && 'hidden lg:block')}>
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
+                    <div className={cn('min-w-0', showDetailOnPhone && 'hidden lg:block')}>
                         <RunList onPick={() => setIsListView(false)} runs={runs} selectedId={selected?.id ?? null} filters={filters} totalCount={totalCount} />
                     </div>
                     <div className={cn('min-w-0', !showDetailOnPhone && 'hidden lg:block')}>

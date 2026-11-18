@@ -76,13 +76,13 @@ export function ThreadLogTable({ rows, sort, direction, onSort }: { rows: Thread
                                 </span>
                             </Link>
                         </StackedTd>
-                        <StackedTd label="Source" className="whitespace-nowrap text-[12px]">
+                        <StackedTd label="Source" className="[overflow-wrap:anywhere] text-[12px] md:whitespace-nowrap">
                             <SourceLink source={row.source} testId="thread-log-source" />
                         </StackedTd>
-                        <StackedTd label="Started by" className="whitespace-nowrap text-[12px] text-muted">
+                        <StackedTd label="Started by" className="[overflow-wrap:anywhere] text-[12px] text-muted md:whitespace-nowrap">
                             {row.starter.name}
                         </StackedTd>
-                        <StackedTd label="Repo" className="whitespace-nowrap font-mono text-[12px] text-muted">
+                        <StackedTd label="Repo" className="[overflow-wrap:anywhere] font-mono text-[12px] text-muted md:whitespace-nowrap">
                             {row.repo ?? '–'}
                         </StackedTd>
                         <StackedTd label="Pull request" className="whitespace-nowrap text-[12px]">
