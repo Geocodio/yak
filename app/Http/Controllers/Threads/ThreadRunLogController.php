@@ -44,7 +44,7 @@ class ThreadRunLogController extends Controller
         $term = is_string($search) && trim($search) !== '' ? mb_substr(trim($search), 0, 200) : null;
 
         if ($term !== null) {
-            $key = 'run-log-search:' . ($request->user()->id);
+            $key = 'run-log-search:' . ($request->user() ?? abort(401))->id;
             abort_if(RateLimiter::tooManyAttempts($key, self::SEARCHES_PER_MINUTE), 429);
             RateLimiter::hit($key, 60);
         }
