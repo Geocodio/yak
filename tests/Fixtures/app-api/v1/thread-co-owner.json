@@ -150,6 +150,7 @@
         "state": "idle"
     },
     "diffTotals": null,
+    "earlierWalkthroughs": [],
     "earlyWarning": null,
     "isLegacy": false,
     "latestSequence": 13,
