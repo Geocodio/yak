@@ -61,6 +61,8 @@ final class AppModel {
     private let observers: InstanceObservers
     /// Push: the badge and the foreground rule. Nil in unit tests that do not need it.
     let push: PushController?
+    /// The widgets' reloads. Nil in unit tests that do not need it.
+    let widgets: WidgetReloadScheduler?
     /// How many sheets are open. The pairing link screen is presented by the topmost one, because a screen
     /// cannot present over a sheet that its own parent presented.
     var openSheetCount = 0
@@ -79,9 +81,11 @@ final class AppModel {
         network: NetworkMonitor = NetworkMonitor(),
         observers: [any InstanceLifecycleObserver] = [],
         observerTimeout: Duration = .seconds(5),
-        push: PushController? = nil
+        push: PushController? = nil,
+        widgets: WidgetReloadScheduler? = nil
     ) {
         self.push = push
+        self.widgets = widgets
         self.observers = InstanceObservers(observers: observers, timeout: observerTimeout)
         self.network = network
         self.normalizeAddress = normalizeAddress
