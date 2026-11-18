@@ -12,6 +12,11 @@ import XCTest
         XCUIDevice.shared.orientation = .portrait
     }
 
+    /// A test that turned the device leaves it upright for the next class.
+    override func tearDown() async throws {
+        XCUIDevice.shared.orientation = .portrait
+    }
+
     private func launch(scenario: String, extraArguments: [String] = []) throws {
         try stub.play(scenario)
         app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"] + extraArguments
@@ -28,7 +33,9 @@ import XCTest
     private var arrangement: String {
         detail.exists ? String(detail.identifier.dropFirst("thread.detail.".count)) : ""
     }
-    private var isNarrowWindow: Bool { app.windows.firstMatch.frame.width < 700 }
+    /// An iPhone in landscape is wide in points but compact in size class, and keeps one pane; only a regular width
+    /// gets two slots.
+    private var isNarrowWindow: Bool { app.windows.firstMatch.horizontalSizeClass != .regular }
 
     private func openThread() {
         if !app.otherElements["drawer"].exists, app.buttons["threads.button"].waitForExistence(timeout: 5) {
