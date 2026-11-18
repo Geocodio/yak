@@ -7,7 +7,7 @@ struct ChangedFilesView: FilesModeView {
 
     let thread: ThreadModel
     @Environment(\.isPaneShown) private var isPaneShown
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isShowingWeb = false
     @State private var movedNotice: String?
     @SceneStorage("yak.files") private var storedPositions: Data?
@@ -91,10 +91,11 @@ struct ChangedFilesView: FilesModeView {
             .padding(.horizontal, 20).background(Color.primary.opacity(0.05)).accessibilityIdentifier("files.problem")
         }
         if let banner = banner(snapshot) {
-            Text(banner).font(.subheadline.weight(.medium)).foregroundStyle(.primary)
+            Text(banner).font(sizeClass == .regular ? .subheadline.weight(.medium) : .footnote.weight(.medium))
+                .foregroundStyle(sizeClass == .regular ? Color.primary : Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.vertical, 8)
                 .background(Color.primary.opacity(0.05)).fixedSize(horizontal: false, vertical: true)
-                .id(dynamicTypeSize).accessibilityIdentifier("files.banner")
+                .accessibilityIdentifier("files.banner")
         }
     }
 
