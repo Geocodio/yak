@@ -28,22 +28,12 @@ import XCTest
     }
 
     private func audit() throws {
-        var findings: [String] = []
-        let bars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { issue in
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: bars) { return true }
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: bars) { return true }
-            findings.append(
-                "\(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
-            )
-            return true
-        }
-        if !findings.isEmpty {
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.lifetime = .keepAlways
-            screenshot.name = "audit-failure"
-            add(screenshot)
-            XCTFail("audit: " + findings.joined(separator: "\n"))
+        try auditTwice(app) { [app] in
+            let bars = AuditRules.Bars(app)
+            return { issue in
+                AuditRules.isContrastOfAnElementOffScreen(issue, bars: bars)
+                    || AuditRules.isContrastOfTextBehindABar(issue, bars: bars)
+            }
         }
     }
 
