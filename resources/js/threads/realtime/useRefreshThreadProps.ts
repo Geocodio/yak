@@ -6,6 +6,21 @@ export { livePropsSignature } from './livePropsSignature';
 const SETTLE_MS = 300;
 const RETRY_MS = 3000;
 
+let mutationsInFlight = 0;
+
+// An action answers with a redirect and flashes its outcome for the next request. A reload that reaches the server
+// before that redirect is followed takes the flash, and the card never shows the error, so reloads wait for actions.
+router.on('start', (event) => {
+    if (event.detail.visit.method !== 'get') {
+        mutationsInFlight++;
+    }
+});
+router.on('finish', (event) => {
+    if (event.detail.visit.method !== 'get') {
+        mutationsInFlight--;
+    }
+});
+
 /**
  * The status pill, the composer and the panels render server props. A turn or thread event means those
  * props are stale, so this reloads them, and keeps trying while the link is down.
@@ -22,6 +37,12 @@ export function useRefreshThreadProps(signature: string): void {
         let timer = window.setTimeout(reload, SETTLE_MS);
 
         function reload(): void {
+            if (mutationsInFlight > 0) {
+                timer = window.setTimeout(reload, SETTLE_MS);
+
+                return;
+            }
+
             const retry = (): false => {
                 timer = window.setTimeout(reload, RETRY_MS);
 
