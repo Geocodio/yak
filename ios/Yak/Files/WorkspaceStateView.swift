@@ -90,7 +90,7 @@ struct WorkspaceStateView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                if content.showsSkeleton { SkeletonRows(count: 8) }
+                if content.showsSkeleton { FileSkeletonRows(count: 8) }
                 Text(content.title).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 if let detail = content.detail {
@@ -139,7 +139,7 @@ private struct ElapsedSeconds: View {
 }
 
 /// Gray bars where rows will be; they appear only after 300 ms, so a quick answer never flashes them.
-struct SkeletonRows: View {
+struct FileSkeletonRows: View {
     let count: Int
     @State private var isShown = false
 

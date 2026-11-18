@@ -59,14 +59,17 @@ struct FileTreeView: View {
         switch item {
         case .row(let row): rowView(row)
         case .loading(_, let depth):
-            SkeletonRows(count: 2).padding(.leading, CGFloat(depth) * indentation)
+            FileSkeletonRows(count: 2).padding(.leading, CGFloat(depth) * indentation)
         case .empty(_, let depth): note("files.folder.empty", depth: depth)
         case .failed(_, let depth):
             HStack {
                 Text("files.folder.failed").font(.subheadline).foregroundStyle(Color.yakMuted)
-                Button("files.retry") { Task { await model.retry() } }
-                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-                    .accessibilityIdentifier("files.folder.retry")
+                Button {
+                    Task { await model.retry() }
+                } label: {
+                    Text("files.retry").font(.subheadline.weight(.semibold)).frame(minHeight: 44).contentShape(.rect)
+                }
+                .accessibilityIdentifier("files.folder.retry")
             }
             .padding(.leading, CGFloat(depth) * indentation + 16).padding(.trailing, 16)
         case .notLoadedOffline(_, let depth): note("files.folder.offline", depth: depth)

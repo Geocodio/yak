@@ -31,7 +31,7 @@ struct FileViewer: View {
         switch document.snapshot.phase {
         case .loading(let isSlow):
             VStack(spacing: 12) {
-                SkeletonRows(count: 12)
+                FileSkeletonRows(count: 12)
                 if isSlow {
                     Text("files.slow").font(.body).foregroundStyle(Color.yakMuted)
                     Button("files.retry") { Task { await document.reload() } }.frame(minHeight: 44)
