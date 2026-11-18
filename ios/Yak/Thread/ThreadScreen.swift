@@ -25,8 +25,6 @@ struct ThreadScreen: View {
     @State private var isAddSubThreadOpen = false
     @State private var isShareOpen = false
     @State private var slots = PaneSlots()
-    /// The pane the title returns to when it leaves the Overview.
-    @State private var paneBeforeOverview: PaneID = .chat
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -118,7 +116,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(
                             title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
-                            action: thread.panes.contains(.overview) ? { toggleOverview(focused) } : nil)
+                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
                     }
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
@@ -137,7 +135,6 @@ struct ThreadScreen: View {
                 ShareSheet(session: session, threadID: threadID) { await model?.engine?.refreshShow() }
             }
             .overlay(alignment: .top) { copiedToast }
-            .background { shortcuts(focused, panes: thread.panes) }
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
@@ -152,19 +149,6 @@ struct ThreadScreen: View {
     private func stripPriorities(_ thread: ThreadModel) -> [PaneID: Int] {
         guard let plan = scene.plan else { return [:] }
         return PaneLayoutRules.stripPriorities(available: thread.panes, state: scene.paneState, plan: plan)
-    }
-
-    /// The title and Command I open the Overview; from the Overview they return to the pane before it. Where the
-    /// Overview is a side panel the rules toggle the panel.
-    private func toggleOverview(_ focused: Binding<PaneID>) {
-        if scene.plan?.overviewIsPanel == true {
-            scene.select(.overview)
-        } else if focused.wrappedValue == .overview {
-            focused.wrappedValue = paneBeforeOverview
-        } else {
-            paneBeforeOverview = focused.wrappedValue
-            focused.wrappedValue = .overview
-        }
     }
 
     /// The focused pane, and a pick that goes through the layout rules.
@@ -253,24 +237,6 @@ struct ThreadScreen: View {
         if copiedLink > 0 {
             CopiedToast().id(copiedLink).padding(.top, 8)
         }
-    }
-
-    /// Command 1 focuses Chat, Command 2 Preview when the thread has one; Command I and Command 5 open the Overview.
-    private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
-        ZStack {
-            Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
-            if panes.contains(.preview) {
-                Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
-            }
-            if panes.contains(.overview) {
-                Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)
-                Button("pane.overview") {
-                    if focused.wrappedValue != .overview { paneBeforeOverview = focused.wrappedValue }
-                    focused.wrappedValue = .overview
-                }.yakShortcut(.focusOverview)
-            }
-        }
-        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 }
 

@@ -14,7 +14,6 @@ struct InstanceShell: View {
     @State private var drawerModel: DrawerModel?
     /// The stored copy of the instance, refreshed once `me` has landed.
     @State private var storedInstance: Instance?
-    @State private var showsAccount = false
     @State private var showsSwitcher = false
     /// The tasks area, when it is open in place of the thread screen.
     @State private var tasksRoute: TasksRoute?
@@ -47,7 +46,7 @@ struct InstanceShell: View {
                 if let id = TestMode.taskToOpen() { model.taskToOpen = id }
             #endif
         }
-        .onChange(of: showsAccount) { Task { await refreshStoredInstance() } }
+        .onChange(of: scene.isSettingsOpen) { Task { await refreshStoredInstance() } }
         .task(id: drawerModel.map(ObjectIdentifier.init)) { await drawerModel?.run() }
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
@@ -59,9 +58,9 @@ struct InstanceShell: View {
         .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .onChange(of: model.push?.pending, initial: true) { _, pending in showPending(pending) }
-        .sheet(isPresented: $showsAccount) {
+        .sheet(isPresented: showsAccount) {
             if let push = model.push {
-                SettingsScreen(app: model, push: push, active: instance, onClose: { showsAccount = false })
+                SettingsScreen(app: model, push: push, active: instance, onClose: { scene.isSettingsOpen = false })
                     .linkPairingStatus(model, sheetDepth: 1)
                     .countsAsOpenSheet(model)
                     .presentationBackground(Color(.systemGroupedBackground))
@@ -91,7 +90,10 @@ struct InstanceShell: View {
         .sheet(isPresented: isBrowsing) {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
-        .background { shortcuts }
+        .focusedSceneValue(\.sceneCommands, sceneCommands)
+        .onChange(of: scenePhase, initial: true) { if scenePhase == .active { model.sceneBecameActive(scene) } }
+        .onDisappear { model.sceneDisconnected(scene) }
+        .overlay(alignment: .bottom) { otherInstanceNotice }
     }
 
     /// A push tap that needs a screen of its own: the connect flow or the browser.
@@ -138,7 +140,7 @@ struct InstanceShell: View {
     private var drawer: some View {
         DrawerView(
             model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
-            openAccount: { showsAccount = true }, openSwitcher: { showsSwitcher = true },
+            openAccount: { scene.isSettingsOpen = true }, openSwitcher: { showsSwitcher = true },
             retry: { Task { await retryList() } }, openTasksRoute: openTasks)
     }
 
@@ -165,9 +167,12 @@ struct InstanceShell: View {
                 isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
             )
         } else {
-            ThreadPlaceholder(
-                title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
-                openDrawer: { scene.setDrawerOpen(true) })
+            if isCompactWidth {
+                ThreadPlaceholder(
+                    title: nil, isNewThread: false, showsThreadsButton: true, openDrawer: { scene.setDrawerOpen(true) })
+            } else {
+                NoThreadView { scene.openNewThread(repo: nil, text: nil) }
+            }
         }
     }
 
@@ -196,14 +201,35 @@ struct InstanceShell: View {
         }
     }
 
-    /// Command N, Command K (the drawer's search field) and Command backslash.
-    private var shortcuts: some View {
-        VStack {
-            Button("shell.newThread") { scene.openNewThread(repo: nil, text: nil) }.yakShortcut(.newThread)
-            Button("shell.threads") { scene.requestSearchFocus() }.yakShortcut(.searchThreads)
-            Button("shell.threads") { scene.setDrawerOpen(!scene.state.isDrawerOpen) }.yakShortcut(.toggleSidebar)
+    private var showsAccount: Binding<Bool> {
+        Binding(get: { scene.isSettingsOpen }, set: { scene.isSettingsOpen = $0 })
+    }
+
+    /// The menu commands of this window: Command N, K, backslash, 1 to 5, I and comma.
+    private var sceneCommands: SceneCommands {
+        SceneCommands(
+            availablePanes: scene.plan?.available ?? [],
+            focusPane: { scene.select($0) },
+            searchThreads: { scene.requestSearchFocus() },
+            newThread: { scene.openNewThread(repo: nil, text: nil) },
+            toggleSidebar: { scene.setDrawerOpen(!scene.state.isDrawerOpen) },
+            overview: { scene.toggleOverview() },
+            settings: { scene.isSettingsOpen = true })
+    }
+
+    /// A window that was asked for a thread of another instance says so for a few seconds.
+    @ViewBuilder private var otherInstanceNotice: some View {
+        if scene.showsOtherInstanceNotice {
+            Text("window.otherInstance").font(.footnote.weight(.medium)).multilineTextAlignment(.center)
+                .padding(12).frame(maxWidth: 420)
+                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                .padding(.bottom, 72)
+                .task {
+                    do { try await Task.sleep(for: .seconds(6)) } catch { return }
+                    scene.dismissOtherInstanceNotice()
+                }
+                .accessibilityIdentifier("window.otherInstance")
         }
-        .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }
 
     private var isConnecting: Binding<Bool> {
