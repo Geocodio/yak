@@ -9,7 +9,7 @@ use App\Models\YakTask;
 
 /**
  * A thread with one finished run whose steps are Bash calls with their results. The steps get the entry
- * ids (event sequences) 2, 4, 6 and so on; the result of each follows it.
+ * sequence numbers 2, 4, 6 and so on; the result of each follows it.
  *
  * @param  list<string>  $commands
  * @param  array<int, ?string>  $outputs  the result text by step index, null for a step still running

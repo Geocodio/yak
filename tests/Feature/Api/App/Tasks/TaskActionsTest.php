@@ -129,7 +129,7 @@ it('refuses to cancel a finished task', function () {
 });
 
 describe('rerun review', function () {
-    function reviewTask(User $user, array $attributes = []): YakTask
+    function appReviewTask(User $user, array $attributes = []): YakTask
     {
         return actionTask($user, $attributes + ['mode' => TaskMode::Review, 'status' => TaskStatus::Success, 'context' => json_encode(['pr_number' => 41])]);
     }
@@ -143,7 +143,7 @@ describe('rerun review', function () {
                 'user' => ['login' => 'test-person'], 'title' => 'Upgrade the payments SDK', 'body' => 'Body',
             ]),
         ]);
-        $task = reviewTask($this->user);
+        $task = appReviewTask($this->user);
 
         $response = $this->postJson(appTaskPath($task, '/rerun-review'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
 
@@ -154,9 +154,9 @@ describe('rerun review', function () {
 
     it('refuses a task that is not a review, a queued review and an unknown pull request', function () {
         $this->postJson(appTaskPath(actionTask($this->user), '/rerun-review'), [], $this->headers)->assertStatus(409)->assertJsonPath('error', 'not_a_review');
-        $this->postJson(appTaskPath(reviewTask($this->user, ['public_id' => 'q2w3e4rt', 'status' => TaskStatus::Pending]), '/rerun-review'), [], $this->headers)
+        $this->postJson(appTaskPath(appReviewTask($this->user, ['public_id' => 'q2w3e4rt', 'status' => TaskStatus::Pending]), '/rerun-review'), [], $this->headers)
             ->assertStatus(409)->assertJsonPath('error', 'review_already_queued');
-        $this->postJson(appTaskPath(reviewTask($this->user, ['public_id' => 'z8x7c6vb', 'context' => json_encode([])]), '/rerun-review'), [], $this->headers)
+        $this->postJson(appTaskPath(appReviewTask($this->user, ['public_id' => 'z8x7c6vb', 'context' => json_encode([])]), '/rerun-review'), [], $this->headers)
             ->assertStatus(409)->assertJsonPath('error', 'pull_request_unknown');
 
         Queue::assertNothingPushed();
@@ -168,7 +168,7 @@ describe('rerun review', function () {
             'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String()]),
             '*' => Http::response('boom', 500),
         ]);
-        $task = reviewTask($this->user);
+        $task = appReviewTask($this->user);
 
         $this->postJson(appTaskPath($task, '/rerun-review'), [], $this->headers)->assertStatus(503)->assertJsonPath('error', 'github_unavailable');
 
