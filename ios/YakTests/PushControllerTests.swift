@@ -117,7 +117,17 @@ private func delivered(_ identifier: String, instance: String) throws -> Deliver
         await rig.registrar.setToken(String(repeating: "0123456789abcdef", count: 4), kind: .alert)
         await rig.registrar.setToken(String(repeating: "fedcba9876543210", count: 4), kind: .liveActivityStart)
         let recordFile = "instances/\(rig.home.id.uuidString)/push-registration.json"
-        #expect(await eventually { await rig.transport.routes().filter { $0.hasPrefix("PUT") }.count == 4 })
+        // Each instance also sends its activity set (a PUT live-activities), so the wait names the token requests and
+        // the registered status of both instances rather than a count of PUTs.
+        #expect(
+            await eventually {
+                let tokenRoutes = await rig.transport.routes().filter { $0.hasPrefix("PUT push-tokens") }
+                return tokenRoutes.sorted() == [
+                    "PUT push-tokens/alert", "PUT push-tokens/alert", "PUT push-tokens/live_activity_start",
+                    "PUT push-tokens/live_activity_start",
+                ] && rig.controller.statuses[rig.home.id] == .registered
+                    && rig.controller.statuses[rig.other.id] == .registered
+            })
         await rig.controller.instanceWillBeRemoved(rig.home)
         let sentBeforeUnpair = await rig.transport.recorded.filter { $0.route.hasPrefix("DELETE") }
         #expect(

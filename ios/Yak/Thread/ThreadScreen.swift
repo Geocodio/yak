@@ -30,6 +30,7 @@ struct ThreadScreen: View {
     /// The width of the thread screen, which decides between the Overview pane and the side panel.
     @State private var availableWidth: Double = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -42,6 +43,19 @@ struct ThreadScreen: View {
     }
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
+    /// Plain http appears only against the stub of test mode.
+    private static var allowsInsecure: Bool {
+        #if DEBUG
+            TestMode.current() != nil
+        #else
+            false
+        #endif
+    }
+
+    private var handoffURL: URL? {
+        HandoffLink.webURL(instance: instanceURL, threadID: threadID, allowsInsecure: Self.allowsInsecure)
+    }
+
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
 
     private struct Opening: Hashable {
@@ -62,6 +76,11 @@ struct ThreadScreen: View {
                 }
             }
         }
+        .threadHandoff(
+            webURL: handoffURL,
+            isActive: ThreadHandoff.isActive(
+                webURL: handoffURL, isVisible: isVisible, isLocked: system.appLock.isLocked)
+        )
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {
@@ -72,7 +91,9 @@ struct ThreadScreen: View {
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
         // A `/clear` starts a new thread; the window follows it.
         .onChange(of: model?.replacementThreadID) { _, replacement in
-            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+            if let replacement, let sentFrom = model?.threadID {
+                scene.openReplacement(replacement, sentFrom: sentFrom, isCompactWidth: isCompactWidth)
+            }
         }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
@@ -294,12 +315,19 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat, Command 2 Preview when the thread has one; Command I and Command 5 open the Overview.
+    /// Command 1 focuses Chat, Command 2 Preview, Command 3 Files and Command 4 Terminal when the thread has them;
+    /// Command I and Command 5 open the Overview.
     private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
         ZStack {
             Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
             if panes.contains(.preview) {
                 Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+            if panes.contains(.files) {
+                Button(AppShortcut.focusFiles.title) { focused.wrappedValue = .files }.yakShortcut(.focusFiles)
+            }
+            if panes.contains(.terminal) {
+                Button(AppShortcut.focusTerminal.title) { focused.wrappedValue = .terminal }.yakShortcut(.focusTerminal)
             }
             if panes.contains(.overview) {
                 Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)

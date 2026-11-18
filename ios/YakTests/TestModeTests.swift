@@ -28,8 +28,7 @@ import YakKit
     }
 
     @MainActor private func waitUntil(_ condition: () -> Bool) async throws {
-        for _ in 0..<300 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(condition())
+        #expect(await TestTimeScale.poll(condition))
     }
 }
 

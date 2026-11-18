@@ -2,6 +2,7 @@
     import Foundation
     import os
     import SwiftUI
+    import CoreSpotlight
     import UIKit
     import YakKit
 
@@ -61,11 +62,16 @@
         @MainActor func make(version: String, system: String) -> (model: AppModel, parts: AppParts) {
             let lockable = LockableTokenStore()
             let defaults = MemoryDefaults()
+            let options = TestSystemOptions.current()
+            if options.appLockOn { defaults.set(Data("true".utf8), forKey: PrivacySettings.appLockKey) }
             let instances = InstanceStore(
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
+            let faults = DebugFaultSwitch()
             let environment: @Sendable () -> SessionEnvironment = {
-                .app(version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true)
+                .app(
+                    version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true,
+                    faults: faults)
             }
             QuickActions.normalizeAddress = Self.normalize
             let sharedEnvironment = environment()
@@ -78,7 +84,19 @@
                 storage: nil, isTestMode: true,
                 context: AppPartsContext(
                     instances: instances, tokens: lockable, makeEnvironment: environment, defaults: defaults,
-                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize))
+                    permission: doubles.permission, center: doubles.center, normalizeAddress: Self.normalize,
+                    faults: faults, authenticator: TestDeviceOwnerAuthenticator(options: options),
+                    appLockBackgroundLimit: options.appLockLimit ?? AppLockPolicy.backgroundLimit,
+                    coversWhenActive: options.coverWhenActive,
+                    buildKind: TestBuildKind(value: options.buildKind),
+                    spotlightWriter: options.spotlightFailing ? FailingSpotlightWriter() : CoreSpotlightWriter(),
+                    logs: options.log.map { TestLogSource(mode: $0) } ?? LogReader()))
+            // A run starts with an empty index, so runs do not leak into each other.
+            Task {
+                do { try await CoreSpotlightWriter.makeIndex().deleteAllSearchableItems() } catch {
+                    Logger(subsystem: "Yak", category: "TestMode").error("index reset failed")
+                }
+            }
             doubles.permission.controller = parts.push
             let push = parts.push
             let model = AppModel(
@@ -121,6 +139,7 @@
                 network: NetworkMonitor(poll: { await Self.stubIsOnline(at: seed.instance) }),
                 observers: parts.observers, push: parts.push, widgets: parts.widgets)
             model.skipsWebSession = skipsWebSession
+            parts.system.modelBox.model = model
             return (model, parts)
         }
 

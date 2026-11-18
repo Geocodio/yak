@@ -25,6 +25,8 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
     private var contentValue = "<?php\nclass Importer {}\n"
     private var restoreCount = 0
     var canEdit = true
+    private var contentOffline = false
+    func setContentOffline(_ value: Bool) { lock.withLock { contentOffline = value } }
 
     var requests: [String] { lock.withLock { log } }
     func count(_ prefix: String) -> Int { requests.filter { $0.hasPrefix(prefix) }.count }
@@ -88,6 +90,7 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
                 throw URLError(.notConnectedToInternet)
             }
         } else if path.hasSuffix("/files/content") {
+            if lock.withLock({ contentOffline }) { throw URLError(.notConnectedToInternet) }
             body = file("aaaa", lock.withLock { contentValue })
         } else if path.hasSuffix("/files") {
             body = query.contains("path=src") ? Self.src : Self.tree
@@ -139,15 +142,11 @@ final class FilesTransport: HTTPTransport, @unchecked Sendable {
         thread = ThreadModel(threadID: "d0e515ef", session: session)
         await thread.start(initialTitle: nil)
         model = FilesEverythingModel(thread: thread, timings: .standard)
-        for _ in 0..<600 where thread.snapshot?.show == nil { try? await Task.sleep(for: .milliseconds(5)) }
+        _ = await TestTimeScale.poll { thread.snapshot?.show != nil }
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 
     func finish() async {

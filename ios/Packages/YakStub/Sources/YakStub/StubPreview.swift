@@ -7,6 +7,8 @@ enum StubPreviewPlay: String, CaseIterable, Sendable {
     case waking = "preview-waking"
     case waitingForSlot = "preview-waiting-for-slot"
     case failing = "preview-failing"
+    /// The failing preview of a thread whose Files pane works, so its card offers "Edit .yak/preview.yml".
+    case failingWithFiles = "preview-failing-files"
     case fixing = "preview-fixing"
     case noManifest = "preview-no-manifest"
     case setupEnded = "preview-setup-ended"
@@ -143,7 +145,7 @@ final class StubPreview: @unchecked Sendable {
             case .waking:
                 name = state.warmCount == 0 ? "waking" : state.warmCount < 3 ? "starting" : "ready"
             case .waitingForSlot: name = "waiting-for-slot"
-            case .failing: name = state.fixAsked ? "fixing" : "failing"
+            case .failing, .failingWithFiles: name = state.fixAsked ? "fixing" : "failing"
             case .fixing: name = "fixing"
             case .noManifest: name = "no-manifest"
             case .setupEnded:

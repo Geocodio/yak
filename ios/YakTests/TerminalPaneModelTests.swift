@@ -215,23 +215,15 @@ private final class Counter: @unchecked Sendable {
                     thread: "d0e515ef", sandboxState: state, connector: socketConnector, timings: .shortWaits)
             },
             makeSurface: { FakeSurface() })
-        for _ in 0..<600 where thread.snapshot?.show == nil { try? await Task.sleep(for: .milliseconds(5)) }
+        _ = await TestTimeScale.poll { thread.snapshot?.show != nil }
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 
     func eventuallyAsync(_ condition: () async -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if await condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return await condition()
+        await TestTimeScale.poll(condition)
     }
 
     func finish() async {
@@ -411,6 +403,12 @@ private final class Counter: @unchecked Sendable {
     #expect(!String(decoding: sent, as: UTF8.self).contains("]52;"))
 }
 
+/// The hardware keyboard's keys reach the emulator through the surface, so it must be able to take focus. That the
+/// app binds no bare or Control key is pinned by `AppShortcutTests.noBareOrControlKeyIsBoundOutsideASheet`.
+@MainActor @Test func theSurfaceCanTakeTheHardwareKeyboard() {
+    #expect(SwiftTermSurface().view.canBecomeFirstResponder)
+}
+
 /// Holds a `makeConnection` until the test releases it.
 private actor ConnectionGate {
     private var continuation: CheckedContinuation<Void, Never>?
@@ -436,7 +434,7 @@ private actor ConnectionGate {
         },
         makeSurface: { FakeSurface() })
     let starting = Task { await model.start() }
-    for _ in 0..<600 where !(await gate.isWaiting) { try? await Task.sleep(for: .milliseconds(5)) }
+    _ = await TestTimeScale.poll { await gate.isWaiting }
     await model.stop()
     await gate.release()
     await starting.value

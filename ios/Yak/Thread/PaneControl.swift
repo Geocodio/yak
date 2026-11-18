@@ -32,6 +32,11 @@ struct PaneMenuButton: View {
             .contentShape(.capsule)
         }
         .tint(.primary)
+        .popoverTip(PaneSlideTip(), arrowEdge: .bottom)
+        .onChange(of: panes.count, initial: true) {
+            PaneSlideTip.isEligible = GestureTips.eligibleForPaneSlide(usesMenuButton: true, paneCount: panes.count)
+        }
+        .onDisappear { PaneSlideTip.isEligible = false }
         .menuOrder(.fixed)
         .accessibilityLabel(Text("pane.menu"))
         .accessibilityValue(Text(PaneCatalog.descriptor(for: focused)?.name ?? ""))
@@ -39,7 +44,14 @@ struct PaneMenuButton: View {
     }
 
     private var picker: some View {
-        Picker(selection: $focused) {
+        Picker(
+            selection: Binding(
+                get: { focused },
+                set: {
+                    focused = $0
+                    PaneSlideTip.recordUse()
+                })
+        ) {
             ForEach(panes, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     Label(descriptor.name, systemImage: descriptor.symbol).tag(id)

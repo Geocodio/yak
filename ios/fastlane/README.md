@@ -39,14 +39,6 @@ Archive, upload to TestFlight and tag. Option notes: replaces the notes taken fr
 
 Rebuild the last released version so TestFlight keeps an unexpired build.
 
-### ios e2e
-
-```sh
-[bundle exec] fastlane ios e2e
-```
-
-Nightly journeys against a real local Yak: fastlane e2e device:"iPhone 18 Pro" only:testJourney1... keep_server:true skip_server_tests:true. No retry: a flaky journey is a bug. Keeps the server logs, the screenshots and the test summary in ios/build/e2e/evidence (after a clean token scan); the result bundle is deleted
-
 ### ios generate
 
 ```sh
