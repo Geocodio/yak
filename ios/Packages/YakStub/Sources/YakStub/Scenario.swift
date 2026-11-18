@@ -22,6 +22,8 @@ struct StubReply: Sendable {
     var delay: Duration = .zero
     /// The value of the `X-Yak-Protocol` response header.
     var protocolHeader = 1
+    /// Extra response headers (a byte range's `Content-Range`).
+    var headers: [String: String] = [:]
 }
 
 /// A scenario data file that cannot be read. Names the file and the feature that asked for it.

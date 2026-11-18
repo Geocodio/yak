@@ -166,6 +166,13 @@ struct EnterAddressView: View {
                 Text("address.waiting")
             }
             Text("address.waitingDetail").font(.body).foregroundStyle(Color.yakMuted)
+            #if DEBUG
+                // The nightly journeys approve through the web with this address; test mode only.
+                if TestMode.current() != nil, case .waitingForApproval(let url) = pairingModel.state {
+                    Text(verbatim: url.absoluteString).font(.caption2).foregroundStyle(Color.yakMuted)
+                        .accessibilityIdentifier("pairing.approvalURL")
+                }
+            #endif
             Button("address.cancel") { pairingModel.cancel() }.buttonStyle(SecondaryButtonStyle())
         }
     }

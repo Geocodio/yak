@@ -70,7 +70,10 @@ enum StubFeatures {
         StubWidgets(),
         StubPush(),
         StubPreviewFeature(),
+        StubWalkthroughVideo(),
         StubChanges(),
+        StubTerminalFeature.shared,
+        StubFilesControl(),
         StubOverview(),
     ]
 }

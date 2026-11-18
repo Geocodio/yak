@@ -35,6 +35,15 @@ struct YakApp: App {
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
+        Task {
+            do { try await instances.persistMissingTints() } catch {
+                #if canImport(os)
+                    Logger(subsystem: "Yak", category: "Startup")
+                        .error(
+                            "Instance tints were not saved: \(String(describing: type(of: error)), privacy: .public)")
+                #endif
+            }
+        }
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         let uploads = storage.map {
             UploadSessions(

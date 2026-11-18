@@ -21,6 +21,8 @@ final class FilesModel {
     private(set) var loadedAt: Date?
     private(set) var successCount = 0
     private(set) var errorCount = 0
+    /// The path whose diff the person asked for from the Everything mode's viewer; the Files pane routes it.
+    var requestedDiffPath: String?
 
     @ObservationIgnored private var changes: ThreadChanges?
     @ObservationIgnored private var actions: PullRequestActions?

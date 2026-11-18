@@ -102,10 +102,22 @@
                     if let token = seed.token, let known = await instances.all().first {
                         try? lockable.setToken(token, for: known.id)
                     } else if let token = seed.token {
+                        // `-yakTestExtraInstances YES`: two more paired instances, added first so the seed stays active.
+                        if UserDefaults.standard.bool(forKey: "yakTestExtraInstances") {
+                            for (name, path) in [("Example staging", "second"), ("Side project", "third")] {
+                                do {
+                                    _ = try await instances.add(
+                                        url: seed.instance.appending(path: path), name: name, userName: "Test Person",
+                                        token: token)
+                                } catch {
+                                    preconditionFailure("test mode could not add an extra instance")
+                                }
+                            }
+                        }
                         do {
                             let added = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
-                                token: token)
+                                token: token, id: Self.keepsFiles() ? Self.keptInstanceID : nil)
                             await Self.deliverQuickAction(for: added)
                         } catch {
                             Logger(subsystem: "Yak", category: "TestMode").error(

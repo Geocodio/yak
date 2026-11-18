@@ -65,6 +65,9 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
+    /// The sandbox restore the Terminal and Files panes share, so two taps in two panes send one request.
+    private(set) var restore: SandboxRestore = SandboxRestore { .failed(.offline) }
+
     /// Told each time the thread starts or stops counting as seen, so a push for it can stay quiet.
     private let onVisibilityChange: @MainActor (Bool) -> Void
     /// Told each snapshot, so a running turn can start a Live Activity.
@@ -85,6 +88,10 @@ final class ThreadModel {
             ?? ComposerModel(
                 key: .thread(threadID),
                 backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        restore = SandboxRestore { [weak self] in
+            guard let engine = await self?.engine else { return .failed(.offline) }
+            return await engine.retryRestore()
+        }
         markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
             self?.markdownChanged(key)
         }

@@ -5,7 +5,8 @@
 
     /// The files of test mode: background uploads need real files, so they live in a folder under the temporary
     /// directory. `-yakTestKeepFiles <run id>` keeps the folder, the instance list and the upload records across a
-    /// relaunch; the UI test passes the same run id on both launches. Without it every launch starts empty.
+    /// relaunch; the UI test passes the same run id on both launches. `fresh` empties the shared `workspace` run
+    /// first and `again` reads what the last launch left. Without the flag every launch starts empty.
     extension TestMode {
         struct KeptStores {
             let files: DiskFileStore
@@ -14,11 +15,16 @@
         }
 
         static func keptStores() -> KeptStores {
-            let keep = value("yakTestKeepFiles").map { String($0.filter { $0.isLetter || $0.isNumber || $0 == "-" }) }
+            let requested = value("yakTestKeepFiles").map {
+                String($0.filter { $0.isLetter || $0.isNumber || $0 == "-" })
+            }
+            let startsFresh = requested == "fresh"
+            let keep = requested.map { ["fresh", "again"].contains($0) ? "workspace" : $0 }
             let runID = keep.flatMap { $0.isEmpty ? nil : $0 } ?? UUID().uuidString
             let folder = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("yak-test/\(runID)")
             let marker = folder.appendingPathComponent("run-started")
             let manager = FileManager.default
+            if startsFresh { try? manager.removeItem(at: folder) }
             if !manager.fileExists(atPath: marker.path) {
                 try? manager.removeItem(at: folder)
                 try? manager.createDirectory(at: folder, withIntermediateDirectories: true)

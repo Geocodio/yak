@@ -67,33 +67,4 @@ import XCTest
         XCTAssertTrue(element(endingWith: ".attachment.42").waitForExistence(timeout: Wait.appear))
         try shootThread("attachments-message")
     }
-
-    /// A screenshot of a screen with a thread, then the audit without the findings about text in the navigation bar,
-    /// whose size the system caps. The Dynamic Type and clipped-text checks run last: they change the text size,
-    /// which lays the conversation out again, so every other check reads the screen as it was shot.
-    private func shootThread(_ name: String) throws {
-        try shoot(name, audits: false)
-        let keyboard = keyboardFrame()
-        let auditBars = AuditRules.Bars(app)
-        let judge: (XCUIAccessibilityAuditIssue) -> Bool = { [app, auditBars] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
-            }
-            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
-            if issue.auditType == .contrast, let element = issue.element, let keyboard,
-                keyboard.intersects(element.frame)
-            {
-                return true
-            }
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            XCTFail("audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element")")
-            return true
-        }
-        let resizing: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
-        try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(resizing), judge)
-        try app.performAccessibilityAudit(for: resizing, judge)
-    }
 }
