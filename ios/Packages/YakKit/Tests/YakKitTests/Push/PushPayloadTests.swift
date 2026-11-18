@@ -35,6 +35,7 @@ private func accountPayload(path: String) throws -> PushPayload {
 
 @Test(arguments: [
     "//evil.example.com/x", "https://evil.example.com", "/\\evil", "/a@evil.example.com", "settings",
+    "/", "/settings", "/settings/claude-accounts/", "/settings/claude-accounts?x=1", "/tasks/abc", "/logout",
     String(repeating: "a", count: 600),
 ])
 func anUnsafePathOpensTheInstanceInstead(path: String) throws {
@@ -108,20 +109,23 @@ func aBadIdOpensTheInstance(id: String) throws {
     }
 }
 
-@Test func aLinkByTheServersAddressIsRewritten() throws {
+@Test func aLinkIsRewrittenOnlyByAPairedAddress() throws {
     var paired = home
     paired.canonicalURL = URL(string: "https://alias.example.com")
-    let link = URL(string: "yak://thread?instance=https%3A%2F%2Falias.example.com&id=d0e515ef")!
-    let rewritten = InstanceMatch.pairedLink(link, instances: [paired])
+    let spelled = URL(string: "yak://thread?instance=HTTPS%3A%2F%2FYak.Example.com%2F&id=d0e515ef")!
+    let rewritten = InstanceMatch.pairedLink(spelled, instances: [paired])
     let items = URLComponents(url: rewritten, resolvingAgainstBaseURL: false)?.queryItems ?? []
     #expect(items.first { $0.name == "instance" }?.value == "https://yak.example.com")
     #expect(items.first { $0.name == "id" }?.value == "d0e515ef")
     #expect(rewritten.scheme == "yak")
 
+    // The server's own claim of an address (`canonicalURL`) is not an address the app verified, so a link from
+    // outside the app that names it stays as it is.
+    let alias = URL(string: "yak://thread?instance=https%3A%2F%2Falias.example.com&id=d0e515ef")!
     let unknown = URL(string: "yak://thread?instance=https%3A%2F%2Fnobody.example.com&id=d0e515ef")!
     let pair = URL(string: "yak://pair?code=abc")!
-    let web = URL(string: "https://alias.example.com/threads/d0e515ef")!
-    for unchanged in [unknown, pair, web] {
+    let web = URL(string: "https://yak.example.com/threads/d0e515ef")!
+    for unchanged in [alias, unknown, pair, web] {
         #expect(InstanceMatch.pairedLink(unchanged, instances: [paired]) == unchanged)
     }
 }

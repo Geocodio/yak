@@ -61,10 +61,21 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
+    /// Told each time the thread starts or stops counting as seen, so a push for it can stay quiet.
+    private let onVisibilityChange: @MainActor (Bool) -> Void
+    /// Told each snapshot, so a running turn can start a Live Activity.
+    private let onSnapshot: @MainActor (ConversationSnapshot) -> Void
+
     /// `composer` is the one an earlier model of the same thread made, so a thread never has two.
-    init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
+    init(
+        threadID: String, session: InstanceSession, composer: ComposerModel? = nil,
+        onVisibilityChange: @escaping @MainActor (Bool) -> Void = { _ in },
+        onSnapshot: @escaping @MainActor (ConversationSnapshot) -> Void = { _ in }
+    ) {
         self.threadID = threadID
         self.session = session
+        self.onVisibilityChange = onVisibilityChange
+        self.onSnapshot = onSnapshot
         self.composer =
             composer
             ?? ComposerModel(
@@ -108,6 +119,7 @@ final class ThreadModel {
     func stop() async {
         guard isStarted else { return }
         isStarted = false
+        onVisibilityChange(false)
         await files.stop()
         await composer.flush()
         await close()
@@ -118,6 +130,7 @@ final class ThreadModel {
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible
+        onVisibilityChange(visible)
         await engine?.setVisible(visible)
     }
 
@@ -153,6 +166,7 @@ final class ThreadModel {
                 await self.apply(next)
                 // The thread can close while `apply` waits; the composer then keeps what it has.
                 guard !Task.isCancelled else { return }
+                self.onSnapshot(next)
                 self.composer.update(snapshot: next)
             }
         }
