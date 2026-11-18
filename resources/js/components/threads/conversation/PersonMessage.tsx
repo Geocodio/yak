@@ -69,7 +69,7 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                     <Prose html={message.bodyHtml} className={cn('mt-1', isLong && !isExpanded && 'max-sm:line-clamp-5')} />
                 </MessageWithAttachments>
                 {isLong && !isExpanded && (
-                    <button type="button" onClick={() => setIsExpanded(true)} className="mt-1 inline-flex h-8 cursor-pointer items-center text-[12.5px] text-accent-text hover:underline sm:hidden" data-testid="thread-message-expand">
+                    <button type="button" onClick={() => setIsExpanded(true)} className="-my-1.5 inline-flex h-11 cursor-pointer items-center text-[12.5px] text-accent-text hover:underline sm:hidden" data-testid="thread-message-expand">
                         {isRequest ? 'Show the full request' : 'Show the full message'}
                     </button>
                 )}

@@ -1,3 +1,4 @@
+import { threadIdOfUrl } from '@/components/shell/threadUrl';
 import { usePage } from '@inertiajs/react';
 import { ToastHost, useBrandFavicon } from '@geocodio/console-ui';
 import type { ReactNode } from 'react';
@@ -13,7 +14,10 @@ import { YAK_ACTIVITY_PIP, YAK_BRAND_COLOR, YAK_MARK } from '@/lib/brand';
 import type { SharedProps } from '@/types/shared';
 
 export function AppLayout({ children }: { children: ReactNode }) {
-    const { activeTaskCount } = usePage<SharedProps>().props.nav;
+    const { props, url } = usePage<SharedProps>();
+    const { activeTaskCount } = props.nav;
+    // A thread page has no tab bar below `sm`; its composer and tools row sit at the bottom instead.
+    const toastOffset = threadIdOfUrl(url) !== null ? 'max-sm:bottom-[calc(9rem+env(safe-area-inset-bottom))] sm:max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]' : 'max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]';
 
     // The tab favicon wears a pip while tasks are running, so a backgrounded
     // Yak tab still says whether anything is in flight.
@@ -35,7 +39,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <FlashToasts />
             <AppCommandPalette />
             <NewThreadDialogHost />
-            <ToastHost className="max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]" />
+            <ToastHost className={toastOffset} />
         </div>
     );
 }

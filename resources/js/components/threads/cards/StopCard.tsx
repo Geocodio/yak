@@ -1,6 +1,6 @@
 import { Button } from '@geocodio/console-ui';
 import { OctagonX, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { retry } from '@/routes/threads';
 import type { ThreadActions, ThreadStopped } from '@/types/threads';
@@ -15,8 +15,8 @@ const TITLES: Record<ThreadStopped['kind'], string> = {
 /** Why the work stopped, in plain words, with Retry, Move to another repository and the technical detail one click away. */
 export function StopCard({ threadId, stopped, actions, onMove, onShowLog, title }: { title?: string; threadId: string; stopped: ThreadStopped; actions: ThreadActions; onMove: () => void; onShowLog: (() => void) | null }) {
     const action = useRouterAction();
-    const [error, setError] = useState<string | null>(null);
-    const [isDetailShown, setIsDetailShown] = useState(false);
+    const [error, setError] = useCardDraft<string | null>(cardDraftKey(threadId, 'stopped', 'error'), null);
+    const [isDetailShown, setIsDetailShown] = useCardDraft(cardDraftKey(threadId, 'stopped', 'detail'), false);
     const isCalm = stopped.kind === 'yak_retrying' || stopped.kind === 'needs_you';
 
     const retryNow = () =>

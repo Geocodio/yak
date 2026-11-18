@@ -25,10 +25,9 @@ function PrefetchingTabLink(props: TabBarLinkProps) {
 export function MobileTabBar() {
     const { props, url } = usePage<SharedProps>();
 
-    // A thread page owns the whole phone screen; the header's navigation button opens the drawer with the thread list.
-    if (threadIdOfUrl(url) !== null) {
-        return null;
-    }
+    // A thread page owns the whole phone screen below `sm`; the header's navigation button opens the drawer with the
+    // thread list and the sections. Wider screens keep the bar.
+    const isThreadPage = threadIdOfUrl(url) !== null;
 
     const slots = [
         { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: true, badge: props.nav.activeTaskCount },
@@ -55,7 +54,7 @@ export function MobileTabBar() {
 
     return (
         <TabBar
-            className="lg:hidden"
+            className={isThreadPage ? 'max-sm:hidden lg:hidden' : 'lg:hidden'}
             LinkComponent={PrefetchingTabLink}
             items={items}
             action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: () => openNewThread(), testId: 'tab-new-task' }}

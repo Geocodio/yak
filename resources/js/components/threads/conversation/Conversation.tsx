@@ -90,7 +90,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
-    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
+    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
     // The person's own message always comes into view, also after they scrolled up.
@@ -207,7 +207,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 />
                 {notice && <ThreadNotice notice={notice} threadId={threadId} repo={repo} branch={branch} readonly={readonly} />}
             </div>
-            {footer}
+            <div ref={footerRef}>{footer}</div>
             {hasNew && (
                 <button type="button" onClick={jumpToNewest} data-testid="thread-jump-to-newest" className="sticky bottom-1 mx-auto mt-3 flex w-fit cursor-pointer items-center gap-1.5 rounded-pill border border-hair bg-panel px-3 py-1.5 text-[12px] font-medium text-body shadow-card">
                     <ArrowDown size={13} aria-hidden />

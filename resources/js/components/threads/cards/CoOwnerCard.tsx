@@ -7,6 +7,7 @@ export function CoOwnerCard({ threadId, coOwner, repoUrl, onOpenChanges }: { thr
     return (
         <CoOwnerPanel
             variant="card"
+            draftThreadId={threadId}
             coOwner={coOwner}
             repoUrl={repoUrl}
             onOpenChanges={onOpenChanges}

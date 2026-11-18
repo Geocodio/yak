@@ -58,7 +58,7 @@ final class ThreadPageData
      *     },
      *     canDrive: bool,
      *     diffTotals: ?array{additions: int, deletions: int, filesCount: int},
-     *     pullRequest: ?array{number: int, url: string},
+     *     pullRequest: ?array{number: int, url: string, state: 'open'|'merged'|'closed'},
      *     brief: ?array{text: string, kind: string, model: ?string, effort: ?string, startedAt: string, branch: ?string},
      *     publishWarning: bool,
      *     teleport: array{state: 'none'|'waiting'|'teleporting'|'on_device', ownerDevice: ?array{id: int, name: string}, ownerName: ?string, since: ?string, viewerIsOwner: bool, command: string, link: string, hasDevices: bool, runningTurn: bool, requestedRunningTurn: ?string, openTeleportState: ?string, failure: ?array{code: string, message: string}, heldEvents: list<array{id: int, kind: string, title: string, summary: string, pullRequestUrl: ?string, createdAt: string, isTinted: bool}>, environmentNote: ?string, environmentSwitches: list<array{from: string, to: string, at: string}>, environmentSwitch: ?array{from: string, to: string, at: string}, accountName: ?string, continuedFromThreadId: ?string, continuedFromTitle: ?string, canTeleport: bool},
@@ -152,13 +152,13 @@ final class ThreadPageData
     }
 
     /**
-     * @return ?array{number: int, url: string}
+     * @return ?array{number: int, url: string, state: 'open'|'merged'|'closed'}
      */
     public static function pullRequest(Thread $thread): ?array
     {
         foreach ($thread->repositories as $repository) {
             if ($repository->role !== RepositoryRole::Context && $repository->pull_request_url !== null && $repository->pull_request_number !== null) {
-                return ['number' => $repository->pull_request_number, 'url' => $repository->pull_request_url];
+                return ['number' => $repository->pull_request_number, 'url' => $repository->pull_request_url, 'state' => in_array($repository->pull_request_state, ['merged', 'closed'], true) ? $repository->pull_request_state : 'open'];
             }
         }
 

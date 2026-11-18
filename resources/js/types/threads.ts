@@ -196,7 +196,7 @@ export type ThreadPageData = {
     thread: ThreadData;
     canDrive: boolean;
     diffTotals: { additions: number; deletions: number; filesCount: number } | null;
-    pullRequest: { number: number; url: string } | null;
+    pullRequest: { number: number; url: string; state: 'open' | 'merged' | 'closed' } | null;
     brief: { text: string; kind: string; model: string | null; startedAt: string; branch: string | null } | null;
     teleport: TeleportData;
     publishWarning: boolean;

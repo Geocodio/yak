@@ -15,7 +15,7 @@ export function ThreadPhoneTabs({ registeredDockIds, active, isWorking, changesC
                     aria-selected={tab.id === active}
                     data-testid={`thread-phone-tab-${tab.id}`}
                     onClick={() => onSelect(tab.id)}
-                    className={cn('-mb-px flex h-[42px] min-w-fit flex-1 cursor-pointer items-center justify-center gap-1.5 px-1 whitespace-nowrap border-b-2 text-[13.5px]', tab.id === active ? 'border-accent font-medium text-body' : 'border-transparent text-muted')}
+                    className={cn('-mb-px flex h-11 min-w-fit flex-1 cursor-pointer items-center justify-center gap-1.5 px-1 whitespace-nowrap border-b-2 text-[13.5px]', tab.id === active ? 'border-accent font-medium text-body' : 'border-transparent text-muted')}
                 >
                     {tab.label}
                     {tab.id === 'chat' && isWorking && <span className="size-1.5 animate-pulse rounded-pill bg-info motion-reduce:animate-none" data-testid="thread-phone-tab-chat-dot" aria-label="Claude is working" />}

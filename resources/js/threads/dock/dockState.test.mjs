@@ -6,7 +6,7 @@ const ids = (tabs) => tabs.map((tab) => tab.id);
 
 test('phone tabs list all five when preview, files and terminal are registered', () => {
     assert.deepEqual(ids(phoneTabs(['preview', 'files', 'terminal'])), ['chat', 'overview', 'preview', 'files', 'terminal']);
-    assert.deepEqual(phoneTabs(['terminal', 'files', 'preview']).map((tab) => tab.label), ['Chat', 'Preview', 'Files', 'Terminal', 'Overview']);
+    assert.deepEqual(phoneTabs(['terminal', 'files', 'preview']).map((tab) => tab.label), ['Chat', 'Overview', 'Preview', 'Files', 'Terminal']);
 });
 
 test('phone tabs hide panels that are not registered', () => {

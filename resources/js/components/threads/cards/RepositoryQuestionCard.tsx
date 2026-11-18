@@ -1,16 +1,23 @@
 import { router } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
 import { Check } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import { store } from '@/routes/threads/repository-answer';
 import type { RepositoryQuestion } from '@/types/threads';
 
 /** "Which repository is this for?": the option chips of the old clarification, and a Start button for the chosen one. */
 export function RepositoryQuestionCard({ threadId, question }: { threadId: string; question: RepositoryQuestion }) {
-    const [selected, setSelected] = useState<string | null>(question.selected);
-    useEffect(() => setSelected(question.selected), [question.selected]);
+    const [selected, setSelected] = useCardDraft<string | null>(cardDraftKey(threadId, 'repository_question', 'selected'), question.selected);
+    const syncedSelected = useRef(question.selected);
+    useEffect(() => {
+        if (syncedSelected.current !== question.selected) {
+            syncedSelected.current = question.selected;
+            setSelected(question.selected);
+        }
+    }, [question.selected, setSelected]);
     const [isStarting, setIsStarting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useCardDraft<string | null>(cardDraftKey(threadId, 'repository_question', 'error'), null);
 
     const start = () => {
         if (selected === null) {

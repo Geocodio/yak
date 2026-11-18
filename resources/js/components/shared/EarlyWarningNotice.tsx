@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Button, Combobox } from '@geocodio/console-ui';
 import { Check, TriangleAlert } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import type { EarlyWarningCandidate, EarlyWarningData, EarlyWarningError } from '@/types/coOwner';
 
 function joinNames(items: string[]): string {
@@ -19,6 +20,8 @@ export type EarlyWarningRoutes = { tag: string; decline: string };
 export type RenderCandidates = (props: { disabled: boolean; onPick: (candidate: EarlyWarningCandidate) => void }) => ReactNode;
 
 type NoticeProps = {
+    /** Identifies the thread so the pick and its error survive the card being moved on screen. */
+    draftThreadId?: string;
     warning: EarlyWarningData;
     routes: EarlyWarningRoutes;
     renderCandidates: RenderCandidates;
@@ -27,7 +30,7 @@ type NoticeProps = {
 };
 
 /** The early warning, with the requester's co-owner picker. */
-export function EarlyWarningNotice({ warning, routes, renderCandidates, variant = 'notice' }: NoticeProps) {
+export function EarlyWarningNotice({ warning, routes, renderCandidates, variant = 'notice', draftThreadId }: NoticeProps) {
     const areas = joinNames(warning.areas.map((area) => `${area.name} (${area.risk} risk)`));
     const isCard = variant === 'card';
     const content = (
@@ -36,7 +39,7 @@ export function EarlyWarningNotice({ warning, routes, renderCandidates, variant 
                 {!isCard && <b>On it. </b>}Heads up: this will likely touch <b>{areas}</b>, so it&apos;ll need a co-owner before I open a PR. Want to tag someone now?
                 Anyone with write access to {warning.repoName} can do it.
             </p>
-            {warning.canPick && <Picker warning={warning} routes={routes} renderCandidates={renderCandidates} />}
+            {warning.canPick && <Picker warning={warning} routes={routes} renderCandidates={renderCandidates} draftThreadId={draftThreadId} />}
             {warning.state === 'tagged' && warning.taggedName !== null && (
                 <Outcome>
                     {warning.taggedName} will be asked if the change is held. This is a guess based on the request, so it may not be needed.
@@ -72,11 +75,12 @@ function Outcome({ children }: { children: ReactNode }) {
     );
 }
 
-function Picker({ warning, routes, renderCandidates }: { warning: EarlyWarningData; routes: EarlyWarningRoutes; renderCandidates: RenderCandidates }) {
-    const [picked, setPicked] = useState<EarlyWarningCandidate | null>(null);
-    const [lastAction, setLastAction] = useState<'pick' | 'decline' | null>(null);
+function Picker({ warning, routes, renderCandidates, draftThreadId }: { warning: EarlyWarningData; routes: EarlyWarningRoutes; renderCandidates: RenderCandidates; draftThreadId?: string }) {
+    const draftKey = (field: string) => (draftThreadId === undefined ? undefined : cardDraftKey(draftThreadId, 'early_warning', field));
+    const [picked, setPicked] = useCardDraft<EarlyWarningCandidate | null>(draftKey('picked'), null);
+    const [lastAction, setLastAction] = useCardDraft<'pick' | 'decline' | null>(draftKey('lastAction'), null);
     const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<EarlyWarningError | null>(null);
+    const [error, setError] = useCardDraft<EarlyWarningError | null>(draftKey('error'), null);
 
     const send = (action: 'pick' | 'decline', url: string, data: Record<string, number>) => {
         setLastAction(action);

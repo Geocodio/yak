@@ -126,6 +126,26 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
         }
     };
 
+    const sendControls = (
+            <div className="flex shrink-0 gap-2 max-sm:pr-2">
+                {working && (
+                    <Button variant="secondary" className="h-7 max-sm:h-11" onClick={() => router.post(stop.url(thread.id), {}, { preserveScroll: true })} data-testid="thread-stop">
+                        Stop
+                    </Button>
+                )}
+                <Button
+                    variant="primary"
+                    className="h-7 max-sm:h-11"
+                    onClick={submit}
+                    pending={form.processing}
+                    disabled={disabled || empty}
+                    data-testid="thread-send"
+                >
+                    Send
+                </Button>
+            </div>
+    );
+
     return (
         <div className="shrink-0 border-t border-hair bg-app px-4 py-4 max-sm:px-3.5 max-sm:pt-2.5 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8" data-testid="thread-composer">
             <div className="mx-auto max-w-[820px]">
@@ -148,7 +168,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         inputRef={inputRef}
                         draft={draft}
                         rows={isPhone ? 1 : 2}
-                        wrapperClassName="max-sm:order-1 max-sm:min-w-32 max-sm:flex-1"
+                        wrapperClassName="max-sm:min-w-32 max-sm:flex-1"
                         placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : placeholder}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
@@ -159,16 +179,17 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         className="w-full resize-none border-0 shadow-none focus:ring-0 max-sm:min-h-11"
                         data-testid="thread-composer-input"
                     />
-                    <div className="max-sm:order-4 max-sm:basis-full">
+                    {isPhone && sendControls}
+                    <div className="max-sm:basis-full">
                         <DraftAttachments draft={draft} errors={errors} progress={null} />
                     </div>
                     {(errors.message || errors.model) && (
-                        <p role="alert" data-testid="thread-composer-error" className="px-3 pb-2 max-sm:order-4 max-sm:basis-full text-[12px] text-fail">
+                        <p role="alert" data-testid="thread-composer-error" className="px-3 pb-2 text-[12px] max-sm:basis-full text-fail">
                             {errors.message ?? errors.model}
                         </p>
                     )}
-                    <div className="flex items-center justify-between gap-3 border-t border-hair px-3 py-2 max-sm:contents">
-                        <div className={cn('flex min-w-0 items-center gap-3 max-sm:order-3 max-sm:basis-full max-sm:border-t max-sm:border-hair max-sm:px-3 max-sm:py-2', !showTools && 'max-sm:hidden')} data-testid="thread-composer-tools">
+                    <div className={cn('flex items-center justify-between gap-3 border-t border-hair px-3 py-2 max-sm:basis-full', isPhone && !showTools && 'hidden')} data-testid="thread-composer-tools-row">
+                        <div className="flex min-w-0 items-center gap-3 max-sm:flex-1 max-sm:flex-wrap max-sm:gap-x-1 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11" data-testid="thread-composer-tools">
                             {!disabled && onAddSubThread !== undefined && (
                                 <Menu
                                     trigger={<Plus size={14} aria-hidden />}
@@ -181,27 +202,11 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
                             <ContextRing composer={composer} model={form.data.model} />
-                            <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
+                            <span className="text-[11px] text-faint sm:truncate max-sm:basis-full" data-testid="thread-composer-hint">
                                 {hint}
                             </span>
                         </div>
-                        <div className="flex shrink-0 gap-2 max-sm:order-2 max-sm:pr-2">
-                            {working && (
-                                <Button variant="secondary" className="h-7 max-sm:h-11" onClick={() => router.post(stop.url(thread.id), {}, { preserveScroll: true })} data-testid="thread-stop">
-                                    Stop
-                                </Button>
-                            )}
-                            <Button
-                                variant="primary"
-                                className="h-7 max-sm:h-11"
-                                onClick={submit}
-                                pending={form.processing}
-                                disabled={disabled || empty}
-                                data-testid="thread-send"
-                            >
-                                Send
-                            </Button>
-                        </div>
+                        {!isPhone && sendControls}
                     </div>
                 </div>
             </div>

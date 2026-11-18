@@ -8,6 +8,7 @@ import { useMediaQuery } from '@/lib/useMediaQuery';
 import { StatusPill } from '@/components/threads/StatusPill';
 import { SourceLink } from '@/components/threads/header/SourceLink';
 import { threadStatus } from '@/threads/threadStatus';
+import { phoneStatusPill, type PhonePillTone } from '@/threads/phoneHeader';
 import { ThreadHeaderMeta } from '@/components/threads/header/ThreadHeaderMeta';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
@@ -36,6 +37,17 @@ type Props = {
     onMove: () => void;
     /** The label of the progress step that failed, if any; it gives the phone's stopped pill its reason. */
     failedStepLabel?: string | null;
+    /** A thread made from an old task shows as closed on a phone. */
+    isLegacy?: boolean;
+};
+
+const PILL_TONES: Record<PhonePillTone, string> = {
+    ok: 'bg-ok-soft text-ok',
+    warn: 'bg-warn-soft text-warn',
+    fail: 'bg-fail-soft text-fail',
+    info: 'bg-info-soft text-info',
+    brand: 'bg-brand-soft text-brand',
+    neutral: 'bg-panel-2 text-muted',
 };
 
 function copyBranchName(branch: string): void {
@@ -53,7 +65,7 @@ function copyThreadLink(threadId: string): void {
 }
 
 /** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
-export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onMove, failedStepLabel = null }: Props) {
+export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onMove, failedStepLabel = null, isLegacy = false }: Props) {
     const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions: threadActions, coOwner, stopped } = page;
     const [isSharing, setIsSharing] = useState(false);
     const [confirming, setConfirming] = useState<'close' | 'delete' | 'cancel' | 'requestReview' | null>(null);
@@ -84,18 +96,18 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
         [thread.id, thread.canShare, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
-    const status = threadStatus(notice, composer.state);
-    const phonePill: { label: string; tone: string } | null =
-        pullRequest !== null
-            ? { label: `#${pullRequest.number} Open`, tone: 'bg-ok-soft text-ok' }
-            : isHeldForCoOwner
-              ? { label: 'PR held for a co-owner', tone: 'bg-warn-soft text-warn' }
-              : status !== null
-                ? { label: status.label, tone: status.tone === 'fail' ? 'bg-fail-soft text-fail' : status.tone === 'warn' ? 'bg-warn-soft text-warn' : status.tone === 'info' ? 'bg-info-soft text-info' : 'bg-brand-soft text-brand' }
-                : stopped !== null && stopped.kind === 'yak_stopped'
-                  ? { label: failedStepLabel === null ? 'Stopped' : `Stopped, ${failedStepLabel}`, tone: 'bg-fail-soft text-fail' }
-                  : null;
+    const phonePill = phoneStatusPill({
+        noticeStatus: threadStatus(notice, 'idle'),
+        isClosed: !isOpen,
+        isLegacy,
+        isHeldForCoOwner,
+        isWorking: composer.state === 'working',
+        pullRequest,
+        isStopped: stopped !== null && stopped.kind === 'yak_stopped',
+        failedStepLabel,
+    });
     const hasChannelSource = request.source !== undefined && ['slack', 'linear', 'sentry', 'github', 'email'].includes(request.source.key);
+    const phoneRepo = thread.repo === 'unknown' ? null : thread.repo;
     useCommandPaletteActions(THREAD_GROUP, actions);
 
     const closeConfirm = closeThreadConfirm(subThreadCount);
@@ -128,7 +140,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                        <h1 className="min-w-0 text-[15px] font-semibold max-sm:truncate sm:line-clamp-2 lg:line-clamp-1 text-body" data-testid="thread-title">
+                        <h1 className="text-[15px] font-semibold max-sm:min-w-0 max-sm:truncate sm:line-clamp-2 lg:line-clamp-1 text-body" data-testid="thread-title">
                             {parent !== null ? (
                                 <>
                                     <Link href={show.url(parent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{parent.title}</Link>
@@ -156,9 +168,17 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                         </span>
                     </div>
                     <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[12px] text-muted sm:hidden" data-testid="thread-header-phone-meta">
-                        {hasChannelSource && request.source !== undefined ? <span className="shrink-0"><SourceLink source={request.source} testId="thread-phone-source-link" /></span> : <span className="shrink-0">{thread.repo}</span>}
-                        {thread.branch !== null && <code className="min-w-0 truncate font-mono text-[11.5px]">{thread.branch}</code>}
-                        {phonePill !== null && <span className={cn('inline-flex shrink-0 items-center rounded-pill px-2 py-0.5 text-[11.5px] font-medium', phonePill.tone)} data-testid="thread-phone-pill">{phonePill.label}</span>}
+                        {hasChannelSource && request.source !== undefined ? (
+                            <span className="min-w-0 truncate" data-testid="thread-phone-source"><SourceLink source={request.source} testId="thread-phone-source-link" /></span>
+                        ) : (
+                            phoneRepo !== null && <span className="min-w-0 truncate">{phoneRepo}</span>
+                        )}
+                        {phonePill !== null && <span className={cn('inline-flex shrink-0 items-center rounded-pill px-2 py-0.5 text-[11.5px] font-medium', PILL_TONES[phonePill.tone])} data-testid="thread-phone-pill">{phonePill.label}</span>}
+                        {thread.branch !== null && (
+                            <span className="@container min-w-0 flex-1 overflow-hidden" data-testid="thread-phone-branch">
+                                <code className="hidden truncate font-mono text-[11.5px] @min-[4.5rem]:block">{thread.branch}</code>
+                            </span>
+                        )}
                     </div>
                     <div className="max-sm:hidden">
                         <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} source={request.source} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />

@@ -158,7 +158,7 @@ it('draws the phone thread as the boards do: tabs, header line, card in the scro
                 cardInScroller: scroller.contains(document.querySelector('[data-testid="card-stop"]')),
                 buttonHeights: [...document.querySelectorAll('[data-testid="card-stop"] button')].map((button) => Math.round(button.getBoundingClientRect().height)),
                 composerHeight: Math.round(box('[data-testid="thread-composer"]').height),
-                toolsHidden: getComputedStyle(document.querySelector('[data-testid="thread-composer-tools"]')).display === 'none',
+                toolsHidden: getComputedStyle(document.querySelector('[data-testid="thread-composer-tools-row"]')).display === 'none',
                 pill: document.querySelector('[data-testid="thread-phone-pill"]')?.textContent,
                 overflow: document.documentElement.scrollWidth > window.innerWidth,
             };
@@ -184,7 +184,7 @@ it('keeps the way back to the thread list and the other sections on a thread pag
     $page->resize(390, 844)->assertVisible('[data-testid="mobile-nav-toggle"]')->click('[data-testid="mobile-nav-toggle"]')
         ->assertVisible('[data-testid="mobile-nav"]')
         ->assertVisible('[data-testid="mobile-section-switcher"]')
-        ->assertVisible('[data-testid="mobile-section-operations"]')
+        ->assertSeeIn('[data-testid="mobile-section-switcher"]', 'Operations')
         ->assertNoJavaScriptErrors();
 });
 
@@ -196,7 +196,7 @@ it('reaches the composer tools from the keyboard: focusing the field reveals the
 
     $state = $page->script(<<<'JS'
         (async () => {
-            const tools = document.querySelector('[data-testid="thread-composer-tools"]');
+            const tools = document.querySelector('[data-testid="thread-composer-tools-row"]');
             const before = getComputedStyle(tools).display;
             document.querySelector('[data-testid="thread-composer-input"]').focus();
             for (let attempt = 0; attempt < 40 && getComputedStyle(tools).display === 'none'; attempt++) {

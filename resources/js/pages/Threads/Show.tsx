@@ -1,7 +1,9 @@
 import { usePullRequestToasts } from '@/threads/usePullRequestToasts';
 import { Head } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { failedStepReason, isProgressShownOnPhone } from '@/threads/phoneHeader';
+import { clearCardDrafts } from '@/components/threads/cards/useCardDraft';
 import { THREAD_GROUP, showActions, type ShowActionOptions } from '@/commandPalette/threadPageActions';
 import { threadDataActions } from '@/commandPalette/threadDataActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
@@ -59,16 +61,10 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const isWide = useMediaQuery(WIDE_RAIL_QUERY);
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
-    // On a phone the card scrolls with the conversation and only the composer stays pinned. The placement is decided
-    // when the thread or the card kind changes and then kept, so a rotation or the browser toolbar hiding does not
-    // remount the card and lose what was typed in it.
-    const isPhoneNow = useMediaQuery('(max-width: 639px)');
-    const placementKey = `${thread.id}:${card ?? ''}`;
-    const [placement, setPlacement] = useState({ key: placementKey, isPhone: isPhoneNow });
-    if (placement.key !== placementKey) {
-        setPlacement({ key: placementKey, isPhone: isPhoneNow });
-    }
-    const isPhone = placement.key === placementKey ? placement.isPhone : isPhoneNow;
+    // On a phone the card scrolls with the conversation and only the composer stays pinned. The placement follows the
+    // viewport; what was typed in the card is kept by the card drafts, so the move does not lose it.
+    const isPhone = useMediaQuery('(max-width: 639px)');
+    useEffect(() => clearCardDrafts(thread.id, card), [thread.id, card]);
     const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'files' && isWide));
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => phoneTabIdFor(activeDock?.id ?? null));
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
@@ -241,9 +237,10 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
                 onMove={() => setIsMoving(true)}
-                failedStepLabel={progress?.steps.find((step) => step.state === 'failed')?.label.replace(/,?\s*\d+ of \d+$/, '') ?? null}
+                failedStepLabel={failedStepReason(progress?.steps.find((step) => step.state === 'failed')?.label ?? null)}
+                isLegacy={isLegacy}
             />
-            {progress !== null && <ProgressRow progress={progress} />}
+            {progress !== null && <ProgressRow progress={progress} isShownOnPhone={isProgressShownOnPhone(request.status.key)} />}
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} hasBrief={brief !== null} />
