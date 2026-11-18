@@ -21,6 +21,9 @@ settings:
 packages:
   YakKit:
     path: Packages/YakKit
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    exactVersion: 1.99.2
   swift-markdown:
     url: https://github.com/swiftlang/swift-markdown
     exactVersion: 0.9.0
@@ -33,6 +36,7 @@ targets:
       - path: Shared
     dependencies:
       - package: YakKit
+      - package: SwiftTerm
       - package: swift-markdown
         product: Markdown
     settings:

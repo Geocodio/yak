@@ -2300,6 +2300,26 @@
         }
       }
     },
+    "files.asleep.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It wakes when someone who can drive this thread opens it."
+          }
+        }
+      }
+    },
+    "files.asleep.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox is asleep"
+          }
+        }
+      }
+    },
     "files.banner.gone %@" : {
       "localizations" : {
         "en" : {
@@ -2326,6 +2346,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak is still working. The changes update when the turn ends."
+          }
+        }
+      }
+    },
+    "files.binary.detail %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld bytes. It cannot be shown here."
+          }
+        }
+      }
+    },
+    "files.binary.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a binary file"
+          }
+        }
+      }
+    },
+    "files.closed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed, so its sandbox is gone."
+          }
+        }
+      }
+    },
+    "files.computer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread runs on a computer, so its files are there."
+          }
+        }
+      }
+    },
+    "files.conflict.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy my text"
+          }
+        }
+      }
+    },
+    "files.conflict.createAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to create it again"
+          }
+        }
+      }
+    },
+    "files.conflict.deleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file was deleted since you opened it."
+          }
+        }
+      }
+    },
+    "files.conflict.keepMine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep mine"
+          }
+        }
+      }
+    },
+    "files.conflict.pick" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "files.conflict.text.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version of the file"
+          }
+        }
+      }
+    },
+    "files.conflict.theirs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theirs"
+          }
+        }
+      }
+    },
+    "files.conflict.theirsConfirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use their version?"
+          }
+        }
+      }
+    },
+    "files.conflict.theirsDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your text is replaced by theirs."
+          }
+        }
+      }
+    },
+    "files.conflict.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed since you opened it."
+          }
+        }
+      }
+    },
+    "files.conflict.useTheirs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use theirs"
+          }
+        }
+      }
+    },
+    "files.conflict.yours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yours"
           }
         }
       }
@@ -2360,6 +2540,106 @@
         }
       }
     },
+    "files.editor.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "files.editor.changedOnServer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak changed this file while you edit it. Saving shows both versions."
+          }
+        }
+      }
+    },
+    "files.editor.discard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard changes"
+          }
+        }
+      }
+    },
+    "files.editor.discardTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard your changes?"
+          }
+        }
+      }
+    },
+    "files.editor.keepEditing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep editing"
+          }
+        }
+      }
+    },
+    "files.editor.key.tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab"
+          }
+        }
+      }
+    },
+    "files.editor.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File editor"
+          }
+        }
+      }
+    },
+    "files.editor.restored" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored the text you had not saved."
+          }
+        }
+      }
+    },
+    "files.editor.save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "files.editor.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editing %@"
+          }
+        }
+      }
+    },
     "files.empty.detail" : {
       "localizations" : {
         "en" : {
@@ -2380,12 +2660,42 @@
         }
       }
     },
+    "files.error.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong. Try again in a moment."
+          }
+        }
+      }
+    },
     "files.error.offline" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You are offline. The changes load when the connection returns."
+          }
+        }
+      }
+    },
+    "files.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files did not load"
+          }
+        }
+      }
+    },
+    "files.everything.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This repository has no files yet."
           }
         }
       }
@@ -2400,12 +2710,122 @@
         }
       }
     },
+    "files.find.clear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        }
+      }
+    },
+    "files.find.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search did not finish."
+          }
+        }
+      }
+    },
+    "files.find.none %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No file matches \"%@\""
+          }
+        }
+      }
+    },
+    "files.find.partial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching folders you opened and the files this thread changed."
+          }
+        }
+      }
+    },
+    "files.find.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a file"
+          }
+        }
+      }
+    },
+    "files.find.truncated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the first 100 matches."
+          }
+        }
+      }
+    },
+    "files.folder.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This folder is empty"
+          }
+        }
+      }
+    },
+    "files.folder.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open this folder."
+          }
+        }
+      }
+    },
+    "files.folder.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not loaded while offline"
+          }
+        }
+      }
+    },
+    "files.folder.truncated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the first 2,000 items. Use Find to reach the rest."
+          }
+        }
+      }
+    },
     "files.list.header %lld %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld files, %lld viewed"
+          }
+        }
+      }
+    },
+    "files.loading.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening the files"
           }
         }
       }
@@ -2460,12 +2880,82 @@
         }
       }
     },
+    "files.notFound.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to files"
+          }
+        }
+      }
+    },
+    "files.notFound.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been moved or deleted."
+          }
+        }
+      }
+    },
+    "files.notFound.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not there anymore"
+          }
+        }
+      }
+    },
+    "files.notHere.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is not here anymore"
+          }
+        }
+      }
+    },
     "files.notInPullRequest" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not in the pull request"
+          }
+        }
+      }
+    },
+    "files.offline.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files load when the connection returns."
+          }
+        }
+      }
+    },
+    "files.offline.line" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing what was loaded"
+          }
+        }
+      }
+    },
+    "files.offline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline"
           }
         }
       }
@@ -2720,12 +3210,82 @@
         }
       }
     },
+    "files.removed.askSomeone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask someone who can drive this thread to restore it."
+          }
+        }
+      }
+    },
+    "files.removed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore it to see the files. Restoring rebuilds it from the branch and can take a few minutes."
+          }
+        }
+      }
+    },
+    "files.removed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox was removed"
+          }
+        }
+      }
+    },
     "files.renamedFrom %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renamed from %@"
+          }
+        }
+      }
+    },
+    "files.restore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore sandbox"
+          }
+        }
+      }
+    },
+    "files.restoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can take a few minutes. You can leave this pane."
+          }
+        }
+      }
+    },
+    "files.restoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "files.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
           }
         }
       }
@@ -2740,12 +3300,72 @@
         }
       }
     },
+    "files.row.addedFile %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, added"
+          }
+        }
+      }
+    },
+    "files.row.containsChanges %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, contains changes"
+          }
+        }
+      }
+    },
+    "files.row.file %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, file"
+          }
+        }
+      }
+    },
+    "files.row.folderCollapsed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, folder, collapsed"
+          }
+        }
+      }
+    },
+    "files.row.folderExpanded %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, folder, expanded"
+          }
+        }
+      }
+    },
     "files.row.hunk %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Section %@"
+          }
+        }
+      }
+    },
+    "files.row.modified %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, modified"
           }
         }
       }
@@ -2766,6 +3386,216 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Removed: %@"
+          }
+        }
+      }
+    },
+    "files.save.again" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save again"
+          }
+        }
+      }
+    },
+    "files.save.asleep" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is asleep. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed, so the file cannot be saved. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.copyText" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy text"
+          }
+        }
+      }
+    },
+    "files.save.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. Something went wrong. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.forbidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread, so you cannot save."
+          }
+        }
+      }
+    },
+    "files.save.gone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is gone. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. You are offline. Your text is kept; save again when the connection returns."
+          }
+        }
+      }
+    },
+    "files.save.saved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved."
+          }
+        }
+      }
+    },
+    "files.save.savedWorking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved. Claude reads the change at its next step."
+          }
+        }
+      }
+    },
+    "files.save.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This text is too large to save from the app."
+          }
+        }
+      }
+    },
+    "files.save.waking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is waking. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.slot.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files show when a slot frees up."
+          }
+        }
+      }
+    },
+    "files.slot.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free sandbox slot"
+          }
+        }
+      }
+    },
+    "files.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "files.stillRestoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring is taking longer than usual. It may still finish; Retry checks again."
+          }
+        }
+      }
+    },
+    "files.stillRestoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still restoring"
+          }
+        }
+      }
+    },
+    "files.stillWaking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox is taking longer than usual."
+          }
+        }
+      }
+    },
+    "files.stillWaking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still waking"
+          }
+        }
+      }
+    },
+    "files.tooLarge.detail %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is %@; the app shows files up to 1 MB."
+          }
+        }
+      }
+    },
+    "files.tooLarge.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is too large to show"
           }
         }
       }
@@ -2806,6 +3636,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Viewed"
+          }
+        }
+      }
+    },
+    "files.viewer.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files"
+          }
+        }
+      }
+    },
+    "files.viewer.changed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak changed this file."
+          }
+        }
+      }
+    },
+    "files.viewer.colorsStop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colors stop after the first 200,000 characters."
+          }
+        }
+      }
+    },
+    "files.viewer.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy file"
+          }
+        }
+      }
+    },
+    "files.viewer.diff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View diff"
+          }
+        }
+      }
+    },
+    "files.viewer.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "files.viewer.folderAdded %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, added in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.folderChanged %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, changed in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File text"
+          }
+        }
+      }
+    },
+    "files.viewer.menu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File menu"
+          }
+        }
+      }
+    },
+    "files.viewer.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing the last copy"
+          }
+        }
+      }
+    },
+    "files.viewer.rootAdded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.rootChanged" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.rootFolder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top folder"
+          }
+        }
+      }
+    },
+    "files.viewer.wrap" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrap lines"
+          }
+        }
+      }
+    },
+    "files.waking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was paused to save resources. The files show when it is awake."
+          }
+        }
+      }
+    },
+    "files.waking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
           }
         }
       }
@@ -6248,6 +7248,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preview"
+          }
+        }
+      }
+    },
+    "pane.terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal"
           }
         }
       }
@@ -10604,6 +11614,826 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tasks"
+          }
+        }
+      }
+    },
+    "terminal.banner.broken" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell connection failed."
+          }
+        }
+      }
+    },
+    "terminal.banner.couldNotReconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell could not reconnect."
+          }
+        }
+      }
+    },
+    "terminal.banner.denied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The link to the shell was refused."
+          }
+        }
+      }
+    },
+    "terminal.banner.droppedKeys" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys typed while offline were not sent."
+          }
+        }
+      }
+    },
+    "terminal.banner.ended" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell ended."
+          }
+        }
+      }
+    },
+    "terminal.banner.endedCode %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell ended with exit code %lld."
+          }
+        }
+      }
+    },
+    "terminal.banner.idle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This shell closed after 30 minutes without input."
+          }
+        }
+      }
+    },
+    "terminal.banner.lost %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection lost. Reconnecting in %1$lld s, try %2$lld of 5"
+          }
+        }
+      }
+    },
+    "terminal.banner.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. The shell reconnects when the connection returns."
+          }
+        }
+      }
+    },
+    "terminal.banner.reconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnect now"
+          }
+        }
+      }
+    },
+    "terminal.banner.reconnecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnecting the shell"
+          }
+        }
+      }
+    },
+    "terminal.banner.showShells" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show shells"
+          }
+        }
+      }
+    },
+    "terminal.banner.tooMany" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many shells are open on this thread. Close one here or on the web."
+          }
+        }
+      }
+    },
+    "terminal.closed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A closed thread has no shell."
+          }
+        }
+      }
+    },
+    "terminal.closed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed"
+          }
+        }
+      }
+    },
+    "terminal.computer.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its shell is on that computer."
+          }
+        }
+      }
+    },
+    "terminal.computer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread runs on a computer"
+          }
+        }
+      }
+    },
+    "terminal.divider %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New shell. The connection dropped at %@; anything running in the old shell stopped."
+          }
+        }
+      }
+    },
+    "terminal.error.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong. Try again."
+          }
+        }
+      }
+    },
+    "terminal.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell could not open"
+          }
+        }
+      }
+    },
+    "terminal.forbidden.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people who can drive it can open a shell."
+          }
+        }
+      }
+    },
+    "terminal.forbidden.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread"
+          }
+        }
+      }
+    },
+    "terminal.jump" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jump to the end"
+          }
+        }
+      }
+    },
+    "terminal.key.control.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control"
+          }
+        }
+      }
+    },
+    "terminal.key.down.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Down"
+          }
+        }
+      }
+    },
+    "terminal.key.escape.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escape"
+          }
+        }
+      }
+    },
+    "terminal.key.keyboard.hide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide keyboard"
+          }
+        }
+      }
+    },
+    "terminal.key.keyboard.show" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show keyboard"
+          }
+        }
+      }
+    },
+    "terminal.key.left.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left"
+          }
+        }
+      }
+    },
+    "terminal.key.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "terminal.key.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
+    "terminal.key.right.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right"
+          }
+        }
+      }
+    },
+    "terminal.key.tab.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab"
+          }
+        }
+      }
+    },
+    "terminal.key.up.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up"
+          }
+        }
+      }
+    },
+    "terminal.noSandbox.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It gets one when Yak starts working on it."
+          }
+        }
+      }
+    },
+    "terminal.noSandbox.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread has no sandbox yet"
+          }
+        }
+      }
+    },
+    "terminal.none.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No shell is open"
+          }
+        }
+      }
+    },
+    "terminal.offline.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell opens when the connection returns."
+          }
+        }
+      }
+    },
+    "terminal.offline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline"
+          }
+        }
+      }
+    },
+    "terminal.opening.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a shell"
+          }
+        }
+      }
+    },
+    "terminal.origin.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The person who runs this Yak can add this app's address to its terminal settings."
+          }
+        }
+      }
+    },
+    "terminal.origin.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak does not accept the terminal from this app"
+          }
+        }
+      }
+    },
+    "terminal.output.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal output"
+          }
+        }
+      }
+    },
+    "terminal.removed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore it to open a shell. Restoring rebuilds it from the branch and can take a few minutes."
+          }
+        }
+      }
+    },
+    "terminal.removed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox was removed"
+          }
+        }
+      }
+    },
+    "terminal.restore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore sandbox"
+          }
+        }
+      }
+    },
+    "terminal.restore.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox could not be restored. Try again."
+          }
+        }
+      }
+    },
+    "terminal.restoreFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox could not be restored"
+          }
+        }
+      }
+    },
+    "terminal.restoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can take a few minutes. You can leave this pane; the shell opens when it is ready."
+          }
+        }
+      }
+    },
+    "terminal.restoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "terminal.shell.new" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New shell"
+          }
+        }
+      }
+    },
+    "terminal.shells.close %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close %@"
+          }
+        }
+      }
+    },
+    "terminal.shells.closeShell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close shell"
+          }
+        }
+      }
+    },
+    "terminal.shells.confirm %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close %@? Anything running in it stops."
+          }
+        }
+      }
+    },
+    "terminal.shells.confirmDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anything running in it stops."
+          }
+        }
+      }
+    },
+    "terminal.shells.label %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shells, %lld open"
+          }
+        }
+      }
+    },
+    "terminal.shells.maximum" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Four shells is the most"
+          }
+        }
+      }
+    },
+    "terminal.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "terminal.starting.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was stopped. Starting it can take up to a minute."
+          }
+        }
+      }
+    },
+    "terminal.starting.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.step.link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Getting a link"
+          }
+        }
+      }
+    },
+    "terminal.step.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox ready"
+          }
+        }
+      }
+    },
+    "terminal.step.restoring" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.step.resumed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox resumed"
+          }
+        }
+      }
+    },
+    "terminal.step.seconds %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld s"
+          }
+        }
+      }
+    },
+    "terminal.step.shell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a shell"
+          }
+        }
+      }
+    },
+    "terminal.step.waking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.stillRestoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring is taking longer than usual. It may still finish; Retry checks again."
+          }
+        }
+      }
+    },
+    "terminal.stillRestoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still restoring"
+          }
+        }
+      }
+    },
+    "terminal.tryAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "terminal.waited.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app stopped waiting after 2 minutes."
+          }
+        }
+      }
+    },
+    "terminal.waited.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still no free slot"
+          }
+        }
+      }
+    },
+    "terminal.waiting.elapsed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting %@"
+          }
+        }
+      }
+    },
+    "terminal.waiting.global" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak has no free sandbox slot right now. The shell opens when one frees up."
+          }
+        }
+      }
+    },
+    "terminal.waiting.memory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is short on memory right now. The shell opens when there is room."
+          }
+        }
+      }
+    },
+    "terminal.waiting.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell opens when a slot frees up."
+          }
+        }
+      }
+    },
+    "terminal.waiting.person %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld sandboxes awake, the most this Yak allows per person. One frees up when another of your threads goes to sleep."
+          }
+        }
+      }
+    },
+    "terminal.waiting.personUnknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have the most sandboxes awake that this Yak allows per person. One frees up when another of your threads goes to sleep."
+          }
+        }
+      }
+    },
+    "terminal.waiting.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free sandbox slot"
+          }
+        }
+      }
+    },
+    "terminal.waking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was paused to save resources. This takes a few seconds."
+          }
+        }
+      }
+    },
+    "terminal.waking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
           }
         }
       }
