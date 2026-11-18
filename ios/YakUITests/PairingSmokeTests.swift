@@ -111,22 +111,17 @@ import XCTest
 
     /// The accessibility audit; a failure names the element and what is wrong with it.
     private func audit() throws {
-        let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [self, auditBars] issue in
-            // An element entirely outside the screen shows no pixels to measure.
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-            // Text behind a bar is covered by the bar.
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            // The address field is one line by design: an address never wraps.
-            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.lifetime = .keepAlways
-            screenshot.name = "audit-failure"
-            add(screenshot)
-            XCTFail(
-                "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
-            )
-            return true
+        try auditTwice(app) { [app] in
+            let auditBars = AuditRules.Bars(app)
+            return { issue in
+                // An element entirely outside the screen shows no pixels to measure.
+                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+                // Text behind a bar is covered by the bar.
+                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+                // The address field is one line by design: an address never wraps.
+                if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
+                return false
+            }
         }
     }
 

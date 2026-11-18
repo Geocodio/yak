@@ -129,29 +129,24 @@ import XCTest
     }
 
     private func audit() throws {
-        let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [self, auditBars] issue in
-            // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
-            // centre of the window free.
-            let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
-            let bars =
-                app.navigationBars.allElementsBoundByIndex
-                + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+        try auditTwice(app) { [app] in
+            let auditBars = AuditRules.Bars(app)
+            return { issue in
+                // A bottom toolbar can have a frame that covers the content, so a toolbar only counts when it leaves the
+                // centre of the window free.
+                let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+                let bars =
+                    app.navigationBars.allElementsBoundByIndex
+                    + app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
+                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                    if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                }
+                // An element entirely outside the screen shows no pixels to measure.
+                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+                // Text behind a bar is covered by the bar.
+                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+                return false
             }
-            // An element entirely outside the screen shows no pixels to measure.
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-            // Text behind a bar is covered by the bar.
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.lifetime = .keepAlways
-            screenshot.name = "audit-failure"
-            add(screenshot)
-            XCTFail(
-                "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "none")"
-            )
-            return true
         }
     }
 }
