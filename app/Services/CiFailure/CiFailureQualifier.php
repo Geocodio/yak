@@ -8,6 +8,7 @@ use App\DataTransferObjects\CiFailureQualification;
 use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
@@ -16,6 +17,11 @@ use Illuminate\Support\Collection;
  */
 class CiFailureQualifier
 {
+    public const MAXIMUM_CANDIDATES = 10;
+
+    /** @var array<string, CarbonImmutable|null> */
+    private array $latestGreens = [];
+
     public function __construct(
         private readonly AppService $appService,
         private readonly SameCauseCheck $sameCauseCheck,
@@ -23,8 +29,10 @@ class CiFailureQualifier
 
     public function qualify(Repository $repository, CiJobFailure $failure): CiFailureQualification
     {
+        $this->latestGreens = [];
+
         if ($this->isStaleAfterGreen($failure)) {
-            return new CiFailureQualification(false, 'stale_after_green', collect());
+            return new CiFailureQualification(false, 'stale_after_green', collect([$failure]));
         }
 
         $candidates = $this->candidates($failure);
@@ -56,7 +64,13 @@ class CiFailureQualifier
 
     private function isStaleAfterGreen(CiJobFailure $failure): bool
     {
-        $green = CiDefaultBranchGreen::latestFor($failure->repo, $failure->workflow_name, $failure->job_name);
+        $key = $failure->repo . '|' . $failure->workflow_name . '|' . $failure->job_name;
+
+        if (! array_key_exists($key, $this->latestGreens)) {
+            $this->latestGreens[$key] = CiDefaultBranchGreen::latestFor($failure->repo, $failure->workflow_name, $failure->job_name);
+        }
+
+        $green = $this->latestGreens[$key];
 
         return $green !== null && $failure->failed_at->lt($green);
     }
@@ -77,6 +91,8 @@ class CiFailureQualifier
             ->get()
             ->reject(fn (CiJobFailure $candidate): bool => $this->isStaleAfterGreen($candidate))
             ->filter(fn (CiJobFailure $candidate): bool => $this->isSameFailure($failure, $candidate))
+            ->sortByDesc('failed_at')
+            ->take(self::MAXIMUM_CANDIDATES)
             ->values();
     }
 

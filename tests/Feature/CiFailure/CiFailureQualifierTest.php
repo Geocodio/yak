@@ -168,6 +168,85 @@ it('declines when the same-cause check says different causes', function () {
     expect(qualifyFailure($failure)->reason)->toBe('different_causes');
 });
 
+it('treats a missing log excerpt as the same cause', function () {
+    fakeQualifierGitHub(excerpt: null);
+    $this->mock(SameCauseCheck::class, fn ($mock) => $mock->shouldNotReceive('shareCause'));
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Lint']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b', 'job_name' => 'Lint']);
+
+    expect(qualifyFailure($failure)->reason)->toBe('cross_branch');
+});
+
+it('falls back to job name when a test job has no parsed test names', function () {
+    fakeQualifierGitHub();
+    $sameName = CiJobFailure::factory()->create([
+        'branch' => 'feature/a',
+        'job_name' => 'Test (Main)',
+        'test_names' => ['FooTest::a'],
+    ]);
+    CiJobFailure::factory()->create(['branch' => 'feature/c', 'job_name' => 'Test (Other)', 'test_names' => null]);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b', 'job_name' => 'Test (Main)', 'test_names' => null]);
+
+    $result = qualifyFailure($failure);
+
+    expect($result->reason)->toBe('cross_branch')
+        ->and($result->evidence->pluck('id')->sort()->values()->all())->toBe([$sameName->id, $failure->id]);
+});
+
+it('runs the same-cause check against the newest surviving candidate', function () {
+    $this->mock(AppService::class, function ($mock) {
+        $mock->shouldReceive('getBranchHeadSha')->andReturn('default-head');
+        $mock->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        $mock->shouldReceive('isAncestor')->andReturn(true);
+        $mock->shouldReceive('getJobLogExcerpt')->andReturnUsing(fn ($installation, $repo, $jobId) => "log-{$jobId}");
+    });
+    $this->mock(SameCauseCheck::class, fn ($mock) => $mock->shouldReceive('shareCause')->once()->with('log-300', 'log-200')->andReturn(true));
+    CiJobFailure::factory()->create(['branch' => 'feature/old', 'job_name' => 'Lint', 'job_id' => 100, 'failed_at' => now()->subHours(10)]);
+    CiJobFailure::factory()->create(['branch' => 'feature/new', 'job_name' => 'Lint', 'job_id' => 200, 'failed_at' => now()->subHours(2)]);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/current', 'job_name' => 'Lint', 'job_id' => 300]);
+
+    expect(qualifyFailure($failure)->reason)->toBe('cross_branch');
+});
+
+it('never runs the same-cause check for test jobs', function () {
+    fakeQualifierGitHub();
+    $this->mock(SameCauseCheck::class, fn ($mock) => $mock->shouldNotReceive('shareCause'));
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Test (Main)']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b', 'job_name' => 'Test (Main)']);
+
+    expect(qualifyFailure($failure)->reason)->toBe('cross_branch');
+});
+
+it('qualifies a default-branch test job that also has branch evidence', function () {
+    fakeQualifierGitHub();
+    $other = CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Test (Main)']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'main', 'job_name' => 'Test (Main)']);
+
+    $result = qualifyFailure($failure);
+
+    expect($result->qualifies)->toBeTrue()
+        ->and($result->reason)->toBe('default_branch')
+        ->and($result->evidence->pluck('id')->sort()->values()->all())->toBe([$other->id, $failure->id]);
+});
+
+it('considers at most ten candidates', function () {
+    $this->mock(AppService::class, function ($mock) {
+        $mock->shouldReceive('getBranchHeadSha')->andReturn('default-head');
+        $mock->shouldReceive('compareCommits')->times(10)->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        $mock->shouldReceive('isAncestor')->andReturn(true);
+        $mock->shouldReceive('getJobLogExcerpt')->andReturn('boom');
+    });
+    foreach (range(1, 12) as $hoursAgo) {
+        CiJobFailure::factory()->create(['branch' => "feature/{$hoursAgo}", 'job_name' => 'Lint', 'failed_at' => now()->subHours($hoursAgo)]);
+    }
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/current', 'job_name' => 'Lint']);
+
+    $result = qualifyFailure($failure);
+
+    expect($result->evidence)->toHaveCount(11)
+        ->and($result->evidence->pluck('branch'))->not->toContain('feature/12');
+});
+
 it('counts two branches by the same author', function () {
     fakeQualifierGitHub();
     CiJobFailure::factory()->create(['branch' => 'feature/a', 'actor_login' => 'octocat']);
