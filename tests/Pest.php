@@ -115,6 +115,7 @@ require_once __DIR__ . '/Helpers/ClaudeHelpers.php';
 require_once __DIR__ . '/Helpers/AssertionHelpers.php';
 require_once __DIR__ . '/Helpers/LinearHelpers.php';
 require_once __DIR__ . '/Helpers/SlackHelpers.php';
+require_once __DIR__ . '/Helpers/BrowserHelpers.php';
 require_once __DIR__ . '/Helpers/RunnerStreamFixture.php';
 require_once __DIR__ . '/Helpers/ReviewRunHelpers.php';
 require_once __DIR__ . '/Support/AppApiHelpers.php';

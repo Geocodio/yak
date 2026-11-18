@@ -48,8 +48,13 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             box.scrollTop = pinnedHeight;
         };
 
+        let lastScrollTop = box.scrollTop;
         const onScroll = (): void => {
-            if (box.scrollHeight !== pinnedHeight) {
+            // Growth never moves the scroll position up, so a move up is the reader even when content grew in the same frame.
+            const hasMovedUp = box.scrollTop < lastScrollTop;
+            lastScrollTop = box.scrollTop;
+
+            if (box.scrollHeight !== pinnedHeight && !hasMovedUp) {
                 return;
             }
 

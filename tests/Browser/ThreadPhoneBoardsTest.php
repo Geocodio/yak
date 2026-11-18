@@ -11,15 +11,6 @@ use App\Models\YakTask;
 
 require_once __DIR__ . '/../Support/NewPageFixtures.php';
 
-/**
- * Runs a script in the page that polls until `$ready` is true, then returns `$result`; the layout of a phone settles
- * a moment after a resize or a focus.
- */
-function settled(mixed $page, string $ready, string $result): mixed
-{
-    return $page->script("(async () => { for (let attempt = 0; attempt < 80 && !({$ready}); attempt++) { await new Promise((resolve) => setTimeout(resolve, 50)); } return {$result}; })()");
-}
-
 function phonePage(Thread $thread, int $width = 390, int $height = 844): mixed
 {
     $page = visit(route('threads.show', $thread));
@@ -95,6 +86,12 @@ it('shows the progress steps near the current step, and hides the row when finis
     expect(array_map(fn ($step) => explode(':', $step)[1], $steps))->toBe(['Working', 'Pushed', 'CI failed', 'Pull request'])
         ->and($steps[2])->toStartWith('failed:');
 
+    foreach ([[390, 844], [375, 667]] as [$width, $height]) {
+        $fits = settled(phonePage($failed, $width, $height), "document.querySelector('[data-testid=\"thread-progress-row\"]')", '(() => { const row = document.querySelector(\'[data-testid="thread-progress-row"]\'); const bounds = row.getBoundingClientRect(); const last = [...row.querySelectorAll(\'li\')].filter((step) => step.getClientRects().length > 0).at(-1).getBoundingClientRect(); return { lastInside: last.right <= bounds.right + 0.5, noScroll: row.scrollWidth <= row.clientWidth + 1 }; })()');
+
+        expect($fits)->toBe(['lastInside' => true, 'noScroll' => true]);
+    }
+
     [$running] = seedConversationThread([], ['status' => 'running', 'pr_url' => null, 'pr_number' => null, 'pr_opened_at' => null]);
     $running->forceFill(['runner_state' => RunnerState::Busy])->save();
     $first = $visibleSteps($running);
@@ -164,6 +161,23 @@ it('keeps the card in the scroller on a phone and above the composer on a wide s
         ->and($page->script('document.querySelector(\'[data-testid="co-owner-feedback-text"]\').value'))->toBe('Please also cover the proration.');
 });
 
+it('drops what was typed in a card when the reader leaves the thread, so it comes back clean', function () {
+    $thread = seedCoOwnerCardThread($this->viewer);
+    $other = seedStopCardThread();
+    foreach ([$thread, $other] as $listed) {
+        $listed->forceFill(['owner_user_id' => $this->viewer->id, 'created_by_user_id' => $this->viewer->id])->save();
+    }
+    $link = fn (Thread $target) => "document.querySelector('a[href\$=\"/threads/{$target->public_id}\"]')";
+
+    $page = visit(route('threads.show', $thread))->resize(1280, 800);
+    $page->assertVisible('[data-testid="co-owner-request-changes"]')->click('[data-testid="co-owner-request-changes"]')->fill('[data-testid="co-owner-feedback-text"]', 'Please also cover the proration.');
+
+    expect(settled($page, $link($other), "({$link($other)}.click(), true)"))->toBeTrue();
+    $page->assertVisible('[data-testid="card-stop"]');
+    expect(settled($page, $link($thread), "({$link($thread)}.click(), true)"))->toBeTrue();
+    $page->assertVisible('[data-testid="co-owner-request-changes"]')->assertMissing('[data-testid="co-owner-feedback-text"]');
+});
+
 it('scrolls a card that grows into view when the reader is at the bottom, and offers the jump when they scrolled up', function () {
     $thread = seedCoOwnerCardThread($this->viewer);
     $page = phonePage($thread, 375, 667);
@@ -173,7 +187,7 @@ it('scrolls a card that grows into view when the reader is at the bottom, and of
     expect(settled($page, $isVisible, $isVisible))->toBeTrue();
 
     $page = phonePage(seedCoOwnerCardThread($this->viewer), 375, 667);
-    $page->script('(async () => { const box = document.querySelector(\'[data-testid="thread-conversation-scroller"]\'); box.scrollTop = 0; await new Promise((resolve) => setTimeout(resolve, 300)); document.querySelector(\'[data-testid="co-owner-request-changes"]\').click(); })()');
+    $page->script('(async () => { const box = document.querySelector(\'[data-testid="thread-conversation-scroller"]\'); box.scrollTop = 0; await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); document.querySelector(\'[data-testid="co-owner-request-changes"]\').click(); })()');
 
     $page->assertVisible('[data-testid="thread-jump-to-newest"]');
 });
