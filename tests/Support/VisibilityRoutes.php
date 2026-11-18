@@ -46,6 +46,8 @@ class VisibilityRoutes
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
         'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
         'threads.local-turns' => ['GET', '/threads/{thread}/local-turns'],
+        'threads.runs.log' => ['GET', '/threads/{thread}/runs/{run}/log'],
+        'threads.tasks.log' => ['GET', '/threads/{thread}/tasks/{task}/log', [], 404],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],
         'threads.teleport-request.store' => ['POST', '/threads/{thread}/teleport-request', ['acknowledged_private_publish' => true]],
         'threads.teleport-request.destroy' => ['DELETE', '/threads/{thread}/teleport-request'],
@@ -71,26 +73,25 @@ class VisibilityRoutes
         'threads.preview.heartbeat' => ['POST', '/threads/{thread}/preview/heartbeat'],
         'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
         'threads.terminal-sessions.store' => ['POST', '/threads/{thread}/terminal-sessions', [], 403],
+        'threads.repository-answer.store' => ['POST', '/threads/{thread}/repository-answer'],
+        'threads.retry' => ['POST', '/threads/{thread}/retry'],
+        'threads.cancel' => ['POST', '/threads/{thread}/cancel'],
+        'threads.move' => ['POST', '/threads/{thread}/move', ['repo' => 'nope']],
+        'threads.setup-and-continue' => ['POST', '/threads/{thread}/setup-and-continue'],
+        'threads.request-review' => ['POST', '/threads/{thread}/request-review', [], 502],
+        'threads.retry-render' => ['POST', '/threads/{thread}/retry-render'],
+        'threads.clarification-answers.store' => ['POST', '/threads/{thread}/clarification-answers', ['answers' => []]],
+        'threads.co-owner.approve' => ['POST', '/threads/{thread}/co-owner/approve'],
+        'threads.co-owner.request-changes' => ['POST', '/threads/{thread}/co-owner/request-changes', ['feedback' => 'x']],
+        'threads.co-owner.reject' => ['POST', '/threads/{thread}/co-owner/reject'],
+        'threads.co-owner.withdraw' => ['POST', '/threads/{thread}/co-owner/withdraw'],
+        'threads.co-owner.check-access' => ['POST', '/threads/{thread}/co-owner/check-access'],
+        'threads.co-owner.tag' => ['POST', '/threads/{thread}/co-owner/tag', ['user_id' => 1]],
+        'threads.co-owner.decline' => ['POST', '/threads/{thread}/co-owner/decline'],
+        'threads.co-owner.candidates' => ['GET', '/threads/{thread}/co-owner/candidates'],
+        'threads.queued-messages.update' => ['PATCH', '/threads/{thread}/queued-messages/5', ['mode' => 'queue']],
+        'threads.queued-messages.destroy' => ['DELETE', '/threads/{thread}/queued-messages/5'],
         'tasks.show' => ['GET', '/tasks/{task}'],
-        'tasks.log-entries' => ['GET', '/tasks/{task}/log-entries'],
-        'tasks.retry' => ['POST', '/tasks/{task}/retry'],
-        'tasks.setup-and-continue' => ['POST', '/tasks/{task}/setup-and-continue'],
-        'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
-        'tasks.rerun-review' => ['POST', '/tasks/{task}/rerun-review'],
-        'tasks.retry-render' => ['POST', '/tasks/{task}/retry-render'],
-        'tasks.reroute' => ['POST', '/tasks/{task}/reroute', ['repo' => 'nope']],
-        'tasks.co-owner.approve' => ['POST', '/tasks/{task}/co-owner/approve'],
-        'tasks.co-owner.request-changes' => ['POST', '/tasks/{task}/co-owner/request-changes', ['comment' => 'x']],
-        'tasks.co-owner.reject' => ['POST', '/tasks/{task}/co-owner/reject'],
-        'tasks.co-owner.withdraw' => ['POST', '/tasks/{task}/co-owner/withdraw'],
-        'tasks.co-owner.check-access' => ['POST', '/tasks/{task}/co-owner/check-access'],
-        'tasks.co-owner.tag' => ['POST', '/tasks/{task}/co-owner/tag', ['user_id' => 1]],
-        'tasks.co-owner.decline' => ['POST', '/tasks/{task}/co-owner/decline'],
-        'tasks.messages.store' => ['POST', '/tasks/{task}/messages', ['message' => 'hello']],
-        'tasks.queued-messages.update' => ['PATCH', '/tasks/{task}/queued-messages/5', ['mode' => 'queue']],
-        'tasks.queued-messages.destroy' => ['DELETE', '/tasks/{task}/queued-messages/5'],
-        'tasks.clarification-answers.store' => ['POST', '/tasks/{task}/clarification-answers', ['answers' => []]],
-        'tasks.re-request-review' => ['POST', '/tasks/{task}/re-request-review', [], 502],
         'tasks.pr-images.show' => ['GET', '/tasks/{task}/pr-images/abc123', [], 404],
         'artifacts.show' => ['GET', '/artifacts/{task}/shot.png'],
         'artifacts.viewer' => ['GET', '/artifacts/{task}/viewer/shot.png'],
@@ -103,6 +104,11 @@ class VisibilityRoutes
         'deployments.share.destroy' => ['DELETE', '/deployments/{deployment}/share'],
         'pr-reviews.for-pr' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}'],
         'pr-reviews.for-pr.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/{pr}/rerun'],
+        'pr-reviews.for-pr.runs.log' => ['GET', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/log', [], 404],
+        'repos.runs.show' => ['GET', '/repos/' . VisibilityWorld::REPO . '/runs/{task}', [], 404],
+        'repos.runs.log' => ['GET', '/repos/' . VisibilityWorld::REPO . '/runs/{task}/log', [], 404],
+        'repos.runs.retry' => ['POST', '/repos/' . VisibilityWorld::REPO . '/runs/{task}/retry', [], 404],
+        'pr-reviews.for-pr.runs.rerun' => ['POST', '/pr-reviews/for/' . VisibilityWorld::REPO . '/50/runs/{task}/rerun', [], 404],
     ];
 
     /**
@@ -135,6 +141,7 @@ class VisibilityRoutes
                 '{sharedFile}' => $id === $missing ? '0000000000000000000000000z' : (string) $world->sharedFile->public_id,
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
                 '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
+                '{run}' => (string) ($id === $missing ? $missing : $world->run->id),
                 '{row}' => (string) ($id === $missing ? $missing : $world->pullRequestRow->id),
                 '{pr}' => (string) ($id === $missing ? $missing : $world->prReview->pr_number),
             ]);
@@ -173,7 +180,7 @@ class VisibilityRoutes
             'auth.google', 'auth.google.callback', 'auth.linear.redirect', 'auth.linear.callback',
             // Deploy-wide configuration screens: repositories, skills, MCP, prompts, channels, health, settings.
             'channels', 'health', 'health.refresh', 'health.check.refresh',
-            'repos', 'repos.create', 'repos.store', 'repos.github-search', 'repos.github-detect', 'repos.edit',
+            'repos', 'repos.create', 'repos.store', 'repos.github-search', 'repos.github-detect', 'repos.edit', 'repos.runs.index',
             'repos.update', 'repos.destroy', 'repos.toggle-active', 'repos.rerun-setup', 'repos.config.refresh',
             'repos.config.migrate', 'repos.review-open-prs', 'repos.risk-profile', 'repos.risk-profile.show',
             'repos.rebuild-deployments', 'repos.manifest.update',
@@ -222,7 +229,6 @@ class VisibilityRoutes
             // Admin-only people list and role change; user records only, no thread data.
             'settings.people', 'settings.people.update',
             // Creates a task; reads nothing of another person's thread.
-            'tasks.store', 'tasks.setup-card.dismiss',
             // Token-only public image roles for PR bodies; the route lists nothing and resolves by a 26 character token.
             'artifacts.public',
             // One shared file by its 26 character id: thread readers, or any signed-in user once the file is shared with the team; everyone else gets the missing-file 404.
@@ -426,7 +432,7 @@ class VisibilityRoutes
      */
     public static function lists(): array
     {
-        return ['tasks', 'threads.list', 'deployments', 'costs', 'analytics', 'system', 'pr-reviews', 'observations', 'palette.search'];
+        return ['tasks', 'threads.list', 'threads.log', 'deployments', 'costs', 'analytics', 'system', 'pr-reviews', 'observations', 'palette.search'];
     }
 
     /**

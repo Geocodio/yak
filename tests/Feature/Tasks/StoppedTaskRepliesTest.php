@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -7,10 +8,14 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
+use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Tasks\TaskActions;
+use App\Services\Threads\ThreadFactory;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -129,4 +134,78 @@ it('retries on the existing branch and keeps exactly one queued note', function 
 
     Queue::assertPushed(RetryYakJob::class);
     expect(PendingSteeringMessage::count())->toBe(1);
+});
+
+it('stores the replying user on the note and leaves the requester alone', function (): void {
+    Queue::fake();
+    $requester = User::factory()->create();
+    $replier = User::factory()->create();
+    $task = stoppedTask(['started_by_user_id' => $requester->id]);
+
+    $noteAuthorId = null;
+
+    app(StoppedTaskReplies::class)->handle($task, 'use the helper', 'slack', 'Sam', afterNoteQueued: function (PendingSteeringMessage $note) use (&$noteAuthorId): void {
+        $noteAuthorId = $note->author_user_id;
+    }, authorUserId: $replier->id);
+
+    expect($noteAuthorId)->toBe($replier->id)
+        ->and($task->fresh()->started_by_user_id)->toBe($requester->id);
+});
+
+it('gives the thread of an unknown-repository task its repository when the reply names one', function (): void {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'Geocodio/atlas', 'is_active' => true]);
+    $task = YakTask::factory()->create(['repo' => 'unknown', 'status' => TaskStatus::Failed, 'pr_url' => null]);
+    $thread = Thread::factory()->create(['repo' => Thread::UNKNOWN_REPOSITORY]);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id]);
+
+    expect(app(StoppedTaskReplies::class)->handle($task->fresh(), 'atlas', 'slack'))->toBe('Working in Geocodio/atlas now.')
+        ->and($thread->fresh()->hasRepository())->toBeTrue()
+        ->and($thread->fresh()->repo)->toBe('Geocodio/atlas');
+});
+
+it('continues a stopped task of a closed thread in a new thread', function (): void {
+    Queue::fake();
+    $task = stoppedTask();
+    $closed = Thread::factory()->closed()->create(['repo' => $task->repo]);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $closed->id]);
+
+    expect(app(StoppedTaskReplies::class)->handle($task->fresh(), 'try again', 'slack'))->toBe('Trying again with your note.');
+    Queue::assertPushed(RunYakJob::class, 1);
+
+    $openThread = app(ThreadFactory::class)->forTask($task->fresh());
+
+    expect($openThread->id)->not->toBe($closed->id)
+        ->and($openThread->isOpen())->toBeTrue();
+});
+
+it('clears the stop when a task is rerouted, with or without a thread repository to attach', function (bool $hasNoRepository): void {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'Geocodio/atlas', 'is_active' => true]);
+    $task = YakTask::factory()->create(['repo' => $hasNoRepository ? 'unknown' : 'Geocodio/old', 'status' => TaskStatus::Failed, 'pr_url' => null, 'stop_kind' => StopKind::YakStopped, 'stop_summary' => 'It stopped.']);
+
+    if ($hasNoRepository) {
+        $thread = Thread::factory()->create(['repo' => Thread::UNKNOWN_REPOSITORY]);
+        YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id]);
+    } else {
+        Repository::factory()->create(['slug' => 'Geocodio/old', 'is_active' => true]);
+    }
+
+    app(TaskActions::class)->reroute($task->fresh(), 'Geocodio/atlas');
+
+    expect($task->fresh()->stop_kind)->toBeNull()->and($task->fresh()->stop_summary)->toBeNull();
+})->with([true, false]);
+
+it('removes the files of the note when the retry is refused', function (): void {
+    Queue::fake();
+    $task = stoppedTask(['status' => TaskStatus::Success]);
+
+    app(StoppedTaskReplies::class)->handle(
+        $task,
+        'again',
+        'dashboard',
+        afterNoteQueued: fn (PendingSteeringMessage $note) => TaskAttachment::factory()->for($task, 'task')->create(['pending_steering_message_id' => $note->id]),
+    );
+
+    expect(PendingSteeringMessage::count())->toBe(0)->and(TaskAttachment::count())->toBe(0);
 });

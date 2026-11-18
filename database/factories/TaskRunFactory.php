@@ -23,7 +23,7 @@ class TaskRunFactory extends Factory
         $agentMs = fake()->numberBetween(60_000, 900_000);
 
         return [
-            'yak_task_id' => YakTask::factory(),
+            'yak_task_id' => YakTask::factory()->state(['thread_id' => null]),
             'kind' => TaskRunKind::Initial,
             'attempt_number' => 1,
             'job_class' => 'App\\Jobs\\RunYakJob',

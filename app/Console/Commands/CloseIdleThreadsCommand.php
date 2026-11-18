@@ -19,7 +19,8 @@ class CloseIdleThreadsCommand extends Command
     /**
      * Two passes. Idle: no activity past the destroy window. Terminal: every
      * task finished more than terminal_close_hours ago with no PR and no
-     * branch to resume on. Threads with an open PR are never closed here;
+     * branch to resume on, except a stopped task (failed or expired), which
+     * keeps its Retry card and closes only through the idle pass. Threads with an open PR are never closed here;
      * the PR merge or close closes them.
      */
     public function handle(ThreadCloser $closer): int
@@ -34,7 +35,7 @@ class CloseIdleThreadsCommand extends Command
         $terminal = Thread::withoutGlobalScopes()
             ->whereHas('tasks')
             ->whereDoesntHave('tasks', fn (Builder $tasks) => $tasks
-                ->whereIn('status', TaskStatus::activeValues())
+                ->whereIn('status', [...TaskStatus::activeValues(), TaskStatus::Failed->value, TaskStatus::Expired->value])
                 ->orWhereNotNull('pr_url')
                 ->orWhereNotNull('branch_name')
                 ->orWhereNull('completed_at')

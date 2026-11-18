@@ -14,18 +14,12 @@ beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
 });
 
-test('show lists reviews for a PR in reverse chronological order', function () {
-    $older = PrReview::factory()->create([
-        'repo' => 'geocodio/api',
-        'pr_number' => 50,
-        'submitted_at' => now()->subDay(),
-    ]);
-    $newer = PrReview::factory()->create([
-        'repo' => 'geocodio/api',
-        'pr_number' => 50,
-        'submitted_at' => now(),
-    ]);
-    PrReviewComment::factory()->create(['pr_review_id' => $newer->id, 'severity' => 'must_fix']);
+test('show lists the runs of a PR in reverse chronological order', function () {
+    $older = seedReviewRun(['status' => 'success', 'created_at' => now()->subDay()]);
+    $newer = seedReviewRun(['status' => 'success', 'created_at' => now()]);
+    PrReview::factory()->create(['yak_task_id' => $older->id, 'repo' => 'geocodio/api', 'pr_number' => 50]);
+    $newerReview = PrReview::factory()->create(['yak_task_id' => $newer->id, 'repo' => 'geocodio/api', 'pr_number' => 50]);
+    PrReviewComment::factory()->create(['pr_review_id' => $newerReview->id, 'severity' => 'must_fix']);
 
     $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
         ->assertOk()
@@ -33,15 +27,10 @@ test('show lists reviews for a PR in reverse chronological order', function () {
             ->component('PrReviews/ForPr')
             ->where('pr.repoSlug', 'geocodio/api')
             ->where('pr.number', 50)
-            ->has('reviews', 2, fn (Assert $row) => $row
-                ->where('id', $newer->id)
-                ->has('findings')
-                ->has('createdAgo')
-                ->has('reviewer')
-                ->etc())
-            ->has('reviews.1', fn (Assert $row) => $row
-                ->where('id', $older->id)
-                ->etc()));
+            ->has('runs', 2)
+            ->where('runs.0.id', $newer->public_id)
+            ->where('runs.0.counts.mustFix', 1)
+            ->where('runs.1.id', $older->public_id));
 });
 
 test('show renders an empty state when no reviews exist for the pr', function () {
@@ -49,11 +38,13 @@ test('show renders an empty state when no reviews exist for the pr', function ()
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('PrReviews/ForPr')
-            ->has('reviews', 0));
+            ->has('runs', 0));
 });
 
 test('show exposes the posted event separately from the model verdict and shadow recommendation', function () {
+    $task = seedReviewRun(['status' => 'success']);
     PrReview::factory()->create([
+        'yak_task_id' => $task->id,
         'repo' => 'geocodio/api', 'pr_number' => 50, 'verdict' => 'Approve',
         'risk_assessment' => [
             'event' => 'COMMENT', 'candidate' => 'APPROVE', 'mode' => 'shadow',
@@ -64,10 +55,10 @@ test('show exposes the posted event separately from the model verdict and shadow
     $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('reviews.0.findings.verdict', 'Approve')
-            ->where('reviews.0.findings.riskAssessment.event', 'COMMENT')
-            ->where('reviews.0.findings.riskAssessment.candidate', 'APPROVE')
-            ->where('reviews.0.findings.riskAssessment.risk_score', 25));
+            ->where('runs.0.findings.verdict', 'Approve')
+            ->where('runs.0.findings.riskAssessment.event', 'COMMENT')
+            ->where('runs.0.findings.riskAssessment.candidate', 'APPROVE')
+            ->where('runs.0.findings.riskAssessment.risk_score', 25));
 });
 
 test('rerun enqueues a review task', function () {

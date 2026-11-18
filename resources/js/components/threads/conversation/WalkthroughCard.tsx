@@ -1,6 +1,9 @@
 import { usePoll } from '@inertiajs/react';
-import { Check, Clock } from 'lucide-react';
-import { useEffect } from 'react';
+import { Button } from '@geocodio/console-ui';
+import { Check, Clock, TriangleAlert } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { useRouterAction } from '@/lib/useRouterAction';
+import { retryRender } from '@/routes/threads';
 import type { ThreadWalkthrough } from '@/types/threads';
 
 function clock(seconds: number): string {
@@ -10,10 +13,13 @@ function clock(seconds: number): string {
 }
 
 /** The latest recording on the thread: progress while Claude records or the cut renders, then the video and screenshots. */
-export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthrough }) {
-    const { isRecording, isRendering, video, screenshots, isInPullRequest } = walkthrough;
+export function WalkthroughCard({ walkthrough, threadId, canRetryRender, startAt = null }: { walkthrough: ThreadWalkthrough; threadId: string; canRetryRender: boolean; startAt?: number | null }) {
+    const { isRecording, isRendering, isRenderFailed, renderError, video, screenshots, isInPullRequest } = walkthrough;
+    const action = useRouterAction();
 
     const isWorking = isRecording || isRendering;
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hasVideo = video !== null;
     const poll = usePoll(4000, { only: ['walkthrough'] }, { autoStart: false });
 
     // Polls only while Claude records or the cut renders; a finished video is left alone so it can play.
@@ -26,11 +32,54 @@ export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthroug
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isWorking]);
 
+    // A `?walkthrough=<seconds>` link opens the video at that time, once the video is there.
+    useEffect(() => {
+        const element = videoRef.current;
+
+        if (startAt === null || !hasVideo || element === null) {
+            return;
+        }
+        const seek = () => {
+            element.currentTime = startAt;
+            element.scrollIntoView({ block: 'center' });
+        };
+        if (element.readyState >= 1) {
+            seek();
+        } else {
+            element.addEventListener('loadedmetadata', seek, { once: true });
+        }
+
+        return () => element.removeEventListener('loadedmetadata', seek);
+    }, [startAt, hasVideo]);
+
     return (
         <div className="flex gap-3" data-testid="thread-walkthrough">
             <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-[11px] font-medium text-accent-text">C</div>
             <div className="min-w-0 flex-1">
-                <div className="text-[12px] font-medium text-body">Walkthrough</div>
+                <div className="flex items-center gap-2 text-[12px] font-medium text-body">
+                    Walkthrough
+                    {isRenderFailed && <span className="inline-flex h-[18px] items-center rounded-pill bg-fail-soft px-2 text-[11.5px] text-fail" data-testid="walkthrough-failed-pill">Failed</span>}
+                </div>
+                {isRenderFailed && (
+                    <div role="alert" className="mt-1 rounded-[8px] bg-fail-soft px-3 py-2 text-[12.5px] text-fail" data-testid="walkthrough-failed">
+                        <p className="flex items-start gap-2">
+                            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                            <span>{renderError}</span>
+                        </p>
+                        {walkthrough.canRetryRender && canRetryRender && (
+                            <Button
+                                variant="tertiary"
+                                className="mt-2"
+                                pending={action.isPending('retry-render')}
+                                pendingLabel="Queueing…"
+                                onClick={() => action.run('retry-render', 'post', retryRender.url(threadId))}
+                                data-testid="retry-render"
+                            >
+                                Retry render
+                            </Button>
+                        )}
+                    </div>
+                )}
                 {isRecording && (
                     <div className="mt-1 flex items-center gap-2 rounded-[8px] bg-panel-2 px-3 py-2 text-[12.5px] text-body" data-testid="walkthrough-recording">
                         <span className="h-2 w-2 shrink-0 animate-pulse rounded-pill bg-info motion-reduce:animate-none" aria-hidden="true" />
@@ -45,7 +94,7 @@ export function WalkthroughCard({ walkthrough }: { walkthrough: ThreadWalkthroug
                 )}
                 {video !== null && (
                     <div className="mt-2 overflow-hidden rounded-[10px] border border-hair bg-panel" data-testid="walkthrough-video">
-                        <video src={video.url} poster={video.thumbnailUrl ?? undefined} controls preload="metadata" className="aspect-video max-h-[320px] w-full bg-black" />
+                        <video ref={videoRef} src={video.url} poster={video.thumbnailUrl ?? undefined} controls preload="metadata" className="aspect-video max-h-[320px] w-full bg-black" />
                         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3.5 py-2.5 text-[12.5px]">
                             <span>
                                 <span className="font-medium text-body">Walkthrough</span>

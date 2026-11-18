@@ -6,7 +6,7 @@ use App\Models\YakTask;
 
 /**
  * Names the specific thing that started an automated task -- the Sentry
- * issue or the flaky tests -- so the task page and the PR body can say
+ * issue or the flaky tests -- so the thread page and the PR body can say
  * exactly what the work is about, not just which channel it came from.
  */
 class TaskTrigger

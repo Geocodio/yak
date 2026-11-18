@@ -1,6 +1,11 @@
 import ThreadMessageController from './ThreadMessageController'
+import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
+import ThreadTaskActionController from './ThreadTaskActionController'
+import ThreadCoOwnerController from './ThreadCoOwnerController'
+import ThreadQueuedMessageController from './ThreadQueuedMessageController'
 import ContinueTurnController from './ContinueTurnController'
 import RestoreRetryController from './RestoreRetryController'
+import ThreadLogController from './ThreadLogController'
 import NewThreadController from './NewThreadController'
 import StoreThreadController from './StoreThreadController'
 import ThreadController from './ThreadController'
@@ -11,6 +16,7 @@ import ThreadCloseController from './ThreadCloseController'
 import ThreadDestroyController from './ThreadDestroyController'
 import ThreadSharedFileController from './ThreadSharedFileController'
 import ThreadDiffController from './ThreadDiffController'
+import ThreadRunLogController from './ThreadRunLogController'
 import LocalTurnsController from './LocalTurnsController'
 import ThreadEnvironmentController from './ThreadEnvironmentController'
 import ThreadPullRequestController from './ThreadPullRequestController'
@@ -29,8 +35,13 @@ import PullRequests from './PullRequests'
 
 const Threads = {
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),
+    ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
+    ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
+    ThreadCoOwnerController: Object.assign(ThreadCoOwnerController, ThreadCoOwnerController),
+    ThreadQueuedMessageController: Object.assign(ThreadQueuedMessageController, ThreadQueuedMessageController),
     ContinueTurnController: Object.assign(ContinueTurnController, ContinueTurnController),
     RestoreRetryController: Object.assign(RestoreRetryController, RestoreRetryController),
+    ThreadLogController: Object.assign(ThreadLogController, ThreadLogController),
     NewThreadController: Object.assign(NewThreadController, NewThreadController),
     StoreThreadController: Object.assign(StoreThreadController, StoreThreadController),
     ThreadController: Object.assign(ThreadController, ThreadController),
@@ -41,6 +52,7 @@ const Threads = {
     ThreadDestroyController: Object.assign(ThreadDestroyController, ThreadDestroyController),
     ThreadSharedFileController: Object.assign(ThreadSharedFileController, ThreadSharedFileController),
     ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
+    ThreadRunLogController: Object.assign(ThreadRunLogController, ThreadRunLogController),
     LocalTurnsController: Object.assign(LocalTurnsController, LocalTurnsController),
     ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),
     ThreadPullRequestController: Object.assign(ThreadPullRequestController, ThreadPullRequestController),

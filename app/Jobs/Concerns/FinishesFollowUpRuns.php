@@ -25,6 +25,7 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\PullRequests\ThreadRepositoryPullRequests;
 use App\Services\YakPersonality;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Log;
 
 trait FinishesFollowUpRuns
@@ -239,7 +240,7 @@ trait FinishesFollowUpRuns
 
         if ($this->task->targets_external_pr) {
             try {
-                $reply = $isUserFacing ? $errorMessage : "I couldn't finish this. The details are on the task page.";
+                $reply = $isUserFacing ? $errorMessage : "I couldn't finish this. The details are on the " . TaskPageUrl::label($this->task) . '.';
 
                 app(PullRequestSummonReplier::class)->replyForTask($this->task, $reply);
             } catch (\Throwable $replyError) {

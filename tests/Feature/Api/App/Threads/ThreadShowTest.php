@@ -1,10 +1,12 @@
 <?php
 
 use App\DataTransferObjects\ClarificationQuestion;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Models\CoOwnerRequest;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadShare;
@@ -12,6 +14,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\ThreadView;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CoOwner\GitHubWriteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Tests\Support\ContractFixture;
@@ -24,7 +27,7 @@ it('shows a thread with panes, the question and the latest sequence', function (
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 4812, 'sandbox_state' => ThreadSandboxState::None]);
-    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Fix the checkout bug', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id, 'clarification_expires_at' => now()->addDay()]);
+    $task = YakTask::factory()->create(['source' => 'dashboard', 'thread_id' => $thread->id, 'description' => 'Fix the checkout bug', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id, 'clarification_expires_at' => now()->addDay()]);
     $task->recordClarificationRound([ClarificationQuestion::fromArray([
         'id' => 'on_failure',
         'header' => 'On failure',
@@ -51,8 +54,8 @@ it('shows a thread after a finished turn', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
     $user = User::factory()->create(['name' => 'Test person']);
     $thread = Thread::factory()->create(['title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None, 'live_activity_channel' => 'dGVzdC1jaGFubmVs']);
-    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id]);
-    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
+    $task = YakTask::factory()->create(['source' => 'dashboard', 'thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour(), 'cost_usd' => 1.25, 'num_turns' => 10, 'total_ms' => 60_000]);
     ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'Retry failed uploads with backoff']);
 
     $response = $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()
@@ -130,7 +133,7 @@ it('lets a share recipient read but not drive', function () {
     $this->postJson(appThreadPath($thread, '/seen'), [], phoneHeadersFor($recipient))->assertNoContent();
 });
 
-it('marks a thread seen once, answers 204 on a repeat and clears its needs-you row', function () {
+it('marks a thread seen once, answers 204 on a repeat and clears its unread mark', function () {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
@@ -138,14 +141,16 @@ it('marks a thread seen once, answers 204 on a repeat and clears its needs-you r
     $headers = phoneHeadersFor($user);
 
     $before = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
-    expect(collect($before->json('needsYou'))->pluck('id')->all())->toContain($thread->public_id)
-        ->and($before->json('needsYouCount'))->toBe(1);
+    expect(collect($before->json('threads'))->firstWhere('id', $thread->public_id))
+        ->toMatchArray(['isUnread' => true, 'needsYouReason' => 'unseen'])
+        ->and($before->json('needsYouCount'))->toBe(0);
 
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
     $this->postJson(appThreadPath($thread, '/seen'), [], $headers)->assertNoContent();
 
     $after = $this->getJson('/api/app/v1/threads', $headers)->assertOk();
-    expect(collect($after->json('needsYou'))->pluck('id')->all())->not->toContain($thread->public_id)
+    expect(collect($after->json('threads'))->firstWhere('id', $thread->public_id))
+        ->toMatchArray(['isUnread' => false, 'needsYouReason' => null])
         ->and($after->json('needsYouCount'))->toBe(0)
         ->and(ThreadView::query()->where('user_id', $user->id)->where('thread_id', $thread->id)->count())->toBe(1);
 });
@@ -163,4 +168,22 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     [, $computerHeaders] = phoneWithHeaders(['user_id' => $user->id], isPhone: false);
     $this->getJson(appThreadPath($thread), $computerHeaders)->assertUnauthorized()->assertJsonPath('error', 'invalid_token');
     $this->postJson(appThreadPath($thread, '/seen'), [], $computerHeaders)->assertUnauthorized();
+});
+
+it('bounds the GitHub permission check of the co-owner panel on the app route only', function () {
+    $user = User::factory()->withGitHub(login: 'test-person')->create();
+    $task = YakTask::factory()->awaitingCoOwner()->create(['repo' => 'Geocodio/geocodio']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$user->id], 'status' => CoOwnerRequestStatus::Pending]);
+    $thread = Thread::query()->findOrFail($task->fresh()->thread_id);
+    $bounds = [];
+    $this->mock(GitHubWriteAccess::class)->shouldReceive('check')
+        ->andReturnUsing(function ($repository, $viewer, bool $isTimeBounded = false) use (&$bounds): string {
+            $bounds[] = $isTimeBounded;
+
+            return 'write';
+        });
+
+    $this->getJson(route('app.threads.show', $thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('coOwner.viewer.access', 'write');
+
+    expect($bounds)->toContain(true)->not->toContain(false);
 });

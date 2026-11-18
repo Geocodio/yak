@@ -3,7 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Observation;
-use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 
 /**
  * Flattens an {@see Observation} into the shape the Observations page
@@ -13,6 +13,7 @@ use App\Models\YakTask;
 final class ObservationData
 {
     /**
+     * @param  array<int, ?string>  $taskUrls  task id to page url, from {@see TaskPageUrl::forVisibleTaskIds()}
      * @return array{
      *     id: int,
      *     repo: ?string,
@@ -31,14 +32,12 @@ final class ObservationData
      *     createdTooltip: string,
      * }
      */
-    public static function from(Observation $observation): array
+    public static function from(Observation $observation, array $taskUrls = []): array
     {
         return [
             ...self::common($observation),
             'taskId' => $observation->yak_task_id,
-            'taskUrl' => $observation->yak_task_id !== null
-                ? route('tasks.show', ['task' => YakTask::publicIdForKey($observation->yak_task_id)])
-                : null,
+            'taskUrl' => $observation->yak_task_id === null ? null : ($taskUrls[$observation->yak_task_id] ?? null),
         ];
     }
 

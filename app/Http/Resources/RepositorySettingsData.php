@@ -45,6 +45,7 @@ final class RepositorySettingsData
         'approvals' => 'Auto-approval',
         'previews' => 'Previews',
         'sandbox' => 'Sandbox',
+        'runs' => 'Runs',
         'accounts' => 'Accounts',
         'danger' => 'Danger zone',
     ];
@@ -82,6 +83,7 @@ final class RepositorySettingsData
         return match ($section) {
             'general' => route('repos.edit', $repository),
             'approvals' => route('repos.approvals.show', $repository),
+            'runs' => route('repos.runs.index', $repository),
             default => route('repos.settings.show', ['repository' => $repository, 'section' => $section]),
         };
     }
@@ -298,7 +300,7 @@ final class RepositorySettingsData
             ->map(fn (YakTask $task): array => [
                 'status' => $task->status->value,
                 'id' => (string) $task->external_id,
-                'url' => route('tasks.show', $task),
+                'url' => route('repos.runs.show', [$repository, $task]),
                 'startedAgo' => $task->created_at?->diffForHumans() ?? '—',
                 'duration' => self::formatDuration($task->duration_ms),
             ])

@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -84,9 +85,15 @@ class NotificationDriver implements NotificationDriverContract
             return;
         }
 
+        $dashboardLink = $this->taskDashboardLink($task);
+
+        if ($dashboardLink === null) {
+            return;
+        }
+
         $this->sendSessionUpdate($accessToken, $sessionId, [
             'externalUrls' => [
-                ['label' => 'Yak dashboard', 'url' => $this->taskDashboardLink($task)],
+                ['label' => 'Yak dashboard', 'url' => $dashboardLink],
             ],
         ]);
     }
@@ -329,8 +336,8 @@ class NotificationDriver implements NotificationDriverContract
         return (string) $task->external_id;
     }
 
-    private function taskDashboardLink(YakTask $task): string
+    private function taskDashboardLink(YakTask $task): ?string
     {
-        return route('tasks.show', $task);
+        return TaskPageUrl::for($task);
     }
 }

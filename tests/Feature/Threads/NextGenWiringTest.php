@@ -24,7 +24,7 @@ it('runs a natural turn from start to pause and keeps a private thread off anoth
     $owner = User::factory()->create();
     $other = User::factory()->create();
     $account = ClaudeAccount::factory()->create();
-    $thread = Thread::factory()->private($owner)->create(['claude_account_id' => $account->id, 'model' => 'sonnet']);
+    $thread = Thread::factory()->private($owner)->create(['claude_account_id' => $account->id, 'model' => 'sonnet', 'created_by_user_id' => $owner->id]);
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
 
     $run = app(ThreadTurns::class)->start($task, 'scrubbed text 1', $owner, null);
@@ -60,7 +60,7 @@ it('runs a natural turn from start to pause and keeps a private thread off anoth
 
     $this->actingAs($other)->getJson(route('threads.list', ['filter' => 'everyone']))
         ->assertOk()->assertJsonCount(0, 'threads')->assertJsonCount(0, 'needsYou');
-    $this->actingAs($owner)->getJson(route('threads.list'))->assertJsonCount(1, 'needsYou');
+    $this->actingAs($owner)->getJson(route('threads.list'))->assertJsonCount(1, 'threads')->assertJsonPath('threads.0.isUnread', true)->assertJsonCount(0, 'needsYou');
 });
 
 it('serves request_refresh through the resolved tool router', function () {

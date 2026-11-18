@@ -67,12 +67,12 @@ it('replays a fixture into ordered entries and a completed turn event', function
     $stored = DB::table('thread_events')->where('thread_id', $thread->id)->orderBy('sequence')->get();
     $window = app(ThreadEventWindow::class)->since($thread->id, 0, 100);
 
-    expect($stored->pluck('type')->all())->toBe(['entry', 'entry', 'entry', 'turn'])
+    expect($stored->pluck('type')->all())->toBe(['entry', 'entry', 'entry', 'thread', 'thread', 'turn'])
         ->and(json_decode($stored[0]->payload, true)['role'])->toBe('system')
         ->and(json_decode($stored[1]->payload, true)['role'])->toBe('assistant')
         ->and(json_decode($stored[2]->payload, true)['role'])->toBe('result')
-        ->and(json_decode($stored[3]->payload, true))->toBe(['turnId' => $run->id, 'state' => 'completed'])
-        ->and(array_column($window, 'sequence'))->toBe([1, 2, 3, 4]);
+        ->and(json_decode($stored[5]->payload, true))->toBe(['turnId' => $run->id, 'state' => 'completed'])
+        ->and(array_column($window, 'sequence'))->toBe([1, 2, 3, 4, 5, 6]);
 });
 
 it('flushes buffered deltas before a structural event', function () {

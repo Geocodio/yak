@@ -56,7 +56,7 @@ class CoOwnerMessenger
             SendNotificationJob::dispatch(
                 $task,
                 NotificationType::Progress,
-                CoOwnerBlocks::earlyWarningLead($warning, shouldEscape: false) . ' You can tag someone on the task page.',
+                CoOwnerBlocks::earlyWarningLead($warning, shouldEscape: false) . ' You can tag someone on the thread.',
                 personalize: false,
             );
 

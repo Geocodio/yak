@@ -83,13 +83,13 @@ it('closes a research thread whose task finished more than the window ago', func
     expect($thread->refresh()->status)->toBe(ThreadStatus::Closed)->and($thread->close_reason)->toBe('terminal');
 });
 
-it('closes a thread whose only task failed without a branch after the window', function () {
-    $thread = terminalThread(25, ['status' => TaskStatus::Failed]);
+it('keeps a thread whose only task failed or expired, so it can still be retried', function (TaskStatus $status) {
+    $thread = terminalThread(25, ['status' => $status]);
 
     $this->artisan('yak:close-idle-threads')->assertSuccessful();
 
-    expect($thread->refresh()->close_reason)->toBe('terminal');
-});
+    expect($thread->refresh()->status)->toBe(ThreadStatus::Open);
+})->with([TaskStatus::Failed, TaskStatus::Expired]);
 
 it('keeps a thread whose terminal task finished inside the window', function () {
     $thread = terminalThread(1);

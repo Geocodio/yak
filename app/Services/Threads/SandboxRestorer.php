@@ -44,6 +44,10 @@ class SandboxRestorer
 
     public function restore(Thread $thread): bool
     {
+        if (! $thread->hasRepository()) {
+            return false;
+        }
+
         $this->secrets = array_values(array_filter($this->refresh->buildEnvironment($thread), fn (string $value): bool => $value !== ''));
 
         foreach ($this->stepsFor($thread) as $step) {

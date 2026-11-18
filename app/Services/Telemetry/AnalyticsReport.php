@@ -11,6 +11,7 @@ use App\Models\TaskRun;
 use App\Models\TelemetryEvent;
 use App\Models\YakTask;
 use App\Support\Percentiles;
+use App\Support\TaskPageUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -236,16 +237,19 @@ final class AnalyticsReport
      */
     public function outliers(int $limit = 12): array
     {
-        return $this->runs()
+        $runs = $this->runs()
             ->with('task:id,external_id')
             ->whereNotNull('total_ms')
             ->orderByDesc('total_ms')
             ->limit($limit)
-            ->get()
+            ->get();
+        $taskUrls = TaskPageUrl::forVisibleTaskIds($runs->map(fn (TaskRun $run): int => $run->yak_task_id)->all());
+
+        return $runs
             ->map(fn (TaskRun $run): array => [
                 'runId' => $run->id,
                 'taskId' => $run->yak_task_id,
-                'taskUrl' => route('tasks.show', ['task' => YakTask::publicIdForKey($run->yak_task_id)]),
+                'taskUrl' => $taskUrls[$run->yak_task_id] ?? route('threads.log'),
                 'externalId' => $run->task?->external_id,
                 'repo' => $run->repo,
                 'kind' => $run->kind->value,
@@ -517,12 +521,15 @@ final class AnalyticsReport
     {
         $names = $this->eventsQuery()->distinct()->orderBy('name')->pluck('name')->all();
 
-        $rows = $this->eventsQuery()
+        $events = $this->eventsQuery()
             ->when($name !== null && $name !== '', fn (Builder $q) => $q->where('name', $name))
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
             ->limit($limit)
-            ->get()
+            ->get();
+        $taskUrls = TaskPageUrl::forVisibleTaskIds(array_filter($events->map(fn (TelemetryEvent $event): ?int => $event->yak_task_id)->all()));
+
+        $rows = $events
             ->map(fn (TelemetryEvent $event): array => [
                 'id' => $event->id,
                 'occurredAt' => $event->occurred_at->toIso8601String(),
@@ -530,7 +537,7 @@ final class AnalyticsReport
                 'repo' => $event->repo,
                 'source' => $event->source,
                 'taskId' => $event->yak_task_id,
-                'taskUrl' => $event->yak_task_id !== null ? route('tasks.show', ['task' => YakTask::publicIdForKey($event->yak_task_id)]) : null,
+                'taskUrl' => $event->yak_task_id === null ? null : ($taskUrls[$event->yak_task_id] ?? null),
                 'durationMs' => $event->duration_ms,
                 'value' => $event->value,
                 'properties' => $event->properties,

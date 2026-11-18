@@ -170,6 +170,7 @@ class WebhookController extends Controller
             'context' => $context,
             'author_name' => $user->name,
             'started_by_user_id' => $user->id,
+            'author_user_id' => $user->id,
         ];
 
         if ($detection->needsClarification) {

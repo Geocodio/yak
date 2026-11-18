@@ -174,7 +174,7 @@ test('viewer shows back-to-task link', function () {
     $this->actingAs($user);
 
     $response = $this->get(route('artifacts.viewer', ['task' => $task->public_id, 'filename' => $artifact->filename]));
-    $response->assertSee(route('tasks.show', $task));
+    $response->assertSee(route('threads.show', $task->thread()->first()));
     $response->assertSee('back-to-task', false);
 });
 

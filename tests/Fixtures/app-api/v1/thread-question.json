@@ -1,8 +1,19 @@
 {
+    "actions": {
+        "canCancel": true,
+        "canMove": true,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
     "brief": null,
     "canDrive": true,
     "canOpenPullRequest": false,
     "capacity": null,
+    "card": "question",
+    "coOwner": null,
     "composer": {
         "accountName": null,
         "context": null,
@@ -89,7 +100,10 @@
         "state": "idle"
     },
     "diffTotals": null,
+    "earlyWarning": null,
+    "isLegacy": false,
     "latestSequence": 4812,
+    "legacyAnswers": [],
     "liveActivityChannel": null,
     "localTurnStints": [],
     "localTurns": null,
@@ -97,23 +111,28 @@
         {
             "attachmentIds": [],
             "attachments": [],
-            "authorInitials": "?",
-            "authorName": null,
+            "authorInitials": "TP",
+            "authorName": "Test person",
             "bodyHtml": "<p>Fix the checkout bug</p>\n",
             "canEditText": false,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": null,
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "pending",
             "text": "Fix the checkout bug",
-            "uuid": "<volatile:null>"
+            "uuid": "<volatile:null>",
+            "via": null
         }
     ],
+    "milestones": [],
     "modelLabels": {
         "claude-fable-5-2": "Fable 5.2",
         "claude-haiku-5-5": "Haiku 5.5",
@@ -131,6 +150,52 @@
         "files": false,
         "preview": true,
         "terminal": false
+    },
+    "progress": {
+        "steps": [
+            {
+                "key": "received",
+                "label": "Received",
+                "state": "done",
+                "tooltip": "Task landed in the queue."
+            },
+            {
+                "key": "picked_up",
+                "label": "Picked up",
+                "state": "done",
+                "tooltip": "An agent has claimed the task and started setup."
+            },
+            {
+                "key": "working",
+                "label": "Working",
+                "state": "current",
+                "tooltip": "Agent is investigating the codebase and implementing the fix."
+            },
+            {
+                "key": "pushed",
+                "label": "Pushed",
+                "state": "upcoming",
+                "tooltip": "Changes committed and pushed to a branch."
+            },
+            {
+                "key": "ci",
+                "label": "CI passed",
+                "state": "upcoming",
+                "tooltip": "CI verifies the changes before the pull request opens."
+            },
+            {
+                "key": "pull_request",
+                "label": "Pull request",
+                "state": "upcoming",
+                "tooltip": "Pull request opened for human review."
+            },
+            {
+                "key": "done",
+                "label": "Done",
+                "state": "upcoming",
+                "tooltip": "Task complete."
+            }
+        ]
     },
     "publishWarning": false,
     "pullRequest": null,
@@ -156,8 +221,42 @@
         ],
         "taskId": "<volatile:string>"
     },
+    "repositoryQuestion": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "needs_you",
+            "label": "Needs you",
+            "tone": "warn"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": null,
+        "costUsd": 0,
+        "durationSeconds": 0,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 0,
+        "sessionId": null,
+        "startedAt": null,
+        "stepCount": 0
+    },
     "sharedFiles": [],
     "stackParent": null,
+    "stopped": null,
     "teleport": {
         "accountName": null,
         "canTeleport": true,
@@ -183,6 +282,8 @@
     "thread": {
         "blockedReason": null,
         "branch": null,
+        "canShare": true,
+        "hasRepository": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

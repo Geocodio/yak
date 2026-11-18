@@ -9,7 +9,7 @@ import { SharedPeopleList } from './SharedPeopleList';
 export function VisibilityRow({ thread }: { thread: ThreadData }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    if (!thread.isOwner) {
+    if (!thread.canShare) {
         return null;
     }
 

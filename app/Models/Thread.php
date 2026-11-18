@@ -10,6 +10,7 @@ use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
+use App\Enums\ThreadSource;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
@@ -39,6 +40,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadStatus $status
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
+ * @property ThreadSource $source
+ * @property string|null $source_reference
+ * @property string|null $source_url
+ * @property string|null $starter_name
  * @property string|null $branch
  * @property string|null $effort
  * @property string|null $runner_effort
@@ -57,6 +62,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $last_refresh_commit
  * @property int|null $destroy_after_hours
  * @property string|null $wip_commit_sha
+ * @property int|null $created_by_user_id
  * @property string|null $local_repo_path
  * @property string|null $git_author_name
  * @property string|null $git_author_email
@@ -93,6 +99,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
 {
+    public const UNKNOWN_REPOSITORY = 'unknown';
+
     /** @use HasFactory<ThreadFactory> */
     use HasFactory, HasPublicId;
 
@@ -103,6 +111,7 @@ class Thread extends Model
         'status' => 'open',
         'visibility' => 'team',
         'kind' => 'general',
+        'source' => 'dashboard',
         'child_awake_limit' => 3,
         'claude_config_dir' => '/home/yak/.claude',
         'sandbox_state' => 'none',
@@ -122,6 +131,7 @@ class Thread extends Model
             'status' => ThreadStatus::class,
             'visibility' => ThreadVisibility::class,
             'kind' => ThreadKind::class,
+            'source' => ThreadSource::class,
             'sandbox_state' => ThreadSandboxState::class,
             'runner_state' => RunnerState::class,
             'lock_holder' => ThreadLockHolder::class,
@@ -129,6 +139,7 @@ class Thread extends Model
             'blocked_reason' => ThreadBlockReason::class,
             'destroy_after_hours' => 'integer',
             'fresh_session_pending' => 'boolean',
+            'is_legacy' => 'boolean',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',
             'lock_acquired_at' => 'immutable_datetime',
@@ -176,6 +187,57 @@ class Thread extends Model
     public function scopeVisibleTo(Builder $query, ?User $user): Builder
     {
         return app(ThreadAccess::class)->scopeVisibleTo($query, $user);
+    }
+
+    /**
+     * Hides threads that are not meant for people to browse, such as repository research.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @return Builder<covariant Thread>
+     */
+    public function scopeListed(Builder $query): Builder
+    {
+        return $query->where('threads.source', '!=', ThreadSource::RepositoryResearch->value);
+    }
+
+    /**
+     * Keeps threads from any of the given source keys; unknown keys are ignored and no keys means no filter.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @param  list<string>  $keys
+     * @return Builder<covariant Thread>
+     */
+    public function scopeWhereSources(Builder $query, array $keys): Builder
+    {
+        $sources = array_values(array_filter($keys, fn (string $key): bool => ThreadSource::tryFrom($key) !== null));
+
+        return $sources === [] ? $query : $query->whereIn('threads.source', $sources);
+    }
+
+    /**
+     * Keeps threads started by any of the given starters: `user:<id>`, `name:<author>` or `yak`.
+     *
+     * @param  Builder<covariant Thread>  $query
+     * @param  list<string>  $keys
+     * @return Builder<covariant Thread>
+     */
+    public function scopeWhereStarters(Builder $query, array $keys): Builder
+    {
+        if ($keys === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $starters) use ($keys): void {
+            foreach ($keys as $key) {
+                if ($key === 'yak') {
+                    $starters->orWhere(fn (Builder $yak) => $yak->whereNull('threads.created_by_user_id')->whereNull('threads.starter_name'));
+                } elseif (str_starts_with($key, 'user:') && ctype_digit(substr($key, 5))) {
+                    $starters->orWhere('threads.created_by_user_id', (int) substr($key, 5));
+                } elseif (str_starts_with($key, 'name:')) {
+                    $starters->orWhere(fn (Builder $named) => $named->whereNull('threads.created_by_user_id')->where('threads.starter_name', substr($key, 5)));
+                }
+            }
+        });
     }
 
     /**
@@ -300,7 +362,7 @@ class Thread extends Model
      */
     public function repositories(): HasMany
     {
-        return $this->hasMany(ThreadRepository::class);
+        return $this->hasMany(ThreadRepository::class)->orderBy('id');
     }
 
     /**
@@ -333,6 +395,14 @@ class Thread extends Model
     public function claudeAccount(): BelongsTo
     {
         return $this->belongsTo(ClaudeAccount::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**
@@ -372,6 +442,15 @@ class Thread extends Model
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
             ->exists();
+    }
+
+    /**
+     * False for a thread whose repository is not chosen yet: it has no
+     * repository row and never gets a sandbox.
+     */
+    public function hasRepository(): bool
+    {
+        return $this->repo !== self::UNKNOWN_REPOSITORY;
     }
 
     public function isChild(): bool

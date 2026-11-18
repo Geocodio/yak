@@ -6,10 +6,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->withoutVite());
 
-test('tasks page still renders with the new shared props', function () {
+test('the thread log still renders with the shared props', function () {
     $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
 
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('nav.activeTaskCount')
@@ -31,7 +31,7 @@ test('the thread list on a page contains only visible threads', function () {
     $visible = Thread::factory()->create(['created_by_user_id' => $viewer->id, 'title' => 'Visible work']);
     $secret = Thread::factory()->private(User::factory()->create())->create(['title' => 'Hidden work']);
 
-    $response = $this->actingAs($viewer)->get(route('tasks'))
+    $response = $this->actingAs($viewer)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page
             ->has('threadList.threads', 1)
             ->where('threadList.threads.0.id', $visible->public_id));

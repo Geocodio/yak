@@ -6,6 +6,7 @@ use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 
 class NotificationDriver implements NotificationDriverContract
 {
@@ -36,9 +37,9 @@ class NotificationDriver implements NotificationDriverContract
             ]);
     }
 
-    private function formatComment(NotificationType $type, string $message, string $dashboardLink): string
+    private function formatComment(NotificationType $type, string $message, ?string $dashboardLink): string
     {
-        return "{$message}\n\n[View on Dashboard]({$dashboardLink})";
+        return $dashboardLink === null ? $message : "{$message}\n\n[View on Dashboard]({$dashboardLink})";
     }
 
     private function extractPrNumber(string $prUrl): ?int
@@ -50,8 +51,8 @@ class NotificationDriver implements NotificationDriverContract
         return null;
     }
 
-    private function taskDashboardLink(YakTask $task): string
+    private function taskDashboardLink(YakTask $task): ?string
     {
-        return route('tasks.show', $task);
+        return TaskPageUrl::for($task);
     }
 }

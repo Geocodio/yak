@@ -231,7 +231,7 @@ class RenderWalkthroughJob implements ShouldQueue
 
     /**
      * chapters.json is written before the render, not after it: a cut the
-     * gate rejects still leaves the chapter data behind for the task page
+     * gate rejects still leaves the chapter data behind for the thread page
      * and for whoever re-runs the render.
      */
     private function writeChapters(YakTask $task, WalkthroughTimeline $timeline): void
@@ -268,7 +268,7 @@ class RenderWalkthroughJob implements ShouldQueue
     }
 
     /**
-     * Poster frame for the PR body and the task page. Failures are logged
+     * Poster frame for the PR body and the thread page. Failures are logged
      * and swallowed: the mp4 is still linked by duration.
      */
     private function renderThumbnail(YakTask $task, string $videoPath, string $taskDir): ?Artifact

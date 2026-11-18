@@ -190,5 +190,5 @@ test('a reminder for structured questions points to the form', function () {
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->task->is($task)
         && $job->type === NotificationType::Reminder
-        && str_contains($job->message, '#questions'));
+        && str_contains($job->message, '#card-question'));
 });

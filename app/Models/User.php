@@ -24,9 +24,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 /**
+ * @property string|null $avatar_url
  * @property array<string, bool>|null $push_event_preferences
  */
-#[Fillable(['name', 'email', 'password', 'slack_user_id', 'direct_messages_enabled', 'github_id', 'github_login', 'github_linked_at'])]
+#[Fillable(['name', 'email', 'password', 'slack_user_id', 'direct_messages_enabled', 'github_id', 'github_login', 'github_linked_at', 'avatar_url'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {

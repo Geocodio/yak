@@ -21,7 +21,7 @@ class UpdateThreadShareRequest extends FormRequest
 
         abort_unless($thread instanceof Thread && Gate::allows('view', $thread), 404);
 
-        return app(ThreadAccess::class)->isOwner($this->user(), $thread);
+        return app(ThreadAccess::class)->canShare($this->user(), $thread);
     }
 
     /**

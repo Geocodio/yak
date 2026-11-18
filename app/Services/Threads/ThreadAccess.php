@@ -43,6 +43,20 @@ class ThreadAccess
         return $this->isOwner($user, $thread);
     }
 
+    /**
+     * The owner may share; so may anyone who can drive a team thread nobody owns yet.
+     */
+    public function canShare(?User $user, Thread $thread): bool
+    {
+        if ($this->isOwner($user, $thread)) {
+            return true;
+        }
+
+        return $thread->effectiveOwnerUserId() === null
+            && $thread->effectiveVisibility() === ThreadVisibility::Team
+            && $this->canDrive($user, $thread);
+    }
+
     public function isOwner(?User $user, Thread $thread): bool
     {
         return $user !== null && $thread->effectiveOwnerUserId() === $user->id;

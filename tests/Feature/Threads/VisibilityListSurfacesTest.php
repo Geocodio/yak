@@ -127,7 +127,7 @@ it('hides private-thread telemetry from the analytics page and keeps it for the 
     TelemetryEvent::factory()->named('team.event')->create(['yak_task_id' => $teamTask->id, 'repo' => 'open/repo']);
 
     $encoded = json_encode(inertiaProps($this, '/analytics', $this->world->{$viewer}), JSON_UNESCAPED_SLASHES);
-    $privateMarkers = [VisibilityWorld::REPO, 'tasks/' . $this->world->task->public_id, 'pr.opened', '"pr_number":77'];
+    $privateMarkers = [VisibilityWorld::REPO, 'threads/' . $this->world->thread->public_id, 'pr.opened', '"pr_number":77'];
 
     foreach ($privateMarkers as $marker) {
         $sees ? expect($encoded)->toContain($marker) : expect($encoded)->not->toContain($marker);

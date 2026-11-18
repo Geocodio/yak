@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ThreadSource;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendEmailAcknowledgmentJob;
@@ -7,6 +8,7 @@ use App\Models\EmailMessage;
 use App\Models\Observation;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\UserEmailAddress;
 use App\Models\YakTask;
@@ -258,7 +260,8 @@ it('creates an awaiting_clarification task when the router is unsure', function 
     $task = YakTask::query()->sole();
     expect($task->repo)->toBe('unknown')
         ->and($task->status->value)->toBe('awaiting_clarification')
-        ->and($task->clarification_options)->toEqualCanonicalizing(['geocodio', 'geocodio-website']);
+        ->and($task->clarification_options)->toEqualCanonicalizing(['geocodio', 'geocodio-website'])
+        ->and($task->thread->repo)->toBe(Thread::UNKNOWN_REPOSITORY);
     Queue::assertNotPushed(RunYakJob::class);
     Queue::assertNotPushed(ResearchYakJob::class);
 });
@@ -269,7 +272,9 @@ it('creates one task per repo for multi-repo notes', function () {
     $response = postEmail(['TextBody' => forwardedEmailBody('gmail', 'Check this in geocodio and geocodio-website')])->assertCreated();
 
     expect(YakTask::query()->pluck('repo')->sort()->values()->all())->toBe(['geocodio', 'geocodio-website'])
-        ->and($response->json('task_ids'))->toHaveCount(2);
+        ->and($response->json('task_ids'))->toHaveCount(2)
+        ->and(Thread::query()->pluck('source')->unique()->all())->toBe([ThreadSource::Email])
+        ->and(Thread::query()->count())->toBe(2);
 });
 
 it('drops a From header that lists more than one address', function () {

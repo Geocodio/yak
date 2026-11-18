@@ -25,7 +25,7 @@ final class AppThreadData
     {
         // Read before the snapshot so catch-up from this sequence never skips an event; a replayed one is harmless.
         $latestSequence = (int) Thread::withoutGlobalScopes()->whereKey($thread->id)->value('event_sequence');
-        $data = ThreadShowData::build($thread, $viewer);
+        $data = ThreadShowData::build($thread, $viewer, isTimeBounded: true);
         $attachmentIds = array_values(array_unique(array_merge(...array_column($data['messages'], 'attachmentIds') ?: [[]])));
         $links = AppMediaLinks::forThread($thread, $attachmentIds);
         // The editable `text` stays as typed so an edit never saves an expiring link.
@@ -33,6 +33,7 @@ final class AppThreadData
             'attachments' => array_map(fn (array $attachment): array => $links->rewriteTree($attachment), $message['attachments']),
             'bodyHtml' => $links->rewrite($message['bodyHtml']),
         ] + $message, $data['messages']);
+        $data['thread']['hasRepository'] = $thread->hasRepository();
         $hasNoSandbox = $thread->sandbox_state === ThreadSandboxState::None;
 
         return $data + [

@@ -1,8 +1,14 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import messages from './messages'
+import repositoryAnswer from './repository-answer'
+import clarificationAnswers from './clarification-answers'
+import coOwner from './co-owner'
+import queuedMessages from './queued-messages'
 import restore from './restore'
 import sharedFiles from './shared-files'
 import diff from './diff'
+import runs from './runs'
+import tasks from './tasks'
 import environment from './environment'
 import pullRequest from './pull-request'
 import events from './events'
@@ -16,7 +22,7 @@ import repositories from './repositories'
 import pullRequests from './pull-requests'
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:79
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:81
 * @route '/threads/{thread}/stop'
 */
 export const stop = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -31,7 +37,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:79
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:81
 * @route '/threads/{thread}/stop'
 */
 stop.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -64,11 +70,359 @@ stop.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadMessageController::stop
-* @see app/Http/Controllers/Threads/ThreadMessageController.php:79
+* @see app/Http/Controllers/Threads/ThreadMessageController.php:81
 * @route '/threads/{thread}/stop'
 */
 stop.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: stop.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
+* @route '/threads/{thread}/retry'
+*/
+export const retry = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retry.url(args, options),
+    method: 'post',
+})
+
+retry.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/retry',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
+* @route '/threads/{thread}/retry'
+*/
+retry.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return retry.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retry
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:28
+* @route '/threads/{thread}/retry'
+*/
+retry.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retry.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
+* @route '/threads/{thread}/cancel'
+*/
+export const cancel = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancel.url(args, options),
+    method: 'post',
+})
+
+cancel.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/cancel',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
+* @route '/threads/{thread}/cancel'
+*/
+cancel.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return cancel.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::cancel
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:38
+* @route '/threads/{thread}/cancel'
+*/
+cancel.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: cancel.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
+* @route '/threads/{thread}/move'
+*/
+export const move = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: move.url(args, options),
+    method: 'post',
+})
+
+move.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/move',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
+* @route '/threads/{thread}/move'
+*/
+move.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return move.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::move
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:43
+* @route '/threads/{thread}/move'
+*/
+move.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: move.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::setupAndContinue
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
+* @route '/threads/{thread}/setup-and-continue'
+*/
+export const setupAndContinue = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: setupAndContinue.url(args, options),
+    method: 'post',
+})
+
+setupAndContinue.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/setup-and-continue',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::setupAndContinue
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
+* @route '/threads/{thread}/setup-and-continue'
+*/
+setupAndContinue.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return setupAndContinue.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::setupAndContinue
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:33
+* @route '/threads/{thread}/setup-and-continue'
+*/
+setupAndContinue.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: setupAndContinue.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
+* @route '/threads/{thread}/request-review'
+*/
+export const requestReview = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: requestReview.url(args, options),
+    method: 'post',
+})
+
+requestReview.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/request-review',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
+* @route '/threads/{thread}/request-review'
+*/
+requestReview.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return requestReview.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::requestReview
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:60
+* @route '/threads/{thread}/request-review'
+*/
+requestReview.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: requestReview.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @route '/threads/{thread}/retry-render'
+*/
+export const retryRender = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retryRender.url(args, options),
+    method: 'post',
+})
+
+retryRender.definition = {
+    methods: ["post"],
+    url: '/threads/{thread}/retry-render',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @route '/threads/{thread}/retry-render'
+*/
+retryRender.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { thread: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'public_id' in args) {
+        args = { thread: args.public_id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            thread: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        thread: typeof args.thread === 'object'
+        ? args.thread.public_id
+        : args.thread,
+    }
+
+    return retryRender.definition.url
+            .replace('{thread}', parsedArgs.thread.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadTaskActionController::retryRender
+* @see app/Http/Controllers/Threads/ThreadTaskActionController.php:71
+* @route '/threads/{thread}/retry-render'
+*/
+retryRender.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: retryRender.url(args, options),
     method: 'post',
 })
 
@@ -128,6 +482,50 @@ continueMethod.url = (args: { thread: string | { public_id: string } } | [thread
 continueMethod.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: continueMethod.url(args, options),
     method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+export const log = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: log.url(options),
+    method: 'get',
+})
+
+log.definition = {
+    methods: ["get","head"],
+    url: '/threads/log',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.url = (options?: RouteQueryOptions) => {
+    return log.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: log.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Threads\ThreadLogController::__invoke
+* @see app/Http/Controllers/Threads/ThreadLogController.php:19
+* @route '/threads/log'
+*/
+log.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: log.url(options),
+    method: 'head',
 })
 
 /**
@@ -210,7 +608,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 export const show = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -225,7 +623,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -258,7 +656,7 @@ show.url = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -268,7 +666,7 @@ show.get = (args: { thread: string | { public_id: string } } | [thread: string |
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:15
+* @see app/Http/Controllers/Threads/ThreadController.php:19
 * @route '/threads/{thread}'
 */
 show.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -711,8 +1109,19 @@ repositorySetup.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =>
 const threads = {
     messages: Object.assign(messages, messages),
     stop: Object.assign(stop, stop),
+    repositoryAnswer: Object.assign(repositoryAnswer, repositoryAnswer),
+    retry: Object.assign(retry, retry),
+    cancel: Object.assign(cancel, cancel),
+    move: Object.assign(move, move),
+    setupAndContinue: Object.assign(setupAndContinue, setupAndContinue),
+    requestReview: Object.assign(requestReview, requestReview),
+    retryRender: Object.assign(retryRender, retryRender),
+    clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
+    coOwner: Object.assign(coOwner, coOwner),
+    queuedMessages: Object.assign(queuedMessages, queuedMessages),
     continue: Object.assign(continueMethod, continueMethod),
     restore: Object.assign(restore, restore),
+    log: Object.assign(log, log),
     new: Object.assign(newMethod, newMethod),
     store: Object.assign(store, store),
     show: Object.assign(show, show),
@@ -723,6 +1132,8 @@ const threads = {
     destroy: Object.assign(destroy, destroy),
     sharedFiles: Object.assign(sharedFiles, sharedFiles),
     diff: Object.assign(diff, diff),
+    runs: Object.assign(runs, runs),
+    tasks: Object.assign(tasks, tasks),
     localTurns: Object.assign(localTurns, localTurns),
     environment: Object.assign(environment, environment),
     pullRequest: Object.assign(pullRequest, pullRequest),

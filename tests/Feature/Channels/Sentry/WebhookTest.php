@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Enums\ThreadSource;
 use App\Jobs\RunYakJob;
 use App\Models\Observation;
 use App\Models\Repository;
@@ -154,6 +155,7 @@ it('creates a task from a valid Sentry alert with yak-eligible tag', function ()
     expect($task->external_url)->toBe('https://sentry.io/organizations/test-org/issues/99001/');
     expect($task->repo)->toBe('my-app');
     expect($task->status)->toBe(TaskStatus::Pending);
+    expect($task->thread->source)->toBe(ThreadSource::Sentry);
     expect($task->description)->toContain('TypeError: Cannot read property of undefined');
     expect($task->description)->toContain('app/utils/auth.js');
     expect($task->description)->toContain('https://sentry.io/organizations/test-org/issues/99001/');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Enums\ThreadOwnerSide;
+use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Threads\TeleportRequestRequest;
 use App\Models\Device;
@@ -21,6 +22,10 @@ class ThreadTeleportRequestController extends Controller
     public function store(TeleportRequestRequest $request, Thread $thread): RedirectResponse
     {
         $this->authorizeDrive($thread);
+
+        if (! $thread->hasRepository()) {
+            return back()->with('error', ThreadActionRefused::NO_REPOSITORY_SENTENCE);
+        }
 
         abort_unless($thread->owner_side === ThreadOwnerSide::Yak && $thread->openTeleport() === null, 409, 'This thread is already moving or on a computer.');
 

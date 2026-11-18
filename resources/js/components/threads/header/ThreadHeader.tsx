@@ -1,6 +1,6 @@
 import { ConfirmDialog, Menu, cn, toast } from '@geocodio/console-ui';
-import { Link } from '@inertiajs/react';
-import { Copy, GitPullRequest, MoreHorizontal, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { Ban, Copy, GitPullRequest, Link2, MessageSquareCode, MoreHorizontal, MoveRight, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
@@ -13,14 +13,14 @@ import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
 import { toggleStar } from '@/lib/threadStar';
 import { DELETE_THREAD_CONFIRM, closeThread, closeThreadConfirm, deleteThread } from '@/lib/threadLifecycle';
-import { show } from '@/routes/threads';
+import { cancel, requestReview, show } from '@/routes/threads';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
-import { OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
+import { HeldPullRequestButton, OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
 import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent'>;
+    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent' | 'request' | 'actions' | 'coOwner'>;
     dockPanels: Panel[];
     activeDock: Panel | null;
     diff: PanelProps['diff'];
@@ -30,6 +30,8 @@ type Props = {
     onToggleRail: () => void;
     onOpenChanges: () => void;
     onOpenOverview: () => void;
+    /** Opens the move-to-another-repository dialog. */
+    onMove: () => void;
 };
 
 function copyBranchName(branch: string): void {
@@ -39,22 +41,31 @@ function copyBranchName(branch: string): void {
     );
 }
 
+function copyThreadLink(threadId: string): void {
+    navigator.clipboard.writeText(new URL(show.url(threadId), window.location.origin).toString()).then(
+        () => toast.success('Copied the thread link'),
+        () => toast.error('Could not copy the thread link.'),
+    );
+}
+
 /** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
-export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview }: Props) {
-    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent } = page;
+export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onMove }: Props) {
+    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions: threadActions, coOwner } = page;
     const [isSharing, setIsSharing] = useState(false);
-    const [confirming, setConfirming] = useState<'close' | 'delete' | null>(null);
+    const [confirming, setConfirming] = useState<'close' | 'delete' | 'cancel' | 'requestReview' | null>(null);
+    const [isBusy, setIsBusy] = useState(false);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const isOpen = thread.status === 'open';
     const canStar = thread.parentThreadId === null;
     // A thread on the person's computer cannot push or open a pull request from Yak.
     const canOpenPullRequest = canDrive && isOpen && pullRequest === null && diffTotals !== null && composer.state !== 'disabled_computer';
     const showOpenPullRequest = isDesktop && canOpenPullRequest;
+    const isHeldForCoOwner = pullRequest === null && (coOwner?.status === 'pending' || thread.pullRequestOpening?.state === 'held');
     const actions = useMemo(
         () =>
             headerActions({
                 threadId: thread.id,
-                isOwner: thread.isOwner,
+                isOwner: thread.canShare,
                 visibility: thread.visibility,
                 canOpenPullRequest,
                 pullRequestOpeningState: thread.pullRequestOpening?.state,
@@ -66,15 +77,19 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 canDelete: canDrive,
                 subThreadCount,
             }),
-        [thread.id, thread.isOwner, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
+        [thread.id, thread.canShare, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
     useCommandPaletteActions(THREAD_GROUP, actions);
 
     const closeConfirm = closeThreadConfirm(subThreadCount);
     const menuItems = [
+        { key: 'copy-link', label: 'Copy thread link', icon: <Link2 size={14} />, onSelect: () => copyThreadLink(thread.id), testId: 'thread-menu-copy-link' },
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
-        ...(thread.isOwner && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
+        ...(thread.canShare && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
+        ...(threadActions.canRequestReview ? [{ key: 'request-review', label: 'Request review', icon: <MessageSquareCode size={14} />, dividerAbove: true, onSelect: () => setConfirming('requestReview'), testId: 'thread-menu-request-review' }] : []),
+        ...(threadActions.canMove ? [{ key: 'move', label: 'Move to another repository', icon: <MoveRight size={14} />, onSelect: onMove, testId: 'thread-menu-move' }] : []),
+        ...(threadActions.canCancel ? [{ key: 'cancel', label: 'Cancel', icon: <Ban size={14} />, danger: true, onSelect: () => setConfirming('cancel'), testId: 'thread-menu-cancel' }] : []),
         ...(canDrive && isOpen ? [{ key: 'close', label: 'Close thread', icon: <XCircle size={14} />, dividerAbove: true, onSelect: () => setConfirming('close'), testId: 'thread-menu-close' }] : []),
         ...(canDrive ? [{ key: 'delete', label: 'Delete thread', icon: <Trash2 size={14} />, danger: true, onSelect: () => setConfirming('delete'), testId: 'thread-menu-delete' }] : []),
     ];
@@ -82,6 +97,10 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const confirmClose = () => {
         setConfirming(null);
         closeThread(thread.id);
+    };
+    const runConfirmed = (url: string) => {
+        setIsBusy(true);
+        router.post(url, {}, { preserveScroll: true, onFinish: () => { setIsBusy(false); setConfirming(null); } });
     };
     const confirmDelete = () => {
         setConfirming(null);
@@ -118,7 +137,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                         <VisibilityBadge thread={thread} />
                         <StatusPill notice={notice} composerState={composer.state} />
                     </div>
-                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
+                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} source={request.source} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
                 </div>
 
                 <ThreadDockToggles thread={thread} panels={dockPanels} active={activeDock} diff={diff} onSelect={onSelectDock} />
@@ -133,6 +152,8 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                             <span className="inline-flex h-[18px] items-center rounded-pill bg-panel-2 px-2 text-[11.5px] text-ok">Open</span>
                         </a>
                     )
+                ) : isDesktop && isHeldForCoOwner ? (
+                    <HeldPullRequestButton />
                 ) : (
                     showOpenPullRequest && (
                         <span className="inline-flex shrink-0" data-testid="thread-header-open-pr">
@@ -187,6 +208,27 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                 confirmLabel={DELETE_THREAD_CONFIRM.confirmLabel}
                 confirmTestId="thread-delete-confirm"
                 onConfirm={confirmDelete}
+            />
+            <ConfirmDialog
+                open={confirming === 'cancel'}
+                onOpenChange={(open) => !open && setConfirming(null)}
+                title="Cancel this task?"
+                body="The sandbox will be destroyed and the agent will stop."
+                confirmLabel="Cancel task"
+                busy={isBusy}
+                confirmTestId="thread-cancel-confirm"
+                onConfirm={() => runConfirmed(cancel.url(thread.id))}
+            />
+            <ConfirmDialog
+                open={confirming === 'requestReview'}
+                onOpenChange={(open) => !open && setConfirming(null)}
+                title="Request a review of this PR?"
+                body="Yak starts a new review task for the latest commit on this PR."
+                confirmLabel="Confirm"
+                destructive={false}
+                busy={isBusy}
+                confirmTestId="thread-request-review-confirm"
+                onConfirm={() => runConfirmed(requestReview.url(thread.id))}
             />
             {isSharing && <ShareThreadDialog thread={thread} onClose={() => setIsSharing(false)} />}
         </header>

@@ -1,19 +1,12 @@
 <?php
 
 use App\Enums\TaskStatus;
-use App\Jobs\FlushSteeringMessagesJob;
-use App\Jobs\RunFollowUpJob;
-use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
-use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\FollowUpTaskFactory;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     Storage::fake('artifacts');
@@ -32,40 +25,11 @@ function openPrTask(): YakTask
     ]);
 }
 
-test('a new task stores its attachments against the task', function () {
-    Queue::fake();
-    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
-
-    $this->post(route('tasks.store'), [
-        'repo' => 'web',
-        'mode' => 'fix',
-        'description' => 'The chart legend overlaps the axis',
-        'attachments' => [
-            UploadedFile::fake()->image('Screen Shot 2026-10-07 at 9.41.png', 1200, 800),
-            UploadedFile::fake()->createWithContent('error.log', 'Stack trace…'),
-        ],
-    ])->assertRedirect();
-
-    $task = YakTask::where('source', 'dashboard')->firstOrFail();
-    $attachments = $task->attachments;
-
-    expect($attachments)->toHaveCount(2)
-        ->and($attachments[0]->original_name)->toBe('screen-shot-2026-10-07-at-941.png')
-        ->and($attachments[0]->mime_type)->toBe('image/png')
-        ->and($attachments[0]->isImage())->toBeTrue()
-        ->and($attachments[0]->uploaded_by_user_id)->toBe($this->user->id)
-        ->and($attachments[1]->original_name)->toBe('error.log')
-        ->and($attachments[1]->isImage())->toBeFalse();
-
-    Storage::disk('artifacts')->assertExists($attachments[0]->disk_path);
-    Queue::assertPushed(RunYakJob::class);
-});
-
 test('attachments are capped in count and size', function () {
     config(['yak.attachments.max_files' => 2, 'yak.attachments.max_file_kb' => 100]);
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
-    $this->post(route('tasks.messages.store', $task), [
+    $this->post(route('threads.messages.store', $task->thread), [
         'message' => 'see these',
         'attachments' => [
             UploadedFile::fake()->create('a.pdf', 50),
@@ -74,137 +38,12 @@ test('attachments are capped in count and size', function () {
         ],
     ])->assertSessionHasErrors(['attachments' => 'Attach up to 2 files per message.']);
 
-    $this->post(route('tasks.messages.store', $task), [
+    $this->post(route('threads.messages.store', $task->thread), [
         'message' => 'see this',
         'attachments' => [UploadedFile::fake()->create('huge.pdf', 101)],
     ])->assertSessionHasErrors(['attachments.0' => 'Too large: attachments can be up to 0.1 MB each.']);
 
     expect(TaskAttachment::count())->toBe(0);
-});
-
-test('files sent with a repo choice join the request, so the restarted run gets them', function () {
-    Queue::fake();
-    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
-    $task = YakTask::factory()->create([
-        'status' => TaskStatus::AwaitingClarification,
-        'repo' => 'unknown',
-        'session_id' => null,
-        'clarification_options' => ['acme/web', 'acme/api'],
-    ]);
-
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'acme/web, it looks like [Image #1]',
-        'attachments' => [UploadedFile::fake()->image('what-i-see.png')],
-        'attachment_refs' => ['Image #1'],
-    ])->assertSessionHas('success');
-
-    $attachment = TaskAttachment::sole();
-
-    expect($task->fresh()->repo)->toBe('acme/web')
-        ->and($attachment->context)->toBe(TaskAttachment::CONTEXT_REQUEST)
-        ->and($task->fresh()->attachments->modelKeys())->toBe([$attachment->id]);
-});
-
-test('steering attachments ride the queued message and move to the follow-up on flush', function () {
-    Queue::fake([RunFollowUpJob::class]);
-    $task = YakTask::factory()->create([
-        'status' => TaskStatus::Running,
-        'repo' => 'web',
-        'branch_name' => 'yak/ATT-2',
-        'pr_url' => 'https://github.com/acme/web/pull/5',
-        'pr_number' => 5,
-    ]);
-
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'Match this mock instead',
-        'attachments' => [UploadedFile::fake()->image('mock.png')],
-    ])->assertSessionHas('success');
-
-    $message = PendingSteeringMessage::sole();
-    expect($message->attachments)->toHaveCount(1);
-
-    $task->update(['status' => TaskStatus::Success]);
-    (new FlushSteeringMessagesJob($task->id))->handle(app(FollowUpTaskFactory::class));
-
-    $child = YakTask::where('parent_task_id', $task->id)->sole();
-
-    expect($child->attachments)->toHaveCount(1)
-        ->and($child->attachments->first()->pending_steering_message_id)->toBeNull();
-});
-
-test('a follow-up on an open PR attaches the files to the new run', function () {
-    Queue::fake();
-    $task = openPrTask();
-
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'Also fix this one',
-        'attachments' => [UploadedFile::fake()->image('second-bug.jpg')],
-    ])->assertSessionHas('success', 'Sent to Yak. It will push changes to this PR.');
-
-    $child = YakTask::where('parent_task_id', $task->id)->sole();
-
-    expect($child->attachments)->toHaveCount(1)
-        ->and($child->attachments->first()->mime_type)->toBe('image/jpeg');
-});
-
-test('files sent to a closed conversation are not kept', function () {
-    Queue::fake();
-    $task = YakTask::factory()->merged()->create(['source' => 'dashboard', 'branch_name' => 'yak/M-2']);
-
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'too late',
-        'attachments' => [UploadedFile::fake()->image('late.png')],
-    ])->assertSessionHas('error');
-
-    expect(TaskAttachment::count())->toBe(0)
-        ->and(Storage::disk('artifacts')->allFiles())->toBe([]);
-});
-
-test('the thread shows request attachments on the request', function () {
-    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
-    $request = TaskAttachment::factory()->for($task, 'task')->create(['original_name' => 'before.png']);
-
-    $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('thread.0.kind', 'user')
-            ->has('thread.0.attachments', 1)
-            ->where('thread.0.attachments.0', [
-                'id' => $request->id,
-                'name' => 'before.png',
-                'reference' => null,
-                'url' => $request->url(),
-                'mimeType' => 'image/png',
-                'size' => $request->size_bytes,
-                'isImage' => true,
-                'previewKind' => 'image',
-                'downloadUrl' => $request->downloadUrl(),
-            ])
-            ->where('attachmentLimits.maxFiles', 8));
-});
-
-test('a repo choice reply shows as its own message with its files, not on the original request', function () {
-    Queue::fake();
-    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
-    $task = YakTask::factory()->create([
-        'status' => TaskStatus::AwaitingClarification,
-        'repo' => 'unknown',
-        'session_id' => null,
-        'clarification_options' => ['acme/web', 'acme/api'],
-    ]);
-
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'acme/web, see [File #1]',
-        'attachments' => [UploadedFile::fake()->createWithContent('trace.txt', 'boom')],
-        'attachment_refs' => ['File #1'],
-    ]);
-
-    $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('thread.0.kind', 'user')
-            ->has('thread.0.attachments', 0)
-            ->where('thread', fn ($thread) => collect($thread)->contains(fn (array $entry) => $entry['kind'] === 'user'
-                && str_contains($entry['bodyHtml'], 'data-attachment-ref="File #1"')
-                && ($entry['attachments'][0]['name'] ?? null) === 'trace.txt')));
 });
 
 test('previewable files are served inline, text strictly as plain text, everything else downloads', function () {
@@ -297,46 +136,14 @@ test('deleting an attachment removes its file', function () {
     Storage::disk('artifacts')->assertMissing($attachment->disk_path);
 });
 
-test('each attachment keeps the label the message text uses for it', function () {
-    Queue::fake();
-    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
-
-    $this->post(route('tasks.store'), [
-        'repo' => 'web',
-        'mode' => 'fix',
-        'description' => 'Compare [Image #1] with the log in [File #2]',
-        'attachments' => [UploadedFile::fake()->image('before.png'), UploadedFile::fake()->createWithContent('app.log', 'boom')],
-        'attachment_refs' => ['Image #1', 'File #2'],
-    ])->assertRedirect();
-
-    expect(YakTask::sole()->attachments->pluck('reference')->all())->toBe(['Image #1', 'File #2']);
-});
-
 test('attachment labels must look like Image #N or File #N', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
-    $this->post(route('tasks.messages.store', $task), [
+    $this->post(route('threads.messages.store', $task->thread), [
         'message' => 'see [Image #1]',
         'attachments' => [UploadedFile::fake()->image('a.png')],
         'attachment_refs' => ['<b>Image</b>'],
     ])->assertSessionHasErrors('attachment_refs.0');
-});
-
-test('labels in a sent message become chips linked to its attachments', function () {
-    $task = YakTask::factory()->create([
-        'status' => TaskStatus::Running,
-        'description' => "Before [Image #1], after [Image #2], unknown [Image #9]\n\n`[Image #1]`",
-    ]);
-    TaskAttachment::factory()->for($task, 'task')->create(['reference' => 'Image #1']);
-    TaskAttachment::factory()->for($task, 'task')->create(['reference' => 'Image #2']);
-
-    $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('thread.0.attachments.0.reference', 'Image #1')
-            ->where('thread.0.bodyHtml', fn (string $html) => str_contains($html, '<span class="attachment-ref" data-attachment-ref="Image #1">[Image #1]</span>')
-                && str_contains($html, 'data-attachment-ref="Image #2"')
-                && str_contains($html, 'unknown [Image #9]')
-                && str_contains($html, '<code>[Image #1]</code>')));
 });
 
 test('files on queued replies move onto the task when a retry folds the replies in', function () {
