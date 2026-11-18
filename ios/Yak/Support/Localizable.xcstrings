@@ -5532,6 +5532,26 @@
         }
       }
     },
+    "pane.divider.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize panes"
+          }
+        }
+      }
+    },
+    "pane.divider.value %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld percent for %2$@"
+          }
+        }
+      }
+    },
     "pane.files" : {
       "localizations" : {
         "en" : {
@@ -5568,6 +5588,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preview"
+          }
+        }
+      }
+    },
+    "pane.slot.shown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown"
+          }
+        }
+      }
+    },
+    "pane.slot.shownBeside" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown beside"
           }
         }
       }

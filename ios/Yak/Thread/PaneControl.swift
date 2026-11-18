@@ -6,7 +6,15 @@ import YakKit
 /// and the label "Thread panes"; with more than one pane the menu shows that heading too.
 struct PaneMenuButton: View {
     let panes: [PaneID]
-    @Binding var focused: PaneID
+    /// The pane this button's bar shows.
+    let current: PaneID
+    /// The pane in the other slot of a two-slot layout.
+    var beside: PaneID?
+    /// The bar's slot in a two-slot layout; nil for the one bar of a single pane.
+    var slot: SlotPosition?
+    let select: (PaneID) -> Void
+
+    private var focused: Binding<PaneID> { Binding(get: { current }, set: select) }
 
     var body: some View {
         Menu {
@@ -21,7 +29,7 @@ struct PaneMenuButton: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: PaneCatalog.descriptor(for: focused)?.symbol ?? "bubble.left")
+                Image(systemName: PaneCatalog.descriptor(for: current)?.symbol ?? "bubble.left")
                 Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
             }
             .font(.body)
@@ -34,12 +42,12 @@ struct PaneMenuButton: View {
         .tint(.primary)
         .menuOrder(.fixed)
         .accessibilityLabel(Text("pane.menu"))
-        .accessibilityValue(Text(PaneCatalog.descriptor(for: focused)?.name ?? ""))
-        .accessibilityIdentifier("pane.menu")
+        .accessibilityValue(Text(PaneCatalog.descriptor(for: current)?.name ?? ""))
+        .accessibilityIdentifier(slot.map { "pane.button.\($0.rawValue)" } ?? "pane.menu")
     }
 
     private var picker: some View {
-        Picker(selection: $focused) {
+        Picker(selection: focused) {
             ForEach(panes, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     Label(descriptor.name, systemImage: descriptor.symbol).tag(id)
@@ -56,8 +64,9 @@ struct PaneMenuButton: View {
 /// The panes as a row of icon-over-name buttons, the selected one with a neutral fill.
 struct PaneRow: View {
     let panes: [PaneID]
-    @Binding var focused: PaneID
+    let focused: PaneID
     let thread: ThreadModel
+    let select: (PaneID) -> Void
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -73,7 +82,7 @@ struct PaneRow: View {
                     PaneRowButton(
                         descriptor: descriptor, isSelected: id == focused,
                         badge: PaneBadge.make(descriptor, thread)
-                    ) { focused = id }
+                    ) { select(id) }
                 }
             }
         }

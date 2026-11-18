@@ -25,19 +25,8 @@ struct ThreadScreen: View {
     @State private var slots = PaneSlots()
     /// The pane the title returns to when it leaves the Overview.
     @State private var paneBeforeOverview: PaneID = .chat
-    /// The width of the thread screen, which decides between the Overview pane and the side panel.
-    @State private var availableWidth: Double = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var overviewPlacement: OverviewPlacement {
-        OverviewPlacement.choose(isCompactWidth: isCompactWidth, availableWidth: availableWidth)
-    }
-
-    private var isSidePanel: Bool {
-        if case .sidePanel = overviewPlacement { true } else { false }
-    }
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
@@ -54,18 +43,12 @@ struct ThreadScreen: View {
                 hasVerticalToolbarEdge: hasStrip)
             Group {
                 if let model {
-                    content(model, placement: placement)
+                    content(model, placement: placement, hasStrip: hasStrip)
                 } else {
                     Color(.systemBackground)
                 }
             }
         }
-        .onGeometryChange(for: Double.self) {
-            Double($0.size.width)
-        } action: {
-            availableWidth = $0
-        }
-        .onChange(of: isSidePanel) { moveOverviewBetweenPaneAndPanel() }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
         // A `/clear` starts a new thread; the window follows it.
@@ -97,35 +80,22 @@ struct ThreadScreen: View {
 
     // MARK: Layout
 
-    private func content(_ thread: ThreadModel, placement: PaneControlPlacement) -> some View {
+    private func content(_ thread: ThreadModel, placement: PaneControlPlacement, hasStrip: Bool) -> some View {
         let focused = focusedBinding(thread)
-        let activity = activityLine(thread, focused: focused.wrappedValue)
         return NavigationStack {
             HStack(spacing: 0) {
                 // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
                 // screen: no row scrolls behind the glass or below it, where it would be hidden yet still reachable.
-                VStack(spacing: 0) {
-                    if placement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
-                    PaneHost(thread: thread, focused: focused.wrappedValue).collectingPaneSlots(into: slots)
-                    VStack(spacing: 6) {
-                        if let line = activity {
-                            ActivityStrip(line: line) { openChat(focusComposer: $0) }
-                        }
-                        BottomBar(thread: thread, slots: slots, placement: placement, focused: focused)
-                    }
-                    .animation(.easeInOut(duration: 0.2), value: activity)
-                }
-                if case .sidePanel(let width) = overviewPlacement, scene.state.isOverviewPanelOpen,
-                    thread.panes.contains(.overview)
-                {
-                    OverviewSidePanel(thread: thread, width: width) { scene.setOverviewPanelOpen(false) }
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
+                ThreadLayoutView(
+                    thread: thread, scene: scene, slots: slots, singlePlacement: placement, hasStrip: hasStrip,
+                    isCompactWidth: isCompactWidth,
+                    activity: { activityLine(thread, focused: $0) }, openChat: { openChat(focusComposer: $0) }
+                )
+                .collectingPaneSlots(into: slots)
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(Color(.systemBackground))
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
-            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.3), value: isPanelShown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
@@ -161,10 +131,11 @@ struct ThreadScreen: View {
         .sensoryFeedback(.success, trigger: copiedLink)
     }
 
-    /// The title and Command I open the Overview; from the Overview they return to the pane before it.
+    /// The title and Command I open the Overview; from the Overview they return to the pane before it. Where the
+    /// Overview is a side panel the rules toggle the panel.
     private func toggleOverview(_ focused: Binding<PaneID>) {
-        if isSidePanel {
-            scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
+        if scene.plan?.overviewIsPanel == true {
+            scene.select(.overview)
         } else if focused.wrappedValue == .overview {
             focused.wrappedValue = paneBeforeOverview
         } else {
@@ -173,41 +144,18 @@ struct ThreadScreen: View {
         }
     }
 
-    /// With the side panel the Overview is never the focused pane: choosing it opens or closes the panel.
+    /// The focused pane, and a pick that goes through the layout rules.
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
         Binding(
-            get: {
-                let shown = scene.shownPane(among: thread.panes)
-                return isSidePanel && shown == .overview ? paneBeforeOverview : shown
-            },
-            set: { next in
-                if isSidePanel, next == .overview {
-                    scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
-                } else {
-                    scene.focus(pane: next)
-                }
-            })
-    }
-
-    private var isPanelShown: Bool { isSidePanel && scene.state.isOverviewPanelOpen }
-
-    /// A window that grows or shrinks across the panel's width turns the open Overview into the other form.
-    private func moveOverviewBetweenPaneAndPanel() {
-        if isSidePanel {
-            guard scene.isShown(.overview) else { return }
-            scene.focus(pane: paneBeforeOverview == .overview ? .chat : paneBeforeOverview)
-            scene.setOverviewPanelOpen(true)
-        } else if scene.state.isOverviewPanelOpen {
-            scene.setOverviewPanelOpen(false)
-            scene.focus(pane: .overview)
-        }
+            get: { scene.shownFocusedPane(among: thread.panes) },
+            set: { scene.select($0) })
     }
 
     /// The app's own strip on the trailing edge: the threads button, the pane button and the menu, top to bottom.
     private func trailingStrip(_ thread: ThreadModel, focused: Binding<PaneID>) -> some View {
         VStack(spacing: 8) {
             if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
-            PaneMenuButton(panes: thread.panes, focused: focused)
+            PaneMenuButton(panes: thread.panes, current: focused.wrappedValue, select: { scene.select($0) })
             PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
             if let line = activityLine(thread, focused: focused.wrappedValue) {
@@ -224,7 +172,7 @@ struct ThreadScreen: View {
         .accessibilityIdentifier("thread.strip")
     }
 
-    /// The line above the bar in every pane but Chat.
+    /// The line above the bar of every pane but Chat.
     private func activityLine(_ thread: ThreadModel, focused: PaneID) -> ActivityLine? {
         focused == .chat ? nil : ActivityLine.make(thread.snapshot)
     }
@@ -326,7 +274,7 @@ private struct CopiedToast: View {
 }
 
 /// The connection line for the placement that hides the title row, which would otherwise carry it.
-private struct ConnectionBanner: View {
+struct ConnectionBanner: View {
     let line: ConnectionLine
 
     var body: some View {

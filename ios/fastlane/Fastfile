@@ -12,6 +12,7 @@ CORE_SMOKE_CLASSES = %w[
   LaunchTests
   PairingSmokeTests
   ThreadSmokeTests
+  LayoutSmokeTests
 ].freeze
 
 platform :ios do

@@ -70,6 +70,7 @@ enum StubFeatures {
         StubPreviewFeature(),
         StubChanges(),
         StubOverview(),
+        StubLayout(),
     ]
 }
 
