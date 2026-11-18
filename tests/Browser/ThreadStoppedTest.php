@@ -122,6 +122,6 @@ it('scrolls the progress row so the failed step is in view on a phone', function
 
     $page = visit("/threads/{$thread->public_id}")->on()->mobile()->assertVisible('[data-testid="thread-progress-row"]');
 
-    expect($page->script("(() => { const row = document.querySelector('[data-testid=\"thread-progress-row\"]'); const step = row.querySelector('[data-focus=\"true\"]'); return step.getBoundingClientRect().right <= row.getBoundingClientRect().right && row.scrollLeft > 0; })()"))->toBeTrue()
+    expect($page->script("(() => { const row = document.querySelector('[data-testid=\"thread-progress-row\"]'); const step = row.querySelector('[data-focus=\"true\"]'); const box = step.getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return box.right <= bounds.right && box.left >= bounds.left; })()"))->toBeTrue()
         ->and($page->script('document.documentElement.scrollLeft'))->toBe(0);
 });
