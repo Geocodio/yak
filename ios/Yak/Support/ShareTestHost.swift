@@ -21,9 +21,6 @@
             .task { await build() }
         }
 
-        private static let instanceHost = "yak.example.com"
-        nonisolated fileprivate static let linkHost = "status.example.com"
-
         private static let contextJSON = """
             {"instanceName":"Example Yak","limits":{"maxFiles":8,"maxFileBytes":10485760},
              "lastThread":{"id":"d0e515ef","title":"Fix the overlap on small screens","isPrivate":false,"canSend":true,"nextAttachmentNumber":4},
@@ -45,7 +42,7 @@
             let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
             if caseName != "no-instance",
                 let instance = try? await instances.add(
-                    url: URL(string: "https://\(Self.instanceHost)")!, name: "Example Yak", userName: "Test person",
+                    url: URL(string: "https://yak.example.com")!, name: "Example Yak", userName: "Test person",
                     token: "test-token")
             {
                 if caseName == "signed-out" { try? tokens.removeToken(for: instance.id) }
@@ -116,7 +113,7 @@
                     data: data, fileName: "photo-\(number).jpg", contentType: "image/jpeg", isImage: true)
             }
 
-            func loadURL() async throws -> URL { URL(string: "https://\(ShareTestHost.linkHost)/issue/1")! }
+            func loadURL() async throws -> URL { URL(string: "https://status.example.com/issue/1")! }
             func loadText(maximumBytes: Int) async throws -> Data { Data("The overlap shows on small screens.".utf8) }
         }
 

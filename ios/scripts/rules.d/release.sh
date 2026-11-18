@@ -4,6 +4,9 @@
 
 # Files whose string literals name a host on purpose. Each entry needs its reason.
 host_allowed_files=(
+    # The widget placeholder and the debug widget gallery build a sample instance on an example.com address; no request is made.
+    YakWidgets/YakTimelineProvider.swift
+    Yak/Debug/WidgetGallery.swift
     # The app's own yak:// scheme (a quick action link), not a server.
     Packages/YakKit/Sources/YakKit/Intents/QuickActionItems.swift
     # The reserved .invalid domain builds a response object for a stored answer; no request is made.
@@ -12,6 +15,8 @@ host_allowed_files=(
     Yak/Markdown/MarkdownGallery.swift
     # The debug-only chat gallery names example.test and example.com in canned data; no request is made.
     Yak/Chat/ChatGallery.swift
+    # The debug-only share sheet test host builds a sample instance and link on example.com addresses; it is compiled out of release builds and no request is made.
+    Yak/Support/ShareTestHost.swift
 )
 
 release_swift_files() {
