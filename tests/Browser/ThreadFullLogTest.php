@@ -170,3 +170,40 @@ it('answers 404 for the page of a thread the viewer cannot see, so no log link o
 
     $this->get(route('threads.show', ['thread' => $hidden, 'log' => 2]))->assertNotFound();
 });
+
+it('goes to the first result with Next step when a search has dropped the open step', function () {
+    [$thread, , $ids] = fullLogThread([array_map(fn (int $number): array => ["echo {$number}", (string) $number], range(1, 6))]);
+
+    visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))
+        ->assertVisible(FULL_LOG)
+        ->fill('[data-testid="transcript-search"]', 'echo 4')
+        ->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches')
+        ->click('[data-testid="log-next"]')
+        ->assertSeeIn('[data-testid="transcript-step"]', 'Step 4')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows shell commands with a prompt and announces the step to a screen reader', function () {
+    [$thread, , $ids] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]]);
+
+    visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))
+        ->assertVisible(FULL_LOG)
+        ->assertSee('$ echo one')
+        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 1 of 2, Run')
+        ->click('[data-testid="log-next"]')
+        ->assertSeeIn('[data-testid="transcript-step-announcement"]', 'Step 2 of 2, Run');
+});
+
+it('keeps Next step disabled until the log has loaded and then enables it', function () {
+    [$thread] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]]);
+
+    $page = visit(route('threads.show', $thread));
+    $page->script('(() => { const original = window.fetch; window.fetch = (url, options) => String(url).includes("/log") ? new Promise((resolve) => setTimeout(() => resolve(original(url, options)), 1500)) : original(url, options); })();');
+    $page->click('[data-testid="run-log-button"]')
+        ->assertVisible(FULL_LOG)
+        ->assertAttribute('[data-testid="log-next"]', 'disabled', '')
+        ->assertAttribute('[data-testid="log-prev"]', 'disabled', '')
+        ->assertSee('echo one')
+        ->assertAttributeMissing('[data-testid="log-next"]', 'disabled')
+        ->assertNoJavaScriptErrors();
+});

@@ -40,25 +40,19 @@ final class ThreadRunLogData
             return ['entries' => [], 'nextCursor' => null];
         }
 
-        $events = self::runEvents($thread, $bounds)->where('sequence', '>', max($cursor, $bounds['start']))->where('payload->role', '!=', 'tool_result');
+        $steps = self::runEvents($thread, $bounds)->where('sequence', '>', max($cursor, $bounds['start']))->where('payload->role', '!=', 'tool_result');
 
         if (filled($search)) {
-            $pattern = self::likePattern($search);
-            $callIds = self::callIdsWithMatchingResult($thread, $bounds, $pattern);
-            $events->where(function (Builder $query) use ($pattern, $callIds): void {
-                $query->whereRaw("payload like ? escape '|'", [$pattern]);
-
-                foreach ($callIds as $callId) {
-                    $query->orWhereRaw("payload like ? escape '|'", [self::likePattern($callId)]);
-                }
-            });
+            $sequences = array_slice(self::matchingSequences($thread, $bounds, clone $steps, $search), 0, self::PAGE_SIZE + 1);
+            $page = self::runEvents($thread, $bounds)->whereIn('sequence', $sequences)->orderBy('sequence')->get();
+        } else {
+            $page = $steps->orderBy('sequence')->limit(self::PAGE_SIZE + 1)->get();
         }
 
-        $page = $events->orderBy('sequence')->limit(self::PAGE_SIZE + 1)->get();
         $hasMore = $page->count() > self::PAGE_SIZE;
         $page = $page->take(self::PAGE_SIZE)->values();
         $results = self::toolResults($thread, $bounds, $page);
-        $numbers = self::stepNumbers($thread, $bounds);
+        $numbers = self::stepNumbers($thread, $bounds, $page);
 
         return [
             'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped([...self::eventEntry($event, $results), 'number' => $numbers[$event->sequence] ?? null]))->all()),
@@ -206,31 +200,57 @@ final class ThreadRunLogData
     }
 
     /**
-     * The step number of each entry of the run (its place among the steps the list shows), by sequence.
+     * The step number of each entry on a page (its place among all steps of the run), by sequence: one count of the
+     * steps before the page and one read of the step sequences inside the page's range, so a page costs two small
+     * queries however long the run is.
      *
      * @param  array{start: int, end: ?int}  $bounds
+     * @param  Collection<int, ThreadEvent>  $page
      * @return array<int, int>
      */
-    private static function stepNumbers(Thread $thread, array $bounds): array
+    private static function stepNumbers(Thread $thread, array $bounds, Collection $page): array
     {
-        $sequences = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->orderBy('sequence')->pluck('sequence')->all();
+        if ($page->isEmpty()) {
+            return [];
+        }
 
-        return array_map(fn (int $index): int => $index + 1, array_flip(array_map('intval', $sequences)));
+        $first = (int) $page->first()->sequence;
+        $before = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->where('sequence', '<', $first)->count();
+        $inRange = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->whereBetween('sequence', [$first, (int) $page->last()->sequence])->orderBy('sequence')->pluck('sequence')->all();
+
+        return array_map(fn (int $index): int => $before + $index + 1, array_flip(array_map('intval', $inRange)));
     }
 
     /**
-     * The tool call ids whose result text matches a search, so a search for output finds the step that ran. Capped
-     * at 200 ids; a search broad enough to match more finds the rest by their own text.
+     * The sequences of the steps after the cursor that match a search, in order: a step matches by its own text, or
+     * by the output of its tool call. The output rows are matched in one scan and mapped to their call from the ids
+     * on the call events, read once, so the cost does not grow with the number of matches; a page takes the first
+     * of the sequences and the rest are reached by the cursor.
      *
      * @param  array{start: int, end: ?int}  $bounds
-     * @return list<string>
+     * @param  Builder<ThreadEvent>  $steps  the steps after the cursor
+     * @return list<int>
      */
-    private static function callIdsWithMatchingResult(Thread $thread, array $bounds, string $pattern): array
+    private static function matchingSequences(Thread $thread, array $bounds, Builder $steps, string $search): array
     {
-        $ids = self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereRaw("payload like ? escape '|'", [$pattern])->limit(200)->get()
-            ->map(fn (ThreadEvent $event): string => (string) ($event->payload['toolUseId'] ?? ''))->filter()->unique()->values()->all();
+        $pattern = self::likePattern($search);
+        $own = (clone $steps)->whereRaw("payload like ? escape '|'", [$pattern])->pluck('sequence')->map(fn (mixed $sequence): int => (int) $sequence)->all();
+        $callIds = self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereRaw("payload like ? escape '|'", [$pattern])->select('payload->toolUseId as call_id')->pluck('call_id')
+            ->map(fn (mixed $id): string => trim((string) $id, '"'))->filter()->flip();
+        $byOutput = [];
 
-        return array_values($ids);
+        if ($callIds->isNotEmpty()) {
+            foreach ($steps->where('payload->role', 'assistant')->get(['sequence', 'payload']) as $event) {
+                if (collect(self::toolCalls($event))->contains(fn (array $call): bool => $callIds->has((string) ($call['id'] ?? '')))) {
+                    $byOutput[] = (int) $event->sequence;
+                }
+            }
+        }
+
+        $sequences = array_values(array_unique([...$own, ...$byOutput]));
+        sort($sequences);
+
+        return $sequences;
     }
 
     /**

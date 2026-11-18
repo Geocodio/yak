@@ -101,7 +101,7 @@ export function TranscriptOverlay({
     const sel = idx >= 0 ? idx : 0;
     const selectedId = idx >= 0 ? rows[idx].id : null;
     const outOfWindow = selectedLogId !== null && idx < 0;
-    const hasNextStep = rows.length > 0 && (sel < rows.length - 1 || paging?.hasMore === true);
+    const hasNextStep = rows.length > 0 && (idx < 0 || sel < rows.length - 1 || paging?.hasMore === true);
 
     // A cold open (the header button, no `?log=`) has nothing selected yet:
     // pick the first row once so a fetch has something to ask for. A deep
@@ -135,6 +135,12 @@ export function TranscriptOverlay({
 
     const step = (offset: number) => {
         if (rows.length === 0) {
+            return;
+        }
+        // The open step is not in the list (a search dropped it): either direction goes to the first result.
+        if (idx < 0) {
+            onSelectLog(rows[0].id);
+
             return;
         }
         if (offset > 0 && sel >= rows.length - 1) {
@@ -207,7 +213,7 @@ export function TranscriptOverlay({
         document.addEventListener('keydown', onKey, true);
         return () => document.removeEventListener('keydown', onKey, true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, sel, rows, paging?.hasMore]);
+    }, [open, sel, idx, rows, paging?.hasMore]);
 
     useEffect(() => {
         if (!open) {
@@ -360,6 +366,10 @@ export function TranscriptOverlay({
                         <div className="min-h-0 flex-1 overflow-auto p-[18px]">
                             {current ? (
                                 <>
+                                    <p className="sr-only" role="status" data-testid="transcript-step-announcement">
+                                        Step {sel + 1} of {rows.length}
+                                        {paging?.hasMore ? '+' : ''}, {stepKind(current)}
+                                    </p>
                                     {outOfWindow && <p className="mb-2 text-[11px] text-faint">This step is not in the list now</p>}
                                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                                         {pill && (
@@ -411,7 +421,7 @@ export function TranscriptOverlay({
                                         )
                                     ) : (
                                         <>
-                                            <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.input}</Block>
+                                            <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.tool === 'Bash' && current.input ? `$ ${current.input}` : current.input}</Block>
                                             <Block title="Output" error={current.error}>
                                                 {current.output}
                                             </Block>
@@ -426,7 +436,7 @@ export function TranscriptOverlay({
                             )}
                         </div>
                         <div className="flex shrink-0 gap-2 border-t border-hair px-[18px] py-3">
-                            <Button variant="secondary" className="h-8" onClick={() => step(-1)} disabled={rows.length === 0 || sel <= 0} data-testid="log-prev">
+                            <Button variant="secondary" className="h-8" onClick={() => step(-1)} disabled={rows.length === 0 || (idx >= 0 && sel <= 0)} data-testid="log-prev">
                                 Previous step
                             </Button>
                             <Button variant="secondary" className="h-8" onClick={() => step(1)} disabled={!hasNextStep} pending={advanceFrom !== null} data-testid="log-next">

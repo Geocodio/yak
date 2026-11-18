@@ -100,3 +100,15 @@ it('moves between the runs of a pull request inside the full log', function () {
         ->assertAttribute('[data-testid="run-next"]', 'disabled', '')
         ->assertNoJavaScriptErrors();
 });
+
+it('does not write a step link into the address of the review page', function () {
+    $this->actingAs(User::factory()->create());
+    [, $middle] = seedThreeReviewRuns();
+    TaskLog::create(['yak_task_id' => $middle->id, 'level' => 'info', 'message' => 'Reading the middle diff']);
+
+    $page = visit('/pr-reviews/for/geocodio/api/50');
+    $page->script("window.location.hash = '#run-{$middle->public_id}'");
+    $page->click("[data-testid=\"review-run-{$middle->public_id}\"] [data-testid=\"run-full-log\"]")->assertSee('Reading the middle diff');
+
+    expect($page->script('new URL(location.href).searchParams.has("log")'))->toBeFalse();
+});

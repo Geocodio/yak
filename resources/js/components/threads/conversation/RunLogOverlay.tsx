@@ -78,13 +78,19 @@ export function RunLogOverlay({
         return null;
     }
 
+    // Only a thread's log has an address that opens it again; a pull request's or a repository's does not.
+    const writeUrl = (patch: { log: number | undefined }) => {
+        if (target.kind !== 'url') {
+            replaceTaskQuery(patch);
+        }
+    };
     const select = (entryId: number) => {
         setSelectedId(entryId);
-        replaceTaskQuery({ log: entryId });
+        writeUrl({ log: entryId });
     };
     const close = (open: boolean) => {
         if (!open) {
-            replaceTaskQuery({ log: undefined });
+            writeUrl({ log: undefined });
             onClose();
         }
     };
@@ -93,7 +99,6 @@ export function RunLogOverlay({
     const goToRun = (offset: number) => {
         const sibling = runs[position + offset];
         if (sibling !== undefined && onSelectRun !== undefined) {
-            replaceTaskQuery({ log: undefined });
             onSelectRun({ ...sibling.target, entryId: null });
         }
     };

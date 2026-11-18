@@ -263,3 +263,54 @@ it('answers 404 to a search on the log of a thread the viewer cannot see', funct
 
     $this->actingAs(User::factory()->create())->getJson("/threads/{$hidden->public_id}/runs/{$run->id}/log?search=needle&cursor=0")->assertNotFound();
 });
+
+function seededSearchRun(int $steps): array
+{
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+
+    foreach (range(0, $steps - 1) as $index) {
+        logEntry($thread, 2 + $index * 2, ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => "toolu_{$index}", 'name' => 'Bash', 'input' => ['command' => "echo {$index}"]]]]);
+        logEntry($thread, 3 + $index * 2, ['role' => 'tool_result', 'toolUseId' => "toolu_{$index}", 'isError' => false, 'text' => 'needle ' . $index]);
+    }
+
+    return [$thread, $run];
+}
+
+it('pages every step whose output matches, past 200 matches, with an exact running position', function () {
+    [$thread, $run] = seededSearchRun(260);
+    $user = User::factory()->create();
+    $seen = [];
+    $cursor = 0;
+    $pages = 0;
+
+    do {
+        $page = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle&cursor={$cursor}")->assertOk();
+        $seen = [...$seen, ...array_column($page->json('entries'), 'id')];
+        $cursor = $page->json('nextCursor');
+        $pages++;
+    } while ($cursor !== null);
+
+    expect($seen)->toHaveCount(260)->and(array_unique($seen))->toHaveCount(260)->and($pages)->toBe(6);
+    $last = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle&cursor=" . $seen[254])->json('entries.4');
+    expect($last['number'])->toBe(260);
+});
+
+it('reads a page of a long run with the same number of queries as a page of a short one', function () {
+    $count = function (int $steps, string $query): int {
+        [$thread, $run] = seededSearchRun($steps);
+        $user = User::factory()->create();
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log{$query}");
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log{$query}")->assertOk();
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
+    };
+
+    foreach (['', '?search=needle'] as $query) {
+        expect($count(500, $query))->toBe($count(60, $query));
+    }
+});
