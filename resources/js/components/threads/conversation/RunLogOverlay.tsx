@@ -17,10 +17,10 @@ const EMPTY_TEXT = 'This run has no recorded steps.';
  * The existing transcript overlay (desktop) or log entry sheet (phone), fed from the run log route. The run and
  * attempt pickers stay out of it: it shows exactly one run. The `?log=` link follows the open entry.
  */
-export function RunLogOverlay({ threadId = '', target, onClose }: { threadId?: string; target: RunLogTarget | null; onClose: () => void }) {
+export function RunLogOverlay({ threadId = '', target, isLive = false, onClose }: { threadId?: string; target: RunLogTarget | null; /** The run has not ended, so entries without output are read again. */ isLive?: boolean; onClose: () => void }) {
     const isDesktop = useMediaQuery('(min-width: 768px)');
     const url = target === null ? null : target.kind === 'url' ? target.id : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
-    const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry, search } = useRunLog(url);
+    const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry, search } = useRunLog(url, isLive);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const lastEntry = useRef<TranscriptEntry | undefined>(undefined);
     const targetKey = target === null ? '' : `${target.kind}:${target.id}`;

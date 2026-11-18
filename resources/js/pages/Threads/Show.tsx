@@ -279,7 +279,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             </div>
 
             <MoveRepositoryDialog threadId={thread.id} targets={actions.moveTargets} open={isMoving} onOpenChange={setIsMoving} />
-            <RunLogOverlay threadId={thread.id} target={logTarget} onClose={() => setLogTarget(null)} />
+            <RunLogOverlay threadId={thread.id} target={logTarget} isLive={logTarget?.kind === 'run' && runs.find((run) => run.runId === logTarget.id)?.isActive === true} onClose={() => setLogTarget(null)} />
             {isAddingSubThread && stack !== null && (
                 <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}

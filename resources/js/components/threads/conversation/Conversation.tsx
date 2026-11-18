@@ -22,6 +22,7 @@ import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
 import { PullRequestChips } from './PullRequestChip';
 import { RunFooter } from './RunFooter';
+import { RunLogButton } from './RunLogButton';
 import { placeRunFooters } from './placeRunFooters';
 import { EnvironmentNoteCard } from './EnvironmentNoteCard';
 import { SideSwitchDivider } from './SideSwitchDivider';
@@ -107,6 +108,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     let previousDay = '';
+    const runningRun = working ? runs.find((run) => run.isActive) : undefined;
     const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null);
     // Each move gets its divider before the first message of the new side; the computer stretch that began at a
     // move follows its divider, and the stretch the thread began with opens the conversation.
@@ -185,6 +187,11 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {waiting !== null && (
                     <div className="ml-9">
                         <PendingStep since={waiting.since} label={waiting.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={waiting.queued} testId={waiting.queued ? 'thread-queued' : 'thread-thinking'} />
+                    </div>
+                )}
+                {runningRun !== undefined && onOpenRunLog !== undefined && (
+                    <div className="ml-9">
+                        <RunLogButton testId="run-log-button-running" onOpen={() => onOpenRunLog(runningRun.runId)} />
                     </div>
                 )}
                 {switchBlocks.get(entries.length)}

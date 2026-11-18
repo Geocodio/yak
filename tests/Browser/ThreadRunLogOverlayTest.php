@@ -153,7 +153,7 @@ it('does not fetch the log again when stepping back to an entry already seen', f
     expect($requestsAfterThree)->toBe($requestsAfterTwo);
 });
 
-it('shows the output of a step that was running once the log is reopened', function () {
+it('shows the output of a step that was still running once it arrives, on the step that stays selected', function () {
     [$thread, , $ids] = overlayThread(['bin/deploy.sh', 'bin/status.sh'], [null, 'ok'], 'running');
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0]]))
@@ -161,15 +161,39 @@ it('shows the output of a step that was running once the log is reopened', funct
         ->assertSee('Step 1 of 2')
         ->assertDontSee('deploy finished successfully');
 
-    $page->click('[data-testid="log-next"]')->assertSee('Step 2 of 2');
-
     ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 100, 'type' => 'entry', 'payload' => ['role' => 'tool_result', 'toolUseId' => 'toolu_0', 'isError' => false, 'text' => 'deploy finished successfully']]);
 
-    $page->click('[data-testid="log-prev"]')
-        ->assertSee('Step 1 of 2')
+    $page->wait(5)
         ->assertSee('deploy finished successfully')
+        ->assertSee('Step 1 of 2')
         ->assertNoJavaScriptErrors();
-})->todo('The overlay loads its steps in pages and keeps the output a step had when the log opened; the task overlay fetched each entry again while its tool call had no output.');
+});
+
+it('does not read a finished run again when a step has no output', function () {
+    [$thread, , $ids] = overlayThread(['bin/deploy.sh'], [null]);
+
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0]]))
+        ->assertVisible(OVERLAY)
+        ->assertSee('Step 1 of 1');
+    $countRequests = fn () => $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/log")).length');
+    $before = $countRequests();
+    $page->wait(4);
+
+    expect($before)->toBeGreaterThan(0)
+        ->and($countRequests())->toBe($before);
+});
+
+it('opens the full log from the working row of a running turn', function () {
+    [$thread] = overlayThread(['bin/deploy.sh', 'bin/status.sh'], [null, 'ok'], 'running');
+
+    visit(route('threads.show', $thread))
+        ->assertVisible('[data-testid="run-log-button-running"]')
+        ->assertMissing('[data-testid="run-log-button"]')
+        ->click('[data-testid="run-log-button-running"]')
+        ->assertVisible(OVERLAY)
+        ->assertSee('bin/deploy.sh')
+        ->assertNoJavaScriptErrors();
+});
 
 it('keeps a deep link to an entry older than the first page open', function () {
     [$thread, , $ids] = overlayThread(array_map(fn (int $number): string => "echo step-{$number}", range(1, 120)));
