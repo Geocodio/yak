@@ -261,7 +261,8 @@ import XCTest
     }
 
     /// Smoke test 7: the pane button switches panes by a tap and by press and slide, a pane the thread does not have is
-    /// not offered, and a pane that is not shown is absent from the screen.
+    /// not offered, and a pane that is not shown is absent from the screen. The wide layouts (iPad, the Duo) show the
+    /// panes as a strip or a row instead of the button, so this runs on the narrow iPhone layout only.
     func testPaneButtonSwitchesPanesAndAHiddenPaneIsAbsent() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
         try launch(scenario: "paired")
@@ -272,17 +273,21 @@ import XCTest
         let conversation = app.descendants(matching: .any)["conversation"]
         XCTAssertTrue(conversation.waitForExistence(timeout: Wait.appear))
         let menu = app.buttons["pane.menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: Wait.appear))
+        if !menu.waitForExistence(timeout: Wait.appear) {
+            let isStripOrRow = app.buttons["pane.strip.chat"].exists || app.buttons["pane.row.chat"].exists
+            try XCTSkipIf(isStripOrRow, "This layout shows the panes as a strip or a row, not the pane button")
+            XCTFail("the thread has neither the pane button nor a strip of panes")
+        }
         XCTAssertEqual(menu.value as? String, "Chat")
         func item(_ name: String) -> XCUIElement {
             app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
         }
-        // A tap opens the menu with the panes this thread has, and none it lacks.
+        // A tap opens the menu with the panes this thread's show grants (preview: false in the scenario), and no other.
         menu.tap()
-        for name in ["Chat", "Files", "Overview"] {
+        for name in ["Chat", "Files", "Terminal", "Overview"] {
             XCTAssertTrue(item(name).waitForExistence(timeout: Wait.appear), name)
         }
-        for name in ["Preview", "Terminal"] { XCTAssertFalse(item(name).exists, name) }
+        XCTAssertFalse(item("Preview").exists, "the thread has no preview, so the menu must not offer it")
         let overviewFrame = item("Overview").frame
         item("Files").tap()
         XCTAssertEqual(menu.value as? String, "Files")
