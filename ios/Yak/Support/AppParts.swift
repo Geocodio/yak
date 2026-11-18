@@ -63,6 +63,9 @@ final class AppParts {
         let appLock = AppLockController(
             settings: settings, authenticator: context.authenticator, clock: SystemClock(),
             backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive)
+        push.gate = { [weak appLock] action in
+            if let appLock { appLock.whenOpen(action) } else { Task { await action() } }
+        }
         let box = ModelBox()
         let spotlight = SpotlightIndexer(
             writer: context.spotlightWriter, settings: settings, appLock: appLock, store: context.defaults,
@@ -108,7 +111,7 @@ final class AppParts {
 extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
-        onOpenURL { url in Task { await model.handle(url: url) } }
+        onOpenURL { url in parts.system.appLock.whenOpen { await model.handle(url: url) } }
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
             .modifier(ShortcutGate(controller: parts.system.appLock))
@@ -163,7 +166,7 @@ private struct SpotlightRoot: ViewModifier {
             }
             .onContinueUserActivity(CSSearchableItemActionType) { activity in
                 guard let identifier = SpotlightIndexer.identifier(of: activity) else { return }
-                Task {
+                system.appLock.whenOpen {
                     if let url = await system.spotlight.link(forIdentifier: identifier) { await model.handle(url: url) }
                 }
             }

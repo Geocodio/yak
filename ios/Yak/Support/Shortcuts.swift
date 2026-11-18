@@ -51,13 +51,13 @@ extension AppShortcut {
     }
 }
 
-private struct ShortcutsBlockedKey: EnvironmentKey { static let defaultValue = false }
+private struct InputBlockedKey: EnvironmentKey { static let defaultValue = false }
 
 extension EnvironmentValues {
-    /// True while the app lock blocks input; every `yakShortcut` then does nothing.
-    var shortcutsBlocked: Bool {
-        get { self[ShortcutsBlockedKey.self] }
-        set { self[ShortcutsBlockedKey.self] = newValue }
+    /// True while the app lock blocks input: every `yakShortcut` does nothing and no focus request is taken.
+    var inputBlocked: Bool {
+        get { self[InputBlockedKey.self] }
+        set { self[InputBlockedKey.self] = newValue }
     }
 }
 
@@ -66,13 +66,13 @@ struct ShortcutGate: ViewModifier {
     let controller: AppLockController
 
     func body(content: Content) -> some View {
-        content.environment(\.shortcutsBlocked, controller.blocksInput)
+        content.environment(\.inputBlocked, controller.blocksInput)
     }
 }
 
 private struct YakShortcut: ViewModifier {
     let shortcut: AppShortcut
-    @Environment(\.shortcutsBlocked) private var blocked
+    @Environment(\.inputBlocked) private var blocked
 
     func body(content: Content) -> some View {
         content.keyboardShortcut(AppShortcutGate.keyboardShortcut(for: shortcut, blocked: blocked))
