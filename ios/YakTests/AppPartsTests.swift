@@ -28,11 +28,12 @@ import YakKit
         #expect((parts.previewData.defaults as AnyObject) === given)
     }
 
-    @Test func pushAndThePreviewDataAreTheObserversOfAFreshApp() {
+    @Test func pushThePreviewDataAndTheWidgetsAreTheObserversOfAFreshApp() {
         let parts = AppParts.make(storage: nil, isTestMode: false, context: context())
-        #expect(parts.observers.count == 2)
+        #expect(parts.observers.count == 3)
         #expect(parts.observers.first is PushController)
-        #expect(parts.observers.last is PreviewWebDataObserver)
+        #expect(parts.observers[1] is PreviewWebDataObserver)
+        #expect(parts.observers.last is WidgetLifecycle)
         #expect(parts.storage == nil)
     }
 

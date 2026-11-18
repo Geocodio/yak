@@ -52,7 +52,7 @@ struct YakApp: App {
                         baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
                         systemDescription: system)
                 },
-                makeEnvironment: environment, observers: parts.observers, push: parts.push))
+                makeEnvironment: environment, observers: parts.observers, push: parts.push, widgets: parts.widgets))
     }
 
     var body: some Scene {
@@ -61,12 +61,18 @@ struct YakApp: App {
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else if TestMode.value("yakTestScreen") == "widget-gallery" {
+                    WidgetGallery(
+                        stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "needs-you")
                 } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
                     MarkdownGallery()
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView($request).preferredColorScheme(TestMode.colorScheme())
+                        .overlay(alignment: .top) {
+                            if let intent = TestMode.intentName { IntentTestResultView(name: intent) }
+                        }
                 }
             #else
                 rootView($request)
@@ -80,6 +86,9 @@ struct YakApp: App {
     private func rootView(_ request: Binding<WindowRequest?>) -> some View {
         RootView(model: model, request: request)
             .appRoot(parts, model: model)
+            .task {
+                for await link in QuickActions.links() { await model.handle(url: link) }
+            }
             .task {
                 delegate.attach(parts.push)
                 await parts.push.start()
