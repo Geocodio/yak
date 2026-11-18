@@ -10,6 +10,7 @@ use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Services\Threads\ThreadMessageSender;
+use App\Support\AttachmentNumbering;
 use Illuminate\Http\JsonResponse;
 
 class ThreadMessageController extends Controller
@@ -18,7 +19,7 @@ class ThreadMessageController extends Controller
     {
         $taskId = $thread->headTask()?->id;
         $input = new ThreadMessageInput(
-            (string) $request->validated('message'),
+            AttachmentNumbering::claimForThread($thread, $request, (string) $request->validated('message')),
             $request->validated('model'),
             $request->validated('intent'),
             $request->validated('send_key'),

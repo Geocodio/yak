@@ -35,6 +35,9 @@ function runningTurnFor(array $runAttributes = []): array
         'started_at' => now(),
         'agent_started_at' => null,
         'finished_at' => null,
+        'cost_usd' => 1.25,
+        'num_turns' => 10,
+        'total_ms' => 60_000,
         ...$runAttributes,
     ]);
 

@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Enums\EvictionReason;
 use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
@@ -13,20 +14,24 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SandboxCapacity;
+use App\Services\Threads\ThreadAccess;
 use App\Support\SecretRedactor;
 use Illuminate\Support\Str;
 
 /**
  * The one notice shown above the composer: a block on the thread's account or
  * sandbox, a guard stop, or a restore in progress. Null when nothing needs saying.
+ *
+ * @phpstan-type Notice array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, canContinueAfterSetup?: bool, failedSetupRunUrl?: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
  */
 final class ThreadNoticeData
 {
     /**
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repositoryUrl?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}|null
+     * @return Notice|null
      */
     public static function for(Thread $thread, ?User $viewer = null): ?array
     {
@@ -35,6 +40,14 @@ final class ThreadNoticeData
         $isOwnerOfAccount = $viewer !== null && $account !== null && $account->owner_user_id === $viewer->id;
         $ownerName = $account?->owner?->name;
         $ownerFirstName = Str::before((string) $ownerName, ' ');
+
+        if ($thread->close_reason === 'moved') {
+            $moved = self::moved($thread, $viewer);
+
+            if ($moved !== null) {
+                return $moved;
+            }
+        }
 
         $steps = self::restoreSteps($thread);
         $failedIndex = array_search('failed', array_column($steps, 'status'), true);
@@ -55,6 +68,12 @@ final class ThreadNoticeData
             $isRepositoryBlock = in_array($thread->blocked_reason, [ThreadBlockReason::WaitingForRepository, ThreadBlockReason::RepositorySetupFailed], true);
             $notice['repositoryUrl'] = $isRepositoryBlock ? route('repos.edit', $thread->repo) : null;
 
+            if ($isRepositoryBlock) {
+                $setup = self::repositorySetup($thread, $viewer);
+                $notice['canContinueAfterSetup'] = $setup['canContinueAfterSetup'];
+                $notice['failedSetupRunUrl'] = $setup['failedSetupRunUrl'];
+            }
+
             return $notice;
         }
 
@@ -73,6 +92,62 @@ final class ThreadNoticeData
         }
 
         return null;
+    }
+
+    /**
+     * What the repository setup notice offers: continuing the stopped head task once setup finishes,
+     * and the failed setup run to read.
+     *
+     * @return array{canContinueAfterSetup: bool, failedSetupRunUrl: ?string}
+     */
+    private static function repositorySetup(Thread $thread, ?User $viewer): array
+    {
+        $repository = Repository::query()->where('slug', $thread->repo)->first();
+        $head = $thread->headTask();
+        $failedSetupTask = $repository?->setup_status === 'failed' && $repository->setup_task_id !== null
+            ? YakTask::query()->withoutGlobalScopes()->find($repository->setup_task_id)
+            : null;
+
+        return [
+            'canContinueAfterSetup' => $repository !== null
+                && empty($repository->sandbox_snapshot)
+                && $head !== null
+                && in_array($head->status, [TaskStatus::Failed, TaskStatus::Expired], true)
+                && $head->resume_after_setup_at === null
+                && app(ThreadAccess::class)->canDrive($viewer, $thread),
+            'failedSetupRunUrl' => $failedSetupTask === null ? null : route('repos.runs.show', [$repository, $failedSetupTask]),
+        ];
+    }
+
+    /**
+     * The closed thread of a request that moved on: where it went, or that it waits for a repository answer.
+     *
+     * @return Notice|null
+     */
+    private static function moved(Thread $thread, ?User $viewer): ?array
+    {
+        $next = Thread::query()->withoutGlobalScopes()->where('continued_from_thread_id', $thread->id)->latest('id')->first();
+
+        if ($next === null) {
+            return null;
+        }
+
+        if (! app(ThreadAccess::class)->canSee($viewer, $next)) {
+            $notice = self::notice('moved', 'Moved', 'This request continues in a new thread.', false, false, []);
+            $notice['repo'] = null;
+            $notice['threadId'] = null;
+            $notice['threadTitle'] = null;
+
+            return $notice;
+        }
+
+        $repo = $next->hasRepository() ? $next->repo : null;
+        $notice = self::notice('moved', $repo === null ? 'Moved: waiting for a repository' : "Moved to {$repo}", 'This request continues in a new thread.', false, false, []);
+        $notice['repo'] = $repo;
+        $notice['threadId'] = $next->public_id;
+        $notice['threadTitle'] = $next->title;
+
+        return $notice;
     }
 
     private static function queuePositionSentence(Thread $thread): string
@@ -113,13 +188,13 @@ final class ThreadNoticeData
     /**
      * @param  list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>  $steps
      * @param  array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}|null  $waiting
-     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
+     * @return array{kind: 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved', title: string, body: string, resetsAt: ?string, isOwnerOfAccount: bool, canContinue: bool, accountSettingsUrl: ?string, startOnOwnAccountUrl: ?string, repo?: ?string, threadId?: ?string, threadTitle?: ?string, restoreSteps: list<array{key: string, label: string, detail: string, status: 'pending'|'running'|'done'|'failed', error: ?string, durationSeconds: ?float, outputTail: list<string>, exitCode: ?int}>, waiting: ?array{position: ?int, turnsRunning: int, turnsLimit: int, accountName: string, slots: list<array{state: 'running'|'paused', idleMinutes: ?int, isMine: bool, isThis: bool}>, ownSlotsUsed: ?int, ownSlotsCap: ?int, stoppableThreadId: ?string}}
      */
     private static function notice(string $kind, string $title, string $body, bool $isOwnerOfAccount, bool $canContinue, array $steps, ?string $resetsAt = null, ?array $waiting = null): array
     {
         $isAccountProblem = in_array($kind, ['account_invalid', 'account_expired', 'credential_exposure'], true);
 
-        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring' $kind */
+        /** @var 'account_invalid'|'account_expired'|'usage_limit'|'waiting_for_account'|'waiting_for_sandbox'|'waiting_for_repository'|'repository_setup_failed'|'credential_exposure'|'restore_failed'|'guard_turns'|'guard_time'|'restoring'|'moved' $kind */
         return [
             'kind' => $kind,
             'title' => $title,

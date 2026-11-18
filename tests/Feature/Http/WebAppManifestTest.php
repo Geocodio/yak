@@ -26,7 +26,7 @@ it('ships the favicon and touch icon files the head links to', function (string 
 it('links the manifest and home screen metadata from the app shell', function () {
     $this->actingAs(User::factory()->create());
 
-    $this->get(route('tasks'))
+    $this->get(route('threads.log'))
         ->assertOk()
         ->assertSee('<link rel="manifest" href="/site.webmanifest">', false)
         ->assertSee('<link rel="apple-touch-icon" href="/apple-touch-icon.png">', false)

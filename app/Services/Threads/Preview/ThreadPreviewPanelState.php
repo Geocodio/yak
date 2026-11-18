@@ -134,7 +134,7 @@ class ThreadPreviewPanelState
 
     private function canRestore(Thread $thread, ?User $viewer, string $state): bool
     {
-        return $state === 'destroyed' && $this->access->canDrive($viewer, $thread);
+        return $state === 'destroyed' && $thread->hasRepository() && $this->access->canDrive($viewer, $thread);
     }
 
     /**

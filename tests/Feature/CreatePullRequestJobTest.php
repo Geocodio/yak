@@ -6,6 +6,7 @@ use App\Jobs\CreatePullRequestJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Support\Facades\Http;
@@ -546,7 +547,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
             && str_contains($body, '**Attempts:** 2')
             && str_contains($body, 'Refactored authentication flow')
             && str_contains($body, '**Task:** [LIN-500](https://linear.app/team/LIN-500)')
-            && str_contains($body, "**Yak task:** [#{$task->id}](" . route('tasks.show', $task) . ')');
+            && str_contains($body, '**Yak thread:** [' . $task->thread()->first()->title . '](' . route('threads.show', $task->thread()->first()) . ')');
     });
 });
 
@@ -1335,4 +1336,59 @@ test('PR body leaves out ownership lines that are unknown', function () {
         && str_ends_with($request->url(), '/pulls')
         && ! str_contains($request['body'], '**Started by:**')
         && ! str_contains($request['body'], '**Responsible:**'));
+});
+
+function pullRequestBodyForThread(Thread $thread): string
+{
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'ghs_test', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response(['number' => 1, 'html_url' => 'https://github.com/org/test-repo/pull/1']),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+    Process::fake(['git diff --name-only *' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'org/test-repo', 'path' => '/home/yak/repos/test-repo']);
+    $task = YakTask::factory()->awaitingCi()->create(['repo' => 'org/test-repo', 'branch_name' => 'yak/FIX-BODY', 'thread_id' => $thread->id]);
+
+    app()->call([new CreatePullRequestJob($task), 'handle']);
+
+    $body = null;
+    Http::assertSent(function ($request) use (&$body): bool {
+        if ($request->method() === 'POST' && str_contains($request->url(), '/pulls')) {
+            $body = $request['body'];
+        }
+
+        return true;
+    });
+
+    return (string) $body;
+}
+
+test('PR body names a team thread by its title', function () {
+    $thread = Thread::factory()->create(['title' => 'Fix the login page']);
+
+    expect(pullRequestBodyForThread($thread))->toContain('**Yak thread:** [Fix the login page](' . route('threads.show', $thread) . ')');
+});
+
+test('PR body keeps the title of a private thread out', function () {
+    $thread = Thread::factory()->private()->create(['title' => 'Quarterly layoff plan']);
+    $body = pullRequestBodyForThread($thread);
+
+    expect($body)->toContain('**Yak thread:** [Open the thread](' . route('threads.show', $thread) . ')')
+        ->not->toContain('Quarterly layoff plan');
+});
+
+test('PR body keeps the title of a sub-thread of a private thread out', function () {
+    $root = Thread::factory()->private()->create(['title' => 'Quarterly layoff plan']);
+    $child = Thread::factory()->create(['title' => 'Secret child', 'parent_thread_id' => $root->id, 'root_thread_id' => $root->id]);
+
+    expect(pullRequestBodyForThread($child))->not->toContain('Secret child');
+});
+
+test('PR body escapes mentions and issue references in a thread title', function () {
+    $thread = Thread::factory()->create(['title' => 'Ask @octocat about #12']);
+    $body = pullRequestBodyForThread($thread);
+
+    expect($body)->not->toContain('@octocat')->not->toContain(' #12')->toContain('@' . "\u{200B}" . 'octocat');
 });

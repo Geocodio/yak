@@ -31,7 +31,7 @@ Text fields save together with the section's save bar, which appears once someth
 |---|---|
 | Slug | Read-only. Yak's internal identity for the repository. |
 | GitHub repository | Shown only if the repository was renamed on GitHub. Read-only. |
-| Display name | Name shown in the dashboard and task lists. |
+| Display name | Name shown in the dashboard and thread lists. |
 | Git URL | HTTPS clone URL. |
 | Default branch | The branch Yak bases work on and opens pull requests against. |
 | Public site URL | Shown in the browser bar of walkthrough videos. Locked by `walkthrough.public_site_url`. |
@@ -140,7 +140,7 @@ A task that arrives through a channel names no repository field, so Yak works on
 3. **Sentry project**: the `sentry_project` of a repository matches the alert's project.
 4. **One active repository**: it is the answer.
 5. **The router**: when an Anthropic API key is configured on the host, a small Haiku model reads the task text and the repositories' descriptions. It picks a repository only at 70% confidence or higher.
-6. **Ask**: Slack, Linear and email tasks that are still unclear wait in `awaiting_clarification` and ask in the Slack thread, the Linear session or the Yak task page. This avoids running Claude in the wrong codebase.
+6. **Ask**: Slack, Linear and email tasks that are still unclear wait in `awaiting_clarification` and ask in the Slack thread, the Linear session or the Yak thread. This avoids running Claude in the wrong codebase.
 7. **Default repository**: other channels use the repository marked as default.
 
 A good **Description** on each repository makes rule 5 work. `yak:sync-repo-descriptions` fills missing descriptions from GitHub (`--force` overwrites existing ones).

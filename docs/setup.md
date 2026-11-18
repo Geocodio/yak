@@ -404,7 +404,7 @@ For each enabled channel, trigger a test event:
 - **Sentry**: trigger a test alert rule.
 - **GitHub**: push a commit to a `yak/test-*` branch.
 
-Each event should create a task. Check the task log under Operations in the dashboard, or the thread list.
+Each event should create a task. Check the thread log in the dashboard, or the thread list.
 
 ## Updating Yak
 

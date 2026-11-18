@@ -42,7 +42,7 @@ function attachmentLinksWorld(): array
     [$thread, $run] = runningTurnFor(['turn_state' => TurnState::Completed, 'finished_at' => now()->subHour()]);
     $thread->claudeAccount->forceFill(['name' => 'Example account'])->save();
     $thread->forceFill(['public_id' => 'd0e515ef', 'title' => 'Retry failed uploads', 'name' => 'retry-failed-uploads', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'sandbox_state' => ThreadSandboxState::None, 'model' => 'sonnet', 'runner_model' => 'sonnet'])->save();
-    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'started_by_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['source' => 'dashboard', 'thread_id' => $thread->id, 'started_by_user_id' => $user->id]);
     $run->forceFill(['yak_task_id' => $task->id, 'driver_user_id' => $user->id])->save();
     $message = ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => 'See Image #1 and File #2']);
 

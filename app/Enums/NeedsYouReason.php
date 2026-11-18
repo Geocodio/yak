@@ -6,6 +6,7 @@ enum NeedsYouReason: string
 {
     case Question = 'question';
     case Blocked = 'blocked';
-    case Unseen = 'unseen';
     case CoOwner = 'co_owner';
+    case EarlyWarning = 'early_warning';
+    case RepositoryQuestion = 'repository_question';
 }

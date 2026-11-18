@@ -21,6 +21,7 @@ use App\Services\Threads\Preview\ThreadPreviewDevServer;
 use App\Services\Threads\QueuedMessageRunner;
 use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadDiffCapture;
+use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadShell;
 use App\Services\Threads\TurnResult;
@@ -75,10 +76,16 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             return;
         }
 
+        // A task that moved to another thread while the turn ran is no longer this turn's to finish.
+        if ($run->task->thread_id !== null && $run->task->thread_id !== $thread->id) {
+            return;
+        }
+
         $this->task = $run->task;
         TaskContext::set($this->task);
         $recorder = RunRecorder::forTurn($run);
         $isReleased = false;
+        $movesToUnknownRepository = false;
 
         try {
             if ($this->taskIsTerminal($this->task) && ! $this->runsOnTerminalTask()) {
@@ -108,10 +115,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             $this->refreshGitCredentials($sandboxes, $threadSandbox, $thread);
             $this->finishTurn($repository, $result, ThreadShell::for($thread), $container, $recorder);
 
-            // A wrong-repository verdict sends the task back to intake; its next run starts a thread in the right repo.
-            if ($this->task->refresh()->repo === 'unknown') {
-                $this->task->forceFill(['thread_id' => null])->save();
-            }
+            $movesToUnknownRepository = $thread->hasRepository() && $this->task->refresh()->repo === Thread::UNKNOWN_REPOSITORY;
         } catch (ClaudeAuthException $e) {
             $recorder->failed($e, 'claude_auth');
             $this->reportFailure($e->getMessage());
@@ -138,6 +142,16 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             }
 
             $this->afterTurn();
+
+            // A wrong-repository verdict sends the task back to intake: its page continues in a thread that waits for a repository.
+            if ($movesToUnknownRepository) {
+                try {
+                    app(ThreadFactory::class)->moved($thread->refresh(), $this->task, Thread::UNKNOWN_REPOSITORY);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
             // A released job has not done its sandbox work yet, so its retry starts the queued turn instead.
             if (! $isReleased) {
                 try {

@@ -7,6 +7,7 @@ use App\Enums\TeleportState;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadVisibility;
 use App\Exceptions\TeleportError;
+use App\Exceptions\ThreadActionRefused;
 use App\Jobs\PrepareTeleportDownJob;
 use App\Models\Device;
 use App\Models\Teleport;
@@ -54,6 +55,10 @@ class TeleportDownBegin
 
         if (! $this->access->canDrive($device->user, $thread)) {
             throw new TeleportError('forbidden', 'You cannot drive this thread.', 403);
+        }
+
+        if (! $thread->hasRepository()) {
+            throw new TeleportError('no_repository', ThreadActionRefused::NO_REPOSITORY_SENTENCE, 409);
         }
 
         $given = $validated['repos'][0]['repo'] ?? null;

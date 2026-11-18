@@ -10,6 +10,7 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\RiskAreaGuesser;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Exceptions;
@@ -70,7 +71,7 @@ it('sends Linear a Progress notification', function () {
     SendEarlyWarningJob::dispatchSync($task);
 
     Bus::assertDispatched(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Progress
-        && $job->message === "On it. Heads up: this will likely touch API middleware and HTTP kernel (high risk), so it'll need a co-owner before I open a PR. You can tag someone on the task page.");
+        && $job->message === "On it. Heads up: this will likely touch API middleware and HTTP kernel (high risk), so it'll need a co-owner before I open a PR. You can tag someone on the thread.");
     expect($task->fresh()->early_warning['state'])->toBe('shown');
 });
 
@@ -101,6 +102,7 @@ it('skips a task that already has a warning, is no longer running or has a co-ow
 it('logs a Slack failure and does not throw', function () {
     Http::fake(['slack.com/api/*' => Http::response(['ok' => false, 'error' => 'channel_not_found'])]);
     Log::shouldReceive('channel->warning')->once();
+    $this->mock(ThreadEventPublisher::class)->shouldReceive('appendThreadState')->zeroOrMoreTimes();
     $task = warningJobFixture();
 
     SendEarlyWarningJob::dispatchSync($task);

@@ -70,7 +70,7 @@ test('every shortcut except openPalette is bound by an action', () => {
     }
 });
 
-const KEYDOWN_LISTENER_ALLOWLIST = ['commandPalette/ShortcutListener.tsx', 'components/settings/FontPicker.tsx', 'components/tasks/TranscriptOverlay.tsx', 'components/tasks/MediaLightbox.tsx'];
+const KEYDOWN_LISTENER_ALLOWLIST = ['commandPalette/ShortcutListener.tsx', 'components/settings/FontPicker.tsx', 'components/shared/TranscriptOverlay.tsx', 'components/tasks/MediaLightbox.tsx'];
 
 test('no component binds a keydown listener of its own outside the allowlist', () => {
     const root = fileURLToPath(new URL('..', import.meta.url));

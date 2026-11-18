@@ -21,12 +21,32 @@ class ListThreadsRequest extends FormRequest
         return [
             'filter' => ['nullable', Rule::enum(ThreadListFilter::class)],
             'search' => ['nullable', 'string', 'max:100'],
+            'sources' => ['nullable', 'array', 'max:50'],
+            'sources.*' => ['string', 'max:64'],
+            'starters' => ['nullable', 'array', 'max:50'],
+            'starters.*' => ['string', 'max:255'],
         ];
     }
 
     public function listFilter(): ThreadListFilter
     {
         return ThreadListFilter::tryFrom((string) $this->validated('filter')) ?? ThreadListFilter::Mine;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function sourceKeys(): array
+    {
+        return $this->validated('sources') ?? [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function starterKeys(): array
+    {
+        return $this->validated('starters') ?? [];
     }
 
     public function searchText(): ?string

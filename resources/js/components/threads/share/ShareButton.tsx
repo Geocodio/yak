@@ -7,7 +7,7 @@ import { ShareThreadDialog } from './ShareThreadDialog';
 export function ShareButton({ thread }: { thread: ThreadData }) {
     const [isOpen, setIsOpen] = useState(false);
 
-    if (!thread.isOwner) {
+    if (!thread.canShare) {
         return null;
     }
 

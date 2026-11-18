@@ -8,6 +8,7 @@ use App\Models\ThreadTurnMessage;
 use App\Models\VideoMetric;
 use App\Services\Threads\ThreadTurns;
 use App\Services\WalkthroughPrSection;
+use App\Support\Tasks\VideoRenderStatus;
 
 /**
  * The thread's latest walkthrough recording and whether one is being made.
@@ -21,7 +22,7 @@ final class ThreadWalkthroughData
     /**
      * Null when the thread has no recording and none is being made.
      *
-     * @return ?array{isRecording: bool, isRendering: bool, video: ?array{url: string, thumbnailUrl: ?string, durationSeconds: float, chapters: list<array{title: string, startSeconds: float}>}, screenshots: list<array{url: string, caption: ?string}>, isInPullRequest: bool}
+     * @return ?array{isRecording: bool, isRendering: bool, video: ?array{url: string, thumbnailUrl: ?string, durationSeconds: float, chapters: list<array{title: string, startSeconds: float}>}, screenshots: list<array{url: string, caption: ?string}>, isInPullRequest: bool, isRenderFailed: bool, renderError: ?string, canRetryRender: bool}
      */
     public static function for(Thread $thread): ?array
     {
@@ -38,7 +39,10 @@ final class ThreadWalkthroughData
         $script = $task->artifacts()->role('script')->latest('id')->first();
         $screenshots = $task->artifacts()->role('screenshot')->orderBy('id')->get();
 
-        if ($cut === null && $script === null && $screenshots->isEmpty() && ! $isRecording) {
+        $renderStatus = VideoRenderStatus::for($task);
+        $isRenderFailed = $renderStatus->state === VideoRenderStatus::Failed;
+
+        if ($cut === null && $script === null && $screenshots->isEmpty() && ! $isRecording && ! $isRenderFailed) {
             return null;
         }
 
@@ -67,6 +71,9 @@ final class ThreadWalkthroughData
                 'caption' => $artifact->caption,
             ])->all()),
             'isInPullRequest' => $task->pr_url !== null,
+            'isRenderFailed' => $isRenderFailed,
+            'renderError' => $isRenderFailed ? ($renderStatus->error ?? 'The render failed without a recorded reason.') : null,
+            'canRetryRender' => $thread->isOpen() && $task->artifacts()->rawFootage()->exists(),
         ];
     }
 }

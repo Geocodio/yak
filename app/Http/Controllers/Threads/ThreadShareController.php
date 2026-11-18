@@ -46,7 +46,7 @@ class ThreadShareController extends Controller
         $user = $request->user() ?? abort(401);
 
         abort_unless($this->access->canSee($user, $thread), 404);
-        abort_unless($this->access->isOwner($user, $thread), 403);
+        abort_unless($this->access->canShare($user, $thread), 403);
 
         return $user;
     }

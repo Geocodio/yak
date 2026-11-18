@@ -4,7 +4,7 @@ use App\Channels\Slack\BlockFormatter;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
 
-it('builds a header section, context chips, and a View task button for acknowledgments', function () {
+it('builds a header section, context chips, and an Open thread button for acknowledgments', function () {
     $task = YakTask::factory()->create([
         'repo' => 'acme/web',
     ]);
@@ -32,7 +32,7 @@ it('builds a header section, context chips, and a View task button for acknowled
     expect($blocks[2]['elements'][0])->toMatchArray([
         'type' => 'button',
         'action_id' => 'yak_view_task',
-        'text' => ['type' => 'plain_text', 'text' => 'View task'],
+        'text' => ['type' => 'plain_text', 'text' => 'Open thread'],
         'url' => 'https://yak.example.com/tasks/' . $task->public_id,
         'style' => 'primary',
     ]);

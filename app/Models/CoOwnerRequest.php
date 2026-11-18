@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Services\Threads\ThreadShowChanged;
 use Carbon\CarbonImmutable;
 use Database\Factories\CoOwnerRequestFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Throwable;
 
 /**
  * A change held for a co-owner before Yak opens its pull request.
@@ -38,6 +40,17 @@ class CoOwnerRequest extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::saved(function (CoOwnerRequest $request): void {
+            try {
+                ThreadShowChanged::publish(YakTask::query()->withoutGlobalScopes()->whereKey($request->task_id)->value('thread_id'));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
+    }
 
     /**
      * @return array<string, mixed>

@@ -100,10 +100,28 @@ it('records the thread state without personal data', function () {
     Event::fake([ThreadEventBroadcast::class]);
     $thread = Thread::factory()->create();
 
-    $event = app(ThreadEventPublisher::class)->appendThreadState($thread->id);
+    $event = app(ThreadEventPublisher::class)->appendThreadState($thread->id, withShowKey: true);
 
     expect($event['type'])->toBe('thread')
-        ->and($event['data'])->toBe(['status' => 'open', 'sandboxState' => 'none', 'runnerState' => 'none', 'blockedReason' => null, 'pullRequestOpening' => null, 'ownerSide' => 'yak']);
+        ->and($event['data'])->toMatchArray(['status' => 'open', 'sandboxState' => 'none', 'runnerState' => 'none', 'blockedReason' => null, 'pullRequestOpening' => null, 'ownerSide' => 'yak'])
+        ->and($event['data']['showKey'])->toBeString()->toHaveLength(12);
+    app(ThreadEventWindow::class)->forget($thread->id);
+});
+
+it('leaves the show key out of a turn state event and costs it no extra queries', function () {
+    Event::fake([ThreadEventBroadcast::class]);
+    $thread = Thread::factory()->create();
+    $publisher = app(ThreadEventPublisher::class);
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $publisher->appendThreadState($thread->id);
+    $without = count(DB::getQueryLog());
+    DB::flushQueryLog();
+    $with = $publisher->appendThreadState($thread->id, withShowKey: true);
+    $withCount = count(DB::getQueryLog());
+
+    expect($without)->toBeLessThan($withCount)->and($with['data'])->toHaveKey('showKey');
     app(ThreadEventWindow::class)->forget($thread->id);
 });
 

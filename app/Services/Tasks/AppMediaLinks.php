@@ -9,7 +9,7 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\URL;
 
 /**
- * Turns the session-only links of the web task page (PR images, attachments,
+ * Turns the session-only links of the web thread page (PR images, attachments,
  * the research viewer, the long-lived media links) into short-lived signed
  * links that a web view in the app opens with no session and no protocol
  * header. Only links that belong to the conversation of the task shown are

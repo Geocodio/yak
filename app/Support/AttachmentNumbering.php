@@ -4,7 +4,9 @@ namespace App\Support;
 
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
+use App\Models\Thread;
 use App\Models\YakTask;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,6 +33,28 @@ final class AttachmentNumbering
             ->pluck('reference');
 
         return 1 + (int) $references->map(fn (string $reference): int => self::numberOf($reference))->max();
+    }
+
+    /**
+     * Re-label the files of a message sent into a thread so they do not
+     * collide with the conversation's earlier ones. The request's
+     * `attachment_refs` are replaced in place so storing the files uses the
+     * new labels; the returned text follows them.
+     */
+    public static function claimForThread(Thread $thread, Request $request, string $text): string
+    {
+        if (! $request->hasFile('attachments') || ! $thread->tasks()->exists()) {
+            return $text;
+        }
+
+        $claimed = self::claim(
+            (array) $request->input('attachment_refs', []),
+            $text,
+            self::nextNumberFor($thread->messagesRootTask()->conversation()),
+        );
+        $request->merge(['attachment_refs' => $claimed['references']]);
+
+        return $claimed['text'];
     }
 
     /**

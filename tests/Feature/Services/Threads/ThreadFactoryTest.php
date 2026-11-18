@@ -4,9 +4,11 @@ use App\Enums\RepositoryRole;
 use App\Enums\ThreadSessionKind;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\SessionStore\SessionSync;
+use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadFactory;
 
 beforeEach(function () {
@@ -96,4 +98,26 @@ it('continues a cleared thread on the same branch without a session', function (
         ->and($next->branch)->toBe('yak/fix')
         ->and($next->sessions()->count())->toBe(0)
         ->and($root->refresh()->thread_id)->toBe($next->id);
+});
+
+it('keeps a continued thread as private as the closed one it continues', function () {
+    $owner = User::factory()->create();
+    $sharedWith = User::factory()->create();
+    $outsider = User::factory()->create();
+    $root = YakTask::factory()->create(['thread_id' => null, 'session_id' => null]);
+    $factory = app(ThreadFactory::class);
+    $old = $factory->forTask($root);
+    $old->forceFill(['visibility' => 'private', 'owner_user_id' => $owner->id, 'status' => 'closed', 'closed_at' => now(), 'close_reason' => 'merged'])->save();
+    ThreadShare::query()->create(['thread_id' => $old->id, 'user_id' => $sharedWith->id]);
+
+    $new = $factory->forTask($root->refresh());
+
+    $access = app(ThreadAccess::class);
+    expect($new->id)->not->toBe($old->id)
+        ->and($new->continued_from_thread_id)->toBe($old->id)
+        ->and($new->effectiveVisibility()->value)->toBe('private')
+        ->and($new->effectiveOwnerUserId())->toBe($owner->id)
+        ->and($access->canSee($owner, $new))->toBeTrue()
+        ->and($access->canSee($sharedWith, $new))->toBeTrue()
+        ->and($access->canSee($outsider, $new))->toBeFalse();
 });

@@ -8,6 +8,7 @@ use App\Enums\NotificationType;
 use App\Models\BranchDeployment;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -200,8 +201,8 @@ class NotificationDriver implements NotificationDriverContract
         };
     }
 
-    private function taskDashboardUrl(YakTask $task): string
+    private function taskDashboardUrl(YakTask $task): ?string
     {
-        return route('tasks.show', $task);
+        return TaskPageUrl::for($task);
     }
 }

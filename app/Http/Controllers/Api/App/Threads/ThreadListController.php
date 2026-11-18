@@ -15,6 +15,8 @@ class ThreadListController extends Controller
             $request->user() ?? abort(401),
             $request->listFilter(),
             $request->searchText(),
+            $request->sourceKeys(),
+            $request->starterKeys(),
         ));
     }
 }

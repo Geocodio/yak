@@ -73,7 +73,7 @@ test('a signed-in user does not load other people private threads or their tasks
     $private = Thread::factory()->private($owner)->create();
     $child = Thread::factory()->create(['parent_thread_id' => $private->id, 'root_thread_id' => $private->id]);
     $privateTask = YakTask::factory()->create(['thread_id' => $child->id]);
-    $plainTask = YakTask::factory()->create();
+    $plainTask = YakTask::factory()->create(['thread_id' => null]);
 
     $this->actingAs($other);
     expect(Thread::count())->toBe(0)
@@ -104,18 +104,18 @@ test('jobs and commands see everything', function () {
         ->and(YakTask::count())->toBe(1);
 });
 
-test('a private task is missing from the tasks, costs, analytics and system pages for other users', function () {
+test('a private thread is missing from the thread log, costs, analytics and system pages for other users', function () {
     $owner = User::factory()->create();
-    $thread = Thread::factory()->private($owner)->create();
+    $thread = Thread::factory()->private($owner)->create(['title' => 'Quarterly layoff plan']);
     $task = YakTask::factory()->create(['thread_id' => $thread->id, 'repo' => 'secret/repo', 'cost_usd' => 4.25, 'created_at' => now()]);
     YakTask::factory()->create(['repo' => 'acme/api', 'cost_usd' => 1, 'created_at' => now()]);
 
     foreach ([User::factory()->create(), User::factory()->create(['email' => 'admin@example.com'])] as $viewer) {
         $this->actingAs($viewer);
 
-        $this->get('/tasks')->assertInertia(fn (Assert $page) => $page
-            ->where('counts.tasks', 1)
-            ->where('tasks.data', fn ($rows) => collect($rows)->pluck('id')->doesntContain($task->id)));
+        $this->get(route('threads.log'))->assertInertia(fn (Assert $page) => $page
+            ->where('counts.total', 1)
+            ->where('rows.data', fn ($rows) => ! str_contains(json_encode($rows), $thread->public_id) && ! str_contains(json_encode($rows), 'Quarterly layoff plan')));
         $this->get('/costs')->assertInertia(fn (Assert $page) => $page
             ->where('summary.taskCount', 1)
             ->where('summary.claudeCode.amount', 1));
@@ -125,7 +125,7 @@ test('a private task is missing from the tasks, costs, analytics and system page
     }
 
     $this->actingAs($owner);
-    $this->get('/tasks')->assertInertia(fn (Assert $page) => $page->where('counts.tasks', 2));
+    $this->get(route('threads.log'))->assertInertia(fn (Assert $page) => $page->where('counts.total', 2));
     $this->get('/costs')->assertInertia(fn (Assert $page) => $page
         ->where('summary.taskCount', 2)
         ->where('summary.claudeCode.amount', 5.25));

@@ -213,10 +213,10 @@ Symptoms: a PR opened on a repo with PR review enabled but no Yak review appears
 1. **Webhook reaching Yak?** Check delivery in the GitHub App settings. `pull_request.opened` and `pull_request.synchronize` must be subscribed.
 2. **Repo active and enabled?** Open `/repos/{id}/edit` and confirm **Active** and **PR Review** are on.
 3. **Draft or authored by yak-bot?** Both are skipped on purpose. Mark the draft ready for review.
-4. **Task failed?** Look in `/tasks?tab=reviews` for a failed row. A review is a one-shot run, so failures are a sandbox checkout failure (the PR head was force-pushed or the branch deleted), an account problem (see [Token problem](#token-problem)), or Claude output without a valid JSON block, which lands in the task's `result_summary`.
+4. **Task failed?** Open the pull request's review page, `/pr-reviews/for/{repoSlug}/{prNumber}`, or the **PR reviews** list, and look for a failed run. A review is a one-shot run, so failures are a sandbox checkout failure (the PR head was force-pushed or the branch deleted), an account problem (see [Token problem](#token-problem)), or Claude output without a valid JSON block, which lands in the task's `result_summary`.
 5. **Path filters too aggressive?** A PR that touches only excluded paths is filtered. Check `pr_review_path_excludes` on the repo.
 
-Use **Re-run review** on the task page to retry. See [PR review](pr-review.md).
+Use **Re-run review** on the review page to retry. See [PR review](pr-review.md).
 
 ## A task is stuck in `running`
 
@@ -235,14 +235,14 @@ Likely causes:
 3. **A long background task or a hung tool call.** `TurnTracker` will not end a turn while a tool call is open or a background task runs. The runaway guard stops it at `YAK_THREADS_TURN_WALL_CLOCK_MINUTES`.
 4. **Orphaned task.** `yak:reap-orphaned-tasks` runs every 5 minutes and fails a `running` or `retrying` task silent for 15 minutes (`--minutes`). `yak:reap-lost-pending` re-dispatches a `pending` task whose job was lost (10 minutes). After a deploy, `yak:resume-interrupted-tasks` resumes tasks that were cut off, up to 3 times each.
 
-The task page has a Debug section with the session id, cost, turns and full output. To fail a task by hand:
+The thread's **Run details** show the session id, cost and turns, and **Full log** on a run shows the full output. To fail a task by hand:
 
 ```bash
 docker exec yak php artisan tinker
 # >>> App\Models\YakTask::find($id)->update(['status' => 'failed', 'error_log' => 'Manual reset']);
 ```
 
-A manual reset does not restart anything. Use Retry on the task page, or send a new message in the thread.
+A manual reset does not restart anything. Use Retry on the thread's stop card, or send a new message in the thread.
 
 ## Setup task fails for a repo
 
@@ -255,7 +255,7 @@ Common causes:
 - **Private registry auth.** See [Agent environment variables](#agent-environment-variables-are-not-visible) and [Private Docker images](#private-docker-images-fail-to-pull).
 - **`CLAUDE.md` missing or misleading.** Claude could not work out the setup commands from the README.
 
-Open the setup task's page (`https://{your-domain}/tasks/{setup_task_id}`), expand **Debug** and read the output. Fix the cause, then:
+Open the setup run on the repository's **Runs** tab (`https://{your-domain}/repos/{slug}/runs`), open **Full log** and read the output. Fix the cause, then:
 
 ```bash
 docker exec yak php artisan yak:setup-repo {slug}
@@ -309,7 +309,7 @@ Symptoms: a task is `awaiting_ci` and never advances although CI ran.
 
 1. **CI result not reaching Yak.** For GitHub Actions, look for requests to `/webhooks/ci/github` in the Caddy log. For Drone, results are polled by `yak:poll-drone-ci` every minute.
 2. **Wrong CI system.** The repo's `ci_system` must match its authoritative CI. A GitHub webhook for a repo set to `drone` is dropped.
-3. **Branch name mismatch.** The task's `branch_name` must match what was pushed (see Debug on the task page).
+3. **Branch name mismatch.** The task's `branch_name` must match what was pushed (see Run details on the thread).
 4. **GitHub App permissions.** The App needs `Checks: Read` and `Pull requests: Read & Write`.
 
 ### CI timed out while runs were queued
@@ -461,7 +461,7 @@ docker logs yak --tail 500 > yak.log
 journalctl -u yak-broker -n 500 --no-pager > broker.log
 ```
 
-Also save the affected task's page (`https://{your-domain}/tasks/{id}`) as a screenshot or HTML. File the issue at `https://github.com/geocodio/yak/issues/new/choose` with the version, health output, the task id and the channel involved.
+Also save the affected thread's page (`https://{your-domain}/threads/{id}`) as a screenshot or HTML. Old task links (`/tasks/{id}`) redirect to it. File the issue at `https://github.com/geocodio/yak/issues/new/choose` with the version, health output, the task id and the channel involved.
 
 ## Walkthrough videos are raw webm instead of the rendered cut
 
@@ -488,7 +488,7 @@ To retry, `php artisan yak:video:rerender --task=<id>` re-dispatches the render 
 
 Check the **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means narration was never enabled (see [Setup](setup.md)). An error row shows the last ElevenLabs failure: 401 is a bad or expired key, 429 is a quota. A failed narration never blocks the render: the cut goes out captions-only. Look for `VoiceoverGenerator` warnings in the `yak` log channel. A task that already has `voiceover` artifacts is not regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
 
-### `Visual capture: partial` in the task log
+### `Visual capture: partial` in the run log
 
 The **shoot** step (`yak-browser shoot` in the sandbox) failed to capture some shots or stills. The render did not fail. A partial capture gives a shorter cut or fails the QA test. Read the sandbox's shoot log for the page or navigation error before touching the render pipeline.
 

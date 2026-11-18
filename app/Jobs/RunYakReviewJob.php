@@ -39,6 +39,7 @@ use App\Support\GitHubDiffLines;
 use App\Support\PathMatcher;
 use App\Support\ReviewSuggestion;
 use App\Support\TaskContext;
+use App\Support\TaskPageUrl;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -968,10 +969,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     {
         // The re-request-review endpoint is a POST action (dashboard button),
         // so a PR-body link can't hit it directly — send reviewers to the
-        // task page instead, where the button is one click away.
-        $url = route('tasks.show', $this->task);
+        // review page instead, where the button is one click away.
+        $url = TaskPageUrl::for($this->task);
 
-        return "---\n\n_Made an update? [Request a re-review →]({$url})_";
+        return $url === null ? '' : "---\n\n_Made an update? [Request a re-review →]({$url})_";
     }
 
     private function handleError(string $message): void

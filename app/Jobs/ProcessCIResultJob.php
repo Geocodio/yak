@@ -252,7 +252,7 @@ class ProcessCIResultJob implements ShouldQueue
         // Artifacts are persisted upstream in RunYakJob/RetryYakJob/
         // RunFollowUpJob right after SandboxArtifactCollector pulls
         // them out of the sandbox — that way the walkthrough video +
-        // screenshots show up on the task page and Remotion rendering
+        // screenshots show up on the thread page and Remotion rendering
         // runs in parallel with Drone CI instead of sequentially.
 
         $loc = $this->countLinesOfCode($repository);

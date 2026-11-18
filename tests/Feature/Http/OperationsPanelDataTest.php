@@ -28,7 +28,7 @@ test('the operations panel is shared on operations pages and null elsewhere', fu
 
     $this->actingAs($user)->get(route('repos'))
         ->assertInertia(fn (Assert $page) => $page->has('operationsPanel.counts'));
-    $this->actingAs($user)->get(route('tasks'))
+    $this->actingAs($user)->get(route('threads.log'))
         ->assertInertia(fn (Assert $page) => $page->where('operationsPanel', null));
 });
 

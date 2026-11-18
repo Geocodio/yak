@@ -50,6 +50,14 @@ class StackRules
             );
         }
 
+        if (! $parent->hasRepository()) {
+            return new StackRuleViolation(
+                'This thread has no repository yet, so it cannot spawn sub-threads.',
+                ThreadActionRefused::NO_REPOSITORY,
+                ThreadActionRefused::NO_REPOSITORY_SENTENCE,
+            );
+        }
+
         if (! $parent->isOpen()) {
             return new StackRuleViolation(
                 'This thread is closed, so it cannot spawn sub-threads.',

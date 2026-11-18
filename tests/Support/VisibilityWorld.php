@@ -135,7 +135,7 @@ class VisibilityWorld
             'repo' => self::REPO,
             'description' => self::TITLE . ' child',
         ]);
-        $world->run = TaskRun::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO]);
+        $world->run = TaskRun::factory()->create(['yak_task_id' => $world->task->id, 'thread_id' => $world->thread->id, 'repo' => self::REPO]);
         $world->deployment = BranchDeployment::factory()->running()->create([
             'yak_task_id' => $world->task->id,
             'hostname' => self::HOSTNAME,

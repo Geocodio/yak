@@ -175,9 +175,9 @@ it('refuses each state with its code', function (Closure $arrange, string $code,
 
 it('reads the publish acknowledgement from the input, not the request', function () {
     fakeTurnCollaborators()['commands']->shouldReceive('startRunner', 'turn', 'setModel');
-    $thread = Thread::factory()->private(User::factory()->create())->create(['claude_account_id' => ClaudeAccount::factory()->create()->id, 'model' => 'sonnet']);
-    YakTask::factory()->create(['thread_id' => $thread->id]);
     $user = User::factory()->create();
+    $thread = Thread::factory()->private($user)->create(['claude_account_id' => ClaudeAccount::factory()->create()->id, 'model' => 'sonnet']);
+    YakTask::factory()->create(['thread_id' => $thread->id]);
     $input = new ThreadMessageInput('x', null, 'record_walkthrough_and_open_pr', null, MessageDelivery::Steer, null, true);
 
     expect(app(ThreadMessageSender::class)->send($thread, $user, $input)->status)->toBe('sent');

@@ -5,11 +5,17 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { THREAD_GROUP, showActions, type ShowActionOptions } from '@/commandPalette/threadPageActions';
 import { threadDataActions } from '@/commandPalette/threadDataActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
+import { ThreadCards } from '@/components/threads/cards/ThreadCards';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
+import { withoutQueuedMessages } from '@/components/threads/composer/queuedMessages';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
+import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
+import { LegacyConversation } from '@/components/threads/conversation/LegacyConversation';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
+import { MoveRepositoryDialog } from '@/components/threads/header/MoveRepositoryDialog';
+import { ProgressRow } from '@/components/threads/header/ProgressRow';
 import { ThreadHeader } from '@/components/threads/header/ThreadHeader';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ChildParentBanner } from '@/components/threads/stack/ChildParentBanner';
@@ -32,6 +38,7 @@ import { AddChildDialog } from '@/threads/panels/stack/AddChildDialog';
 import { useStack } from '@/threads/panels/stack/useStack';
 import { useThreadDiff } from '@/threads/panels/changes/useThreadDiff';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
+import { useFragmentScroll } from '@/components/threads/useFragmentScroll';
 import type { PageProps } from '@/types/shared';
 import type { ThreadPageData } from '@/types/threads';
 
@@ -43,27 +50,52 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, messages, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, sharedFiles, brief, turnAnchors, isExpiredCoOwnerStop, messages, queuedMessages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
+    useFragmentScroll(thread.id, turnAnchors);
+    const conversation = useMemo(() => withoutQueuedMessages(messages), [messages]);
     const dockPanels = dockPanelsFor(thread);
     const dock = useDockState();
     const dockPanelIds = dockPanels.map((panel) => panel.id);
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const isWide = useMediaQuery(WIDE_RAIL_QUERY);
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
+    // On a short phone the card scrolls with the conversation so the composer keeps its room. The placement is decided
+    // when the thread or the card kind changes and then kept, so a rotation or the browser toolbar hiding does not
+    // remount the card and lose what was typed in it.
+    const isShortPhoneNow = useMediaQuery('(max-width: 639px) and (max-height: 740px)');
+    const placementKey = `${thread.id}:${card ?? ''}`;
+    const [placement, setPlacement] = useState({ key: placementKey, isShortPhone: isShortPhoneNow });
+    if (placement.key !== placementKey) {
+        setPlacement({ key: placementKey, isShortPhone: isShortPhoneNow });
+    }
+    const isShortPhone = placement.key === placementKey ? placement.isShortPhone : isShortPhoneNow;
     const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'files' && isWide));
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => phoneTabIdFor(activeDock?.id ?? null));
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
     const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
     const focusCounter = useRef(0);
+    const [logState, setLogState] = useState<{ threadId: string; target: RunLogTarget | null }>(() => ({ threadId: thread.id, target: openLog === null ? null : { kind: isLegacy ? 'task' : 'run', id: openLog.runId, entryId: openLog.entryId, headline: thread.title } }));
+    // The overlay target belongs to the thread it was opened on; a visit to another thread starts without one.
+    const logTarget = logState.threadId === thread.id ? logState.target : null;
+    const setLogTarget = (target: RunLogTarget | null) => setLogState({ threadId: thread.id, target });
+    const [walkthroughRequest] = useState(() => {
+        const requested = new URLSearchParams(window.location.search).get('walkthrough');
+        const seconds = requested === null || requested.trim() === '' ? NaN : Number(requested);
+
+        return { threadId: thread.id, seconds: Number.isFinite(seconds) && seconds >= 0 ? seconds : null };
+    });
+    const walkthroughStartAt = walkthroughRequest.threadId === thread.id ? walkthroughRequest.seconds : null;
     const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
     const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
     const [isTeleportOpen, setIsTeleportOpen] = useState(false);
+    const [isMoving, setIsMoving] = useState(false);
     const { stack, reload: reloadStack } = useStack(thread);
     usePullRequestToasts(thread, pullRequest, publishWarning);
     const { diff, isLoading: isDiffLoading } = useThreadDiff(thread);
     const canAddSubThread = canDrive && stack !== null && stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && thread.status === 'open';
     const subThreadCount = stack?.children.length ?? 0;
+    const latestRun = runs.at(-1);
     const isOverlayRail = !isWide && activeDock !== null;
     const isRailHidden = isDesktop ? !isRailOpen : phoneTab !== 'overview';
 
@@ -119,6 +151,11 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         canDrive,
         notice,
         sharedFiles,
+        request,
+        coOwner,
+        runDetails,
+        milestones,
+        runs,
         composerState: composer.state,
         composer,
         modelLabels,
@@ -193,7 +230,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             <Head title={thread.title} />
 
             <ThreadHeader
-                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent }}
+                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions, coOwner }}
                 dockPanels={dockPanels}
                 activeDock={activeDock}
                 diff={diff}
@@ -203,7 +240,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 onToggleRail={() => setIsRailOpen((value) => !value)}
                 onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
+                onMove={() => setIsMoving(true)}
             />
+            {progress !== null && <ProgressRow progress={progress} />}
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} hasBrief={brief !== null} />
@@ -217,8 +256,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} />
-                    <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} footer={isShortPhone ? <ThreadCards isInline={isShortPhone} page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} /> : null} />}
+                    {!isShortPhone && <ThreadCards page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} />}
+                    <ThreadComposer thread={thread} composer={composer} queued={queuedMessages} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 
                 <ThreadDockPanel active={activeDock} isPhoneVisible={isPhoneDockVisible} panelProps={panelProps} />
@@ -248,6 +288,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 </aside>
             </div>
 
+            <MoveRepositoryDialog threadId={thread.id} targets={actions.moveTargets} open={isMoving} onOpenChange={setIsMoving} />
+            <RunLogOverlay threadId={thread.id} target={logTarget} isLive={logTarget?.kind === 'run' && runs.find((run) => run.runId === logTarget.id)?.isActive === true} onClose={() => setLogTarget(null)} />
             {isAddingSubThread && stack !== null && (
                 <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}

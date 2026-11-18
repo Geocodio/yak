@@ -14,10 +14,13 @@ use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
 use App\Models\Concerns\HasPublicId;
 use App\Models\Scopes\VisibleTaskScope;
+use App\Observers\YakTaskThreadObserver;
 use App\Services\TaskDescriptionSummary;
+use App\Services\Threads\ThreadShowChanged;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -62,6 +65,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $pr_state_checked_at
  * @property string|null $responsible_name
  * @property int|null $started_by_user_id
+ * @property int|null $author_user_id
  * @property int|null $tagged_co_owner_user_id
  * @property array<string, mixed>|null $early_warning
  * @property int|null $responsible_user_id
@@ -70,6 +74,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
  */
 #[ScopedBy(VisibleTaskScope::class)]
+#[ObservedBy(YakTaskThreadObserver::class)]
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
@@ -168,6 +173,10 @@ class YakTask extends Model
         });
 
         static::updated(function (YakTask $task): void {
+            if ($task->wasChanged(['early_warning', 'tagged_co_owner_user_id', 'stop_kind', 'stop_summary', 'resume_after_setup_at'])) {
+                ThreadShowChanged::publish($task->thread_id);
+            }
+
             if ($task->wasChanged('status')) {
                 $original = $task->getOriginal('status');
 
@@ -217,6 +226,17 @@ class YakTask extends Model
     public function thread(): BelongsTo
     {
         return $this->belongsTo(Thread::class);
+    }
+
+    /**
+     * The Yak user who wrote the message this task carries, which can be a
+     * different person than the one who started the conversation.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'author_user_id');
     }
 
     /**
@@ -305,8 +325,18 @@ class YakTask extends Model
     {
         $modelUsage = $this->runs()->reorder()->whereNotNull('model_usage')->latest('id')->value('model_usage');
 
-        if (! is_array($modelUsage) || $modelUsage === []) {
-            return $this->model_used;
+        return self::mainModel(is_array($modelUsage) ? $modelUsage : null, $this->model_used);
+    }
+
+    /**
+     * The model that wrote the most output tokens in a run's per-model usage, or the fallback without usage.
+     *
+     * @param  array<string, array<string, mixed>>|null  $modelUsage
+     */
+    public static function mainModel(?array $modelUsage, ?string $fallback): ?string
+    {
+        if ($modelUsage === null || $modelUsage === []) {
+            return $fallback;
         }
 
         $outputTokensByModel = array_map(fn (array $usage): int => (int) ($usage['output'] ?? 0), $modelUsage);

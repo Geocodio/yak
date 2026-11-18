@@ -22,6 +22,7 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\YakConfigFiles;
 use App\Services\YakPersonality;
 use App\Support\MarkdownText;
+use App\Support\TaskPageUrl;
 
 trait FinishesResearchRuns
 {
@@ -129,7 +130,7 @@ trait FinishesResearchRuns
         // inside the sandbox, and the persister hands them to the renderer.
         SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
         $hasWalkthrough = collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
-        $taskUrl = route('tasks.show', $this->task);
+        $taskUrl = TaskPageUrl::for($this->task);
 
         $this->task->update([
             'status' => TaskStatus::Success,
@@ -157,7 +158,7 @@ trait FinishesResearchRuns
             $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
         }
 
-        if ($hasWalkthrough) {
+        if ($hasWalkthrough && $taskUrl !== null) {
             $notificationMessage .= "\n\n🎬 **[Watch the walkthrough]({$taskUrl})** (ready once it finishes rendering)";
         }
 
@@ -176,7 +177,7 @@ trait FinishesResearchRuns
                 );
             }
 
-            if ($hasWalkthrough) {
+            if ($hasWalkthrough && $taskUrl !== null) {
                 app(LinearNotificationDriver::class)->createIssueAttachment(
                     $this->task,
                     title: 'Walkthrough video',

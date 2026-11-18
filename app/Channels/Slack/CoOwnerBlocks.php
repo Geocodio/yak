@@ -7,6 +7,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Support\PersonName;
+use App\Support\TaskPageUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -46,7 +47,7 @@ class CoOwnerBlocks
             self::context('CI passed on ' . SlackText::escape($branch)),
             ['type' => 'actions', 'elements' => [
                 self::linkButton('View changes', 'yak_link_view_changes', self::compareUrl($request)),
-                self::linkButton('Open task', 'yak_link_open_task', self::taskUrl($request)),
+                self::linkButton('Open thread', 'yak_link_open_task', self::taskUrl($request)),
                 ['type' => 'button', 'action_id' => self::WITHDRAW_ACTION_ID, 'value' => (string) $request->id, 'text' => self::plain('Withdraw')],
             ]],
             self::context(self::heldSince($request)),
@@ -174,8 +175,8 @@ class CoOwnerBlocks
                 . " Changes to areas like this get a second person with write access to {$repository}, whoever asks for them.";
 
         $asked = $request->asked_user_ids === []
-            ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the task page."
-            : "I've asked " . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ". Anyone with write access to {$repository} can pick it up, so feel free to share the task link.";
+            ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the thread."
+            : "I've asked " . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ". Anyone with write access to {$repository} can pick it up, so feel free to share the thread link.";
 
         $skippedTag = collect($request->ask_attempts)->first(fn (array $attempt): bool => $attempt['kind'] === 'tagged' && $attempt['outcome'] === 'no_write_access');
         if ($skippedTag !== null) {
@@ -241,7 +242,7 @@ class CoOwnerBlocks
         if ($request->asked_user_ids === []) {
             $repository = $shouldEscape ? SlackText::escape($request->repository->github_full_name) : $request->repository->github_full_name;
 
-            return "Still waiting for a co-owner. Nobody could be asked yet, so anyone with write access to {$repository} can approve from the task page. The request expires in 5 days.";
+            return "Still waiting for a co-owner. Nobody could be asked yet, so anyone with write access to {$repository} can approve from the thread. The request expires in 5 days.";
         }
 
         $names = array_map(fn (string $name): string => $shouldEscape ? SlackText::escape($name) : $name, self::askedNames($request));
@@ -325,7 +326,7 @@ class CoOwnerBlocks
 
         if ($request->status === CoOwnerRequestStatus::Expired) {
             $blocks[] = self::section('To pick it up again, ask me in this thread, for example @Yak try this again, and I will start a new run and hold it for a co-owner.');
-            $blocks[] = ['type' => 'actions', 'elements' => [self::linkButton('Open task', 'yak_link_open_task', self::taskUrl($request))]];
+            $blocks[] = ['type' => 'actions', 'elements' => [self::linkButton('Open thread', 'yak_link_open_task', self::taskUrl($request))]];
         }
 
         return $blocks;
@@ -358,7 +359,7 @@ class CoOwnerBlocks
 
         return ['type' => 'actions', 'elements' => [
             ['type' => 'button', 'style' => 'primary', 'action_id' => self::APPROVE_ACTION_ID, 'value' => $id, 'text' => self::plain('Approve & open PR')],
-            self::linkButton('Request changes', 'yak_link_request_changes', self::taskUrl($request) . '#co-owner'),
+            self::linkButton('Request changes', 'yak_link_request_changes', self::taskUrl($request, 'co-owner')),
             [
                 'type' => 'button',
                 'style' => 'danger',
@@ -479,9 +480,9 @@ class CoOwnerBlocks
         return CarbonImmutable::instance($moment)->setTimezone((string) config('app.timezone'))->format($format);
     }
 
-    private static function taskUrl(CoOwnerRequest $request): string
+    private static function taskUrl(CoOwnerRequest $request, ?string $anchor = null): string
     {
-        return rtrim((string) config('app.url'), '/') . route('tasks.show', ['task' => YakTask::publicIdForKey($request->task_id)], false);
+        return rtrim((string) config('app.url'), '/') . (TaskPageUrl::forTaskId($request->task_id, $anchor, absolute: false) ?? route('threads.log', [], false));
     }
 
     private static function taskLink(CoOwnerRequest $request): string

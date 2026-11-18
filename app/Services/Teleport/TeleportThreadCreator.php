@@ -7,6 +7,7 @@ use App\Enums\TaskMode;
 use App\Enums\ThreadKind;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSessionKind;
+use App\Enums\ThreadSource;
 use App\Enums\ThreadVisibility;
 use App\Models\Device;
 use App\Models\Repository;
@@ -43,6 +44,7 @@ class TeleportThreadCreator
             'created_by_user_id' => $user->id,
             'continued_from_thread_id' => $continuedFrom?->id,
             'kind' => ThreadKind::General,
+            'source' => ThreadSource::Teleport,
             'owner_side' => ThreadOwnerSide::Device,
             'owner_device_id' => $device->id,
             'owner_changed_at' => now(),
