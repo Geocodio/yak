@@ -99,7 +99,8 @@ struct ChatView: View {
                     NoticeCard(notice: notice, thread: thread)
                 }
             }
-            .scrollTargetLayout()
+            // No `scrollTargetLayout()`: with one, a change of the list's height re-anchors the position to a row's
+            // leading edge, which sits inside the side padding and moves the list sideways by that padding.
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
         }
@@ -108,13 +109,6 @@ struct ChatView: View {
         .defaultScrollAnchor(.bottom, for: .initialOffset)
         // The navigation bar is opaque and nothing sits over the list's foot, so no edge effect draws over rows.
         .scrollEdgeEffectHidden(true, for: [.top, .bottom])
-        // The list never scrolls sideways, yet a change of its height can leave it offset by the 16 points of side
-        // padding, which shifts every row to the left edge; the offset is put back at once.
-        .onScrollGeometryChange(for: CGFloat.self) {
-            $0.contentOffset.x
-        } action: { _, x in
-            if x != 0 { withTransaction(Self.still) { position.scrollTo(x: 0) } }
-        }
         .onScrollGeometryChange(for: Metrics.self) { geometry in
             Metrics(
                 contentHeight: geometry.contentSize.height, viewportHeight: geometry.containerSize.height,
@@ -224,7 +218,8 @@ struct ChatView: View {
             placeHeld = nil
             return
         }
-        withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0, y: held.fraction)) }
+        // A horizontal anchor of 0.5 centres the row as wide as the list, so the list does not move sideways.
+        withTransaction(Self.still) { position.scrollTo(id: held.id, anchor: UnitPoint(x: 0.5, y: held.fraction)) }
     }
 
     private func jumpToLatest() {
