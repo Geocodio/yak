@@ -101,8 +101,9 @@ import YakKit
         let (model, _) = makeLinkModel()
         let window = model.makeSceneModel(restored: nil)
         // Every window asks; one loop runs for the app, and closing a window never ends it.
-        model.followQuickActions()
-        model.followQuickActions()
+        let controller = lockedController(isOn: false)
+        model.followQuickActions(through: controller)
+        model.followQuickActions(through: controller)
         model.sceneBecameActive(window)
         model.sceneDisconnected(window)
         let link = "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=a1b2c3d4"
@@ -116,5 +117,100 @@ import YakKit
         }
         #expect(id == "a1b2c3d4")
         QuickActions.reset()
+    }
+
+    private struct AllowingAuthenticator: DeviceOwnerAuthenticator {
+        func capability() async -> CapabilityReading { .unknown }
+        func authenticate(reason: String) async -> DeviceOwnerAuthenticationResult { .success }
+        func cancel() {}
+    }
+
+    private func lockedController(isOn: Bool = true) -> AppLockController {
+        let settings = PrivacySettings(store: PushMemoryDefaults())
+        settings.appLockOn = isOn
+        return AppLockController(settings: settings, authenticator: AllowingAuthenticator(), clock: ManualClock())
+    }
+
+    @Test func aQuickActionThatArrivesWhileLockedOpensOnlyAfterTheUnlock() async throws {
+        QuickActions.reset()
+        let controller = lockedController()
+        var opened: [URL] = []
+        let router = Task { @MainActor in
+            await AppParts.route(QuickActions.links(), through: controller) { opened.append($0) }
+        }
+        await Task.yield()
+        let item = try #require(QuickActions.shortcutItems(instance: instance, snapshot: nil).first)
+        #expect(QuickActions.deliver(item))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(opened.isEmpty, "nothing opens under the lock")
+        await controller.requestUnlock()
+        for _ in 0..<100 where opened.isEmpty { await Task.yield() }
+        router.cancel()
+        #expect(opened.count == 1)
+    }
+
+    @Test func anIntentLinkThatArrivesWhileLockedOpensOnlyAfterTheUnlockAndTheNewestWins() async {
+        let controller = lockedController()
+        var opened: [URL] = []
+        let first = URL(string: "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef")!
+        let second = URL(string: "yak://new-thread?instance=https%3A%2F%2Fyak.example.com")!
+        AppParts.open(first, through: controller) { opened.append($0) }
+        AppParts.open(second, through: controller) { opened.append($0) }
+        #expect(opened.isEmpty)
+        await controller.requestUnlock()
+        for _ in 0..<100 where opened.isEmpty { await Task.yield() }
+        #expect(opened == [second])
+    }
+
+    @Test func aQuickActionThatArrivesWhileLockedOpensInTheAppsWindowOnlyAfterTheUnlock() async throws {
+        QuickActions.reset()
+        let controller = lockedController()
+        let (model, _) = makeLinkModel()
+        await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=a")!)
+        await model.confirmLinkPairing()
+        let window = model.makeSceneModel(restored: nil)
+        window.applyColdStart(.drawer(.mine))
+        model.sceneBecameActive(window)
+        model.followQuickActions(through: controller)
+        let link = "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=a1b2c3d4"
+        let item = UIApplicationShortcutItem(
+            type: "open", localizedTitle: "x", localizedSubtitle: nil, icon: nil, userInfo: ["link": link as NSString])
+        #expect(QuickActions.deliver(item))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.state.threadID == nil, "nothing opens under the lock")
+        await controller.requestUnlock()
+        for _ in 0..<200 where window.state.threadID == nil { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(window.state.threadID == "a1b2c3d4")
+        QuickActions.reset()
+    }
+
+    @Test func aLinkThatArrivesWhileLockedOpensInTheWindowThatGotItAfterTheUnlockWithTwoWindows() async throws {
+        let controller = lockedController()
+        let (model, _) = makeLinkModel()
+        await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Fyak.example.com&code=a")!)
+        await model.confirmLinkPairing()
+        let first = model.makeSceneModel(restored: nil)
+        let second = model.makeSceneModel(restored: nil)
+        first.applyColdStart(.drawer(.mine))
+        second.applyColdStart(.drawer(.mine))
+        model.sceneBecameActive(first)
+        model.sceneBecameActive(second)
+        model.receive(
+            url: URL(string: "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=a1b2c3d4")!, in: first,
+            through: controller)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(first.state.threadID == nil && second.state.threadID == nil)
+        await controller.requestUnlock()
+        for _ in 0..<200 where first.state.threadID == nil { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(first.state.threadID == "a1b2c3d4" && second.state.threadID == nil)
+    }
+
+    @Test func aMenuCommandWhileTheLockBlocksInputIsNeverPublished() {
+        let commands = SceneCommands(
+            availablePanes: [.chat], focusPane: { _ in }, searchThreads: {}, newThread: {}, toggleSidebar: {},
+            overview: {}, settings: {}, hasSeveralWindows: true)
+        #expect(SceneCommands.published(commands, isBlocked: false, hasSheetOpen: false) != nil)
+        #expect(SceneCommands.published(commands, isBlocked: true, hasSheetOpen: false) == nil)
+        #expect(SceneCommands.published(commands, isBlocked: false, hasSheetOpen: true) == nil)
     }
 }

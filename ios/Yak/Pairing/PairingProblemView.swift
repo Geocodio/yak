@@ -16,8 +16,9 @@ struct PairingProblemView: View {
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
-            Text(LocalizedStringKey(titleKey)).font(.title2.bold())
+            Text(LocalizedStringKey(titleKey)).font(.title2.bold()).fixedSize(horizontal: false, vertical: true)
             Text(LocalizedStringKey(bodyKey)).font(.body).foregroundStyle(Color.yakMuted)
+                .fixedSize(horizontal: false, vertical: true)
             if !address.isEmpty {
                 Text(address)
                     .font(.subheadline.monospaced())

@@ -5,6 +5,8 @@ struct RootView: View {
     let model: AppModel
     /// What this window was asked to show; the window keeps it equal to the thread it shows.
     @Binding var request: WindowRequest?
+    /// Links reach a window through the lock.
+    let appLock: AppLockController
 
     @SceneStorage("yak.scene") private var restoredScene: Data?
     @State private var scene: SceneModel?
@@ -43,11 +45,7 @@ struct RootView: View {
             if let scene { await model.scenePhaseChanged(scene, to: scenePhase) }
             await model.reloadRoute()
         }
-        .onOpenURL { url in
-            Task {
-                if let scene { await model.handle(url: url, in: scene) } else { await model.handle(url: url) }
-            }
-        }
+        .onOpenURL { url in model.receive(url: url, in: scene, through: appLock) }
         .onChange(of: scene?.state) { restoredScene = scene?.encodedState }
         .onChange(of: scene?.windowValue) { if request != scene?.windowValue { request = scene?.windowValue } }
         // The window registers when it is made and leaves when it goes away; a route change rebuilds only the screen

@@ -113,12 +113,19 @@ final class AppModel {
 
     @ObservationIgnored private var quickActionsTask: Task<Void, Never>?
 
-    /// Turns the Home Screen quick actions into links, once for the app. Every window calls it; only the first starts
+    /// Turns the Home Screen quick actions into links, once for the app, each through the lock's gate. Every window calls it; only the first starts
     /// the loop, and closing a window never ends it.
-    func followQuickActions() {
+    func followQuickActions(through appLock: AppLockController) {
         guard quickActionsTask == nil else { return }
         quickActionsTask = Task { [weak self] in
-            for await link in QuickActions.links() { await self?.handle(url: link) }
+            await AppParts.route(QuickActions.links(), through: appLock) { await self?.handle(url: $0) }
+        }
+    }
+
+    /// A link, widget tap or activity a window received: it opens in that window, and only once the lock is open.
+    func receive(url: URL, in scene: SceneModel?, through appLock: AppLockController) {
+        AppParts.open(url, through: appLock) { [weak self, weak scene] url in
+            if let scene { await self?.handle(url: url, in: scene) } else { await self?.handle(url: url) }
         }
     }
 

@@ -16,6 +16,7 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
+                GestureTips.configure(TestSystemOptions.current().tips == .show ? .shown : .hidden)
                 let made = testMode.make(version: version, system: system)
                 self.parts = made.parts
                 _model = State(initialValue: made.model)
@@ -34,6 +35,9 @@ struct YakApp: App {
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
         let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
+        let showTipsAgain = defaults.data(forKey: DebugMenuModel.showTipsKey) != nil
+        if showTipsAgain { defaults.set(nil, forKey: DebugMenuModel.showTipsKey) }
+        GestureTips.configure(showTipsAgain ? .resetThenNormal : .normal)
         Task {
             do { try await instances.persistMissingTints() } catch {
                 #if canImport(os)
@@ -44,24 +48,26 @@ struct YakApp: App {
             }
         }
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
+        let faults = DebugFaultSwitch()
         let environment: @Sendable () -> SessionEnvironment = {
-            .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
+            .app(version: version, system: system, files: files, allowsInsecureRealtime: false, faults: faults)
         }
         let parts = AppParts.make(
             storage: storage, isTestMode: false,
             context: AppPartsContext(
-                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults))
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults, faults: faults))
         self.parts = parts
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
-        _model = State(
-            initialValue: AppModel(
-                instances: instances, tokens: tokens,
-                makeClient: { url in
-                    APIClient(
-                        baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
-                        systemDescription: system)
-                },
-                makeEnvironment: environment, observers: parts.observers, push: parts.push, widgets: parts.widgets))
+        let model = AppModel(
+            instances: instances, tokens: tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
+                    systemDescription: system)
+            },
+            makeEnvironment: environment, observers: parts.observers, push: parts.push, widgets: parts.widgets)
+        parts.system.modelBox.model = model
+        _model = State(initialValue: model)
     }
 
     var body: some Scene {
@@ -91,11 +97,11 @@ struct YakApp: App {
     }
 
     private func rootView(_ request: Binding<WindowRequest?>) -> some View {
-        RootView(model: model, request: request)
+        RootView(model: model, request: request, appLock: parts.system.appLock)
             // An open window takes a link, a widget tap or an activity; none of them opens another window.
             .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
             .appRoot(parts, model: model)
-            .task { model.followQuickActions() }
+            .task { model.followQuickActions(through: parts.system.appLock) }
             .task {
                 delegate.attach(parts.push)
                 await parts.push.start()

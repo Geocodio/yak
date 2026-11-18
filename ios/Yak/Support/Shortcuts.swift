@@ -31,7 +31,7 @@ extension AppShortcut {
         }
     }
 
-    fileprivate var keyEquivalent: KeyEquivalent {
+    var keyEquivalent: KeyEquivalent {
         switch key {
         case .character(let character): KeyEquivalent(character)
         case .returnKey: .return
@@ -41,7 +41,7 @@ extension AppShortcut {
         }
     }
 
-    fileprivate var eventModifiers: EventModifiers {
+    var eventModifiers: EventModifiers {
         var result: EventModifiers = []
         if modifiers.contains(.command) { result.insert(.command) }
         if modifiers.contains(.shift) { result.insert(.shift) }
@@ -62,9 +62,44 @@ extension WindowTitle {
     }
 }
 
+private struct InputBlockedKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// True while the app lock blocks input: every `yakShortcut` does nothing and no focus request is taken.
+    var inputBlocked: Bool {
+        get { self[InputBlockedKey.self] }
+        set { self[InputBlockedKey.self] = newValue }
+    }
+}
+
+/// Feeds the lock state to every shortcut under it; it reads the controller in its own body so it follows changes.
+struct ShortcutGate: ViewModifier {
+    let controller: AppLockController
+
+    func body(content: Content) -> some View {
+        content.environment(\.inputBlocked, controller.blocksInput)
+    }
+}
+
+private struct YakShortcut: ViewModifier {
+    let shortcut: AppShortcut
+    @Environment(\.inputBlocked) private var blocked
+
+    func body(content: Content) -> some View {
+        content.keyboardShortcut(AppShortcutGate.keyboardShortcut(for: shortcut, blocked: blocked))
+    }
+}
+
+enum AppShortcutGate {
+    /// The one place a shortcut is dropped: while the lock blocks input it has no key equivalent at all.
+    static func keyboardShortcut(for shortcut: AppShortcut, blocked: Bool) -> KeyboardShortcut? {
+        blocked ? nil : KeyboardShortcut(shortcut.keyEquivalent, modifiers: shortcut.eventModifiers)
+    }
+}
+
 extension View {
     /// Gives the control the shortcut. This is the only place the app writes `.keyboardShortcut(`.
     func yakShortcut(_ shortcut: AppShortcut) -> some View {
-        keyboardShortcut(shortcut.keyEquivalent, modifiers: shortcut.eventModifiers)
+        modifier(YakShortcut(shortcut: shortcut))
     }
 }

@@ -22,6 +22,7 @@ struct InstanceShell: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.walkthroughPlayback) private var walkthroughPlayback
+    @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -62,6 +63,7 @@ struct InstanceShell: View {
         .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .onChange(of: model.push?.pending, initial: true) { showPending() }
+        .onChange(of: inputBlocked) { showPending() }
         .sheet(isPresented: showsAccount) {
             if let push = model.push {
                 SettingsScreen(app: model, push: push, active: instance, onClose: { scene.isSettingsOpen = false })
@@ -96,13 +98,15 @@ struct InstanceShell: View {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
         .environment(\.hasSeveralWindows, hasSeveralWindows)
-        .focusedSceneValue(\.sceneCommands, hasSheetOpen ? nil : sceneCommands)
+        .focusedSceneValue(
+            \.sceneCommands,
+            SceneCommands.published(sceneCommands, isBlocked: inputBlocked, hasSheetOpen: hasSheetOpen))
         .overlay(alignment: .bottom) { otherInstanceNotice }
     }
 
     /// A push tap that needs a screen of its own: the connect flow or the browser.
     private func showPending() {
-        guard let pending = model.takePendingPush(for: scene) else { return }
+        guard !inputBlocked, let pending = model.takePendingPush(for: scene) else { return }
         switch pending {
         case .pairing(let address): model.addressToConnect = address
         case .webPage(let url): model.browserURL = url

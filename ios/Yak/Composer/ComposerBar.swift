@@ -7,10 +7,16 @@ struct ComposerBar: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
     @FocusState private var isFocused: Bool
+    @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var composer: ComposerModel { thread.composer }
+
+    private func takeFocusIfOpen() {
+        guard !inputBlocked, scene.takeComposerFocus() else { return }
+        isFocused = true
+    }
 
     var body: some View {
         @Bindable var composer = composer
@@ -48,8 +54,9 @@ struct ComposerBar: View {
         #if DEBUG
             .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
         #endif
-        .onChange(of: scene.composerFocusRequest) { if scene.takeComposerFocus() { isFocused = true } }
-        .task { if scene.takeComposerFocus() { isFocused = true } }
+        .onChange(of: scene.composerFocusRequest) { takeFocusIfOpen() }
+        .onChange(of: inputBlocked) { takeFocusIfOpen() }
+        .task { takeFocusIfOpen() }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
         .animation(.smooth(duration: 0.2), value: composer.bar)
         .animation(.smooth(duration: 0.2), value: composer.attachments.count)
@@ -98,7 +105,14 @@ struct ComposerBar: View {
         .accessibilityAction(named: Text("composer.sendAfterTurn")) {
             if composer.bar.offersSendAfterTurn { send(.afterTurn) }
         }
+        .popoverTip(SendAfterTurnTip(), arrowEdge: .bottom)
+        .onChange(of: tipIsEligible, initial: true) { SendAfterTurnTip.isEligible = tipIsEligible }
         .accessibilityIdentifier("composer.send")
+    }
+
+    private var tipIsEligible: Bool {
+        GestureTips.eligibleForSendAfterTurn(
+            offersSendAfterTurn: composer.bar.offersSendAfterTurn, hasText: !composer.text.isEmpty)
     }
 
     private var stopButton: some View {
@@ -121,6 +135,7 @@ struct ComposerBar: View {
     }
 
     private func send(_ delivery: MessageDelivery) {
+        if delivery == .afterTurn { SendAfterTurnTip.recordUse() }
         Task { await composer.send(delivery: delivery) }
     }
 

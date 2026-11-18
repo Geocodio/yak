@@ -16,6 +16,14 @@ struct SceneCommands {
     let hasSeveralWindows: Bool
 }
 
+extension SceneCommands {
+    /// What a window publishes to the menu: nothing while a sheet is open or the app lock blocks input, so every
+    /// command, New Window included, is disabled then.
+    static func published(_ commands: SceneCommands, isBlocked: Bool, hasSheetOpen: Bool) -> SceneCommands? {
+        isBlocked || hasSheetOpen ? nil : commands
+    }
+}
+
 extension FocusedValues {
     @Entry var sceneCommands: SceneCommands?
 }
