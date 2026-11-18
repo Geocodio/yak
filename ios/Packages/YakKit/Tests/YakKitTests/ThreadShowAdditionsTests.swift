@@ -227,3 +227,18 @@ func aWronglyTypedWorkFieldFailsTheDecode(key: String, replacement: String) thro
     let data = try workShowData([key: replacement])
     #expect(throws: DecodingError.self) { try JSONDecoder().decode(ThreadShow.self, from: data) }
 }
+
+private let workScenarioNames = [
+    "work-co-owner", "work-co-owner-approved", "work-drained-queued", "work-drained-taken", "work-early-warning",
+    "work-early-warning-tagged", "work-expired", "work-finished", "work-legacy", "work-legacy-continued",
+    "work-milestones", "work-moved", "work-moved-new", "work-needs-you-stopped", "work-reply-retried",
+    "work-repository-answered", "work-repository-question", "work-stopped", "work-via", "work-working",
+]
+
+@Test(arguments: workScenarioNames)
+func everyWorkScenarioDecodesAndPicksOneCard(name: String) throws {
+    let show = try decoded(ThreadShow.self, "scenario-\(name)")
+    #expect(show.thread.id.count == 8)
+    let state = ThreadCardState.make(show: show, isForbidden: false)
+    #expect(show.card == nil ? state == .none : state != .none)
+}
