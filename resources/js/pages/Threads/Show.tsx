@@ -9,7 +9,7 @@ import { ThreadCards } from '@/components/threads/cards/ThreadCards';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { withoutQueuedMessages } from '@/components/threads/composer/queuedMessages';
 import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
-import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
+import { RunLogOverlay, runLogMeta, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { LegacyConversation } from '@/components/threads/conversation/LegacyConversation';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
@@ -289,7 +289,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             </div>
 
             <MoveRepositoryDialog threadId={thread.id} targets={actions.moveTargets} open={isMoving} onOpenChange={setIsMoving} />
-            <RunLogOverlay threadId={thread.id} target={logTarget} isLive={logTarget?.kind === 'run' && runs.find((run) => run.runId === logTarget.id)?.isActive === true} onClose={() => setLogTarget(null)} />
+            <RunLogOverlay threadId={thread.id} target={logTarget} runs={isLegacy ? [] : runs.map((run) => ({ target: { kind: 'run', id: run.runId, entryId: null, headline: thread.title }, meta: runLogMeta(run, modelLabels) }))} onSelectRun={setLogTarget} isLive={logTarget?.kind === 'run' && runs.find((run) => run.runId === logTarget.id)?.isActive === true} onClose={() => setLogTarget(null)} />
             {isAddingSubThread && stack !== null && (
                 <AddChildDialog threadId={thread.id} parentTitle={thread.title} stack={{ models: stack.models, parentAccountName: stack.parentAccountName, maxChildren: stack.maxChildren, awake: stack.limit.awake, limit: stack.limit.current, childCount: stack.children.length }} onClose={() => setIsAddingSubThread(false)} onAdded={() => { reloadStack(); openOverview(); }} />
             )}

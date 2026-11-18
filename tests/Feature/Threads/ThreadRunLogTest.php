@@ -79,7 +79,7 @@ it('searches the steps of a run, including tool output and wildcard characters',
     $ids = fn (string $search): array => array_column($this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=" . urlencode($search))->json('entries'), 'id');
 
     expect($ids('config'))->toBe([2, 3])
-        ->and($ids('needle'))->toBe([4])
+        ->and($ids('needle'))->toBe([3])
         ->and($ids('100%_done'))->toBe([3])
         ->and($ids('/app/config'))->toBe([3])
         ->and($ids('no such text'))->toBe([]);
@@ -232,4 +232,34 @@ it('shows a viewer without drive rights the active run as active', function () {
 
     $this->actingAs($reader)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('canDrive', false)->where('runs.0.isActive', true));
+});
+
+it('numbers the steps of a run, names the subject and times a tool call', function () {
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+    $run->forceFill(['started_at' => now()->subHour()])->save();
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'First']]]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 3, 'type' => 'entry', 'created_at' => now()->subSeconds(41), 'payload' => ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'Bash', 'input' => ['command' => 'vendor/bin/pest']]]]]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 4, 'type' => 'entry', 'created_at' => now(), 'payload' => ['role' => 'tool_result', 'toolUseId' => 'toolu_1', 'isError' => false, 'text' => 'ok']]);
+    logEntry($thread, 5, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'Last']]]);
+    $user = User::factory()->create();
+
+    $entries = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->json('entries');
+    $searched = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=Last")->json('entries');
+
+    expect(array_column($entries, 'number'))->toBe([1, 2, 3])
+        ->and($entries[1]['subject'])->toBe('vendor/bin/pest')
+        ->and($entries[1]['durationSeconds'])->toBe(41)
+        ->and($searched[0]['number'])->toBe(3);
+
+    $this->actingAs($user)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('runs.0.startedAt', $run->started_at->toIso8601String()));
+});
+
+it('answers 404 to a search on the log of a thread the viewer cannot see', function () {
+    $hidden = Thread::factory()->private()->create();
+    $run = logRun($hidden, 1);
+    logEntry($hidden, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'needle']]]);
+
+    $this->actingAs(User::factory()->create())->getJson("/threads/{$hidden->public_id}/runs/{$run->id}/log?search=needle&cursor=0")->assertNotFound();
 });
