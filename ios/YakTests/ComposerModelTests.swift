@@ -46,7 +46,10 @@ private final class StepClock: YakClock, @unchecked Sendable {
 
     /// Waits until a sleeper is registered, so the advance cannot run ahead of the task that sleeps.
     func advance(by duration: Duration) async {
-        for _ in 0..<2000 where lock.withLock({ sleepers.isEmpty }) { await Task.yield() }
+        let deadline = ContinuousClock.now.advanced(by: TestTimeScale.waitBound)
+        while lock.withLock({ sleepers.isEmpty }), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
         let target = lock.withLock { elapsed + duration }
         let due: [Sleeper] = lock.withLock {
             elapsed = target
