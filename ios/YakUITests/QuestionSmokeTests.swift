@@ -53,6 +53,19 @@ import XCTest
         try audit()
     }
 
+    /// The chat above the card keeps its margins while the card moves through its steps.
+    func testTheChatKeepsItsMarginsBehindTheCard() throws {
+        try launch(scenario: "question-open")
+        let text = app.staticTexts["Which behavior do you want when all retries fail?"]
+        XCTAssertTrue(element("question.card").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(text.waitForExistence(timeout: Wait.appear))
+        let margin = text.frame.minX
+        XCTAssertGreaterThan(margin, 8)
+        answerBothQuestions()
+        XCTAssertTrue(text.exists)
+        XCTAssertEqual(text.frame.minX, margin, accuracy: 0.5)
+    }
+
     func testARetryAfterAFailedSendKeepsTheAnswersAndSends() throws {
         try launch(scenario: "question-retry")
         answerBothQuestions()
