@@ -95,8 +95,12 @@ import Testing
         #expect(call(feature, "POST threads/d0e515ef/pull-request", scenario, body: "{}").status == 202)
         let opening = call(feature, "GET threads/d0e515ef", scenario).json["thread"] as? [String: Any]
         #expect((opening?["pullRequestOpening"] as? [String: Any])?["state"] as? String == "opening")
-        try await Task.sleep(for: .seconds(StubChanges.openingDuration + 0.3))
-        let open = call(feature, "GET threads/d0e515ef", scenario).json
+        // The pull request opens after the opening time; a loaded machine runs the timer late.
+        var open = call(feature, "GET threads/d0e515ef", scenario).json
+        for _ in 0..<300 where open["pullRequest"] is NSNull || open["pullRequest"] == nil {
+            try await Task.sleep(for: .milliseconds(100))
+            open = call(feature, "GET threads/d0e515ef", scenario).json
+        }
         #expect((open["pullRequest"] as? [String: Any])?["number"] as? Int == 41)
     }
 
@@ -129,9 +133,9 @@ import Testing
         #expect(sent.get().isEmpty)
         try await Task.sleep(for: .seconds(StubChanges.openingDuration + 0.3))
         // A loaded machine can run the timer late: wait for the event instead of trusting one sleep.
-        for _ in 0..<50 where sent.get().isEmpty { try await Task.sleep(for: .milliseconds(100)) }
+        for _ in 0..<300 where sent.get().isEmpty { try await Task.sleep(for: .milliseconds(100)) }
         let events = sent.get()
-        #expect(events.count == 1)
+        try #require(events.count == 1)
         guard events.count == 1 else { return }
         let frame = events[0].split(separator: " ", maxSplits: 1).map(String.init)
         let event = (try? JSONSerialization.jsonObject(with: Data(frame[1].utf8))) as? [String: Any] ?? [:]
@@ -169,7 +173,10 @@ import Testing
         #expect((before["diff"] as? [String: Any])?["isTurnRunning"] as? Bool == true)
         feature.subscribed(thread: "d0e515ef", scenario: "changes-working", fixtures: scenario.fixtures)
         feature.subscribed(thread: "d0e515ef", scenario: "changes-working", fixtures: scenario.fixtures)
-        try await Task.sleep(for: .seconds(8 * 0.4 + 1))
+        // Eight events at 0.4 seconds each; a loaded machine plays them late. The short wait after the
+        // eighth shows that subscribing twice does not play them twice.
+        for _ in 0..<600 where types.get().count < 8 { try await Task.sleep(for: .milliseconds(100)) }
+        try await Task.sleep(for: .milliseconds(800))
         #expect(types.get().count == 8)
         #expect(types.get().last == "diff.updated")
         let after = call(feature, "GET threads/d0e515ef/diff", scenario).json
