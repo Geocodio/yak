@@ -42,6 +42,7 @@ private struct ChatPane: View {
         }
         .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
+        .sensoryFeedback(.error, trigger: thread.question.failureCount)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
         } action: {

@@ -8064,6 +8064,16 @@
         }
       }
     },
+    "question.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
     "question.title" : {
       "localizations" : {
         "en" : {
@@ -9932,16 +9942,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Back"
-          }
-        }
-      }
-    },
-    "task.questions.edit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this answer"
           }
         }
       }

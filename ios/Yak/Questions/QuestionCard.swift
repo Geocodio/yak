@@ -14,6 +14,10 @@ struct QuestionCard: View {
 
     @State private var contentHeight: CGFloat = 0
     @FocusState private var isTyping: Bool
+    @AccessibilityFocusState private var focusedStep: Int?
+
+    /// With the keyboard up the pane can be short; the card keeps room for its field and Done.
+    private var cap: CGFloat { max(maximumHeight, 200) }
 
     var body: some View {
         if let flow = model.flow {
@@ -27,12 +31,13 @@ struct QuestionCard: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
-            .frame(maxHeight: contentHeight > 0 ? min(contentHeight, maximumHeight) : maximumHeight)
+            .frame(maxHeight: contentHeight > 0 ? min(contentHeight, cap) : cap)
             .padding(.horizontal, 8).padding(.bottom, 4)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityElement(children: .contain)
             .accessibilityLabel(Text("question.card.label"))
             .accessibilityIdentifier("question.card")
+            .onChange(of: stepKey(flow)) { focusedStep = stepKey(flow) }
             .onChange(of: model.isClosed) {
                 if model.isClosed {
                     UIAccessibility.post(notification: .announcement, argument: String(localized: "question.closed"))
@@ -70,6 +75,15 @@ struct QuestionCard: View {
         }
     }
 
+    /// Names the step so VoiceOver can move to its heading when the step changes.
+    private func stepKey(_ flow: QuestionFlow) -> Int {
+        switch flow.step {
+        case .question(let index): index
+        case .typing(let index): 1000 + index
+        case .review: -1
+        }
+    }
+
     private func stepIndex(_ flow: QuestionFlow) -> Int? {
         switch flow.step {
         case .question(let index), .typing(let index): index
@@ -83,7 +97,7 @@ struct QuestionCard: View {
         let item = flow.questions[index]
         let other = flow.answers[item.id]?.other ?? ""
         return VStack(alignment: .leading, spacing: 10) {
-            questionText(item)
+            questionText(item).accessibilityFocused($focusedStep, equals: index)
             if item.multiSelect {
                 Text("question.multiHint").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
             }
@@ -92,7 +106,7 @@ struct QuestionCard: View {
                     label: option.label, detail: option.description,
                     isSelected: flow.isSelected(option.label, question: index)
                 ) {
-                    Task { await model.pick(option.label) }
+                    Task { await model.pick(option.label, question: index) }
                 }
                 .accessibilityIdentifier("question.option.\(optionIndex)")
             }
@@ -128,7 +142,7 @@ struct QuestionCard: View {
                         .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("question.back")
                 }
                 if isMultiSelect {
-                    Button("question.next") { Task { await model.next() } }
+                    Button("question.next") { Task { await model.next(question: index) } }
                         .buttonStyle(SecondaryButtonStyle()).disabled(!flow.canGoNext)
                         .accessibilityIdentifier("question.next")
                 }
@@ -171,6 +185,7 @@ struct QuestionCard: View {
     private func review(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("question.review.title").font(.subheadline.weight(.semibold))
+                .accessibilityFocused($focusedStep, equals: -1)
             ForEach(Array(flow.questions.enumerated()), id: \.offset) { index, item in
                 QuestionReviewRow(
                     header: item.header, summary: flow.summary(for: item.id) ?? "", error: model.fieldErrors[item.id]
@@ -185,6 +200,10 @@ struct QuestionCard: View {
             if isOffline, model.sending == .idle {
                 Text("question.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.offline")
+            }
+            if model.isSlow {
+                Text("question.slow").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.slow")
             }
             if case .failed(let message) = model.sending { errorLine(message) }
             Button {
@@ -211,7 +230,7 @@ struct QuestionCard: View {
     private var noteBinding: Binding<String> {
         Binding(
             get: { model.flow?.note ?? "" },
-            set: { text in Task { await model.setNote(text) } })
+            set: { model.setNote($0) })
     }
 
     private func errorLine(_ message: String) -> some View {

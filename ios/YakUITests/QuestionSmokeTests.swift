@@ -53,6 +53,19 @@ import XCTest
         try audit()
     }
 
+    func testARetryAfterAFailedSendKeepsTheAnswersAndSends() throws {
+        try launch(scenario: "question-retry")
+        answerBothQuestions()
+        app.buttons["question.send"].tap()
+        XCTAssertTrue(element("question.error").waitForExistence(timeout: Wait.appear))
+        // The first send failed: the answers are still on the review, and the button now says Retry.
+        XCTAssertTrue(labelled("Mark the row as failed").exists)
+        XCTAssertTrue(app.buttons["Retry"].exists)
+        app.buttons["question.send"].tap()
+        waitForGone(element("question.card"))
+        XCTAssertTrue(try stub.get("question/last-request").contains("Mark the row as failed"))
+    }
+
     func testAClosedQuestionShowsTheClosedState() throws {
         try launch(scenario: "question-closed")
         answerBothQuestions()
