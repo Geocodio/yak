@@ -59,16 +59,16 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const isWide = useMediaQuery(WIDE_RAIL_QUERY);
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
-    // On a short phone the card scrolls with the conversation so the composer keeps its room. The placement is decided
+    // On a phone the card scrolls with the conversation and only the composer stays pinned. The placement is decided
     // when the thread or the card kind changes and then kept, so a rotation or the browser toolbar hiding does not
     // remount the card and lose what was typed in it.
-    const isShortPhoneNow = useMediaQuery('(max-width: 639px) and (max-height: 740px)');
+    const isPhoneNow = useMediaQuery('(max-width: 639px)');
     const placementKey = `${thread.id}:${card ?? ''}`;
-    const [placement, setPlacement] = useState({ key: placementKey, isShortPhone: isShortPhoneNow });
+    const [placement, setPlacement] = useState({ key: placementKey, isPhone: isPhoneNow });
     if (placement.key !== placementKey) {
-        setPlacement({ key: placementKey, isShortPhone: isShortPhoneNow });
+        setPlacement({ key: placementKey, isPhone: isPhoneNow });
     }
-    const isShortPhone = placement.key === placementKey ? placement.isShortPhone : isShortPhoneNow;
+    const isPhone = placement.key === placementKey ? placement.isPhone : isPhoneNow;
     const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'files' && isWide));
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => phoneTabIdFor(activeDock?.id ?? null));
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);
@@ -230,7 +230,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             <Head title={thread.title} />
 
             <ThreadHeader
-                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions, coOwner }}
+                page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions, coOwner, stopped }}
                 dockPanels={dockPanels}
                 activeDock={activeDock}
                 diff={diff}
@@ -241,6 +241,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 onOpenChanges={() => openChanges()}
                 onOpenOverview={openOverview}
                 onMove={() => setIsMoving(true)}
+                failedStepLabel={progress?.steps.find((step) => step.state === 'failed')?.label.replace(/,?\s*\d+ of \d+$/, '') ?? null}
             />
             {progress !== null && <ProgressRow progress={progress} />}
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
@@ -256,8 +257,8 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} footer={isShortPhone ? <ThreadCards isInline={isShortPhone} page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} /> : null} />}
-                    {!isShortPhone && <ThreadCards page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} />}
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} footer={isPhone ? <ThreadCards isInline={isPhone} page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} /> : null} />}
+                    {!isPhone && <ThreadCards page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} />}
                     <ThreadComposer thread={thread} composer={composer} queued={queuedMessages} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
 

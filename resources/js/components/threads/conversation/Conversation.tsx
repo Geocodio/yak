@@ -107,6 +107,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const firstPerson = entries.find((entry) => entry.type === 'person');
     let previousDay = '';
     const runningRun = working ? runs.find((run) => run.isActive) : undefined;
     const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null);
@@ -167,6 +168,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                             <PersonMessage
                                 message={entry.message}
                                 pending={entry.pending}
+                                isRequest={entry === firstPerson}
                                 modelLabels={modelLabels}
                                 onOpenMedia={(media, index) => {
                                     setLightboxMedia(media);

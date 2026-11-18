@@ -6,6 +6,8 @@ import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions'
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { StatusPill } from '@/components/threads/StatusPill';
+import { SourceLink } from '@/components/threads/header/SourceLink';
+import { threadStatus } from '@/threads/threadStatus';
 import { ThreadHeaderMeta } from '@/components/threads/header/ThreadHeaderMeta';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
@@ -20,7 +22,7 @@ import type { Panel, PanelProps } from '@/threads/panels';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent' | 'request' | 'actions' | 'coOwner'>;
+    page: Pick<ThreadPageData, 'thread' | 'canDrive' | 'diffTotals' | 'pullRequest' | 'publishWarning' | 'walkthrough' | 'notice' | 'composer' | 'stackParent' | 'request' | 'actions' | 'coOwner' | 'stopped'>;
     dockPanels: Panel[];
     activeDock: Panel | null;
     diff: PanelProps['diff'];
@@ -32,6 +34,8 @@ type Props = {
     onOpenOverview: () => void;
     /** Opens the move-to-another-repository dialog. */
     onMove: () => void;
+    /** The label of the progress step that failed, if any; it gives the phone's stopped pill its reason. */
+    failedStepLabel?: string | null;
 };
 
 function copyBranchName(branch: string): void {
@@ -49,8 +53,8 @@ function copyThreadLink(threadId: string): void {
 }
 
 /** The thread page header: title and status, the repo line, the three views, the one Open PR action, and the overflow menu. */
-export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onMove }: Props) {
-    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions: threadActions, coOwner } = page;
+export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCount, isRailOpen, onSelectDock, onToggleRail, onOpenChanges, onOpenOverview, onMove, failedStepLabel = null }: Props) {
+    const { thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions: threadActions, coOwner, stopped } = page;
     const [isSharing, setIsSharing] = useState(false);
     const [confirming, setConfirming] = useState<'close' | 'delete' | 'cancel' | 'requestReview' | null>(null);
     const [isBusy, setIsBusy] = useState(false);
@@ -80,6 +84,18 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
         [thread.id, thread.canShare, thread.visibility, canOpenPullRequest, thread.pullRequestOpening?.state, publishWarning, canStar, thread.isStarred, canDrive, isOpen, subThreadCount],
     );
     const parent = breadcrumbParent(thread, stackParent);
+    const status = threadStatus(notice, composer.state);
+    const phonePill: { label: string; tone: string } | null =
+        pullRequest !== null
+            ? { label: `#${pullRequest.number} Open`, tone: 'bg-ok-soft text-ok' }
+            : isHeldForCoOwner
+              ? { label: 'PR held for a co-owner', tone: 'bg-warn-soft text-warn' }
+              : status !== null
+                ? { label: status.label, tone: status.tone === 'fail' ? 'bg-fail-soft text-fail' : status.tone === 'warn' ? 'bg-warn-soft text-warn' : status.tone === 'info' ? 'bg-info-soft text-info' : 'bg-brand-soft text-brand' }
+                : stopped !== null && stopped.kind === 'yak_stopped'
+                  ? { label: failedStepLabel === null ? 'Stopped' : `Stopped, ${failedStepLabel}`, tone: 'bg-fail-soft text-fail' }
+                  : null;
+    const hasChannelSource = request.source !== undefined && ['slack', 'linear', 'sentry', 'github', 'email'].includes(request.source.key);
     useCommandPaletteActions(THREAD_GROUP, actions);
 
     const closeConfirm = closeThreadConfirm(subThreadCount);
@@ -112,7 +128,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                        <h1 className="line-clamp-2 text-[15px] lg:line-clamp-1 font-semibold text-body" data-testid="thread-title">
+                        <h1 className="min-w-0 text-[15px] font-semibold max-sm:truncate sm:line-clamp-2 lg:line-clamp-1 text-body" data-testid="thread-title">
                             {parent !== null ? (
                                 <>
                                     <Link href={show.url(parent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{parent.title}</Link>
@@ -135,9 +151,18 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                             </button>
                         )}
                         <VisibilityBadge thread={thread} />
-                        <StatusPill notice={notice} composerState={composer.state} />
+                        <span className="contents max-sm:hidden">
+                            <StatusPill notice={notice} composerState={composer.state} />
+                        </span>
                     </div>
-                    <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} source={request.source} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
+                    <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[12px] text-muted sm:hidden" data-testid="thread-header-phone-meta">
+                        {hasChannelSource && request.source !== undefined ? <span className="shrink-0"><SourceLink source={request.source} testId="thread-phone-source-link" /></span> : <span className="shrink-0">{thread.repo}</span>}
+                        {thread.branch !== null && <code className="min-w-0 truncate font-mono text-[11.5px]">{thread.branch}</code>}
+                        {phonePill !== null && <span className={cn('inline-flex shrink-0 items-center rounded-pill px-2 py-0.5 text-[11.5px] font-medium', phonePill.tone)} data-testid="thread-phone-pill">{phonePill.label}</span>}
+                    </div>
+                    <div className="max-sm:hidden">
+                        <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} subThreadCount={subThreadCount} source={request.source} onOpenChanges={onOpenChanges} onOpenOverview={onOpenOverview} />
+                    </div>
                 </div>
 
                 <ThreadDockToggles thread={thread} panels={dockPanels} active={activeDock} diff={diff} onSelect={onSelectDock} />

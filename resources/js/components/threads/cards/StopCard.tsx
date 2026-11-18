@@ -43,17 +43,17 @@ export function StopCard({ threadId, stopped, actions, onMove, onShowLog, title 
                 <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-control bg-panel-2 p-2 font-mono text-[11px]" data-testid="stop-inline-detail">{stopped.detail ?? stopped.summary}</pre>
             )}
             {error !== null && <p role="alert" id="stop-error" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="stop-error">{error}</p>}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 max-sm:flex-col">
                 {actions.canRetry && (
-                    <Button variant="primary" icon={<Wrench size={13} />} pending={action.isPending('retry')} pendingLabel="Retrying…" disabled={action.busy} onClick={retryNow} aria-describedby={error !== null ? 'stop-error' : undefined} data-testid="stop-retry">
+                    <Button variant="primary" className="max-sm:h-11 max-sm:w-full" icon={<Wrench size={13} />} pending={action.isPending('retry')} pendingLabel="Retrying…" disabled={action.busy} onClick={retryNow} aria-describedby={error !== null ? 'stop-error' : undefined} data-testid="stop-retry">
                         Retry
                     </Button>
                 )}
                 {actions.canMove && (
-                    <Button onClick={onMove} disabled={action.busy} data-testid="stop-move">Move to another repository</Button>
+                    <Button className="max-sm:h-11 max-sm:w-full" onClick={onMove} disabled={action.busy} data-testid="stop-move">Move to another repository</Button>
                 )}
                 {stopped.kind !== 'cancelled' && (
-                    <Button onClick={onShowLog ?? (() => setIsDetailShown((shown) => !shown))} data-testid="stop-show-log">
+                    <Button className="max-sm:h-11 max-sm:w-full" onClick={onShowLog ?? (() => setIsDetailShown((shown) => !shown))} data-testid="stop-show-log">
                         {onShowLog !== null ? 'Show the failing step' : isDetailShown ? 'Hide the details' : 'Show the details'}
                     </Button>
                 )}

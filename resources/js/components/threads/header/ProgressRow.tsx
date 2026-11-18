@@ -26,16 +26,21 @@ export function ProgressRow({ progress }: { progress: ThreadProgress }) {
         }
     }, [focusKey]);
 
+    // A phone shows the steps near the one in focus (two before, one after); wider screens show them all.
+    const focusIndex = Math.max(0, progress.steps.findIndex((step) => step.key === focusKey));
+    const isNearFocus = (index: number) => index >= focusIndex - 2 && index <= focusIndex + 1;
+    const isFinished = !progress.steps.some((step) => step.state === 'current' || step.state === 'failed');
+
     return (
-        <ol ref={listRef} aria-label="Progress" className="relative m-0 flex shrink-0 list-none items-center gap-4 overflow-x-auto border-b border-hair px-4 py-2 text-[12.5px] whitespace-nowrap text-muted sm:px-5" data-testid="thread-progress-row">
-            {progress.steps.map((step) => (
+        <ol ref={listRef} aria-label="Progress" className={cn('relative m-0 flex shrink-0 list-none items-center gap-4 overflow-x-auto border-b border-hair px-4 py-2 max-sm:gap-1.5 max-sm:px-3.5 max-sm:py-2 text-[12.5px] whitespace-nowrap text-muted sm:px-5', isFinished && 'max-sm:hidden')} data-testid="thread-progress-row">
+            {progress.steps.map((step, index) => (
                 <li
                     key={step.key}
                     title={step.tooltip}
                     aria-current={step.state === 'current' ? 'step' : undefined}
                     data-state={step.state}
                     data-focus={step.key === focusKey}
-                    className={cn('flex shrink-0 items-center gap-1.5', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail')}
+                    className={cn('flex shrink-0 items-center gap-1.5', !isNearFocus(index) && 'max-sm:hidden', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail')}
                 >
                     <span className={cn('h-[3px] w-[34px] rounded-pill', BAR[step.state])} aria-hidden />
                     {step.label}

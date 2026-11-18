@@ -194,9 +194,11 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
         : `A co-owner is a second person with write access to ${repoName}. They look at changes to sensitive areas before a PR opens. It is about what the change touches, not about who asked for it.`;
 
     const isCard = variant === 'card';
+    const phoneButton = isCard ? 'max-sm:h-11 max-sm:w-full max-sm:justify-center' : undefined;
     const approveButton = canApprove ? (
         <Button
             variant="primary"
+            className={phoneButton}
             icon={<GitPullRequest className="size-3.5" />}
             pending={isApproving}
             pendingLabel="Approving…"
@@ -295,7 +297,7 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                         `Linked as ${viewer.login}. Access is checked live and cached for 10 minutes.`
                     ) : null}
                 </span>
-                <div className="ml-auto flex flex-wrap gap-2">
+                <div className="ml-auto flex flex-wrap gap-2 max-sm:w-full max-sm:flex-col">
                     {isRequesterView ? (
                         <>
                             <Button onClick={() => run('withdraw', routes.withdraw)} pending={action.isPending('withdraw')} disabled={action.busy}>Withdraw</Button>
@@ -307,9 +309,9 @@ function PendingPanel({ coOwner, routes, shareUrl, repoUrl, variant = 'panel', o
                     ) : viewer.access !== 'read' || canApprove ? (
                         <>
                             {isCard && approveButton}
-                            {!isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
-                            <Button onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes" aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}>Request changes</Button>
-                            {isCard && <Button onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            {!isCard && <Button className={isCard ? phoneButton : undefined} onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
+                            <Button className={phoneButton} onClick={() => setFeedbackOpen((open) => !open)} disabled={action.busy} data-testid="co-owner-request-changes" aria-describedby={decisionError !== null ? 'co-owner-error' : undefined}>Request changes</Button>
+                            {isCard && <Button className={isCard ? phoneButton : undefined} onClick={() => setRejectOpen(true)} disabled={action.busy} data-testid="co-owner-reject">Reject</Button>}
                             {!isCard && approveButton}
                         </>
                     ) : null}
@@ -400,7 +402,7 @@ function ChangedFiles({ coOwner, onOpenChanges }: { coOwner: CoOwnerData; onOpen
             ))}
             {rest > 0 && (
                 <button type="button" onClick={onOpenChanges} className="w-fit cursor-pointer text-left text-[12.5px] text-accent-text hover:underline" data-testid="co-owner-more-files">
-                    and {rest} more {rest === 1 ? 'file' : 'files'} in Changes
+                    and {rest} more {rest === 1 ? 'file' : 'files'} in Files
                 </button>
             )}
         </div>
