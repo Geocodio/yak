@@ -411,6 +411,12 @@ private final class Counter: @unchecked Sendable {
     #expect(!String(decoding: sent, as: UTF8.self).contains("]52;"))
 }
 
+/// The hardware keyboard's keys reach the emulator through the surface, so it must be able to take focus. That the
+/// app binds no bare or Control key is pinned by `AppShortcutTests.noBareOrControlKeyIsBoundOutsideASheet`.
+@MainActor @Test func theSurfaceCanTakeTheHardwareKeyboard() {
+    #expect(SwiftTermSurface().view.canBecomeFirstResponder)
+}
+
 /// Holds a `makeConnection` until the test releases it.
 private actor ConnectionGate {
     private var continuation: CheckedContinuation<Void, Never>?

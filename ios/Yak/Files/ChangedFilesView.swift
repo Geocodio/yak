@@ -117,6 +117,13 @@ struct ChangedFilesView: FilesModeView {
 
     // MARK: Pages
 
+    private func canEdit(_ file: DiffFileSummary, state: FilePageState?) -> Bool {
+        FilePageView.canEdit(
+            file: file, state: state, canDrive: thread.snapshot?.show?.canDrive ?? false,
+            filesAvailable: FilesMode.built.contains(.everything) && thread.panes.contains(.files),
+            primaryRepo: thread.snapshot?.show?.thread.repo)
+    }
+
     private func pages(_ snapshot: ChangesSnapshot) -> some View {
         let position = Binding<DiffFileKey?>(
             get: { snapshot.pager.current },
@@ -128,9 +135,13 @@ struct ChangedFilesView: FilesModeView {
             LazyHStack(spacing: 0) {
                 ForEach(snapshot.pager.files, id: \.key) { file in
                     FilePageView(
-                        file: file, state: snapshot.pages[file.key], isViewed: snapshot.marks.isViewed(file),
+                        file: file, state: snapshot.pages[file.key],
+                        isThrowaway: snapshot.diff?.isThrowaway(file) == true,
+                        isViewed: snapshot.marks.isViewed(file),
                         toggleViewed: { Task { await model.toggleViewed() } },
-                        retry: { Task { await model.retry() } }, openWeb: { isShowingWeb = true }
+                        retry: { Task { await model.retry() } }, openWeb: { isShowingWeb = true },
+                        edit: canEdit(file, state: snapshot.pages[file.key])
+                            ? { thread.fileOpenRequest = FileOpenRequest(path: file.path, edit: true) } : nil
                     )
                     .containerRelativeFrame(.horizontal)
                     .id(file.key)

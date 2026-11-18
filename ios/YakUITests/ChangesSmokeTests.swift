@@ -117,6 +117,18 @@ import XCTest
         XCTAssertFalse(element("files.page.failed").exists)
     }
 
+    /// "Edit file" on a diff page opens that file in the Files editor.
+    func testEditFileOnADiffPageOpensTheEditor() throws {
+        try openFiles(scenario: "changes-files")
+        let edit = element("files.page.edit").firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: Wait.appear))
+        try audit()
+        edit.tap()
+        let editor = app.textViews["files.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue((editor.value as? String ?? "").contains("final class RetryUpload"))
+    }
+
     func testOpenPullRequestOpensAndBecomesTheNumber() throws {
         try openFiles(scenario: "changes")
         let button = element("files.openPullRequest")

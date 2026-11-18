@@ -68,6 +68,8 @@ public struct ConversationSnapshot: Equatable, Sendable {
     public var problem: ThreadProblem?
     /// The newest applied `diff.updated`; nil before one.
     public var lastDiffUpdateSequence: Int?
+    /// An action waits out the server's `rate_limited` and has been waiting for more than five seconds.
+    public var isActionSlow: Bool
 
     public init(
         load: ThreadLoadState = .loading, show: ThreadShow? = nil, entries: [ConversationEntry] = [],
@@ -76,7 +78,7 @@ public struct ConversationSnapshot: Equatable, Sendable {
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, hasOlderHistory: Bool = false,
         isLoadingOlder: Bool = false, didOlderFail: Bool = false, replacementThreadID: String? = nil,
         lastSequence: Int = 0,
-        problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil
+        problem: ThreadProblem? = nil, lastDiffUpdateSequence: Int? = nil, isActionSlow: Bool = false
     ) {
         self.load = load
         self.show = show
@@ -95,5 +97,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.lastSequence = lastSequence
         self.problem = problem
         self.lastDiffUpdateSequence = lastDiffUpdateSequence
+        self.isActionSlow = isActionSlow
     }
 }

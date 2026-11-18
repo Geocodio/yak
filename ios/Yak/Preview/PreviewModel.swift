@@ -56,6 +56,8 @@ final class PreviewModel {
     static let slowAfter: Duration = .seconds(8)
     static let actionLineLifetime: Duration = .seconds(6)
     static let crashWindow: TimeInterval = 60
+    /// How long the Files pane has to take the manifest request before the card says it did not open.
+    static let fileOpenTimeout: Duration = .seconds(5)
 
     let threadID: String
     let instanceHost: String
@@ -77,6 +79,10 @@ final class PreviewModel {
     @ObservationIgnored private let backend: any PreviewBackend
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private let terminalAvailable: Bool
+    @ObservationIgnored private var canOpenFiles: Bool
+    @ObservationIgnored private let fileOpenRequest: @MainActor () -> FileOpenRequest?
+    @ObservationIgnored private let setFileOpenRequest: @MainActor (FileOpenRequest?) -> Void
+    @ObservationIgnored private var fileOpenTask: Task<Void, Never>?
     @ObservationIgnored private let openURL: @MainActor (URL) -> Void
     @ObservationIgnored private let focus: @MainActor (PaneID) -> Void
     @ObservationIgnored private weak var driver: (any PreviewPageDriver)?
@@ -94,9 +100,15 @@ final class PreviewModel {
 
     init(
         threadID: String, instanceHost: String, backend: any PreviewBackend, clock: any YakClock,
-        terminalAvailable: Bool, openURL: @escaping @MainActor (URL) -> Void = PreviewModel.openInSystem,
-        focus: @escaping @MainActor (PaneID) -> Void = { _ in }
+        terminalAvailable: Bool, canOpenFiles: Bool = false,
+        openURL: @escaping @MainActor (URL) -> Void = PreviewModel.openInSystem,
+        focus: @escaping @MainActor (PaneID) -> Void = { _ in },
+        fileOpenRequest: @escaping @MainActor () -> FileOpenRequest? = { nil },
+        setFileOpenRequest: @escaping @MainActor (FileOpenRequest?) -> Void = { _ in }
     ) {
+        self.canOpenFiles = canOpenFiles
+        self.fileOpenRequest = fileOpenRequest
+        self.setFileOpenRequest = setFileOpenRequest
         self.threadID = threadID
         self.instanceHost = instanceHost
         self.backend = backend
@@ -148,6 +160,7 @@ final class PreviewModel {
         readingTasks = []
         lineTask?.cancel()
         slowTask?.cancel()
+        fileOpenTask?.cancel()
         signInTask?.cancel()
         driver?.stopLoading()
         await backend.close()
@@ -180,11 +193,7 @@ final class PreviewModel {
             return
         }
         isSecure = status.url?.lowercased().hasPrefix("https://") ?? false
-        let made = PreviewCard.make(
-            status: status, canDrive: next.canDrive, blockedReason: next.blockedReason, isRestoring: next.isRestoring,
-            sandboxState: next.sandboxState, hasKnownPreviewURL: next.lastPreviewURL != nil,
-            restoreTookTooLong: next.restoreTookTooLong, pendingIntent: intents.pending.first,
-            terminalAvailable: terminalAvailable)
+        let made = makeCard(status: status, snapshot: next)
         card = made
         let isPage = made.kind == .page
         if isPage, !lastCardWasPage, case .refused = page { page = .idle }
@@ -193,6 +202,21 @@ final class PreviewModel {
         }
         lastCardWasPage = isPage
         if wasOfflineBefore, !next.isOffline, page == .problem(.offline) { Task { await reload() } }
+    }
+
+    private func makeCard(status: PreviewStatus, snapshot next: PreviewSnapshot) -> PreviewCard {
+        PreviewCard.make(
+            status: status, canDrive: next.canDrive, blockedReason: next.blockedReason, isRestoring: next.isRestoring,
+            sandboxState: next.sandboxState, hasKnownPreviewURL: next.lastPreviewURL != nil,
+            restoreTookTooLong: next.restoreTookTooLong, pendingIntent: intents.pending.first,
+            terminalAvailable: terminalAvailable, canOpenFiles: canOpenFiles)
+    }
+
+    /// The thread's panes changed: the card offers or withdraws "Edit .yak/preview.yml" at once.
+    func update(canOpenFiles next: Bool) {
+        guard next != canOpenFiles else { return }
+        canOpenFiles = next
+        if let status = snapshot.status { card = makeCard(status: status, snapshot: snapshot) }
     }
 
     private func apply(intents next: PreviewIntentState) {
@@ -331,13 +355,48 @@ final class PreviewModel {
             report(await backend.retryRestore())
             isPerforming = nil
         case .openTerminal: focus(.terminal)
-        case .editManifest: break  // the card offers it only once Files can open the manifest
+        case .editManifest: requestManifestOpen()
         case .showConversation: focus(.chat)
         case .openInBrowser:
             isPerforming = action
             if let url = await openInBrowserURL() { openURL(url) }
             isPerforming = nil
         }
+    }
+
+    /// Hands the manifest to the Files pane and waits for it to take the request: the card shows progress until
+    /// `fileOpenRequestChanged` sees it taken, or says it did not open after `fileOpenTimeout`.
+    private func requestManifestOpen() {
+        let request = FileOpenRequest(path: PreviewCard.manifestPath, edit: true)
+        isPerforming = .editManifest
+        actionLine = nil
+        setFileOpenRequest(request)
+        focus(.files)
+        fileOpenTask?.cancel()
+        fileOpenTask = Task { [weak self, clock] in
+            do { try await clock.sleep(for: Self.fileOpenTimeout) } catch { return }
+            guard let self else { return }
+            if self.fileOpenRequest()?.id == request.id {
+                self.setFileOpenRequest(nil)
+                self.setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
+            }
+            // The card never stays busy past its own timer.
+            if self.isPerforming == .editManifest { self.isPerforming = nil }
+        }
+    }
+
+    /// The Files pane cleared the request: it took it, so the card is done waiting.
+    func fileOpenRequestChanged() {
+        guard fileOpenRequest() == nil, isPerforming == .editManifest else { return }
+        fileOpenTask?.cancel()
+        isPerforming = nil
+    }
+
+    /// The Files pane took the request but could not open the file.
+    func fileOpenFailed() {
+        fileOpenTask?.cancel()
+        if isPerforming == .editManifest { isPerforming = nil }
+        setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
     }
 
     private func report(_ outcome: ThreadActionOutcome) {

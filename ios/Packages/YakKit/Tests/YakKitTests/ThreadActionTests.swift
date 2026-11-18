@@ -16,6 +16,7 @@ private struct Rig {
     let engine: ThreadEngine
     let transport: ScriptedTransport
     let cache: Cache
+    let clock: ManualClock
 }
 
 /// An engine that is open on the scenario thread with an open question (`question: true`) or without one.
@@ -33,7 +34,7 @@ private func makeRig(question: Bool = true, cache sharedCache: Cache? = nil) asy
     let engine = ThreadEngine(threadID: threadID, client: client, cache: cache, clock: clock, frameInterval: .zero)
     await engine.open()
     _ = try await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
-    return Rig(engine: engine, transport: transport, cache: cache)
+    return Rig(engine: engine, transport: transport, cache: cache, clock: clock)
 }
 
 private func body(of request: URLRequest) throws -> String {
@@ -246,4 +247,108 @@ private func body(of request: URLRequest) throws -> String {
     _ = try await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
     #expect(await engine.questionDraft() != nil)
     await engine.close()
+}
+
+// MARK: Rate limits and read-only refusals
+
+private func rateLimited(after seconds: Int) -> FakeTransport.Result {
+    .json(
+        429, #"{"error":"rate_limited","message":"Slow down."}"#, headers: ["Retry-After": String(seconds)])
+}
+
+@Test func aRateLimitedActionWaitsForRetryAfterAndSendsAgainOnce() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 4), ok)
+    async let outcome = rig.engine.stopTurn()
+    await rig.transport.waitForRequests(1, on: route)
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(4))
+    #expect(await rig.transport.requests(on: route).count == 1)
+    await rig.clock.advance(by: .seconds(4))
+    #expect(await outcome == .done)
+    #expect(await rig.transport.requests(on: route).count == 2)
+}
+
+@Test func aLongWaitShowsTheTakingLongerLineAfterFiveSecondsAndClearsWhenDone() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 9), ok)
+    let snapshots = StreamRecorder(await rig.engine.snapshots())
+    async let outcome = rig.engine.stopTurn()
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(9))
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(5))
+    await rig.clock.advance(by: .seconds(5))
+    _ = try await snapshots.next { $0.isActionSlow }
+    await rig.clock.advance(by: .seconds(4))
+    #expect(await outcome == .done)
+    _ = try await snapshots.next { !$0.isActionSlow }
+}
+
+@Test func aShortWaitNeverShowsTheLine() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 1), ok)
+    async let outcome = rig.engine.stopTurn()
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(1))
+    await rig.clock.advance(by: .seconds(1))
+    #expect(await outcome == .done)
+    let last = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    #expect(!last.isActionSlow)
+}
+
+@Test func aSecondRateLimitIsShownAsTheServersRefusal() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 1))
+    async let outcome = rig.engine.stopTurn()
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(1))
+    await rig.clock.advance(by: .seconds(1))
+    #expect(await outcome == .refused(code: "rate_limited", message: "Slow down.", fieldErrors: [:]))
+    #expect(await rig.transport.requests(on: route).count == 2)
+}
+
+@Test func aVeryLongRetryAfterIsNotWaitedOut() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 120))
+    #expect(await rig.engine.stopTurn() == .refused(code: "rate_limited", message: "Slow down.", fieldErrors: [:]))
+    #expect(await rig.transport.requests(on: route).count == 1)
+}
+
+@Test func closingTheEngineEndsTheWaitWithoutASecondRequest() async throws {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, rateLimited(after: 10), ok)
+    async let outcome = rig.engine.stopTurn()
+    await rig.clock.waitForSleeper(endingAt: rig.clock.offset + .seconds(10))
+    await rig.engine.close()
+    #expect(await outcome == .failed(.offline))
+    #expect(await rig.transport.requests(on: route).count == 1)
+}
+
+private func forbiddenStop(refreshedCanDrive: Bool) async throws -> ConversationSnapshot {
+    let rig = try await makeRig()
+    let route = "POST threads/\(threadID)/stop"
+    await rig.transport.on(route, .json(403, #"{"error":"forbidden","message":"Only the owner can do that."}"#))
+    let page = String(decoding: try Scenarios.data("scenario-thread-question"), as: UTF8.self)
+    await rig.transport.on(
+        showRoute,
+        .json(200, page.replacingOccurrences(of: "\"canDrive\": true", with: "\"canDrive\": \(refreshedCanDrive)")))
+    let outcome = await rig.engine.stopTurn()
+    #expect(outcome == .refused(code: "forbidden", message: "Only the owner can do that.", fieldErrors: [:]))
+    return try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+}
+
+@Test func aForbiddenActionLeavesTheServersCanDriveInChargeWhenThePageSaysTheyCanDrive() async throws {
+    let snapshot = try await forbiddenStop(refreshedCanDrive: true)
+    #expect(snapshot.show?.canDrive == true)
+}
+
+@Test func aForbiddenActionShowsTheReadOnlyBarWhenThePageSaysTheyCannotDrive() async throws {
+    let snapshot = try await forbiddenStop(refreshedCanDrive: false)
+    #expect(snapshot.show?.canDrive == false)
+    let bar = ComposerBarState.make(
+        composer: snapshot.show?.composer.state, canDrive: snapshot.show?.canDrive, turn: snapshot.turn, notice: nil,
+        typedText: "", attachmentCount: 0)
+    #expect(bar.unavailable == .readOnly)
 }
