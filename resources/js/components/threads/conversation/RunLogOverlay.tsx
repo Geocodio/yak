@@ -53,7 +53,7 @@ export function RunLogOverlay({
 }) {
     const isDesktop = useMediaQuery('(min-width: 768px)');
     const url = target === null ? null : target.kind === 'url' ? target.id : target.kind === 'run' ? runLog.url({ thread: threadId, run: target.id }) : taskLog.url({ thread: threadId, task: target.id });
-    const { entries, status, hasMore, isLoadingMore, moreFailed, isRateLimited, loadMore, retry, search } = useRunLog(url, isLive);
+    const { entries, status, hasMore, isLoadingMore, moreFailed, isRateLimited, loadMore, retry, search, query } = useRunLog(url, isLive);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const lastEntry = useRef<TranscriptEntry | undefined>(undefined);
     const targetKey = target === null ? '' : `${target.kind}:${target.id}`;
@@ -125,7 +125,7 @@ export function RunLogOverlay({
             linkFor={linkFor}
             selectedLogId={selectedId}
             onSelectLog={select}
-            paging={{ ...paging, onSearch: search }}
+            paging={{ ...paging, onSearch: search, query }}
         />
     ) : (
         <LogEntrySheet open onOpenChange={close} rows={entries} selectedLogId={selectedId} entry={entry} onSelectLog={select} runKey={targetKey} paging={paging} />

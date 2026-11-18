@@ -28,7 +28,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
 
 const MAX_MESSAGE_LENGTH = 20000;
 
-export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread }: { queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
+export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
     const form = useForm<{ message: string; model: string | null; effort: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -48,8 +48,10 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     const isOwnerless = request !== null && request.starter.key === 'yak' && request.responsibleName === null && !thread.isOwner;
     const copy = composerCopy(notice, composer.state, teleportState, isOwnerless);
     const hint = DISABLED_COPY[composer.state] ?? (copy.isDefaultHint && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
-    const waitsForRepository = !thread.hasRepository && !disabled;
-    const placeholder = waitsForRepository ? 'Add details for Yak. They are sent when work starts.' : isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
+    const waitsForRepository = isWaitingForRepository && !thread.hasRepository && !disabled;
+    const waitingPlaceholder = 'Add details for Yak. They are sent when work starts.';
+    // On a phone the one-line field cannot hold the whole sentence, so the field shows its start and the accessible name carries all of it.
+    const placeholder = waitsForRepository ? (isPhone ? 'Add details for Yak' : waitingPlaceholder) : isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
     const draft = useAttachmentDraft({
         enabled: !disabled,
         firstNumber: composer.nextAttachmentNumber,
@@ -176,6 +178,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         onKeyDown={onKeyDown}
                         onPaste={draft.onPaste}
                         disabled={disabled}
+                        aria-label={waitsForRepository ? waitingPlaceholder : undefined}
                         aria-invalid={errors.message ? true : undefined}
                         className="w-full resize-none border-0 shadow-none focus:ring-0 max-sm:min-h-11"
                         data-testid="thread-composer-input"

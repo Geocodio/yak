@@ -14,7 +14,7 @@ const BAR: Record<ThreadProgress['steps'][number]['state'], string> = {
 
 const isWaiting = (step: ThreadProgress['steps'][number]): boolean => step.key === 'waiting_for_repository' && step.state === 'current';
 
-/** The staged row under the header: Received through Pull request. It scrolls sideways when the screen is narrow. */
+/** The staged row under the header: Received through Pull request. On a phone the steps near the current one share the width and truncate; the row scrolls sideways when even that does not fit. */
 export function ProgressRow({ progress, isShownOnPhone = true }: { progress: ThreadProgress; isShownOnPhone?: boolean }) {
     const listRef = useRef<HTMLOListElement>(null);
     const focusState = ['failed', 'current'].find((state) => progress.steps.some((step) => step.state === state)) ?? 'done';
@@ -40,10 +40,10 @@ export function ProgressRow({ progress, isShownOnPhone = true }: { progress: Thr
                     aria-current={step.state === 'current' ? 'step' : undefined}
                     data-state={step.state}
                     data-focus={step.key === focusKey}
-                    className={cn('flex shrink-0 items-center gap-1.5', !isStepNearFocus(index, focusIndex) && 'max-sm:hidden', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail', isWaiting(step) && 'font-semibold text-warn')}
+                    className={cn('flex shrink-0 items-center gap-1.5 max-sm:min-w-0 max-sm:shrink', !isStepNearFocus(index, focusIndex) && 'max-sm:hidden', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail', isWaiting(step) && 'font-semibold text-warn')}
                 >
-                    <span className={cn('h-[3px] w-[34px] rounded-pill', isWaiting(step) ? 'bg-warn' : BAR[step.state])} aria-hidden />
-                    {step.label}
+                    <span className={cn('h-[3px] w-[34px] shrink-0 rounded-pill max-sm:w-3', isWaiting(step) ? 'bg-warn' : BAR[step.state])} aria-hidden />
+                    <span className="max-sm:truncate">{step.label}</span>
                     <span className="sr-only"> ({STATE_TEXT[step.state]})</span>
                 </li>
             ))}

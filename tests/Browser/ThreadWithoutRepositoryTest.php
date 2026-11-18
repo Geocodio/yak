@@ -36,6 +36,8 @@ it('shows the header, progress row and overview of a thread without a repository
         ->assertSeeIn('[data-testid="thread-progress-row"]', 'Waiting for a repository')
         ->assertSeeIn('[data-testid="overview-no-sandbox"]', 'No sandbox yet. Yak creates one when the repository is known.')
         ->assertSeeIn('[data-testid="overview-no-links"]', 'Preview, branch and pull request appear here once work starts.')
+        ->assertMissing('[data-testid="thread-message-not-read"]')
+        ->assertMissing('[data-testid="thread-queued"]')
         ->assertNoJavaScriptErrors();
 });
 

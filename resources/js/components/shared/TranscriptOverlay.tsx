@@ -23,6 +23,8 @@ export type TranscriptPaging = {
     isRateLimited?: boolean;
     /** Searching asks the server, so the list is not filtered here. */
     onSearch: (query: string) => void;
+    /** The search the loaded steps answer, which trails what is typed. */
+    query: string;
 };
 
 const TOOL_KINDS: Record<string, string> = { Read: 'Read', Grep: 'Search', Glob: 'Search', Bash: 'Run', Edit: 'Edit', MultiEdit: 'Edit', Write: 'Edit', NotebookEdit: 'Edit', WebFetch: 'Fetch', WebSearch: 'Search', Task: 'Agent' };
@@ -302,7 +304,7 @@ export function TranscriptOverlay({
                 </div>
                 <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-cols-[440px_minmax(0,1fr)]">
                     <div className="flex min-h-0 flex-col border-b border-hair bg-sidebar max-md:max-h-[40dvh] md:border-r md:border-b-0">
-                        {isSearching && isReady && (
+                        {isSearching && isReady && paging?.query === query.trim() && (
                             <div className="shrink-0 border-b border-hair px-3.5 py-1.5 text-[12px] text-muted" role="status" data-testid="transcript-search-count">
                                 {rows.length === 0 ? 'No steps match.' : `${rows.length}${paging?.hasMore ? '+' : ''} ${rows.length === 1 && !paging?.hasMore ? 'step matches' : 'steps match'}`}
                             </div>

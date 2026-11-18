@@ -231,14 +231,30 @@ it('opens the run named in the address on its first step', function () {
         ->assertNoJavaScriptErrors();
 });
 
-it('does not ask again for a searched log while the run is live', function () {
-    [$thread, , $ids] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]], 'running');
+it('does not poll a searched log while the run is live, and polls again once the search is cleared', function () {
+    [$thread, $runs, $ids] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]], 'running');
+    $runs[0]->update(['turn_state' => 'running']);
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))->assertVisible(FULL_LOG);
+    $page->script('window.__refreshTimers = 0; const original = window.setInterval; window.setInterval = (handler, delay, ...rest) => { if (delay === 3000) { window.__refreshTimers++; } return original(handler, delay, ...rest); };');
     $page->fill('[data-testid="transcript-search"]', 'two')->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches');
-    $count = fn () => $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("search=")).length');
-    $before = $count();
-    $page->wait(7);
 
-    expect($before)->toBeGreaterThan(0)->and($count())->toBe($before);
+    expect($page->script('window.__refreshTimers'))->toBe(0);
+
+    $page->click('[data-testid="transcript-search-clear"]')->assertMissing('[data-testid="transcript-search-count"]');
+
+    expect(settled($page, 'window.__refreshTimers > 0', 'window.__refreshTimers'))->toBeGreaterThan(0);
+});
+
+it('starts the other run unfiltered after a search, with the search box empty', function () {
+    [$thread, , $ids] = fullLogThread([[['echo one', 'one'], ['echo uno', 'uno']], [['echo two', 'two'], ['echo three', 'three']]], 'running');
+
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[1][0]]))->assertVisible(FULL_LOG)->assertSeeIn('[data-testid="transcript-run-line"]', 'Run 2 of 2');
+    $page->fill('[data-testid="transcript-search"]', 'three')->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches');
+    $page->click('[data-testid="run-previous"]')
+        ->assertSeeIn('[data-testid="transcript-run-line"]', 'Run 1 of 2')
+        ->assertSee('echo one')
+        ->assertSee('echo uno')
+        ->assertMissing('[data-testid="transcript-search-count"]')
+        ->assertValue('[data-testid="transcript-search"]', '');
 });

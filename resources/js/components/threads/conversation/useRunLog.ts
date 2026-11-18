@@ -29,6 +29,8 @@ export function useRunLog(url: string | null, isLive = false): {
     loadMore: () => void;
     retry: () => void;
     search: (query: string) => void;
+    /** The search the loaded entries answer; it trails what is typed by the debounce. */
+    query: string;
 } {
     const [pages, setPages] = useState<LoadedPage[]>([]);
     const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -39,6 +41,12 @@ export function useRunLog(url: string | null, isLive = false): {
     const [attempt, setAttempt] = useState(0);
     const timer = useRef<number | undefined>(undefined);
     const generation = useRef(0);
+
+    // Another log starts with a clean search, so a term typed in the last run never filters this one unseen.
+    useEffect(() => {
+        window.clearTimeout(timer.current);
+        setQuery('');
+    }, [url]);
 
     const request = useCallback(
         (cursor: number | null) => {
@@ -168,5 +176,5 @@ export function useRunLog(url: string | null, isLive = false): {
         timer.current = window.setTimeout(() => setQuery(value.trim()), SEARCH_DELAY_MS);
     }, []);
 
-    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, moreFailed, isRateLimited, loadMore, retry: () => setAttempt((value) => value + 1), search };
+    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, moreFailed, isRateLimited, loadMore, retry: () => setAttempt((value) => value + 1), search, query };
 }
