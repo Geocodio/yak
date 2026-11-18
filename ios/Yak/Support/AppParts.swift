@@ -20,6 +20,8 @@ final class AppParts {
     let storage: SharedStorage?
     let isTestMode: Bool
     let push: PushController
+    /// Reloads the widgets' timelines when what they show changed.
+    let widgets: WidgetReloadScheduler
     /// The pieces of the background refresh, one line per feature in `make`; their budgets stay inside
     /// `BackgroundRefresh.totalBudget`.
     private(set) var backgroundRefreshSteps: [BackgroundRefreshStep]
@@ -29,12 +31,13 @@ final class AppParts {
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
-        storage: SharedStorage?, isTestMode: Bool, push: PushController, steps: [BackgroundRefreshStep],
-        previewData: PreviewWebDataObserver, observers: [any InstanceLifecycleObserver]
+        storage: SharedStorage?, isTestMode: Bool, push: PushController, widgets: WidgetReloadScheduler,
+        steps: [BackgroundRefreshStep], previewData: PreviewWebDataObserver, observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
         self.push = push
+        self.widgets = widgets
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
         self.observers = observers
@@ -48,14 +51,22 @@ final class AppParts {
             instances: context.instances, registrar: registrar, permission: context.permission,
             center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let previewData = PreviewWebDataObserver(defaults: context.defaults)
+        let widgetRegistration = WidgetPushRegistration(
+            instances: context.instances, tokens: context.tokens, environment: context.makeEnvironment(),
+            build: PushBuild.current())
+        let widgets = WidgetReloadScheduler(
+            instances: context.instances, registerPending: { _ = await widgetRegistration.registerPending(budget: $0) })
         let steps = [
             BackgroundRefreshStep(name: "instances", budget: .seconds(12)) { budget in
                 await push.refreshInstances(budget: budget)
-            }
+            },
+            BackgroundRefreshStep(name: "widgets", budget: .seconds(3)) { _ in
+                await widgets.backgroundRefreshFinished()
+            },
         ]
         return AppParts(
-            storage: storage, isTestMode: isTestMode, push: push, steps: steps,
-            previewData: previewData, observers: [push, previewData])
+            storage: storage, isTestMode: isTestMode, push: push, widgets: widgets, steps: steps,
+            previewData: previewData, observers: [push, previewData, WidgetLifecycle(scheduler: widgets)])
     }
 
     /// The type of every part this build made, so a test can compare test mode with a release build.
@@ -69,7 +80,7 @@ extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
-            .modifier(PushRoot(push: parts.push, model: model))
+            .modifier(PushRoot(push: parts.push, widgets: parts.widgets, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
@@ -84,6 +95,7 @@ extension View {
 /// the app goes to the background.
 private struct PushRoot: ViewModifier {
     let push: PushController
+    let widgets: WidgetReloadScheduler
     let model: AppModel
     @Environment(\.scenePhase) private var scenePhase
 
@@ -92,7 +104,9 @@ private struct PushRoot: ViewModifier {
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active: Task { await push.appBecameActive() }
-                case .background: BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+                case .background:
+                    BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+                    Task { await widgets.enteredBackground() }
                 default: break
                 }
             }

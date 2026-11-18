@@ -88,6 +88,19 @@ struct WidgetRefresherTests {
         #expect((saved?.needsYouCount ?? 0) > 0)
     }
 
+    @Test func aRefreshThatFinishesAfterARemovalSavesNothing() async throws {
+        let rig = try await makeRig()
+        let environment = SessionEnvironment(
+            http: rig.transport, webSockets: FakeWebSocketServer(), files: rig.files, clock: rig.clock,
+            makeID: { UUID() }, appVersion: "1.0.0", systemDescription: "Test", allowsInsecureRealtime: false)
+        let refresher = WidgetRefresher(
+            instances: rig.store, tokens: rig.tokens, environment: environment, isStillPaired: { _ in false })
+        await rig.transport.on(listRoute, try .scenario(200, "scenario-widgets-thread-list-busy"))
+        let result = await refresher.refresh(instance: rig.first.id, budget: .seconds(8))
+        #expect(result.state == .instanceMissing)
+        #expect(await rig.cache(rig.first).widgetSnapshot() == nil)
+    }
+
     @Test func usesTheMostRecentInstanceWhenNoneIsConfigured() async throws {
         let rig = try await makeRig()
         await rig.transport.on(listRoute, try .scenario(200, "scenario-widgets-thread-list-empty"))
