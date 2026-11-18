@@ -185,3 +185,13 @@ it('shows the no-repository pill and the card on a phone, without the literal un
         ->assertSeeIn('[data-testid="thread-send"]', 'Queue')
         ->assertNoJavaScriptErrors();
 });
+
+it('keeps the phone composer placeholder on one line and the whole sentence in the accessible name', function () {
+    $thread = threadWithoutRepository();
+    $this->actingAs(User::factory()->create());
+
+    $page = visit("/threads/{$thread->public_id}")->resize(375, 667)->assertVisible('[data-testid="thread-composer-input"]');
+    $field = $page->script('(() => { const input = document.querySelector(\'[data-testid="thread-composer-input"]\'); const probe = document.createElement("span"); const style = getComputedStyle(input); probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${style.font}`; probe.textContent = input.placeholder; document.body.append(probe); const fits = probe.getBoundingClientRect().width <= input.clientWidth; probe.remove(); return { fits, label: input.getAttribute("aria-label") }; })()');
+
+    expect($field)->toBe(['fits' => true, 'label' => 'Add details for Yak. They are sent when work starts.']);
+});

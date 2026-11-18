@@ -238,6 +238,9 @@ it('does not poll a searched log while the run is live, and polls again once the
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))->assertVisible(FULL_LOG);
     $page->script('window.__refreshTimers = 0; const original = window.setInterval; window.setInterval = (handler, delay, ...rest) => { if (delay === 3000) { window.__refreshTimers++; } return original(handler, delay, ...rest); };');
     $page->fill('[data-testid="transcript-search"]', 'two')->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches');
+    // A timer started while the typed term was still waiting for its debounce is gone with that term; the searched log starts none.
+    $page->script('window.__refreshTimers = 0');
+    $page->assertSee('echo two');
 
     expect($page->script('window.__refreshTimers'))->toBe(0);
 
