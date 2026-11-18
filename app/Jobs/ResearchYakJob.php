@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Channels\Linear\IssueImages;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
@@ -181,6 +182,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     {
         $context = json_decode((string) $this->task->context, true) ?: [];
         $riskProfile = ($context['risk_profile_draft'] ?? false) === true;
+
+        app(IssueImages::class)->storeForTask($this->task);
 
         $this->startThreadTurn(
             $repository,
