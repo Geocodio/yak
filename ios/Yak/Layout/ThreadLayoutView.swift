@@ -21,6 +21,7 @@ struct ThreadLayoutView: View {
     let openChat: (_ focusComposer: Bool) -> Void
 
     @State private var model = PaneSlotsModel()
+    @State private var hinge = HingeState()
     /// The upper share while the handle is being dragged.
     @State private var liveFraction: Double?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -33,17 +34,27 @@ struct ThreadLayoutView: View {
         GeometryReader { proxy in
             let inputs = LayoutInputs(
                 isCompactWidth: isCompactWidth, isCompactHeight: verticalSizeClass == .compact,
-                detailWidth: Double(proxy.size.width), hasVerticalToolbarEdge: hasStrip)
+                detailWidth: Double(proxy.size.width), hasVerticalToolbarEdge: hasStrip, posture: hinge.posture,
+                fold: hinge.fold, isKeyboardOnLowerHalf: hinge.isKeyboardOnLowerHalf)
             let plan = PaneLayoutRules.plan(scene.paneState, available: thread.panes, inputs: inputs)
             layout(plan)
                 .onChange(of: inputs, initial: true) { old, new in inputsChanged(from: old, to: new) }
                 .onChange(of: thread.panes) { availableChanged(inputs) }
-                .onChange(of: plan, initial: true) {
-                    scene.updatePlan(plan)
-                    model.show(plan)
-                }
+                .onChange(of: plan, initial: true) { place(plan) }
+                .onChange(of: inputs.isKeyboardOnLowerHalf) { place(plan) }
         }
+        .readsHinge(into: hinge)
         .onDisappear { scene.updatePlan(nil) }
+    }
+
+    /// Hands the plan to the scene and the host. In the laptop pose with the keyboard on the lower half, the pane that
+    /// is not focused is hidden (alive, no frame) until the keyboard closes.
+    private func place(_ plan: SlotPlan) {
+        scene.updatePlan(plan)
+        model.show(plan)
+        if plan.arrangement == .laptop, hinge.isKeyboardOnLowerHalf {
+            for slot in plan.slots where slot.position != plan.focusedPosition { model.clear(slot.position) }
+        }
     }
 
     // MARK: Rules
@@ -98,12 +109,37 @@ struct ThreadLayoutView: View {
         switch plan.arrangement {
         case .single:
             EmptyView()
-        case .sideBySide, .book:
-            HStack(spacing: 6) {
-                ForEach(plan.slots, id: \.position) { slot($0, plan: plan, focused: focused) }
-            }
-        case .stacked, .laptop:
+        case .sideBySide:
+            sideBySide(plan, focused: focused)
+        case .stacked:
             stacked(plan, focused: focused)
+        case .book, .laptop:
+            fold(plan, focused: focused)
+        }
+    }
+
+    private func sideBySide(_ plan: SlotPlan, focused: PaneID) -> some View {
+        HStack(spacing: 6) {
+            ForEach(plan.slots, id: \.position) { slot($0, plan: plan, focused: focused) }
+        }
+    }
+
+    /// The two poses around the fold. Without the system's fold API the poses fall back to the plain stacks.
+    @ViewBuilder private func fold(_ plan: SlotPlan, focused: PaneID) -> some View {
+        if plan.arrangement == .laptop, hinge.isKeyboardOnLowerHalf,
+            let own = plan.slots.first(where: { $0.position == plan.focusedPosition })
+        {
+            // The system puts the keyboard on the lower half: the focused pane takes the space above it, with the
+            // one bar on the keyboard.
+            slot(own, plan: plan, focused: focused, forcedBar: .barRow)
+        } else if #available(iOS 27.1, *), plan.slots.count == 2 {
+            FoldSlots(
+                primary: slot(plan.slots[0], plan: plan, focused: focused),
+                secondary: slot(plan.slots[1], plan: plan, focused: focused))
+        } else if plan.arrangement == .laptop {
+            stacked(plan, focused: focused)
+        } else {
+            sideBySide(plan, focused: focused)
         }
     }
 
@@ -144,7 +180,10 @@ struct ThreadLayoutView: View {
     }
 
     /// One slot: its marker (or the Overview panel) and, below it, its bar.
-    private func slot(_ slot: PaneSlot, plan: SlotPlan, focused: PaneID, height: CGFloat? = nil) -> some View {
+    private func slot(
+        _ slot: PaneSlot, plan: SlotPlan, focused: PaneID, height: CGFloat? = nil,
+        forcedBar: PaneControlPlacement? = nil
+    ) -> some View {
         VStack(spacing: 6) {
             switch slot.content {
             case .pane(let pane):
@@ -158,11 +197,11 @@ struct ThreadLayoutView: View {
                 .background(Color(.systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             }
-            if let entry = plan.bars[slot.position] {
+            if let entry = forcedBar.map({ Optional($0) }) ?? plan.bars[slot.position] {
                 let shown =
                     plan.arrangement == .stacked || plan.arrangement == .laptop ? focused : (pane(of: slot) ?? focused)
                 bar(
-                    for: shown, placement: entry, slot: slot.position,
+                    for: shown, placement: entry, slot: forcedBar == nil ? slot.position : .lower,
                     beside: plan.slots.compactMap(pane(of:)).first { $0 != shown }, plan: plan)
             }
         }

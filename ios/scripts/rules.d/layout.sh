@@ -18,3 +18,10 @@ if [ -n "$api_hits" ]; then
     echo "$api_hits"
     fail 'an iOS 27.1 hinge or strip API outside Yak/Layout/HingeReader.swift, Yak/Layout/FoldSlots.swift and Yak/Thread/PaneControl.swift'
 fi
+
+# The Debug test posture is read only inside #if DEBUG in the hinge reader.
+posture_hits=$(grep -rnF --include='*.swift' 'yakTestPosture' Yak 2>/dev/null | grep -v '^Yak/Layout/HingeReader.swift:' | grep -vE '^[^:]+:[0-9]+:\s*///' || true)
+if [ -n "$posture_hits" ]; then
+    echo "$posture_hits"
+    fail 'yakTestPosture outside Yak/Layout/HingeReader.swift'
+fi

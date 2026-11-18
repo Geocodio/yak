@@ -139,6 +139,51 @@ import XCTest
         XCTAssertTrue(loaded.exists)
     }
 
+    func testThePaneMenuOfABarReplacesOnlyItsPane() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        try launch(scenario: "preview-ready")
+        openThread()
+        waitForTwoSlotsIfWide()
+        try XCTSkipUnless(arrangement == "sideBySide" && !element("pane.strip.chat").exists, "needs the iPad's bars")
+        let button = app.buttons["pane.button.trailing"]
+        XCTAssertTrue(button.waitForExistence(timeout: Wait.appear))
+        let leading = element("pane.slot.leading").label
+        button.tap()
+        let other = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pane.menu.'"))
+            .allElementsBoundByIndex
+            .first { $0.identifier != "pane.menu.\(leading.lowercased())" }
+        let pick = try XCTUnwrap(other)
+        let name = pick.label
+        pick.tap()
+        XCTAssertEqual(element("pane.slot.leading").label, leading)
+        XCTAssertTrue(name.contains(element("pane.slot.trailing").label))
+        // No audit here: the chat's tool-call row carries a Dynamic Type finding that is reported, not excused.
+    }
+
+    func testMarksShowTheFocusedAndTheSecondPane() throws {
+        try launch(scenario: "preview-ready")
+        openThread()
+        waitForTwoSlotsIfWide()
+        try XCTSkipIf(arrangement == "single", "one pane has no second slot")
+        let slots = positions.map { element("pane.slot.\($0)") }.filter(\.exists)
+        XCTAssertEqual(slots.count, 2)
+        XCTAssertEqual(slots.filter { ($0.value as? String) == "Shown" && $0.isSelected }.count, 1)
+        XCTAssertEqual(slots.filter { ($0.value as? String) == "Shown beside" && !$0.isSelected }.count, 1)
+        XCTAssertFalse(app.staticTexts["Focused"].exists)
+    }
+
+    func testTheBookPoseShowsTwoSlotsWithABarEach() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        try launch(scenario: "preview-ready", extraArguments: ["-yakTestPosture", "book"])
+        openThread()
+        try XCTSkipIf(
+            isNarrowWindow || !app.buttons["pane.strip.chat"].waitForExistence(timeout: 20),
+            "the book pose needs the Duo's inner screen and its strip")
+        let book = NSPredicate { [self] _, _ in arrangement == "book" }
+        wait(for: [XCTNSPredicateExpectation(predicate: book, object: nil)], timeout: Wait.appear)
+        XCTAssertTrue(element("pane.slot.leading").exists && element("pane.slot.trailing").exists)
+    }
+
     private func waitForWidthChange(from old: CGFloat) {
         let changed = NSPredicate { [self] _, _ in abs(detail.frame.width - old) > 1 }
         wait(for: [XCTNSPredicateExpectation(predicate: changed, object: nil)], timeout: Wait.appear)
