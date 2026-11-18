@@ -6,6 +6,7 @@ use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Synchronous filtering for workflow_job webhooks, plus the bookkeeping that
@@ -31,12 +32,6 @@ class CiFailureIntake
         }
 
         if (! in_array($request->input('workflow_job.conclusion'), ['failure', 'timed_out', 'success'], true)) {
-            return null;
-        }
-
-        $login = (string) $request->input('sender.login', '');
-
-        if ($request->input('sender.type') === 'Bot' || str_ends_with($login, '[bot]')) {
             return null;
         }
 
@@ -66,6 +61,16 @@ class CiFailureIntake
         );
 
         if ($repository === null || ! $repository->is_active || $repository->settings()->ciSystem() !== 'github_actions') {
+            return null;
+        }
+
+        // Merge queues and automerge bots run the default branch, and their
+        // greens close failures, so only a bot's failure on another branch
+        // is dropped.
+        $login = (string) $request->input('sender.login', '');
+        $isBot = $request->input('sender.type') === 'Bot' || str_ends_with($login, '[bot]');
+
+        if ($isBot && $branch !== $repository->default_branch && $request->input('workflow_job.conclusion') !== 'success') {
             return null;
         }
 
@@ -120,19 +125,25 @@ class CiFailureIntake
         $workflowName = (string) $request->input('workflow_job.workflow_name');
         $jobName = (string) $request->input('workflow_job.name');
 
+        $completedAt = Carbon::parse($request->input('workflow_job.completed_at') ?? now());
+
+        // Only failures that happened before this job finished are fixed by it.
         CiJobFailure::query()
             ->unresolved()
             ->where('repo', $repo)
             ->where('workflow_name', $workflowName)
             ->where('job_name', $jobName)
             ->where('branch', $branch)
+            ->where('failed_at', '<=', $completedAt)
             ->update(['resolved_at' => now(), 'resolution' => 'green']);
 
         if ($branch === $repository->default_branch) {
-            CiDefaultBranchGreen::updateOrCreate(
-                ['repo' => $repo, 'workflow_name' => $workflowName, 'job_name' => $jobName],
-                ['completed_at' => $request->input('workflow_job.completed_at') ?? now()],
-            );
+            $green = CiDefaultBranchGreen::firstOrNew(['repo' => $repo, 'workflow_name' => $workflowName, 'job_name' => $jobName]);
+
+            if (! $green->exists || $green->completed_at->lt($completedAt)) {
+                $green->completed_at = $completedAt;
+                $green->save();
+            }
         }
     }
 

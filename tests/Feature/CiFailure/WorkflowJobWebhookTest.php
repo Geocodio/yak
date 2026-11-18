@@ -87,6 +87,14 @@ it('ignores yak branches, configured prefixes, bot senders and a null head_branc
     'null branch' => [['head_branch' => null], []],
 ]);
 
+it('still counts default-branch failures and greens from bot senders', function (string $conclusion) {
+    widgetsFailure('feature/y');
+
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['conclusion' => $conclusion, 'head_branch' => 'main'], ['sender' => ['login' => 'merge-queue[bot]', 'type' => 'Bot']]));
+
+    Queue::assertPushed($conclusion === 'success' ? RecordCiJobGreenJob::class : HandleCiJobFailureJob::class);
+})->with(['failure', 'success']);
+
 it('ignores excluded jobs', function (string $name) {
     postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['name' => $name]));
 
@@ -157,6 +165,7 @@ it('dispatches no green job when nothing matches and the branch is not default',
 
 it('records a green from the repo own run', function () {
     $matching = widgetsFailure('main');
+    $matching->update(['failed_at' => '2026-11-18 09:00:00']);
     $otherBranch = widgetsFailure('feature/y');
     $otherJob = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main', 'job_name' => 'Lint']);
 
@@ -168,6 +177,18 @@ it('records a green from the repo own run', function () {
         ->and(CiDefaultBranchGreen::where('repo', 'acme/widgets')->count())->toBe(0)
         ->and(CiDefaultBranchGreen::latestFor('widgets-slug', 'CI', 'Test (Main)')?->toIso8601String())
         ->toBe('2026-11-18T10:00:00+00:00');
+});
+
+it('does not resolve a failure newer than the green job or move the default-branch green backwards', function () {
+    $newerFailure = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main', 'failed_at' => '2026-11-18 11:00:00']);
+    $olderFailure = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main', 'failed_at' => '2026-11-18 09:00:00']);
+    CiDefaultBranchGreen::factory()->create(['repo' => 'widgets-slug', 'workflow_name' => 'CI', 'job_name' => 'Test (Main)', 'completed_at' => '2026-11-18 12:00:00']);
+
+    runCiFailureGreenJob($this->repository, ciFailureGreenPayload(), 'acme/widgets');
+
+    expect($olderFailure->fresh()->resolution)->toBe('green')
+        ->and($newerFailure->fresh()->resolved_at)->toBeNull()
+        ->and(CiDefaultBranchGreen::latestFor('widgets-slug', 'CI', 'Test (Main)')?->toDateTimeString())->toBe('2026-11-18 12:00:00');
 });
 
 it('ignores a green from a fork run', function () {
