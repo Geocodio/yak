@@ -9,6 +9,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\RepoClarificationResolver;
 use App\Services\Tasks\TaskProgressSteps;
 use App\Services\Threads\ThreadRequestStatus;
 use App\Services\Threads\ThreadTasks;
@@ -60,6 +61,10 @@ final class ThreadRequestData
             return null;
         }
 
+        if (! $thread->hasRepository() && RepoClarificationResolver::awaitingRepoChoice($head)) {
+            return self::waitingForRepositoryProgress();
+        }
+
         $steps = TaskProgressSteps::for(ThreadTasks::pullRequestTask($thread) ?? $head, $head, ThreadTasks::coOwnerRequest($thread));
 
         $keys = count($steps) === count(self::STEP_KEYS) ? self::STEP_KEYS : array_values(array_diff(self::STEP_KEYS, ['co_owner']));
@@ -75,6 +80,23 @@ final class ThreadRequestData
                 default => 'upcoming',
             },
         ], $steps, array_keys($steps))];
+    }
+
+    /**
+     * @return ThreadProgress
+     */
+    private static function waitingForRepositoryProgress(): array
+    {
+        $steps = [
+            ['received', 'Received', 'Task landed in the queue.', 'done'],
+            ['waiting_for_repository', 'Waiting for a repository', 'Work starts when you pick the repository.', 'current'],
+            ['working', 'Working', 'Agent is investigating the codebase and implementing the fix.', 'upcoming'],
+            ['pushed', 'Pushed', 'Changes committed and pushed to a branch.', 'upcoming'],
+            ['ci', 'CI', 'CI verifies the changes before the pull request opens.', 'upcoming'],
+            ['pull_request', 'Pull request', 'Pull request opened for human review.', 'upcoming'],
+        ];
+
+        return ['steps' => array_map(fn (array $step): array => ['key' => $step[0], 'label' => $step[1], 'tooltip' => $step[2], 'state' => $step[3]], $steps)];
     }
 
     /**

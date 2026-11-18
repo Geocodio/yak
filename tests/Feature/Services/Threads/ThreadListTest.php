@@ -430,7 +430,7 @@ test('a thread waiting on a person lands under needs you with the reason', funct
 })->with([
     ['co_owner', 'Waiting for your co-owner decision'],
     ['early_warning', 'Pick a co-owner or decline'],
-    ['repository_question', 'Asked which repository'],
+    ['repository_question', 'Which repository?'],
 ]);
 
 test('a parent shows that its sub-thread needs the viewer for the new reasons', function (string $reason) {
@@ -478,4 +478,15 @@ test('a closed legacy thread and a closed continued thread never land under need
     expect($closed['needsYou'])->toBe([])->and($closed['needsYouCount'])->toBe(0)
         ->and($open['needsYou'])->toBe([])
         ->and(listedIds($closed))->toContain($legacy->public_id, $continued->public_id);
+});
+
+it('labels an awaiting-clarification thread without a repository as asking which repository', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    $task = YakTask::factory()->create(['repo' => 'unknown', 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id, 'clarification_options' => ['acme/web']]);
+    $thread = app(ThreadFactory::class)->forRequestWithoutRepository($task);
+
+    $row = collect(ThreadList::for($user, ThreadListFilter::Everyone)['needsYou'])->firstWhere('id', $thread->public_id);
+
+    expect($row['needsYouLabel'])->toBe('Which repository?');
 });

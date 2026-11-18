@@ -85,6 +85,7 @@ final class ThreadPageData
                 'name' => $thread->name,
                 'title' => $thread->title,
                 'repo' => $thread->repo,
+                'hasRepository' => $thread->hasRepository(),
                 'kind' => $thread->kind->value,
                 'status' => $thread->status->value,
                 'visibility' => $thread->effectiveVisibility()->value,

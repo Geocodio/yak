@@ -13,6 +13,8 @@ export type ThreadData = {
     name: string;
     title: string;
     repo: string;
+    /** False until a repository is picked; the thread has no branch, sandbox or links before. */
+    hasRepository: boolean;
     kind: 'root' | 'implement' | 'mockup' | 'research' | 'general';
     status: 'open' | 'closed';
     visibility: 'team' | 'private';

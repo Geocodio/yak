@@ -99,5 +99,5 @@ export function overviewSectionsFor(thread: ThreadData): OverviewSection[] {
 }
 
 export function dockPanelsFor(thread: ThreadData): Panel[] {
-    return visibleEntries(dockPanels, thread);
+    return thread.hasRepository ? visibleEntries(dockPanels, thread) : [];
 }

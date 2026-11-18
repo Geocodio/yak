@@ -11,6 +11,8 @@ const BAR: Record<ThreadProgress['steps'][number]['state'], string> = {
     upcoming: 'bg-hair',
 };
 
+const isWaiting = (step: ThreadProgress['steps'][number]): boolean => step.key === 'waiting_for_repository' && step.state === 'current';
+
 /** The staged row under the header: Received through Pull request. It scrolls sideways when the screen is narrow. */
 export function ProgressRow({ progress }: { progress: ThreadProgress }) {
     const listRef = useRef<HTMLOListElement>(null);
@@ -35,9 +37,9 @@ export function ProgressRow({ progress }: { progress: ThreadProgress }) {
                     aria-current={step.state === 'current' ? 'step' : undefined}
                     data-state={step.state}
                     data-focus={step.key === focusKey}
-                    className={cn('flex shrink-0 items-center gap-1.5', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail')}
+                    className={cn('flex shrink-0 items-center gap-1.5', step.state === 'current' && 'font-medium text-body', step.state === 'failed' && 'font-semibold text-fail', isWaiting(step) && 'font-semibold text-warn')}
                 >
-                    <span className={cn('h-[3px] w-[34px] rounded-pill', BAR[step.state])} aria-hidden />
+                    <span className={cn('h-[3px] w-[34px] rounded-pill', isWaiting(step) ? 'bg-warn' : BAR[step.state])} aria-hidden />
                     {step.label}
                     <span className="sr-only"> ({STATE_TEXT[step.state]})</span>
                 </li>

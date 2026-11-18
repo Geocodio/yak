@@ -98,7 +98,7 @@ final class ThreadCardsData
      */
     private static function repositoryQuestion(Thread $thread, YakTask $head, bool $canDrive): ?array
     {
-        if ($thread->hasRepository()) {
+        if ($thread->hasRepository() || $head->status === TaskStatus::Cancelled) {
             return null;
         }
 
@@ -298,7 +298,7 @@ final class ThreadCardsData
 
         $head = $tasks->last();
 
-        if ($head === null) {
+        if ($head === null || $head->status === TaskStatus::Cancelled) {
             return false;
         }
 
