@@ -23,7 +23,7 @@ struct ShareSheet: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .presentationDetents([.medium, .large], selection: $detent)
-        .presentationBackground(Color(.systemGroupedBackground))
+        .presentationBackground(Color.yakBackground)
         .interactiveDismissDisabled(model?.isSaving ?? false)
         .accessibilityIdentifier("share.sheet")
         .task { await run() }
@@ -64,7 +64,7 @@ private struct ShareSheetForm: View {
             .padding(.horizontal, 16).padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Color(.systemGroupedBackground))
+        .background(Color.yakBackground)
         .safeAreaInset(edge: .top, spacing: 0) {
             SheetHeader(title: "share.title") {
                 Button("overview.cancel") { close() }.yakShortcut(.cancel).disabled(model.isSaving)
@@ -78,7 +78,7 @@ private struct ShareSheetForm: View {
                 .fontWeight(.semibold).foregroundStyle(Color.primary)
                 .disabled(!model.canSave).accessibilityIdentifier("share.save")
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.yakBackground)
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
     }
@@ -191,7 +191,7 @@ private struct ShareSheetForm: View {
             card {
                 VStack(spacing: 12) {
                     ForEach(0..<3, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 5).fill(Color(.tertiarySystemFill)).frame(height: 32)
+                        RoundedRectangle(cornerRadius: 5).fill(Color.yakFill).frame(height: 32)
                     }
                 }
                 .padding(.vertical, 8)

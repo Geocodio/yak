@@ -1,4 +1,5 @@
 import SwiftTerm
+import SwiftUI
 import UIKit
 
 /// The terminal surface drawn by the emulator package. It is the only file that imports the package.
@@ -130,7 +131,7 @@ private enum Palette {
         (0x8E, 0x8E, 0x93), (0xFF, 0x8F, 0x88), (0x8F, 0xE8, 0x9E), (0xFF, 0xDD, 0x7A),
         (0x9A, 0xC4, 0xFF), (0xE6, 0xAE, 0xFF), (0x8A, 0xEA, 0xEA), (0xFF, 0xFF, 0xFF),
     ]
-    static let background = UIColor(red: 0.07, green: 0.07, blue: 0.08, alpha: 1)
+    static let background = UIColor(Color.yakTerminal)
     static let foreground = UIColor(red: 0.90, green: 0.90, blue: 0.91, alpha: 1)
 }
 

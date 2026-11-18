@@ -19,7 +19,7 @@ struct PreviewWebView: UIViewRepresentable {
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = true
         view.isOpaque = false
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(Color.yakBackground)
         view.accessibilityIdentifier = "preview.page"
         context.coordinator.adopt(view)
         model.attach(context.coordinator)

@@ -41,7 +41,7 @@ struct ShellMenu: View {
             Text(model.shells.shells.count, format: .number).font(.subheadline.weight(.semibold).monospacedDigit())
                 .foregroundStyle(Color.primary)
                 .frame(minWidth: 44, minHeight: 44)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+                .background(Color.yakCard, in: .rect(cornerRadius: 12))
                 .contentShape(.rect)
         }
         .accessibilityLabel("terminal.shells.label \(model.shells.shells.count)")

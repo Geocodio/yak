@@ -3,7 +3,7 @@ import YakKit
 
 extension Color {
     /// The terminal's near-black surface in both appearances.
-    static let terminalBackground = Color(red: 0.07, green: 0.07, blue: 0.08)
+    static let terminalBackground = Color.yakTerminal
     static let terminalText = Color(red: 0.9, green: 0.9, blue: 0.91)
     static let terminalMuted = Color(red: 0.9, green: 0.9, blue: 0.91).opacity(0.78)
 }
@@ -63,7 +63,8 @@ struct TerminalStateView: View {
                 }
             }
             .foregroundStyle(Color.terminalText)
-            .padding(24).frame(maxWidth: 520).frame(maxWidth: .infinity)
+            .padding(Design.Space.pageInset).frame(maxWidth: 520, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.terminalBackground, ignoresSafeAreaEdges: [])

@@ -43,7 +43,7 @@ struct OverviewPane: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(onClosePanel == nil ? "overview" : "overview.panel")
         .task(id: thread.threadID) { await run() }
@@ -97,13 +97,14 @@ private struct OverviewScroll: View {
                     PeopleGroupView(people: content.people, now: Date()) { isShareOpen = true }
                 }
             }
-            .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
+            .padding(.horizontal, Design.Space.groupInset).padding(.top, Design.Space.medium)
+            .padding(.bottom, Design.Space.large)
             .frame(maxWidth: 640).frame(maxWidth: .infinity)
         }
         .scrollEdgeEffectHidden(true, for: .top)
         // An opaque strip under the status bar and the navigation bar keeps scrolled text from showing through them.
         .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear.frame(height: 0).background(Color(.systemBackground), ignoresSafeAreaEdges: .top)
+            Color.clear.frame(height: 0).background(Color.yakBackground, ignoresSafeAreaEdges: .top)
         }
         .paneBarRow(key: isOwner) {
             if isOwner {
@@ -114,7 +115,7 @@ private struct OverviewScroll: View {
                         .frame(minHeight: 44).padding(.horizontal, 16)
                 }
                 .buttonStyle(.plain).foregroundStyle(.primary)
-                .background(Color(.secondarySystemBackground), in: .capsule)
+                .background(Color.yakCard, in: .capsule)
                 .accessibilityIdentifier("overview.shareButton")
             }
         }
@@ -169,7 +170,7 @@ private struct OverviewScroll: View {
             }
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+        .background(Color.yakCard, in: .rect(cornerRadius: 12))
         .accessibilityElement(children: showsRetry ? .contain : .combine).accessibilityIdentifier(identifier)
     }
 

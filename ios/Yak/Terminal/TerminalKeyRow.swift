@@ -50,7 +50,7 @@ struct TerminalKeyRow: View {
     }
 
     private func row(withSideArrows: Bool) -> some View {
-        HStack(spacing: 0) {
+        HStack(spacing: Design.Space.tight) {
             ShellMenu(model: model)
             key("terminal.key.escape", text: "esc", symbol: "escape", label: "terminal.key.escape.label", .escape)
             key("terminal.key.tab", text: "tab", symbol: "arrow.right.to.line", label: "terminal.key.tab.label", .tab)
@@ -70,7 +70,8 @@ struct TerminalKeyRow: View {
                 model.toggleKeyboard()
             } label: {
                 Image(systemName: model.isKeyboardShown ? "keyboard.chevron.compact.down" : "keyboard")
-                    .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+                    .frame(maxWidth: .infinity, minHeight: Design.Size.key)
+                    .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.key)).contentShape(.rect)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(model.isKeyboardShown ? "terminal.key.keyboard.hide" : "terminal.key.keyboard.show")
@@ -83,7 +84,11 @@ struct TerminalKeyRow: View {
             model.control.toggle()
         } label: {
             keyLabel(text: "ctrl", symbol: "control")
-                .background(model.control.isOn ? Color.primary.opacity(0.28) : Color.clear, in: .rect(cornerRadius: 12))
+                .overlay {
+                    if model.control.isOn {
+                        RoundedRectangle(cornerRadius: Design.Radius.key).fill(Color.primary.opacity(0.28))
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("terminal.key.control.label")
@@ -96,12 +101,13 @@ struct TerminalKeyRow: View {
     private func keyLabel(text: String?, symbol: String) -> some View {
         Group {
             if let text, !usesIcons {
-                Text(verbatim: text).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(verbatim: text).font(.yakChip).lineLimit(1).minimumScaleFactor(0.7)
             } else {
                 Image(systemName: symbol)
             }
         }
-        .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+        .frame(maxWidth: .infinity, minHeight: Design.Size.key)
+        .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.key)).contentShape(.rect)
         .dynamicTypeSize(..<DynamicTypeSize.accessibility1)
     }
 

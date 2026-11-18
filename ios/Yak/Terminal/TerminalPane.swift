@@ -38,6 +38,7 @@ struct TerminalPane: View {
                 TerminalStateView(model: model)
             } else if let shell = model.focusedShell {
                 TerminalSurfaceView(surface: shell.surface)
+                    .padding(.horizontal, Design.Space.terminalInset)
                     .id(model.focusedID)
                     .simultaneousGesture(TapGesture().onEnded { model.isSurfaceFocused = true })
                     .accessibilityElement(children: .contain)

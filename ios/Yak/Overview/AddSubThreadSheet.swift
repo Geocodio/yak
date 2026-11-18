@@ -22,7 +22,7 @@ struct AddSubThreadSheet: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
-        .presentationBackground(Color(.systemGroupedBackground))
+        .presentationBackground(Color.yakBackground)
         .presentationDetents([.medium, .large])
         .interactiveDismissDisabled(model?.isSending ?? false)
         .accessibilityIdentifier("addSubThread.sheet")
@@ -91,7 +91,7 @@ private struct AddSubThreadForm: View {
             }
             .padding(.horizontal, 16).padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.yakBackground)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             SheetHeader(title: "addSubThread.title") {
@@ -107,7 +107,7 @@ private struct AddSubThreadForm: View {
             } confirm: {
                 addButton
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.yakBackground)
         }
         .sensoryFeedback(.error, trigger: model.refusalCount)
         .task(id: inputBlocked) {
@@ -233,7 +233,7 @@ private struct AddSubThreadForm: View {
                 Text("addSubThread.model.label").foregroundStyle(.primary)
                 Spacer(minLength: 8)
                 if model.load == .loading, model.showsSkeleton {
-                    RoundedRectangle(cornerRadius: 4).fill(Color(.tertiarySystemFill)).frame(width: 80, height: 16)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.yakFill).frame(width: 80, height: 16)
                         .accessibilityHidden(true)
                 } else {
                     Text(model.modelLabel ?? String(localized: "addSubThread.model.same")).foregroundStyle(
@@ -268,7 +268,7 @@ private struct AddSubThreadForm: View {
             }
         case .loading:
             if model.showsSkeleton {
-                RoundedRectangle(cornerRadius: 4).fill(Color(.tertiarySystemFill)).frame(width: 140, height: 14)
+                RoundedRectangle(cornerRadius: 4).fill(Color.yakFill).frame(width: 140, height: 14)
                     .accessibilityHidden(true)
             }
         }
