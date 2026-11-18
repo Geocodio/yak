@@ -280,3 +280,63 @@ it('reports a failing conversion and converts the others', function () {
 
     expect($reported)->toBe(['boom']);
 });
+
+function runLegacyMigration(): void
+{
+    (require base_path('database/migrations/2026_12_09_020004_convert_legacy_tasks_to_threads.php'))->up();
+}
+
+it('closes a conversation whose only active member went stale and gives every follow-up the thread', function () {
+    $root = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $first = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
+    $stale = YakTask::factory()->pending()->create(['thread_id' => null, 'parent_task_id' => $first->id, 'repo' => 'acme/widgets']);
+    $stale->forceFill(['updated_at' => now()->subDays(30)])->saveQuietly();
+
+    runLegacyMigration();
+    runLegacyMigration();
+
+    $thread = Thread::query()->withoutGlobalScopes()->findOrFail($root->fresh()->thread_id);
+    expect($thread->is_legacy)->toBeTrue()
+        ->and(YakTask::query()->where('thread_id', $thread->id)->count())->toBe(3)
+        ->and($stale->fresh()->status->value)->toBe('pending')
+        ->and(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
+});
+
+it('keeps a recently active conversation live and still gives its follow-ups the thread', function () {
+    $root = YakTask::factory()->success()->create(['thread_id' => null, 'repo' => 'acme/widgets']);
+    $first = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
+    $second = YakTask::factory()->pending()->create(['thread_id' => null, 'parent_task_id' => $first->id, 'repo' => 'acme/widgets']);
+
+    runLegacyMigration();
+
+    $thread = Thread::query()->withoutGlobalScopes()->findOrFail($root->fresh()->thread_id);
+    expect($thread->isOpen())->toBeTrue()
+        ->and($first->fresh()->thread_id)->toBe($thread->id)
+        ->and($second->fresh()->thread_id)->toBe($thread->id);
+});
+
+it('attaches the old follow-ups of a root that already has a live thread', function () {
+    $thread = Thread::factory()->create();
+    $root = YakTask::factory()->success()->create(['thread_id' => $thread->id, 'repo' => 'acme/widgets']);
+    $first = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
+    $second = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $first->id, 'repo' => 'acme/widgets']);
+    $third = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $second->id, 'repo' => 'acme/widgets']);
+    $updatedAt = $third->fresh()->updated_at;
+
+    runLegacyMigration();
+    runLegacyMigration();
+
+    expect(YakTask::query()->where('thread_id', $thread->id)->count())->toBe(4)
+        ->and($third->fresh()->updated_at->equalTo($updatedAt))->toBeTrue()
+        ->and(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
+});
+
+it('leaves the follow-ups of a private live thread outside it', function () {
+    $private = Thread::factory()->private()->create();
+    $root = YakTask::factory()->success()->create(['thread_id' => $private->id, 'repo' => 'acme/widgets']);
+    $followUp = YakTask::factory()->success()->create(['thread_id' => null, 'parent_task_id' => $root->id, 'repo' => 'acme/widgets']);
+
+    runLegacyMigration();
+
+    expect($followUp->fresh()->thread_id)->toBeNull();
+});
