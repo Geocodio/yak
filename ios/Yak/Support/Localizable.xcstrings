@@ -8812,6 +8812,106 @@
         }
       }
     },
+    "pullRequest.order.changed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pull requests changed, so the list was reloaded."
+          }
+        }
+      }
+    },
+    "pullRequest.order.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit order"
+          }
+        }
+      }
+    },
+    "pullRequest.order.editOffline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Reordering needs a connection."
+          }
+        }
+      }
+    },
+    "pullRequest.order.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The order was not saved. Try again."
+          }
+        }
+      }
+    },
+    "pullRequest.order.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge order is a suggestion. Yak opens PRs; people merge them."
+          }
+        }
+      }
+    },
+    "pullRequest.order.moveDown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move down"
+          }
+        }
+      }
+    },
+    "pullRequest.order.moveUp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move up"
+          }
+        }
+      }
+    },
+    "pullRequest.order.moved %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to place %lld of %lld"
+          }
+        }
+      }
+    },
+    "pullRequest.order.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "pullRequest.order.place %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place %lld"
+          }
+        }
+      }
+    },
     "pullRequest.stale" : {
       "localizations" : {
         "en" : {

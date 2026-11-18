@@ -49,6 +49,9 @@ struct StubControl {
         try send("GET", endpoint, body: nil)
     }
 
+    /// The body of the last merge order the stub took, or an empty string.
+    func lastPullRequestOrder() throws -> String { try get("changes/last-order") }
+
     /// The last Overview action the stub received, as `<method> <path>` then the body, or empty.
     func lastOverviewRequest() throws -> String { try get("overview/last-request") }
 
