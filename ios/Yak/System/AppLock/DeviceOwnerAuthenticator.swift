@@ -6,7 +6,9 @@ import YakKit
     import os
 #endif
 
-enum DeviceOwnerAuthenticationResult: Equatable { case success, cancelled, failed, passcodeNotSet }
+/// `.notInteractive` is an ask made while the app is not frontmost: nobody was asked, so it is neither a failure nor a
+/// cancel, and the ask is made again when the app becomes active.
+enum DeviceOwnerAuthenticationResult: Equatable { case success, cancelled, notInteractive, failed, passcodeNotSet }
 
 /// What the device reported. `.unknown` is any failure to find out; only a confirmed missing passcode counts as one.
 enum CapabilityReading: Equatable, Sendable {
@@ -63,6 +65,7 @@ final class LocalDeviceOwnerAuthenticator: DeviceOwnerAuthenticator, @unchecked 
             switch error.code {
             case .userCancel, .systemCancel, .appCancel: return .cancelled
             case .passcodeNotSet: return .passcodeNotSet
+            case .notInteractive: return .notInteractive
             default:
                 #if canImport(os)
                     Logger(subsystem: "Yak", category: "AppLock").error("Authentication failed: \(error.code.rawValue)")

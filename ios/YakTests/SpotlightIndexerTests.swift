@@ -67,7 +67,12 @@ private final class RecordingWriter: SpotlightWriter, @unchecked Sendable {
     }
 }
 
+private final class Availability: ProtectedDataAvailability, @unchecked Sendable {
+    @MainActor var isAvailable = true
+}
+
 @MainActor private final class Fixture {
+    let availability = Availability()
     let store = Store()
     let writer = RecordingWriter()
     let clock = ManualClock()
@@ -80,7 +85,7 @@ private final class RecordingWriter: SpotlightWriter, @unchecked Sendable {
     let second: Instance
 
     init() async throws {
-        settings = PrivacySettings(store: Store())
+        settings = PrivacySettings(store: Store(), protectedData: availability)
         // A store that holds no record at all means "unknown", which erases everything first.
         store.set(SpotlightIndexRecord.empty.encoded(), forKey: SpotlightIndexer.recordKey)
         appLock = AppLockController(settings: settings, authenticator: Allowing(), clock: clock)
@@ -328,6 +333,63 @@ private func titles(_ change: SpotlightChange) -> [String] {
         fixture.writer.release()
         for _ in 0..<5000 where !fixture.writer.changes.contains(.eraseAll) { await Task.yield() }
         #expect(fixture.writer.changes.first == .eraseAll)
+    }
+
+    @Test func aLateErasureStartsNoNewRun() async throws {
+        let fixture = try await Fixture()
+        var record = fixture.record
+        record.pendingEraseAll = true
+        fixture.store.set(record.encoded(), forKey: SpotlightIndexer.recordKey)
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        while fixture.clock.sleeperCount(waking: .seconds(10)) == 0 { await Task.yield() }
+        fixture.clock.advance(.seconds(10))
+        await run.value
+        #expect(fixture.writer.changes == [.eraseAll])
+        fixture.writer.release()
+        for _ in 0..<2000 { await Task.yield() }
+        #expect(fixture.writer.changes == [.eraseAll], "a late erase lands nothing, so nothing is rebuilt or erased again")
+    }
+
+    @Test func aSuccessfulEraseAllKeepsTheFlagWhileAnAbandonedReplaceIsStillInFlight() async throws {
+        let fixture = try await Fixture()
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        while fixture.clock.sleeperCount(waking: .seconds(10)) == 0 { await Task.yield() }
+        fixture.clock.advance(.seconds(10))
+        await run.value
+        var finished = false
+        let again = Task {
+            await indexer.reindex()
+            finished = true
+        }
+        while !finished {
+            fixture.clock.advance(.seconds(10))
+            await Task.yield()
+        }
+        await again.value
+        #expect(fixture.writer.changes.contains(.eraseAll))
+        #expect(fixture.record.pendingEraseAll, "the abandoned replace can still land, so the record is not clean")
+        fixture.writer.release()
+    }
+
+    @Test func nothingRunsOrIsRecordedWhileTheSettingsStoreIsUnreadableAndItCatchesUpAfter() async throws {
+        let fixture = try await Fixture()
+        let indexer = fixture.makeIndexer()
+        fixture.availability.isAvailable = false
+        await indexer.reindex()
+        await indexer.instanceRemoved(fixture.first, reason: .unpaired)
+        #expect(fixture.writer.changes.isEmpty)
+        #expect(fixture.record.pendingErasures.isEmpty)
+        fixture.availability.isAvailable = true
+        fixture.active = nil
+        await indexer.reindex()
+        #expect(fixture.writer.changes == [.erase(domains: [fixture.first.id])])
+        #expect(fixture.record.pendingErasures.isEmpty)
     }
 
     @Test func aReplaceWaitsForAnAbandonedWriteOnlyUpToTheWriteBound() async throws {

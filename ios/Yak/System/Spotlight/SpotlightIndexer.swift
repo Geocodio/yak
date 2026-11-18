@@ -33,6 +33,9 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     @ObservationIgnored private var isBusy = false
     @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
     @ObservationIgnored private var abandoned: Task<Void, Never>?
+    @ObservationIgnored private var abandonedIsReplace = false
+    /// Removals asked for while the settings store was unreadable; recorded at the next run that can read it.
+    @ObservationIgnored private var removalsWhileUnreadable: [UUID] = []
 
     init(
         writer: any SpotlightWriter, settings: PrivacySettings, appLock: AppLockController,
@@ -82,6 +85,12 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     }
 
     private func runOnce() async {
+        // The record and both switches live in the settings store: while it is unreadable nothing is planned or
+        // written, and the next run (the protected-data notification asks for one) catches up.
+        appLock.reloadSettings()
+        guard !appLock.storeUnreadable else { return }
+        for id in removalsWhileUnreadable { update { SpotlightIndexPlan.recordingRemoval(of: id, in: $0) } }
+        removalsWhileUnreadable = []
         state = .updating
         let includePrivate = settings.spotlightIncludesPrivate
         let lockIsOn = appLock.policy.isOn
@@ -112,6 +121,14 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             let succeeded = await write(change, bound: Self.writeBound)
             update {
                 SpotlightIndexPlan.record($0, after: change, succeeded: succeeded, includePrivate: privateAllowed)
+            }
+            if succeeded, change == .eraseAll, abandoned != nil, abandonedIsReplace {
+                // An abandoned replace may still land after this erase, so the record must not call the index clean.
+                update {
+                    var record = $0
+                    record.pendingEraseAll = true
+                    return record
+                }
             }
             guard succeeded else {
                 state = .failed
@@ -195,6 +212,9 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             apply.cancel()
             let late = Task { _ = await apply.value }
             abandoned = late
+            let isReplace: Bool
+            if case .replace = change { isReplace = true } else { isReplace = false }
+            abandonedIsReplace = isReplace
             update {
                 var record = $0
                 record.pendingEraseAll = true
@@ -202,7 +222,7 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             }
             Task { [weak self] in
                 await late.value
-                await self?.eraseAfterLateWrite(late)
+                await self?.eraseAfterLateWrite(late, wasReplace: isReplace)
             }
             return false
         }
@@ -218,14 +238,16 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
                 do { try await clock.sleep(for: bound) } catch { return }
                 gate.finish(nil)
             }
-            gate.onFinish = { timer.cancel() }
+            gate.whenFinished { timer.cancel() }
             Task { gate.finish(await work.value) }
         }
     }
 
-    /// An abandoned write has ended, so anything it landed is erased on the next run, which starts now.
-    private func eraseAfterLateWrite(_ late: Task<Void, Never>) async {
+    /// An abandoned replace has ended, so anything it landed is erased on the next run, which starts now. A late
+    /// erase lands nothing new, so it starts no run: otherwise a slow Core Spotlight would erase and rebuild forever.
+    private func eraseAfterLateWrite(_ late: Task<Void, Never>, wasReplace: Bool) async {
         if abandoned == late { abandoned = nil }
+        guard wasReplace else { return }
         update {
             var record = $0
             record.pendingEraseAll = true
@@ -237,6 +259,11 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     // MARK: Instances
 
     func instanceRemoved(_ instance: Instance, reason: InstanceRemoval) async {
+        appLock.reloadSettings()
+        guard !appLock.storeUnreadable else {
+            removalsWhileUnreadable.append(instance.id)
+            return
+        }
         // Stored at once, before this call waits for a run in flight, so the erasure is never lost.
         update { SpotlightIndexPlan.recordingRemoval(of: instance.id, in: $0) }
         await acquire()
@@ -268,17 +295,27 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
 private final class OneShot: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Bool?, Never>?
-    var onFinish: (@Sendable () -> Void)?
+    private var onFinish: (@Sendable () -> Void)?
 
     init(_ continuation: CheckedContinuation<Bool?, Never>) { self.continuation = continuation }
 
+    /// Runs `hook` when the gate finishes, or at once when it already has.
+    func whenFinished(_ hook: @escaping @Sendable () -> Void) {
+        let alreadyFinished = lock.withLock { () -> Bool in
+            if continuation == nil { return true }
+            onFinish = hook
+            return false
+        }
+        if alreadyFinished { hook() }
+    }
+
     func finish(_ value: Bool?) {
-        let taken = lock.withLock { () -> CheckedContinuation<Bool?, Never>? in
+        let (taken, hook) = lock.withLock { () -> (CheckedContinuation<Bool?, Never>?, (@Sendable () -> Void)?) in
             defer { continuation = nil }
-            return continuation
+            return (continuation, onFinish)
         }
         guard let taken else { return }
-        onFinish?()
+        hook?()
         taken.resume(returning: value)
     }
 }

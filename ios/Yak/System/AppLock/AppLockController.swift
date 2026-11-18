@@ -164,6 +164,9 @@ final class AppLockController {
             runDeferredIfOpen()
         case .cancelled:
             unlock = .idle
+        case .notInteractive:
+            unlock = .idle
+            launchAskPending = true
         case .failed:
             unlock = .failed
             failureCount += 1
@@ -192,7 +195,7 @@ final class AppLockController {
             policy.handle(.turnedOn)
             toggle = .idle
             unlockCount += 1
-        case .cancelled:
+        case .cancelled, .notInteractive:
             toggle = .idle
         case .failed, .passcodeNotSet:
             toggle = .failed

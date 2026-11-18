@@ -126,6 +126,17 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         #expect(!controller.isLocked)
     }
 
+    @Test func aLaunchAskThatIsNotInteractiveIsNoFailureAndAsksAgainWhenTheAppIsActive() async {
+        let fake = FakeAuthenticator([.notInteractive, .success])
+        let (controller, _) = make(on: true, fake)
+        await controller.launched()
+        #expect(controller.isLocked && controller.unlock == .idle)
+        #expect(controller.failureCount == 0)
+        await controller.appBecameActive()
+        #expect(fake.asks == 2)
+        #expect(!controller.isLocked)
+    }
+
     @Test func aFailureShowsAndCanBeRetried() async {
         let fake = FakeAuthenticator([.failed, .success])
         let (controller, _) = make(on: true, fake)
