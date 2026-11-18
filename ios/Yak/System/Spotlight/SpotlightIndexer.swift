@@ -66,14 +66,19 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             await acquire()
             await runOnce()
             release()
-        } while runAgain
+        } while runAgain && !Task.isCancelled
     }
 
-    /// The same run, inside a background task assertion that ends when the run ends.
+    /// The same run, inside a background task assertion that ends when the run ends or the system takes the time
+    /// back, which also cancels the run.
     func reindexInBackground() async {
-        let task = UIApplication.shared.beginBackgroundTask(withName: "spotlight")
-        await reindex()
-        if task != .invalid { UIApplication.shared.endBackgroundTask(task) }
+        await BackgroundWork.run(
+            name: "spotlight",
+            begin: { name, expiration in
+                UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: expiration)
+            },
+            end: { UIApplication.shared.endBackgroundTask($0) }
+        ) { await self.reindex() }
     }
 
     private func runOnce() async {
@@ -85,6 +90,10 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
             record: currentRecord(), paired: await pairedIDs(), active: await activeLists(),
             includePrivate: includePrivate, appLockOn: lockIsOn, now: clock.now())
         for change in changes {
+            if Task.isCancelled {
+                state = .failed
+                return
+            }
             // The world may have moved while earlier changes were written: a replace goes ahead only for a domain
             // that is still paired and while the settings it was planned under still hold.
             if case .replace(let domain, _) = change {
@@ -155,15 +164,21 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
     // MARK: Writing
 
     /// Applies one change, giving up after `bound`. A write that passes the bound is cancelled and marked in the
-    /// record as unfinished (the next run starts with an erase of everything); the next write waits until the
-    /// abandoned one has really ended, so it can never land after a later erase.
+    /// record as unfinished (the next run starts with an erase of everything). Only a replace waits for an abandoned
+    /// write to end, and then for at most the write bound: an erasure is idempotent and goes ahead at once, and when
+    /// the abandoned write finally ends the erase-everything flag is set again and the index is rebuilt, so a late
+    /// landing never survives.
     private func write(_ change: SpotlightChange, bound: Duration) async -> Bool {
-        if let abandoned {
-            await abandoned.value
-            self.abandoned = nil
+        if case .replace = change, let abandoned {
+            let ended = await race(
+                Task {
+                    await abandoned.value
+                    return true
+                }, within: Self.writeBound)
+            guard ended != nil else { return false }
+            if self.abandoned == abandoned { self.abandoned = nil }
         }
         let writer = self.writer
-        let clock = self.clock
         let apply = Task { () -> Bool in
             do {
                 try await writer.apply(change)
@@ -176,26 +191,47 @@ final class SpotlightIndexer: InstanceLifecycleObserver {
                 return false
             }
         }
-        let finished: Bool? = await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
+        guard let finished = await race(apply, within: bound) else {
+            apply.cancel()
+            let late = Task { _ = await apply.value }
+            abandoned = late
+            update {
+                var record = $0
+                record.pendingEraseAll = true
+                return record
+            }
+            Task { [weak self] in
+                await late.value
+                await self?.eraseAfterLateWrite(late)
+            }
+            return false
+        }
+        return finished
+    }
+
+    /// The first of the work and the timer; nil when the timer won.
+    private func race(_ work: Task<Bool, Never>, within bound: Duration) async -> Bool? {
+        let clock = self.clock
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
             let gate = OneShot(continuation)
             let timer = Task {
                 do { try await clock.sleep(for: bound) } catch { return }
                 gate.finish(nil)
             }
             gate.onFinish = { timer.cancel() }
-            Task { gate.finish(await apply.value) }
+            Task { gate.finish(await work.value) }
         }
-        guard let finished else {
-            apply.cancel()
-            abandoned = Task { _ = await apply.value }
-            update {
-                var record = $0
-                record.pendingEraseAll = true
-                return record
-            }
-            return false
+    }
+
+    /// An abandoned write has ended, so anything it landed is erased on the next run, which starts now.
+    private func eraseAfterLateWrite(_ late: Task<Void, Never>) async {
+        if abandoned == late { abandoned = nil }
+        update {
+            var record = $0
+            record.pendingEraseAll = true
+            return record
         }
-        return finished
+        await reindex()
     }
 
     // MARK: Instances
@@ -244,5 +280,44 @@ private final class OneShot: @unchecked Sendable {
         guard let taken else { return }
         onFinish?()
         taken.resume(returning: value)
+    }
+}
+
+/// Runs work inside a background task that is ended exactly once, by the work or by the expiration handler.
+@MainActor enum BackgroundWork {
+    @MainActor private final class Assertion {
+        var identifier = UIBackgroundTaskIdentifier.invalid
+        var isEnded = false
+        let end: (UIBackgroundTaskIdentifier) -> Void
+
+        init(end: @escaping (UIBackgroundTaskIdentifier) -> Void) { self.end = end }
+
+        /// Ends the task once it exists; a call before `begin` returned is remembered and applied right after.
+        func finish() {
+            guard !isEnded else { return }
+            guard identifier != .invalid else {
+                isEnded = true
+                return
+            }
+            isEnded = true
+            end(identifier)
+        }
+    }
+
+    static func run(
+        name: String,
+        begin: (String, @escaping @MainActor @Sendable () -> Void) -> UIBackgroundTaskIdentifier,
+        end: @escaping (UIBackgroundTaskIdentifier) -> Void,
+        work: @escaping @MainActor () async -> Void
+    ) async {
+        let task = Task { await work() }
+        let assertion = Assertion(end: end)
+        assertion.identifier = begin(name) {
+            task.cancel()
+            assertion.finish()
+        }
+        if assertion.isEnded, assertion.identifier != .invalid { assertion.end(assertion.identifier) }
+        await task.value
+        assertion.finish()
     }
 }

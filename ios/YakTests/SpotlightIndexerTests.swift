@@ -1,6 +1,7 @@
 import CoreSpotlight
 import Foundation
 import Testing
+import UIKit
 import YakKit
 
 @testable import Yak
@@ -307,7 +308,7 @@ private func titles(_ change: SpotlightChange) -> [String] {
         #expect(fixture.record.pendingErasures.contains(fixture.first.id))
     }
 
-    @Test func aWriteThatTimesOutAndFinishesLateIsErasedByTheNextErase() async throws {
+    @Test func anErasureNeverWaitsBehindAnAbandonedWriteAndALateLandingIsErased() async throws {
         let fixture = try await Fixture()
         fixture.writer.holdsFirst = true
         let indexer = fixture.makeIndexer()
@@ -318,12 +319,63 @@ private func titles(_ change: SpotlightChange) -> [String] {
         await run.value
         #expect(indexer.state == .failed)
         #expect(fixture.record.pendingEraseAll)
-        let removal = Task { await indexer.instanceRemoved(fixture.first, reason: .unpaired) }
-        await Task.yield()
-        // The abandoned write ends late, and the erase that follows still leaves nothing behind.
+        // The abandoned write is still hanging, and the removal completes anyway.
+        await indexer.instanceRemoved(fixture.first, reason: .unpaired)
+        #expect(fixture.writer.isHolding)
+        #expect(fixture.writer.changes.contains(.erase(domains: [fixture.first.id])))
+        // The abandoned write ends late and lands; the flag is set again and the rebuild starts with an erase of all.
+        fixture.writer.clear()
         fixture.writer.release()
-        await removal.value
-        #expect(fixture.writer.entries(in: fixture.first.id).isEmpty)
-        #expect(fixture.writer.changes.contains { titles($0).isEmpty == false })
+        for _ in 0..<5000 where !fixture.writer.changes.contains(.eraseAll) { await Task.yield() }
+        #expect(fixture.writer.changes.first == .eraseAll)
+    }
+
+    @Test func aReplaceWaitsForAnAbandonedWriteOnlyUpToTheWriteBound() async throws {
+        let fixture = try await Fixture()
+        fixture.writer.holdsFirst = true
+        let indexer = fixture.makeIndexer()
+        let run = Task { await indexer.reindex() }
+        while !fixture.writer.isHolding { await Task.yield() }
+        while fixture.clock.sleeperCount(waking: .seconds(10)) == 0 { await Task.yield() }
+        fixture.clock.advance(.seconds(10))
+        await run.value
+        var finished = false
+        let again = Task {
+            await indexer.reindex()
+            finished = true
+        }
+        while !finished {
+            fixture.clock.advance(.seconds(10))
+            await Task.yield()
+        }
+        await again.value
+        // Only the abandoned write itself was a replace; the second run's replace never started.
+        #expect(fixture.writer.changes.filter { !titles($0).isEmpty }.count == 1)
+        #expect(indexer.state == .failed)
+        fixture.writer.release()
+    }
+
+    @Test func theBackgroundTaskEndsOnceAndCancelsTheRunWhenTimeExpires() async {
+        var expire: (@MainActor @Sendable () -> Void)?
+        var ends = 0
+        var sawCancel = false
+        let run = Task { @MainActor in
+            await BackgroundWork.run(
+                name: "test",
+                begin: { _, expiration in
+                    expire = expiration
+                    return UIBackgroundTaskIdentifier(rawValue: 7)
+                },
+                end: { _ in ends += 1 },
+                work: {
+                    while !Task.isCancelled { await Task.yield() }
+                    sawCancel = true
+                })
+        }
+        while expire == nil { await Task.yield() }
+        expire?()
+        await run.value
+        #expect(sawCancel)
+        #expect(ends == 1)
     }
 }
