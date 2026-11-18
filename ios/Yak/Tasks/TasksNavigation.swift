@@ -85,7 +85,7 @@ private struct TaskDestination: View {
                     model: model, instanceURL: instanceURL, openWeb: openWeb, back: back,
                     didOpenThread: didOpenThread)
             } else {
-                Color(.systemBackground)
+                Color.yakBackground
             }
         }
         .task(id: taskID) {

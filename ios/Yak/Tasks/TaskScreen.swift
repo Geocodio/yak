@@ -22,21 +22,23 @@ struct TaskScreen: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle("")
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(Color.yakBackground, for: .navigationBar)
             .toolbar { if model.task != nil { ToolbarItem(placement: .topBarTrailing) { menu } } }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 TaskDecisionBar(model: model, openWeb: openWeb, requestChanges: { isRequestingChanges = true })
             }
             .sheet(isPresented: $isRequestingChanges) {
                 RequestChangesSheet(model: model, close: { isRequestingChanges = false })
-                    .presentationDetents([.medium, .large]).presentationBackground(Color(.systemBackground))
+                    .presentationDetents([.medium, .large]).presentationBackground(Color.yakBackground)
             }
             .sheet(isPresented: $isTagging) {
                 if case .pick(let fallbackName) = model.earlyWarning {
                     TagCoOwnerSheet(model: model, fallbackName: fallbackName, close: { isTagging = false })
-                        .presentationDetents([.large]).presentationBackground(Color(.systemBackground))
+                        .presentationDetents([.large]).presentationBackground(Color.yakBackground)
                 }
             }
             .sensoryFeedback(.success, trigger: model.successCount)
@@ -59,7 +61,7 @@ struct TaskScreen: View {
                         NoticeLine(
                             text: "list.offlineSaved", systemImage: "wifi.slash", identifier: "task.offlineNotice"
                         )
-                        .padding(.horizontal, -20)
+                        .padding(.horizontal, -Design.Space.pageInset)
                     }
                     if !task.canDrive {
                         Text("task.readOnly").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
@@ -79,7 +81,7 @@ struct TaskScreen: View {
                     earlyWarning
                     questions(task)
                 }
-                .padding(.horizontal, 20).padding(.vertical, 12)
+                .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.medium)
                 .frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
             }
             .refreshable { await model.retry() }
@@ -236,8 +238,8 @@ struct TaskScreen: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 12))
+        .padding(Design.Space.medium).frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
+        .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
         .contentShape(.rect)
     }
 

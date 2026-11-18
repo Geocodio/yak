@@ -12,7 +12,7 @@ struct TasksScreen: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .navigationTitle("tasks.title")
             .navigationBarTitleDisplayMode(.large)
@@ -144,7 +144,7 @@ struct TasksScreen: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .overlay(alignment: .top) { Divider() }
     }
 
