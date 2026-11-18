@@ -70,6 +70,7 @@ enum StubFeatures {
         StubWidgets(),
         StubPush(),
         StubPreviewFeature(),
+        StubWalkthroughVideo(),
         StubChanges(),
         StubOverview(),
     ]

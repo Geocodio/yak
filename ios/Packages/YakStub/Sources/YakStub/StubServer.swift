@@ -261,7 +261,9 @@ final class StubServer: Sendable {
         log("\(request.method) -> \(status)")
         var head = "HTTP/1.1 \(status) \(status < 300 ? "OK" : "Error")\r\n"
         head += "Content-Type: \(contentType)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n"
-        head += "X-Yak-Protocol: \(reply.protocolHeader)\r\nX-Yak-Min-Protocol: 1\r\n\r\n"
+        head += "X-Yak-Protocol: \(reply.protocolHeader)\r\nX-Yak-Min-Protocol: 1\r\n"
+        for (name, value) in reply.headers.sorted(by: { $0.key < $1.key }) { head += "\(name): \(value)\r\n" }
+        head += "\r\n"
         connection.send(
             content: Data(head.utf8) + body, contentContext: .finalMessage, isComplete: true,
             completion: .contentProcessed { _ in connection.cancel() })

@@ -42,6 +42,7 @@ import Testing
             ([(av, -11800), (url, -1009)], nil, .offline),
             ([(av, -11800), (media, -12660)], nil, .expired),
             ([(av, -11800), (media, -12938)], nil, .expired),
+            ([(url, -1102), ("NSOSStatusErrorDomain", -12660)], nil, .expired),
             ([(av, -11800)], 403, .expired),
             ([(av, -11800)], 404, .expired),
             ([(av, -11800)], 410, .expired),

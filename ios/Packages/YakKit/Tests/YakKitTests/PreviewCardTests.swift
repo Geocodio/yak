@@ -6,13 +6,15 @@ import Testing
 private func card(
     _ scenario: String, canDrive: Bool? = true, blockedReason: String? = nil, isRestoring: Bool = false,
     sandboxState: String? = nil, hasKnownPreviewURL: Bool = false, restoreTookTooLong: Bool = false,
-    pendingIntent: MessageIntent? = nil, terminalAvailable: Bool = false
+    pendingIntent: MessageIntent? = nil, terminalAvailable: Bool = false,
+    canOpenFiles: Bool = false
 ) throws -> PreviewCard {
     PreviewCard.make(
         status: try decoded(PreviewStatus.self, "scenario-preview-\(scenario)"), canDrive: canDrive,
         blockedReason: blockedReason, isRestoring: isRestoring, sandboxState: sandboxState,
         hasKnownPreviewURL: hasKnownPreviewURL, restoreTookTooLong: restoreTookTooLong,
-        pendingIntent: pendingIntent, terminalAvailable: terminalAvailable)
+        pendingIntent: pendingIntent, terminalAvailable: terminalAvailable,
+        canOpenFiles: canOpenFiles)
 }
 
 @Test func everyStateHasItsCard() throws {
@@ -115,4 +117,23 @@ private func card(
     }
     #expect(make(known: true) == PreviewCard(kind: .unknown(state: "hibernating"), actions: [.openInBrowser]))
     #expect(make(known: false) == PreviewCard(kind: .unknown(state: "hibernating"), actions: []))
+}
+
+@Test func aDriverCanEditTheManifestWhenFilesOpen() throws {
+    let actions = try card("failing", canOpenFiles: true).actions
+    #expect(actions == [.ask(.fixPreview, isPending: false), .tryAgain, .editManifest])
+}
+
+@Test func aRecipientCannotEditTheManifest() throws {
+    #expect(try card("failing", canDrive: false, canOpenFiles: true).actions == [.tryAgain])
+}
+
+@Test func noEditWithoutFiles() throws {
+    #expect(try card("failing", canOpenFiles: false).actions == [.ask(.fixPreview, isPending: false), .tryAgain])
+}
+
+@Test func onlyTheFailingCardOffersEdit() throws {
+    for scenario in ["no-manifest", "ready", "waking", "starting", "fixing"] {
+        #expect(!(try card(scenario, canOpenFiles: true).actions.contains(.editManifest)))
+    }
 }

@@ -6372,6 +6372,16 @@
         }
       }
     },
+    "preview.action.editManifest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit .yak/preview.yml"
+          }
+        }
+      }
+    },
     "preview.action.openInSafari" : {
       "localizations" : {
         "en" : {
@@ -10196,6 +10206,26 @@
         }
       }
     },
+    "task.walkthrough.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The walkthrough cannot be played here."
+          }
+        }
+      }
+    },
+    "task.walkthrough.web" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Watch the walkthrough on the web"
+          }
+        }
+      }
+    },
     "tasks.clearFilters" : {
       "localizations" : {
         "en" : {
@@ -10766,6 +10796,86 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "walkthrough.expired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The video link has expired."
+          }
+        }
+      }
+    },
+    "walkthrough.failed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The walkthrough could not be played."
+          }
+        }
+      }
+    },
+    "walkthrough.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The video plays when the connection returns."
+          }
+        }
+      }
+    },
+    "walkthrough.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something stopped the video."
+          }
+        }
+      }
+    },
+    "walkthrough.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "walkthrough.timedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The video did not answer."
+          }
+        }
+      }
+    },
+    "walkthrough.tryAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "walkthrough.unsupported" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This video format cannot be played on this device."
           }
         }
       }
