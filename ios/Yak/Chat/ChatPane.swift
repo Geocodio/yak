@@ -16,9 +16,6 @@ private struct ChatPane: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var paneHeight: CGFloat = 600
 
-    /// At most this share of the pane is the question card; longer content scrolls inside it.
-    private static let cardShare = 0.6
-
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
@@ -37,10 +34,10 @@ private struct ChatPane: View {
             if case .conversation = thread.loadPresentation {
                 QuestionCard(
                     model: thread.question, canAnswer: thread.snapshot?.show?.canDrive ?? false,
-                    isOffline: thread.isOffline, maximumHeight: paneHeight * Self.cardShare)
+                    isOffline: thread.isOffline, paneHeight: paneHeight)
+                    .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
             }
         }
-        .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
         .sensoryFeedback(.error, trigger: thread.question.failureCount)
         .onGeometryChange(for: CGFloat.self) {

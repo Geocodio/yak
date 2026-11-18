@@ -41,6 +41,8 @@ final class QuestionModel {
     private(set) var sentCount = 0
     /// The text in the "Your answer" field; kept here so a closed round still shows it.
     var typedText = ""
+    /// A field of the card has focus: the card is the input, so the message bar steps aside.
+    var isEditing = false
     /// True once a send has run longer than `slowAfter`; the card then says it is taking longer than usual.
     private(set) var isSlow = false
     /// Counts refused or failed sends, so the view can play the error haptic once per failure.

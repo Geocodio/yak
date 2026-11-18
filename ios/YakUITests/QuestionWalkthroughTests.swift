@@ -67,4 +67,10 @@ import XCTest
         XCTAssertTrue(element("question.closed").waitForExistence(timeout: Wait.appear))
         try shoot("question-closed")
     }
+
+    func testQuestionReadOnly() throws {
+        try start("question-readonly", paired: true)
+        XCTAssertTrue(element("question.readOnly").waitForExistence(timeout: Wait.firstLoad))
+        try shoot("question-read-only")
+    }
 }

@@ -10,44 +10,64 @@ struct QuestionCard: View {
     let canAnswer: Bool
     let isOffline: Bool
     /// The tallest the card gets; longer content scrolls inside it.
-    let maximumHeight: CGFloat
+    let paneHeight: CGFloat
 
-    @State private var contentHeight: CGFloat = 0
+    @State private var scrollContentHeight: CGFloat = 0
+    @State private var actionsHeight: CGFloat = 0
+    @State private var position = ScrollPosition(edge: .top)
     @FocusState private var isTyping: Bool
+    @FocusState private var isNoteFocused: Bool
     @AccessibilityFocusState private var focusedStep: Int?
 
-    /// With the keyboard up the pane can be short; the card keeps room for its field and Done.
-    private var cap: CGFloat { max(maximumHeight, 260) }
+    /// The card is at most this share of the pane, and while the person types it may use nearly all of it, because
+    /// the card is the input then. It never gets less than room for the header, one option and the action row.
+    private func cap(_ flow: QuestionFlow) -> CGFloat {
+        if case .typing = flow.step { return max(paneHeight - 16, 260) }
+        return max(paneHeight * 0.6, 260)
+    }
+
+    /// What the scrolling part may use: the cap minus the padding, the gap and the pinned actions.
+    private func scrollHeight(_ flow: QuestionFlow) -> CGFloat {
+        let available = max(cap(flow) - actionsHeight - 16 * 2 - 8, 150)
+        return scrollContentHeight > 0 ? min(scrollContentHeight, available) : available
+    }
 
     var body: some View {
         if let flow = model.flow {
-            ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 0) {
                 ScrollView {
-                    content(flow)
+                    scrolling(flow)
                         .onGeometryChange(for: CGFloat.self) {
                             $0.size.height
                         } action: {
-                            contentHeight = $0
+                            scrollContentHeight = $0
                         }
                 }
-                // A new step starts at its top; the field and Done are brought into view when typing starts.
-                .onChange(of: stepKey(flow)) {
-                    if case .typing = flow.step {
-                        proxy.scrollTo("bottom", anchor: .bottom)
-                    } else {
-                        proxy.scrollTo("top", anchor: .top)
-                    }
-                }
+                .scrollPosition($position)
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollDismissesKeyboard(.interactively)
-                .frame(maxHeight: contentHeight > 0 ? min(contentHeight, cap) : cap)
+                .frame(height: scrollHeight(flow))
+                actions(flow)
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: {
+                        actionsHeight = $0
+                    }
             }
-            .padding(.horizontal, 8).padding(.bottom, 4)
+            .questionCardSurface()
+            .padding(.horizontal, 8).padding(.bottom, 8)
+            .layoutPriority(1)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityElement(children: .contain)
             .accessibilityLabel(Text("question.card.label"))
             .accessibilityIdentifier("question.card")
-            .onChange(of: stepKey(flow)) { focusedStep = stepKey(flow) }
+            // Every step starts at its top.
+            .onChange(of: stepKey(flow)) {
+                position.scrollTo(edge: .top)
+                focusedStep = stepKey(flow)
+            }
+            .onChange(of: isTyping || isNoteFocused) { model.isEditing = isTyping || isNoteFocused }
+            .onDisappear { model.isEditing = false }
             .onChange(of: model.isClosed) {
                 if model.isClosed {
                     UIAccessibility.post(notification: .announcement, argument: String(localized: "question.closed"))
@@ -56,9 +76,10 @@ struct QuestionCard: View {
         }
     }
 
-    private func content(_ flow: QuestionFlow) -> some View {
+    /// The part that scrolls: the header, the question and its options, the review rows.
+    @ViewBuilder private func scrolling(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            header(flow).id("top")
+            header(flow)
             if model.isClosed {
                 closed(flow)
             } else if !canAnswer {
@@ -66,13 +87,27 @@ struct QuestionCard: View {
             } else {
                 switch flow.step {
                 case .question(let index): question(flow, index)
-                case .typing(let index): typing(flow, index)
+                case .typing(let index): questionText(flow.questions[index])
                 case .review: review(flow)
                 }
             }
-            Color.clear.frame(height: 0).id("bottom")
         }
-        .questionCardSurface()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The part pinned at the bottom of the card, outside the scroll: the buttons and the field being typed in.
+    @ViewBuilder private func actions(_ flow: QuestionFlow) -> some View {
+        if model.isClosed {
+            Button("question.dismiss") { model.dismiss() }
+                .buttonStyle(SecondaryButtonStyle()).padding(.top, 12).accessibilityIdentifier("question.dismiss")
+        } else if canAnswer {
+            switch flow.step {
+            case .question(let index):
+                navigation(flow, index: index, isMultiSelect: flow.questions[index].multiSelect)
+            case .typing: typingActions
+            case .review: reviewActions(flow)
+            }
+        }
     }
 
     private func header(_ flow: QuestionFlow) -> some View {
@@ -133,7 +168,6 @@ struct QuestionCard: View {
             .foregroundStyle(.primary)
             .accessibilityIdentifier("question.typeAnswer")
             if let message = model.fieldErrors[item.id] { errorLine(message) }
-            navigation(flow, index: index, isMultiSelect: item.multiSelect)
         }
     }
 
@@ -158,6 +192,7 @@ struct QuestionCard: View {
                         .accessibilityIdentifier("question.next")
                 }
             }
+            .padding(.top, 12)
         }
     }
 
@@ -168,11 +203,10 @@ struct QuestionCard: View {
 
     // MARK: Typing
 
-    private func typing(_ flow: QuestionFlow, _ index: Int) -> some View {
+    private var typingActions: some View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 10) {
-            questionText(flow.questions[index])
-            TextField("question.field", text: $model.typedText, axis: .vertical).lineLimit(2...6)
+            TextField("question.field", text: $model.typedText, axis: .vertical).lineLimit(1...4)
                 .focused($isTyping).padding(12).textFieldStyle(.plain).questionFieldSurface()
                 .accessibilityIdentifier("question.field")
             HStack(spacing: 12) {
@@ -188,6 +222,7 @@ struct QuestionCard: View {
                 .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("question.done")
             }
         }
+        .padding(.top, 12)
         .onAppear { isTyping = true }
     }
 
@@ -206,8 +241,16 @@ struct QuestionCard: View {
                 .disabled(model.isSending)
             }
             TextField("question.note", text: noteBinding, axis: .vertical).lineLimit(1...4)
+                .focused($isNoteFocused)
                 .padding(12).questionFieldSurface().disabled(model.isSending)
                 .accessibilityIdentifier("question.note")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("question.review")
+    }
+
+    private func reviewActions(_ flow: QuestionFlow) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             if isOffline, model.sending == .idle {
                 Text("question.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.offline")
@@ -234,8 +277,7 @@ struct QuestionCard: View {
             .buttonStyle(SecondaryButtonStyle()).disabled(!flow.canSend || model.isSending)
             .accessibilityIdentifier("question.send")
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("question.review")
+        .padding(.top, 12)
     }
 
     private var noteBinding: Binding<String> {
@@ -272,8 +314,6 @@ struct QuestionCard: View {
                 Text(verbatim: unsent).font(.body).padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .questionFieldSurface()
             }
-            Button("question.dismiss") { model.dismiss() }
-                .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("question.dismiss")
         }
     }
 
