@@ -233,7 +233,7 @@ final class DrawerModel {
         case .done, .alreadySent:
             if let root = rootOfChild[id] { stacks[root] = nil }
             await feed.refresh()
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             refusalCount += 1
             setActionLine(message)
         case .failed(let problem):

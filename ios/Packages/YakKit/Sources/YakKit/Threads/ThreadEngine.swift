@@ -284,6 +284,26 @@ public actor ThreadEngine {
         refreshTask = nil
     }
 
+    /// Takes the show an action answered. True when the page now holds it, so no second request is needed. An
+    /// answer for another thread (a move) sets the replacement instead and leaves this page as it is.
+    func adopt(_ answered: ThreadShow) -> Bool {
+        guard !isClosed, isShowConfirmed else { return false }
+        guard answered.thread.id == threadID else {
+            replacementThreadID = answered.thread.id
+            changed(isStored: false)
+            return false
+        }
+        refreshGeneration += 1
+        show = answered
+        isForbidden = false
+        isOffline = false
+        problem = nil
+        changed(isStored: true)
+        // Events applied after the answer was made are newer than it: fetch again rather than lose them.
+        if answered.latestSequence < state.lastSequence { scheduleShowRefresh() }
+        return true
+    }
+
     /// Returns the problem when the request failed, nil when it succeeded or was overtaken.
     private func fetchShow() async -> ThreadProblem? {
         refreshGeneration += 1

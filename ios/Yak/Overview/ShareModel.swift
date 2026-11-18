@@ -93,7 +93,7 @@ final class ShareModel {
         case .done, .alreadySent:
             await onSaved?()
             return true
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             refusalCount += 1
             problem = message
         case .failed(let failure):

@@ -158,7 +158,7 @@ final class OverviewModel {
         switch outcome {
         case .done, .alreadySent:
             if stillFailed { setActionLine(String(localized: "overview.retry.notStarted")) }
-        case .refused(let code, let message, _):
+        case .refused(let code, let message, _, _):
             // The server's "nothing to retry" would contradict a row that reads "setup failed".
             if code == "nothing_to_retry" {
                 if stillFailed { setActionLine(String(localized: "overview.retry.notStarted")) }
@@ -236,7 +236,7 @@ final class OverviewModel {
     private func report(_ outcome: ThreadActionOutcome) {
         switch outcome {
         case .done, .alreadySent: break
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             refusalCount += 1
             setActionLine(message)
         case .failed(let problem):

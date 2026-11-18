@@ -264,7 +264,7 @@ private struct EditQueuedSheet: View {
         isSaving = false
         switch outcome {
         case .done, .alreadySent: dismiss()
-        case .refused(_, let message, _): problem = message.isEmpty ? String(localized: "chat.action.refused") : message
+        case .refused(_, let message, _, _): problem = message.isEmpty ? String(localized: "chat.action.refused") : message
         case .failed(.offline): problem = String(localized: "chat.action.offline")
         case .failed: problem = String(localized: "chat.action.failed")
         }

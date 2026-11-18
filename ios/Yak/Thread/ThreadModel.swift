@@ -398,7 +398,7 @@ extension ThreadModel {
         switch outcome {
         case .done: break
         case .alreadySent: setActionLine(String(localized: "chat.message.alreadySent"))
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             setActionLine(message.isEmpty ? String(localized: "chat.action.refused") : message)
         case .failed(let problem):
             switch problem {

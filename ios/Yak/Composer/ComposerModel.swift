@@ -265,7 +265,7 @@ final class ComposerModel {
         defer { isStopping = false }
         switch await backend.stop() {
         case .done, .alreadySent: problem = nil
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             problem = message.isEmpty ? String(localized: "composer.problem.stopFailed") : message
         case .failed: problem = String(localized: "composer.problem.stopFailed")
         }

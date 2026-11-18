@@ -140,7 +140,7 @@ private func sentBody(_ request: URLRequest) -> String {
     let actions = makeActions(transport)
     let route = "PUT threads/\(threadID)/pull-requests/order"
     for order in [[], Array(1...51)] {
-        guard case .refused(let code, _, _) = await actions.reorder(order) else {
+        guard case .refused(let code, _, _, _) = await actions.reorder(order) else {
             Issue.record("expected a refusal for \(order.count) ids")
             continue
         }

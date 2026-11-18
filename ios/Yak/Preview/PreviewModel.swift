@@ -402,7 +402,7 @@ final class PreviewModel {
     private func report(_ outcome: ThreadActionOutcome) {
         switch outcome {
         case .done, .alreadySent: break
-        case .refused(_, let message, _): setLine(message)
+        case .refused(_, let message, _, _): setLine(message)
         case .failed(.offline): setLine(String(localized: "preview.line.restoreOffline"))
         case .failed: setLine(String(localized: "preview.line.restoreFailed"))
         }

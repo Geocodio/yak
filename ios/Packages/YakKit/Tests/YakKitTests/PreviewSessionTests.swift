@@ -270,7 +270,7 @@ private func thread(
             == .refused(code: "thread_closed", message: "This thread is closed.", fieldErrors: [:]))
     #expect(await rig.count(statusRoute) == 2)
     await rig.transport.on(restoreRoute, .json(403, #"{"error":"forbidden","message":"No."}"#))
-    guard case .refused(let code, _, _) = await rig.session.restore() else {
+    guard case .refused(let code, _, _, _) = await rig.session.restore() else {
         Issue.record("expected a refusal")
         return
     }

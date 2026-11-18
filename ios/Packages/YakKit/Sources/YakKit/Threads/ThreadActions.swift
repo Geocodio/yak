@@ -5,13 +5,15 @@ public enum ThreadActionOutcome: Equatable, Sendable {
     case done
     /// 409 message_delivered: the queued message already went out. The page is refreshed.
     case alreadySent
-    /// A 4xx answer. `fieldErrors` comes from `details.errors` of a 422.
-    case refused(code: String, message: String, fieldErrors: [String: [String]])
-    /// A network failure, a 5xx answer and everything else.
+    /// The server said no, in words the person can read: a 4xx answer, or a 5xx answer with a code of its own
+    /// (`github_failed`, `access_check_failed`). `fieldErrors` comes from `details.errors` of a 422 and
+    /// `connectURL` from `details.connectUrl` when GitHub must be linked first.
+    case refused(code: String, message: String, fieldErrors: [String: [String]], connectURL: String? = nil)
+    /// A network failure, a timeout, a 503 `unavailable`, a generic server error and everything else.
     case failed(ThreadProblem)
 
     init(_ failure: APIFailure) {
-        guard case .server(let error) = failure, (400..<500).contains(error.status) else {
+        guard case .server(let error) = failure, Self.isRefusal(error) else {
             self = .failed(ThreadProblem(failure))
             return
         }
@@ -19,13 +21,15 @@ public enum ThreadActionOutcome: Equatable, Sendable {
             self = .alreadySent
             return
         }
-        var fieldErrors: [String: [String]] = [:]
-        if case .object(let fields)? = error.details["errors"] {
-            for (field, value) in fields {
-                if case .array(let messages) = value { fieldErrors[field] = messages.compactMap(\.stringValue) }
-            }
-        }
-        self = .refused(code: error.code, message: error.message, fieldErrors: fieldErrors)
+        self = .refused(
+            code: error.code, message: error.message, fieldErrors: refusalFieldErrors(error),
+            connectURL: error.details["connectUrl"]?.stringValue)
+    }
+
+    /// A 5xx answer is a refusal when it names its own reason; `unavailable` and `server_error` are transient.
+    private static func isRefusal(_ error: APIError) -> Bool {
+        if (400..<500).contains(error.status) { return true }
+        return error.status >= 500 && !["unavailable", "server_error", "unknown"].contains(error.code)
     }
 
     fileprivate static let questionClosed = ThreadActionOutcome.refused(
@@ -67,6 +71,25 @@ extension ThreadEngine {
         await cache.saveQuestionDraft(draft, thread: threadID)
     }
 
+    /// Sends one work action of the thread (retry, move, a co-owner decision and the rest). The answer carries
+    /// the refreshed show, which replaces the page without a second request. A move that lands on another
+    /// thread sets the replacement instead. A second call for the same action joins the one in flight.
+    public func perform(_ action: ThreadWorkAction) async -> ThreadActionOutcome {
+        await perform(
+            "work:\(action)", .threadAction(threadID, action),
+            onResponse: { engine, answer in await engine.adopt(answer.show) })
+    }
+
+    /// The people GitHub says could co-own this thread. A second call after `isComplete` was false asks again.
+    public func coOwnerCandidates() async -> Result<CoOwnerCandidates, APIFailure> {
+        guard !isClosed else { return .failure(.network(.cancelled)) }
+        do throws(APIFailure) {
+            return .success(try await sendWaitingOutRateLimit(.threadCoOwnerCandidates(threadID)))
+        } catch {
+            return .failure(error)
+        }
+    }
+
     public func setQueuedMessageMode(_ uuid: String, mode: MessageMode) async -> ThreadActionOutcome {
         await perform(
             "mode:\(uuid):\(mode.rawValue)",
@@ -93,24 +116,27 @@ extension ThreadEngine {
     /// requested change, so a different change is sent as its own request.
     private func perform<Response: Decodable & Sendable>(
         _ key: String, _ endpoint: Endpoint<Response>,
+        onResponse: (@Sendable (ThreadEngine, Response) async -> Bool)? = nil,
         onDone: (@Sendable (ThreadEngine) async -> Void)? = nil
     ) async -> ThreadActionOutcome {
         guard !isClosed else { return .failed(.offline) }
         if let running = actionTasks[key] { return await running.value }
         let task = Task { () -> ThreadActionOutcome in
             let outcome: ThreadActionOutcome
+            var isShowAdopted = false
             do throws(APIFailure) {
-                _ = try await self.sendWaitingOutRateLimit(endpoint)
+                let response = try await self.sendWaitingOutRateLimit(endpoint)
                 outcome = .done
+                if let onResponse { isShowAdopted = await onResponse(self, response) }
             } catch {
                 outcome = ThreadActionOutcome(error)
             }
-            if case .refused("forbidden", _, _) = outcome, !self.isClosed {
+            if case .refused("forbidden", _, _, _) = outcome, !self.isClosed {
                 self.isForbidden = true
                 self.changed(isStored: false)
             }
             if outcome == .done { await onDone?(self) }
-            if outcome != .failed(.offline) { await self.refreshShow() }
+            if outcome != .failed(.offline), !isShowAdopted { await self.refreshShow() }
             self.actionTasks[key] = nil
             return outcome
         }
@@ -125,7 +151,7 @@ extension ThreadEngine {
 
     /// Sends an action. A `rate_limited` answer is waited out once, as the server asked, and the request is sent again;
     /// the wait ends when the engine closes. After five seconds the snapshot says the action is slow.
-    private func sendWaitingOutRateLimit<Response: Decodable & Sendable>(
+    func sendWaitingOutRateLimit<Response: Decodable & Sendable>(
         _ endpoint: Endpoint<Response>
     ) async throws(APIFailure) -> Response {
         do { return try await client.send(endpoint) } catch {
