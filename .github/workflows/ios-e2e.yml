@@ -81,13 +81,12 @@ jobs:
       - name: Journeys
         working-directory: ios
         run: bundle exec fastlane e2e
-      - name: Keep the logs and the result bundle
+      # Only the lane's evidence folder, which exists only after a clean token scan. The result bundle is never uploaded.
+      - name: Keep the evidence
         if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-evidence
           retention-days: 14
-          path: |
-            ios/build/e2e/logs
-            ios/build/e2e/attachments
-            ios/build/e2e/*.xcresult
+          if-no-files-found: ignore
+          path: ios/build/e2e/evidence

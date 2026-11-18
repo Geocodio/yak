@@ -60,10 +60,84 @@ module E2eLane
     true
   end
 
-  # Reverb's debug log pretty-prints each message over several lines, in colour: a "pusher:subscribe" event whose
-  # channel is a private one means the app used the realtime connection.
-  def self.realtime_subscribed?(reverb_log)
+  # The ids of the threads the seed built; a thread any journey opens afterwards is not among them.
+  def self.seeded_thread_ids(seed_json)
+    JSON.parse(seed_json).fetch("threads").values.map { |thread| thread.fetch("id").to_s }
+  end
+
+  # Reverb's debug log pretty-prints each message over several lines, in colour. True when a "pusher:subscribe" event
+  # names the private channel of a thread the seed did not build: the one journey 2 starts, so it streamed over the
+  # realtime connection and did not fall back to polling.
+  def self.realtime_subscribed?(reverb_log, seeded_thread_ids)
     text = reverb_log.to_s.gsub(/\e\[[0-9;]*m/, "")
-    text.include?("pusher:subscribe") && text.match?(/"channel": "private-[^"]+"/)
+    text.split('"event": "pusher:subscribe"').drop(1).any? do |segment|
+      id = segment[0, 600][/"channel": "private-thread\.([^"]+)"/, 1]
+      id && !seeded_thread_ids.include?(id)
+    end
+  end
+
+  # Raises when a cached config would make the server ignore scripts/e2e/env.sh and run against the developer's database.
+  def self.refuse_cached_config!(repository_root)
+    path = File.join(repository_root, "bootstrap/cache/config.php")
+    raise ArgumentError, "#{path} exists, so the server would ignore the e2e settings; run php artisan config:clear first" if File.exist?(path)
+  end
+
+  class TimedOut < StandardError; end
+
+  # Runs a shell command in its own process group and stops the whole group when it outlives `seconds`. The environment
+  # goes to this one child and never into the command string.
+  def self.run_with_timeout(command, seconds, environment: {})
+    pid = Process.spawn(environment, command, pgroup: true)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + [seconds, 0].max
+    loop do
+      _, status = Process.wait2(pid, Process::WNOHANG)
+      return status if status
+      break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+      sleep 0.2
+    end
+    %w[TERM KILL].each do |signal|
+      begin
+        Process.kill(signal, -pid)
+      rescue Errno::ESRCH, Errno::EPERM
+        nil
+      end
+      25.times do
+        break if Process.wait2(pid, Process::WNOHANG)
+        sleep 0.2
+      end
+      break unless Process.waitpid(pid, Process::WNOHANG).nil?
+    rescue Errno::ECHILD
+      break
+    end
+    raise TimedOut, "stopped after #{seconds.round} s"
+  end
+
+  # Starts the server, then yields; stops the server afterwards unless `keep_server`, and always collects. A start that
+  # fails stops nothing and collects nothing, because it may have been refused by a server another run started.
+  def self.with_server(start:, stop:, collect:, keep_server: false)
+    start.call
+    begin
+      yield
+    ensure
+      begin
+        stop.call unless keep_server
+      ensure
+        collect.call
+      end
+    end
+  end
+
+  # Moves the staged evidence to `evidence` only when no file holds a secret. A leak (or no known secret to scan for)
+  # deletes the staged files and publishes nothing. Returns the files that held a secret.
+  def self.publish_evidence(staging, evidence, secrets)
+    FileUtils.rm_rf(evidence)
+    return [] unless File.directory?(staging)
+    leaked = secrets.empty? ? [staging] : files_with_secrets([staging], secrets)
+    if leaked.empty?
+      File.rename(staging, evidence)
+    else
+      FileUtils.rm_rf(staging)
+    end
+    leaked
   end
 end

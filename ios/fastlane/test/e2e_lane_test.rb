@@ -61,10 +61,110 @@ class E2eLaneTest < Minitest::Test
     end
   end
 
-  def test_realtime_needs_a_private_channel_subscription
-    subscribe = "\e[90m  1\e[39m\e[34m{\e[0m\n  \"event\": \"pusher:subscribe\",\n  \"data\": {\n    \"channel\": \"private-thread.abc\"\n"
-    assert E2eLane.realtime_subscribed?(subscribe)
-    refute E2eLane.realtime_subscribed?(subscribe.sub("private-", "presence-"))
-    refute E2eLane.realtime_subscribed?("")
+  def subscribe_to(channel)
+    "\e[90m  1\e[39m\e[34m{\e[0m\n  \"event\": \"pusher:subscribe\",\n  \"data\": {\n    \"auth\": \"x:y\",\n    \"channel\": \"#{channel}\"\n"
+  end
+
+  def test_realtime_needs_a_subscription_to_a_thread_the_seed_did_not_build
+    seeded = %w[seeded1 seeded2]
+    assert E2eLane.realtime_subscribed?(subscribe_to("private-thread.new1"), seeded)
+    refute E2eLane.realtime_subscribed?(subscribe_to("private-thread.seeded1"), seeded)
+    refute E2eLane.realtime_subscribed?(subscribe_to("presence-thread-presence.new1"), seeded)
+    refute E2eLane.realtime_subscribed?(subscribe_to("private-thread.new1").sub("pusher:subscribe", "pusher:unsubscribe"), seeded)
+    refute E2eLane.realtime_subscribed?("", seeded)
+  end
+
+  def test_seeded_thread_ids
+    seed = JSON.generate("threads" => {"finished" => {"id" => "a"}, "held" => {"id" => "b"}})
+    assert_equal %w[a b], E2eLane.seeded_thread_ids(seed)
+  end
+
+  def test_a_cached_config_is_refused
+    Dir.mktmpdir do |root|
+      E2eLane.refuse_cached_config!(root)
+      FileUtils.mkdir_p(File.join(root, "bootstrap/cache"))
+      File.write(File.join(root, "bootstrap/cache/config.php"), "<?php")
+      assert_raises(ArgumentError) { E2eLane.refuse_cached_config!(root) }
+    end
+  end
+
+  def test_a_timeout_stops_the_command_and_its_children
+    started = Time.now
+    assert_raises(E2eLane::TimedOut) { E2eLane.run_with_timeout("sleep 30 & sleep 30", 1) }
+    assert_operator Time.now - started, :<, 10
+    assert E2eLane.run_with_timeout("exit 0", 5).success?
+    refute E2eLane.run_with_timeout("exit 3", 5).success?
+    assert E2eLane.run_with_timeout('test "$PLANTED" = yes', 5, environment: {"PLANTED" => "yes"}).success?
+  end
+
+  def run_with_server(start_fails: false, body_fails: false, keep_server: false)
+    calls = []
+    start = -> { calls << :start; raise "start refused" if start_fails }
+    begin
+      E2eLane.with_server(start: start, stop: -> { calls << :stop }, collect: -> { calls << :collect }, keep_server: keep_server) do
+        calls << :body
+        raise "journey failed" if body_fails
+      end
+    rescue RuntimeError
+      calls << :raised
+    end
+    calls
+  end
+
+  def test_a_failed_start_stops_nothing_and_collects_nothing
+    assert_equal %i[start raised], run_with_server(start_fails: true)
+  end
+
+  def test_a_started_server_is_stopped_and_collected_even_when_the_body_fails
+    assert_equal %i[start body stop collect], run_with_server
+    assert_equal %i[start body stop collect raised], run_with_server(body_fails: true)
+  end
+
+  def test_keep_server_leaves_the_server_running_but_still_collects
+    assert_equal %i[start body collect], run_with_server(keep_server: true)
+  end
+
+  def stage(root, files)
+    staging = File.join(root, "staging")
+    FileUtils.mkdir_p(File.join(staging, "logs"))
+    files.each { |name, content| File.binwrite(File.join(staging, name), content) }
+    [staging, File.join(root, "evidence")]
+  end
+
+  def test_clean_evidence_moves_to_the_evidence_folder_and_the_staging_folder_goes
+    Dir.mktmpdir do |root|
+      staging, evidence = stage(root, "logs/server.log" => "all quiet")
+      assert_empty E2eLane.publish_evidence(staging, evidence, E2eLane.secrets(SEED))
+      assert_equal "all quiet", File.read(File.join(evidence, "logs/server.log"))
+      refute File.exist?(staging)
+    end
+  end
+
+  def test_a_planted_token_refuses_the_whole_evidence_and_nothing_is_published
+    Dir.mktmpdir do |root|
+      staging, evidence = stage(root, "logs/server.log" => "Bearer token-main-aaaa", "logs/other.log" => "fine")
+      leaked = E2eLane.publish_evidence(staging, evidence, E2eLane.secrets(SEED))
+      assert_equal ["server.log"], leaked.map { |path| File.basename(path) }
+      refute File.exist?(evidence)
+      refute File.exist?(staging)
+    end
+  end
+
+  def test_evidence_is_not_published_when_no_secret_is_known
+    Dir.mktmpdir do |root|
+      staging, evidence = stage(root, "logs/server.log" => "x")
+      refute_empty E2eLane.publish_evidence(staging, evidence, [])
+      refute File.exist?(evidence)
+    end
+  end
+
+  def test_an_old_evidence_folder_never_survives_a_run
+    Dir.mktmpdir do |root|
+      staging, evidence = stage(root, "logs/server.log" => "Bearer token-main-aaaa")
+      FileUtils.mkdir_p(evidence)
+      File.write(File.join(evidence, "old.log"), "old")
+      E2eLane.publish_evidence(staging, evidence, E2eLane.secrets(SEED))
+      refute File.exist?(evidence)
+    end
   end
 end

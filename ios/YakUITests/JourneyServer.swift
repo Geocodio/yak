@@ -40,6 +40,10 @@ struct JourneyServer {
         let encoded = try XCTUnwrap(ProcessInfo.processInfo.environment["YAK_E2E_SEED"], message)
         let data = try XCTUnwrap(Data(base64Encoded: encoded), message)
         seed = try XCTUnwrap(try? JSONDecoder().decode(JourneySeed.self, from: data), message)
+        // The journeys send a login, an approval and a revoke: only to a Yak on this Mac, as `http://127.0.0.1:<port>`.
+        _ = try XCTUnwrap(
+            seed.url.range(of: #"^http://127\.0\.0\.1:[0-9]{1,5}$"#, options: .regularExpression),
+            "The seed's address is not http://127.0.0.1:<port>")
     }
 
     /// Launch arguments for a start paired with one of the seed's phones, or an unpaired start.

@@ -37,8 +37,10 @@ import XCTest
         let code = try XCTUnwrap(components.queryItems?.first { $0.name == "code" }?.value, "no code in \(approvalURL)")
         let (_, page) = try await send("GET", "/device?code=\(code)")
         XCTAssertEqual(page.statusCode, 200, "the approval page answered \(page.statusCode)")
-        let (_, response) = try await send("POST", "/device/approve", form: ["code": code])
-        XCTAssertEqual(response.statusCode, 200, "approving the phone answered \(response.statusCode)")
+        let (_, response) = try await send("POST", "/device/approve", form: ["code": code], followRedirects: false)
+        XCTAssertEqual(response.statusCode, 302, "approving the phone answered \(response.statusCode)")
+        let location = response.value(forHTTPHeaderField: "Location") ?? ""
+        XCTAssertTrue(location.contains("result=approved"), "approving the phone redirected to \(location)")
     }
 
     /// Revokes the named device on Settings, Devices, as its "Revoke" button and dialog do. The page lists its
@@ -57,8 +59,13 @@ import XCTest
         let list = try XCTUnwrap(try? JSONSerialization.jsonObject(with: data), "the devices list is not JSON")
         let identifier = try XCTUnwrap(
             Self.find(deviceNamed: name, in: list), "no device named \(name) on Settings, Devices")
-        let (_, response) = try await send("POST", "/settings/devices/\(identifier)", form: ["_method": "DELETE"])
-        XCTAssertEqual(response.statusCode, 200, "revoking \(name) answered \(response.statusCode)")
+        let (_, response) = try await send(
+            "POST", "/settings/devices/\(identifier)", form: ["_method": "DELETE"],
+            headers: ["Referer": server.url + "/settings/devices"], followRedirects: false)
+        XCTAssertEqual(response.statusCode, 302, "revoking \(name) answered \(response.statusCode)")
+        let (flash, _) = try await send("GET", "/settings/devices")
+        XCTAssertTrue(
+            String(decoding: flash, as: UTF8.self).contains("Revoked \(name)."), "the page does not say \(name) was revoked")
     }
 
     /// The asset version in the page's Inertia data.
@@ -85,7 +92,8 @@ import XCTest
     }
 
     private func send(
-        _ method: String, _ path: String, form: [String: String] = [:], headers: [String: String] = [:]
+        _ method: String, _ path: String, form: [String: String] = [:], headers: [String: String] = [:],
+        followRedirects: Bool = true
     ) async throws -> (
         Data, HTTPURLResponse
     ) {
@@ -106,7 +114,16 @@ import XCTest
             }
             .joined(separator: "&").data(using: .utf8)
         }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(
+            for: request, delegate: followRedirects ? nil : RedirectRefusal())
         return (data, try XCTUnwrap(response as? HTTPURLResponse))
     }
+}
+
+/// Hands the redirect response to the caller, so a journey can assert the status and the address itself.
+private final class RedirectRefusal: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest
+    ) async -> URLRequest? { nil }
 }

@@ -28,7 +28,9 @@ import XCTest
     /// Opens the drawer when the thread screen shows, so a thread row can be tapped.
     private func openDrawerIfNeeded() {
         if element("drawer").waitForExistence(timeout: 10) { return }
-        app.buttons["threads.button"].tap()
+        let button = app.buttons["threads.button"]
+        JourneyWait.until(button, within: 20, "the threads button", in: self)
+        button.tap()
     }
 
     private func typeAddressOnConnectScreen() {
@@ -84,7 +86,8 @@ import XCTest
         try await web.revokePhone(named: server.seed.phones.second.name)
         app.activate()
         openDrawerIfNeeded()
-        if finished.waitForExistence(timeout: 5) { finished.tap() }
+        JourneyWait.until(finished, within: 10, "the finished thread in the drawer after the revoke", in: self)
+        finished.tap()
         let pairAgain = app.buttons["Pair again"]
         JourneyWait.until(pairAgain, within: 20, "\"Pair again\" after the revoke", in: self)
         try JourneyWait.audit(app, in: self)
@@ -98,10 +101,30 @@ import XCTest
             "\"Waiting for you to approve this device\"", in: self)
         try await approveTheWaitingPairing()
         // Pairing again returns to the thread the person had opened.
-        JourneyWait.until(
-            app.staticTexts[server.seed.threads.finished.title], within: 30,
-            "the finished thread's title after pairing again", in: self)
+        // The drawer row has the same title, so the wait is on the thread screen's own title.
+        let title = app.descendants(matching: .any).matching(identifier: "thread.title")
+            .matching(NSPredicate(format: "label CONTAINS %@", server.seed.threads.finished.title)).firstMatch
+        JourneyWait.until(title, within: 30, "the finished thread's title after pairing again", in: self)
         XCTAssertFalse(app.buttons["Pair again"].exists, "the app still asks to pair again")
+    }
+
+    // MARK: Journey 3
+
+    /// Waits for the thread question card, which is in another pull request and not on main yet. Until it lands this
+    /// test is skipped, and the skip shows in every run's summary. The steps, with the card's identifiers, are:
+    ///
+    /// 1. Launch paired with the main phone and open `server.seed.threads.question` from the drawer. The seed gives
+    ///    that thread an open round with one question, "What should happen to a row that fails?", and two options,
+    ///    "Mark the row as failed" and "Fail the whole batch".
+    /// 2. Wait for `question.card`.
+    /// 3. Tap `question.option.0` ("Mark the row as failed"), then `question.next`.
+    /// 4. Wait for `question.review`, which lists the answer.
+    /// 5. Tap `question.send`.
+    /// 6. Wait for `question.card` to go, and for the turn to continue: `composer.stop` shows while the fake runner
+    ///    answers, then goes, and the composer placeholder reads "Message Yak" again.
+    /// 7. Run the audit.
+    func testJourney3AnswersAQuestionAndTheTurnContinues() throws {
+        throw XCTSkip("The thread question card is not on main yet")
     }
 
     // MARK: Journey 2
@@ -152,6 +175,9 @@ import XCTest
         app.buttons["composer.send"].tap()
         let stop = app.buttons["composer.stop"]
         JourneyWait.until(stop, within: 45, "the stop button while the held turn runs", in: self)
+        // Only the fake runner writes this line (the held turn's tool call): a server with no runner never shows it.
+        JourneyWait.until(
+            app.staticTexts["Running scrubbed command 1"], within: 30, "the runner's step line of the held turn", in: self)
         XCTAssertEqual(composerPlaceholder, "Steer Yak")
         field.tap()
         field.typeText("Also cover the empty file case")
@@ -215,6 +241,7 @@ import XCTest
         let row = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'pullRequest.row.'")).firstMatch
         JourneyWait.until(row, within: 10, "the pull request row", in: self)
+        XCTAssertTrue(row.label.contains("#\(fakePullRequestNumber) example/api"), "the row reads \(row.label)")
         XCTAssertTrue(row.label.contains("Open"), "the row reads \(row.label)")
         try JourneyWait.audit(app, in: self)
     }
