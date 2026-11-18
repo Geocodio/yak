@@ -364,7 +364,8 @@ it('previews a code file read-only with highlighting picked from the extension',
         ->assertSeeIn('[data-testid="media-lightbox-language"]', 'PHP · 6 lines')
         ->assertSeeIn('[data-testid="media-lightbox-code"]', 'function total');
 
-    // Highlighted tokens are wrapped in spans; unhighlighted text is bare.
+    // The highlighter loads after the code shows; highlighted tokens are wrapped in spans, unhighlighted text is bare.
+    $page->script('new Promise((resolve) => { const start = Date.now(); (function poll() { if (document.querySelector(\'[data-testid="media-lightbox-code"] .cm-line span\') || Date.now() - start > 4000) { resolve(true); } else { setTimeout(poll, 100); } })(); })');
     expect($page->script(<<<'JS'
         (() => [...document.querySelectorAll('[data-testid="media-lightbox-code"] .cm-line span')].map((span) => span.textContent))()
         JS))->toContain('function', '$items', '// cents');
