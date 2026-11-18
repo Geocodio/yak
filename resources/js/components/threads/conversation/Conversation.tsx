@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
-import type { ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadMilestone, ThreadNotice as ThreadNoticeData, ThreadRunSummary, ThreadWalkthrough } from '@/types/threads';
+import type { EarlierWalkthrough, ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadMilestone, ThreadNotice as ThreadNoticeData, ThreadRunSummary, ThreadWalkthrough } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { ChildCard } from './ChildCard';
@@ -29,7 +29,8 @@ import { SideSwitchDivider } from './SideSwitchDivider';
 import { switchPosition } from './switchPosition';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolSteps } from './ToolSteps';
-import { WalkthroughCard } from './WalkthroughCard';
+import { EarlierWalkthroughCard, WalkthroughCard, WalkthroughRecordingRow } from './WalkthroughCard';
+import { placeWalkthroughs } from './placeWalkthroughs';
 import { SharedFilesCard } from './SharedFilesCard';
 import { placeSharedFiles } from '@/components/threads/files/sharedFiles';
 import type { ConversationItem } from './conversationItem';
@@ -85,7 +86,7 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges, footer = null }: { footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges, footer = null }: { footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
@@ -101,6 +102,28 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     }, [unsent.length, jumpToNewest]);
     // New files arrive after a turn ends; the card appears without a reload.
     usePoll(10_000, { only: ['sharedFiles'] });
+    const isWalkthroughWorking = walkthrough?.isRecording === true || walkthrough?.isRendering === true;
+    const walkthroughPoll = usePoll(4000, { only: ['walkthrough', 'earlierWalkthroughs'] }, { autoStart: false });
+
+    // Polls only while Claude records or the video renders; a finished video is left alone so it can play.
+    useEffect(() => {
+        if (isWalkthroughWorking) {
+            walkthroughPoll.start();
+        } else {
+            walkthroughPoll.stop();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isWalkthroughWorking]);
+
+    const latestWalkthrough = walkthrough !== null && (walkthrough.recordedAt !== null || walkthrough.isRenderFailed) ? walkthrough : null;
+    const walkthroughVersions: ({ earlier: EarlierWalkthrough; anchorSequence: number | null } | { latest: ThreadWalkthrough; anchorSequence: number | null })[] = [
+        ...earlierWalkthroughs.map((earlier) => ({ earlier, anchorSequence: earlier.anchorSequence })),
+        ...(latestWalkthrough === null ? [] : [{ latest: latestWalkthrough, anchorSequence: latestWalkthrough.anchorSequence }]),
+    ];
+    const { after: walkthroughsAfter, trailing: trailingWalkthroughs } = placeWalkthroughs(entries, walkthroughVersions);
+    const renderWalkthrough = (version: (typeof walkthroughVersions)[number]) => 'earlier' in version
+        ? <EarlierWalkthroughCard key={`walkthrough-${version.earlier.number}`} walkthrough={version.earlier} />
+        : <WalkthroughCard key={`walkthrough-${version.latest.number}`} walkthrough={version.latest} threadId={threadId} canRetryRender={!readonly} canRecordAgain={!readonly && !working} startAt={walkthroughStartAt} />;
     const { after: filesAfter, trailing: trailingFiles } = placeSharedFiles(entries, sharedFiles);
     const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs);
     const retryNumbers = new Map<string, number>();
@@ -152,6 +175,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                                 {(filesAfter.get(index) ?? []).map((group) => (
                                     <SharedFilesCard key={group[0].id} files={group} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
                                 ))}
+                                {(walkthroughsAfter.get(index) ?? []).map(renderWalkthrough)}
                             </Fragment>
                         );
                     }
@@ -182,7 +206,8 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {question !== null && !readonly && (
                     <QuestionsForm key={question.taskId} threadId={threadId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
                 )}
-                {walkthrough !== null && <WalkthroughCard walkthrough={walkthrough} threadId={threadId} canRetryRender={!readonly} startAt={walkthroughStartAt} />}
+                {trailingWalkthroughs.map(renderWalkthrough)}
+                {walkthrough?.isRecording === true && <WalkthroughRecordingRow number={walkthrough.nextNumber} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
                 {waiting !== null && (
                     <div className="ml-9">
