@@ -156,7 +156,9 @@ final class QuestionModel {
     /// Saves the draft with the text in the open field, without changing what is on screen, and waits for every
     /// queued save. The thread calls it when it goes away or the app goes to the background.
     func flush() async {
-        if canChange, let flow, case .typing = flow.step, !typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if canChange, let flow, case .typing = flow.step,
+            !typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
             let draft = flow.draft(typing: typedText)
             let previous = saveChain
             saveChain = Task { [backend] in

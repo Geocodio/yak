@@ -38,7 +38,8 @@ import XCTest
     func testQuestionTyping() throws {
         try open("question-open")
         app.buttons["question.typeAnswer"].tap()
-        let field = app.textViews["question.field"].exists ? app.textViews["question.field"] : app.textFields["question.field"]
+        let field =
+            app.textViews["question.field"].exists ? app.textViews["question.field"] : app.textFields["question.field"]
         XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
         field.typeText("Mark it failed and tell the on-call person")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Wait.appear))

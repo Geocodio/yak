@@ -227,7 +227,9 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
 
     @Test func aRefusalWithoutAFailureBeforeItStillShowsClosed() async {
         let backend = FakeQuestionBackend()
-        await backend.set(outcomes: [.failed(.offline), .refused(code: "validation_failed", message: "m", fieldErrors: [:])])
+        await backend.set(outcomes: [
+            .failed(.offline), .refused(code: "validation_failed", message: "m", fieldErrors: [:]),
+        ])
         let model = await answeredModel(backend)
         await model.send()
         await model.send()
