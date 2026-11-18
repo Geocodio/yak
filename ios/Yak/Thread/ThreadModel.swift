@@ -124,11 +124,15 @@ final class ThreadModel {
         onVisibilityChange(false)
         await files.stop()
         await composer.flush()
+        await question.flush()
         await close()
     }
 
     /// Saves the draft now; the screen calls it when the app goes to the background.
-    func flushDraft() async { await composer.flush() }
+    func flushDraft() async {
+        await composer.flush()
+        await question.flush()
+    }
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible

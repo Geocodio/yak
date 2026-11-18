@@ -52,9 +52,9 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
 @MainActor private func answeredModel(_ backend: FakeQuestionBackend) async -> QuestionModel {
     let model = QuestionModel(backend: backend)
     await model.update(question: round())
-    await model.pick("Mark the row as failed")
-    await model.pick("The owner")
-    await model.next()
+    await model.pick("Mark the row as failed", question: 0)
+    await model.pick("The owner", question: 1)
+    await model.next(question: 1)
     return model
 }
 
@@ -63,10 +63,11 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
         let backend = FakeQuestionBackend()
         let model = QuestionModel(backend: backend)
         await model.update(question: round())
-        await model.pick("Mark the row as failed")
-        await model.pick("The owner")
-        await model.next()
-        await model.setNote("Thanks")
+        await model.pick("Mark the row as failed", question: 0)
+        await model.pick("The owner", question: 1)
+        await model.next(question: 1)
+        model.setNote("Thanks")
+        await model.flush()
         let saved = await backend.saved
         #expect(saved.count == 4)
         #expect(saved.last?.answers["notify"]?.choices == ["The owner"] && saved.last?.note == "Thanks")
@@ -77,7 +78,7 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
         let backend = FakeQuestionBackend()
         let model = QuestionModel(backend: backend)
         await model.update(question: round())
-        await model.pick("Fail the whole batch")
+        await model.pick("Fail the whole batch", question: 0)
         await model.update(question: round())
         #expect(model.flow?.answers.count == 1)
         await model.update(question: round(task: "other"))
@@ -106,7 +107,7 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
         let model = await answeredModel(FakeQuestionBackend())
         await model.update(question: nil)
         #expect(model.isClosed && model.flow?.canSend == true)
-        await model.pick("Fail the whole batch")
+        await model.pick("Fail the whole batch", question: 0)
         #expect(model.flow?.answers["on_failure"]?.choices == ["Mark the row as failed"])
         model.dismiss()
         #expect(model.flow == nil && !model.isClosed)
@@ -198,5 +199,176 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
         await backend.releaseSend()
         await sending.value
         #expect(model.flow == nil && model.sentCount == 1)
+    }
+
+    // MARK: A reply lost on the way back
+
+    @Test func aLostReplyThenAClosedRoundDoesNotClaimTheAnswersWereNotSent() async {
+        let backend = FakeQuestionBackend()
+        await backend.set(outcomes: [.failed(.offline)])
+        let model = await answeredModel(backend)
+        await model.send()
+        model.connectionRestored()
+        await model.update(question: nil)
+        #expect(model.flow == nil && !model.isClosed)
+    }
+
+    @Test func aLostReplyThenQuestionClosedOnRetryClearsTheCard() async {
+        let backend = FakeQuestionBackend()
+        await backend.set(outcomes: [
+            .failed(.offline), .refused(code: "question_closed", message: "", fieldErrors: [:]),
+        ])
+        let model = await answeredModel(backend)
+        await model.send()
+        model.setNote("Edited after the failure")
+        await model.send()
+        #expect(model.flow == nil && !model.isClosed)
+    }
+
+    @Test func aRefusalWithoutAFailureBeforeItStillShowsClosed() async {
+        let backend = FakeQuestionBackend()
+        await backend.set(outcomes: [.failed(.offline), .refused(code: "validation_failed", message: "m", fieldErrors: [:])])
+        let model = await answeredModel(backend)
+        await model.send()
+        await model.send()
+        await backend.set(outcomes: [.refused(code: "question_closed", message: "", fieldErrors: [:])])
+        await model.send()
+        #expect(model.isClosed)
+    }
+
+    // MARK: Typed text
+
+    @Test func flushSavesTheTypedTextWithoutChangingTheScreen() async {
+        let backend = FakeQuestionBackend()
+        let model = QuestionModel(backend: backend)
+        await model.update(question: round())
+        await model.pick("Mark the row as failed", question: 0)
+        model.startTyping()
+        model.typedText = "Notify the on-call person"
+        await model.flush()
+        let saved = await backend.saved.last
+        #expect(saved?.answers["notify"]?.other == "Notify the on-call person" && saved?.typing == 1)
+        #expect(model.flow?.step == .typing(1) && model.typedText == "Notify the on-call person")
+        let returning = QuestionModel(backend: backend)
+        await backend.set(stored: saved)
+        await returning.update(question: round())
+        #expect(returning.flow?.step == .typing(1) && returning.typedText == "Notify the on-call person")
+    }
+
+    @Test func flushWithoutTypedTextSavesNothingNew() async {
+        let backend = FakeQuestionBackend()
+        let model = QuestionModel(backend: backend)
+        await model.update(question: round())
+        model.startTyping()
+        await model.flush()
+        #expect(await backend.saved.isEmpty)
+    }
+
+    @Test func theNoteIsTakenAtOnceAndSavedBeforeASend() async {
+        let backend = FakeQuestionBackend()
+        let model = await answeredModel(backend)
+        model.setNote("a")
+        model.setNote("ab")
+        #expect(model.flow?.note == "ab")
+        await model.send()
+        #expect(await backend.saved.last?.note == "ab")
+    }
+
+    @Test func cancelTypingClearsTheText() async {
+        let model = QuestionModel(backend: FakeQuestionBackend())
+        await model.update(question: round())
+        model.startTyping()
+        model.typedText = "never mind"
+        model.cancelTyping()
+        #expect(model.typedText.isEmpty)
+        await model.update(question: nil)
+        #expect(model.flow == nil && !model.isClosed)
+    }
+
+    @Test func typedTextStaysWhenTheChangeIsRefused() async {
+        let model = QuestionModel(backend: FakeQuestionBackend())
+        await model.update(question: round())
+        model.startTyping()
+        model.typedText = "Retry once"
+        await model.update(question: nil)
+        await model.submitTyped("Retry once")
+        #expect(model.typedText == "Retry once")
+    }
+
+    // MARK: Rounds
+
+    @Test func aStaleSnapshotAfterASendDoesNotBringTheCardBack() async {
+        let model = await answeredModel(FakeQuestionBackend())
+        await model.send()
+        await model.update(question: round())
+        #expect(model.flow == nil)
+        await model.update(question: round(task: "other"))
+        #expect(model.flow != nil)
+    }
+
+    @Test func aRoundArrivingDuringASendWaitsForTheSend() async {
+        let backend = FakeQuestionBackend()
+        await backend.hold()
+        let model = await answeredModel(backend)
+        let sending = Task { await model.send() }
+        while !model.isSending { await Task.yield() }
+        await model.update(question: round(task: "next-round"))
+        #expect(model.isSending && model.flow?.roundKey == round().roundKey)
+        await backend.releaseSend()
+        await sending.value
+        #expect(model.flow?.roundKey == round(task: "next-round").roundKey && !model.isSending)
+        #expect(model.flow?.answers.isEmpty == true)
+    }
+
+    @Test func changedQuestionsUnderTheSameIdsReplaceTheFlow() async {
+        let model = QuestionModel(backend: FakeQuestionBackend())
+        await model.update(question: round())
+        await model.pick("Fail the whole batch", question: 0)
+        let reworded = ThreadQuestion(
+            taskId: round().taskId,
+            questions: round().questions.map {
+                ClarificationQuestion(
+                    id: $0.id, header: $0.header, question: "Asked again?", options: $0.options,
+                    multiSelect: $0.multiSelect)
+            })
+        await model.update(question: reworded)
+        #expect(model.flow?.questions.first?.question == "Asked again?")
+        #expect(model.flow?.answers.isEmpty == true)
+    }
+
+    @Test func aTapForAnotherQuestionChangesNothing() async {
+        let model = QuestionModel(backend: FakeQuestionBackend())
+        await model.update(question: round())
+        await model.pick("Mark the row as failed", question: 0)
+        await model.pick("Yes", question: 0)
+        await model.pick("The owner", question: 0)
+        #expect(model.flow?.step == .question(1) && model.flow?.isAnswered("notify") == false)
+    }
+
+    // MARK: Failure and slowness
+
+    @Test func aFailedSendCountsForTheErrorHaptic() async {
+        let backend = FakeQuestionBackend()
+        await backend.set(outcomes: [.failed(.offline), .done])
+        let model = await answeredModel(backend)
+        await model.send()
+        #expect(model.failureCount == 1)
+        await model.send()
+        #expect(model.failureCount == 1)
+    }
+
+    @Test func aLongSendIsMarkedSlow() async {
+        let backend = FakeQuestionBackend()
+        await backend.hold()
+        let model = QuestionModel(backend: backend, slowAfter: .milliseconds(20))
+        await model.update(question: round())
+        await model.pick("Mark the row as failed", question: 0)
+        await model.pick("The owner", question: 1)
+        await model.next(question: 1)
+        let sending = Task { await model.send() }
+        while !model.isSlow { try? await Task.sleep(for: .milliseconds(10)) }
+        await backend.releaseSend()
+        await sending.value
+        #expect(!model.isSlow)
     }
 }
