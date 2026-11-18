@@ -370,6 +370,37 @@ return [
         ))),
     ],
 
+    // Jobs that fail on several branches for a shared cause. Yak correlates
+    // the failures from workflow_job webhooks and opens a fix task.
+    'ci_failure' => [
+        // How far back failures on other branches count as the same cause.
+        'correlation_window_hours' => (int) env('YAK_CI_FAILURE_CORRELATION_WINDOW_HOURS', 72),
+
+        // How long a claim suppresses a new task for the same job.
+        'claim_window_hours' => (int) env('YAK_CI_FAILURE_CLAIM_WINDOW_HOURS', 168),
+
+        // Hours to wait before retrying a failed fix; the last value repeats.
+        'retry_backoff_hours' => [24, 48, 168],
+
+        // Branches whose failures are never counted (comma-separated).
+        'ignored_branch_prefixes' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env('YAK_CI_FAILURE_IGNORED_BRANCH_PREFIXES', 'yak/')),
+        ))),
+
+        // Jobs whose name contains one of these never count (case-insensitive).
+        'job_exclude_patterns' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env(
+                'YAK_CI_FAILURE_JOB_EXCLUDE_PATTERNS',
+                'notify,deploy,publish,release,announce,upload',
+            )),
+        ))),
+
+        // Lines of failing job log included in the task prompt.
+        'log_excerpt_lines' => 120,
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Channel Configuration
