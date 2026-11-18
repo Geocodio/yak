@@ -4,7 +4,8 @@ import YakKit
 struct DebugGalleryEntry: Identifiable {
     let id: String
     let area: String
-    let title: String
+    /// The catalog keys of the row: `gallery.title.<id>`, and for the section `gallery.area.<area>`.
+    var titleKey: LocalizedStringKey { LocalizedStringKey("gallery.title." + id) }
     let make: @MainActor () -> AnyView
 }
 
@@ -25,14 +26,14 @@ enum DebugGallery {
     // MARK: Pairing
 
     @MainActor private static let pairing: [DebugGalleryEntry] = [
-        ("unreachable", "The instance cannot be reached", PairingProblem.unreachable),
-        ("serverTooOld", "The instance is too old", .serverTooOld),
-        ("appTooOld", "This app is too old", .appTooOld),
-        ("codeExpired", "The pairing code expired", .codeExpired),
-        ("codeInvalid", "The pairing code is not valid", .codeInvalid),
-        ("denied", "Pairing was denied", .denied),
-    ].map { identifier, title, problem in
-        DebugGalleryEntry(id: "pairing.\(identifier)", area: "Pairing", title: title) {
+        ("unreachable", PairingProblem.unreachable),
+        ("serverTooOld", .serverTooOld),
+        ("appTooOld", .appTooOld),
+        ("codeExpired", .codeExpired),
+        ("codeInvalid", .codeInvalid),
+        ("denied", .denied),
+    ].map { identifier, problem in
+        DebugGalleryEntry(id: "pairing.\(identifier)", area: "Pairing") {
             AnyView(
                 PairingProblemView(problem: problem, address: GallerySamples.address, retry: {})
                     .padding(24).padding(.top, 40))
@@ -42,13 +43,13 @@ enum DebugGallery {
     // MARK: Threads
 
     @MainActor private static let threads: [DebugGalleryEntry] = [
-        ("loading", "A thread is loading", ThreadLoadPresentation.loading),
-        ("slow", "A thread is slow to load", .slow),
-        ("notFound", "The thread was not found", .notFound),
-        ("offline", "Offline with no saved copy", .offlineWithoutCopy),
-        ("serverError", "The server answered with an error", .serverError(message: GallerySamples.serverError)),
-    ].map { identifier, title, presentation in
-        DebugGalleryEntry(id: "threads.\(identifier)", area: "Threads", title: title) {
+        ("loading", ThreadLoadPresentation.loading),
+        ("slow", .slow),
+        ("notFound", .notFound),
+        ("offline", .offlineWithoutCopy),
+        ("serverError", .serverError(message: GallerySamples.serverError)),
+    ].map { identifier, presentation in
+        DebugGalleryEntry(id: "threads.\(identifier)", area: "Threads") {
             AnyView(ThreadLoadView(presentation: presentation, retry: {}, openThreads: {}))
         }
     }
@@ -56,10 +57,10 @@ enum DebugGallery {
     // MARK: Tasks
 
     @MainActor private static let tasks: [DebugGalleryEntry] = [
-        DebugGalleryEntry(id: "tasks.loading", area: "Tasks", title: "The task list is loading") {
+        DebugGalleryEntry(id: "tasks.loading", area: "Tasks") {
             AnyView(RowSkeleton(identifier: "gallery.skeleton"))
         },
-        DebugGalleryEntry(id: "tasks.offline", area: "Tasks", title: "A list is offline") {
+        DebugGalleryEntry(id: "tasks.offline", area: "Tasks") {
             AnyView(
                 VStack {
                     NoticeLine(text: "common.offline", systemImage: "wifi.slash", identifier: "gallery.notice")
@@ -72,19 +73,17 @@ enum DebugGallery {
 
     @MainActor private static let settings: [DebugGalleryEntry] =
         [
-            DebugGalleryEntry(
-                id: "settings.unreachable", area: "Settings", title: "The instance cannot be reached"
-            ) {
+            DebugGalleryEntry(id: "settings.unreachable", area: "Settings") {
                 problem(LocalizedStringKey("signedIn.unreachable \(GallerySamples.instanceName)"))
             }
         ]
         + [
-            ("appTooOld", "This app is too old", "signedIn.appTooOld"),
-            ("serverTooOld", "The instance is too old", "signedIn.serverTooOld"),
-            ("tokenUnreadable", "The saved token cannot be read", "signedIn.tokenUnreadable"),
-            ("failed", "Refreshing failed", "signedIn.failed"),
-        ].map { identifier, title, key in
-            DebugGalleryEntry(id: "settings.\(identifier)", area: "Settings", title: title) {
+            ("appTooOld", "signedIn.appTooOld"),
+            ("serverTooOld", "signedIn.serverTooOld"),
+            ("tokenUnreadable", "signedIn.tokenUnreadable"),
+            ("failed", "signedIn.failed"),
+        ].map { identifier, key in
+            DebugGalleryEntry(id: "settings.\(identifier)", area: "Settings") {
                 problem(LocalizedStringKey(key))
             }
         }
@@ -96,10 +95,10 @@ enum DebugGallery {
     // MARK: App lock
 
     @MainActor private static let appLock: [DebugGalleryEntry] = [
-        DebugGalleryEntry(id: "appLock.locked", area: "App lock", title: "The lock screen") {
+        DebugGalleryEntry(id: "appLock.locked", area: "App lock") {
             AnyView(GalleryLockScreen())
         },
-        DebugGalleryEntry(id: "appLock.cover", area: "App lock", title: "The app switcher cover") {
+        DebugGalleryEntry(id: "appLock.cover", area: "App lock") {
             AnyView(AppSwitcherCover())
         },
     ]
@@ -145,14 +144,14 @@ struct DebugGalleryScreen: View {
                             Button {
                                 opened = entry
                             } label: {
-                                Text(verbatim: entry.title).foregroundStyle(Color.primary)
+                                Text(entry.titleKey).foregroundStyle(Color.primary)
                                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                                     .contentShape(.rect)
                             }
                             .accessibilityIdentifier("gallery.\(entry.id)")
                         }
                     } header: {
-                        Text(verbatim: area)
+                        Text(LocalizedStringKey("gallery.area." + area))
                     }
                 }
             }
@@ -164,7 +163,7 @@ struct DebugGalleryScreen: View {
             ZStack(alignment: .top) {
                 entry.make().frame(maxWidth: .infinity, maxHeight: .infinity)
                 HStack(alignment: .top) {
-                    Text(verbatim: entry.title).font(.footnote.weight(.semibold))
+                    Text(entry.titleKey).font(.footnote.weight(.semibold))
                         .padding(.horizontal, 12).padding(.vertical, 6)
                         .background(Color(.systemBackground), in: .capsule)
                         .overlay(Capsule().stroke(Color.primary.opacity(0.2)))

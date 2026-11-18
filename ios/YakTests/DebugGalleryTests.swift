@@ -11,6 +11,17 @@ import UIKit
         #expect(!ids.isEmpty)
     }
 
+    @Test func everyTitleAndAreaIsInTheStringCatalog() {
+        for entry in DebugGallery.entries {
+            let key = "gallery.title." + entry.id
+            #expect(String(localized: String.LocalizationValue(key)) != key, "\(key)")
+        }
+        for area in DebugGallery.areas {
+            let key = "gallery.area." + area
+            #expect(String(localized: String.LocalizationValue(key)) != key, "\(key)")
+        }
+    }
+
     @Test func everyAreaIsKnown() {
         for entry in DebugGallery.entries { #expect(DebugGallery.areas.contains(entry.area), "\(entry.id)") }
     }
@@ -25,7 +36,7 @@ import UIKit
     }
 
     @Test func noSampleShowsAPrivateTitle() {
-        let text = (GallerySamples.allText + DebugGallery.entries.map(\.title)).joined(separator: "\n")
+        let text = (GallerySamples.allText + DebugGallery.entries.map(\.id)).joined(separator: "\n")
         #expect(!text.contains("Private notes on billing"))
         #expect(!text.contains("Split the billing job"))
         #expect(GallerySamples.privateThreadTitle == "A private thread")
