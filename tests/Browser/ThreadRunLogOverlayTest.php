@@ -163,8 +163,11 @@ it('shows the output of a step that was still running once it arrives, on the st
 
     ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 100, 'type' => 'entry', 'payload' => ['role' => 'tool_result', 'toolUseId' => 'toolu_0', 'isError' => false, 'text' => 'deploy finished successfully']]);
 
-    $page->wait(5)
-        ->assertSee('deploy finished successfully')
+    for ($attempt = 0; $attempt < 40 && ! str_contains((string) $page->script('document.body.innerText'), 'deploy finished successfully'); $attempt++) {
+        usleep(250_000);
+    }
+
+    $page->assertSee('deploy finished successfully')
         ->assertSee('Step 1 of 2')
         ->assertNoJavaScriptErrors();
 });

@@ -229,6 +229,8 @@ export type ThreadPageData = {
     card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
     /** Web only: the element id of each follow-up task's first message, by the task's public id, for old `#turn-<id>` links. */
     turnAnchors: Record<string, string>;
+    /** The stop card is the head task's own expired co-owner request; web only. */
+    isExpiredCoOwnerStop: boolean;
     /** Web only: every message waiting for the next turn, from any channel, with what this viewer may do to each. */
     queuedMessages: ThreadQueuedMessage[];
     /** Web only: the runs of the thread, so each answer can offer its full log. */

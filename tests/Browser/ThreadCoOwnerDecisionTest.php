@@ -239,3 +239,21 @@ it('loads the candidates, picks one and the early warning card goes away', funct
 
     expect($task->fresh()->tagged_co_owner_user_id)->toBe($cory->id);
 });
+
+it('keeps the composer and its Send button on screen at 375 x 667 with the co-owner card above it', function () {
+    $this->actingAs(User::factory()->create());
+    [$thread] = heldThreadForCoOwner();
+
+    $page = visit("/threads/{$thread->public_id}");
+    $page->resize(375, 667)->assertVisible('[data-testid="thread-cards"]')->assertVisible('[data-testid="thread-send"]');
+
+    $fits = $page->script(<<<'JS'
+        (() => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
+            const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+            return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
+        }))()
+    JS);
+
+    expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
+        ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
+});

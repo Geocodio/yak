@@ -71,7 +71,7 @@ final class ThreadCardsData
             $earlyWarning['canPick'] = $earlyWarning['canPick'] && $canDrive;
         }
         $repositoryQuestion = self::repositoryQuestion($thread, $head, $canDrive);
-        $stopped = self::stopped($head, $coOwnerRequest);
+        $stopped = self::stopped($head);
         $hasQuestion = $head->status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [];
 
         $card = match (true) {
@@ -119,11 +119,20 @@ final class ThreadCardsData
     }
 
     /**
+     * The head task stopped because its own co-owner request expired, not because of a request of an earlier task.
+     */
+    public static function isExpiredCoOwnerStop(YakTask $head): bool
+    {
+        return $head->status === TaskStatus::Expired
+            && $head->coOwnerRequests()->latest('id')->first()?->status === CoOwnerRequestStatus::Expired;
+    }
+
+    /**
      * @return array{kind: string, summary: string, detail: string|null, nextStep: string, isWaitingForSetup: bool}|null
      */
-    private static function stopped(YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?array
+    private static function stopped(YakTask $head): ?array
     {
-        if ($head->status === TaskStatus::Expired && $coOwnerRequest?->status === CoOwnerRequestStatus::Expired) {
+        if (self::isExpiredCoOwnerStop($head)) {
             return [
                 'kind' => StopKind::NeedsYou->value,
                 'summary' => 'Nobody decided within ' . CoOwnerGate::EXPIRY_DAYS . ' days, so Yak did not open the pull request.',
