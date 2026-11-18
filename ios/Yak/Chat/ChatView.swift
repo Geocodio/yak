@@ -80,20 +80,25 @@ struct ChatView: View {
                 if let request = thread.snapshot?.show?.request {
                     ThreadRequestRow(request: request, stepLine: thread.stepLine)
                 }
-                ForEach(thread.rows) { row in
-                    ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
-                        .onGeometryChange(for: CGRect.self) {
-                            $0.frame(in: .scrollView)
-                        } action: {
-                            // A day divider moves when older messages of its day arrive above it, so only entries
-                            // can hold the place.
-                            guard case .entry = row else { return }
-                            rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
-                            if let requested = rowCountWhenRequested, thread.rows.count == requested {
-                                anchorBeforePage = anchorRow()
+                ForEach(ChatDisplayRow.group(thread.rows)) { item in
+                    switch item {
+                    case .milestones(let id, let milestones):
+                        MilestoneGroupRow(milestones: milestones).id(id)
+                    case .row(let row):
+                        ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
+                            .onGeometryChange(for: CGRect.self) {
+                                $0.frame(in: .scrollView)
+                            } action: {
+                                // A day divider moves when older messages of its day arrive above it, so only
+                                // entries can hold the place.
+                                guard case .entry = row else { return }
+                                rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
+                                if let requested = rowCountWhenRequested, thread.rows.count == requested {
+                                    anchorBeforePage = anchorRow()
+                                }
                             }
-                        }
-                        .onDisappear { rowFrames.frames[row.id] = nil }
+                            .onDisappear { rowFrames.frames[row.id] = nil }
+                    }
                 }
                 if let notice = thread.notice {
                     NoticeCard(notice: notice, thread: thread)

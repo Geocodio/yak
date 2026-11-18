@@ -36,9 +36,11 @@ private struct ChatPane: View {
                 if thread.composer.bar.line != nil {
                     Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
-                        .padding(.horizontal, 8).padding(.bottom, 8)
+                        .padding(.vertical, WorkStyle.notePaddingVertical)
+                        .padding(.horizontal, WorkStyle.notePaddingHorizontal)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Tone.neutral.surface, in: .rect(cornerRadius: WorkStyle.noteRadius))
+                        .padding(.horizontal, WorkStyle.cardSideMargin).padding(.bottom, WorkStyle.cardSideMargin)
                         .accessibilityIdentifier("composer.legacyLine")
                 }
                 ThreadCardHost(thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) })

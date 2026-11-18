@@ -40,13 +40,20 @@ struct ThreadCardHost: View {
         CardContainer(kind: "repository_question", tone: .neutral, paneHeight: paneHeight) {
             Text(verbatim: question.prompt).font(.headline).accessibilityAddTraits(.isHeader)
             Text("thread.card.repository.body").font(.subheadline)
-            VStack(spacing: 8) {
+            VStack(spacing: WorkStyle.buttonGap) {
                 ForEach(question.options, id: \.self) { option in
-                    QuestionOptionButton(
-                        label: option, detail: nil, isSelected: cards.sending == .answerRepository(repo: option)
-                    ) {
+                    Button {
                         Task { await cards.send(.answerRepository(repo: option)) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(verbatim: option).font(.body.weight(.medium)).multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                            if cards.sending == .answerRepository(repo: option) { ProgressView() }
+                        }
+                        .frame(minHeight: WorkStyle.buttonHeight - 2 * WorkStyle.boxPaddingVertical)
+                        .workBox().contentShape(.rect)
                     }
+                    .buttonStyle(.plain)
                     .disabled(!canAnswer || cards.isSending || cards.isOffline)
                     .accessibilityIdentifier("thread.card.repository.option.\(option)")
                 }
@@ -67,24 +74,23 @@ struct ThreadCardHost: View {
                     TonePill(text: Self.riskText(area.risk), tone: Self.riskTone(area.risk))
                     Spacer(minLength: 0)
                 }
-                .padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).questionFieldSurface()
-                .accessibilityElement(children: .combine)
+                .workBox().accessibilityElement(children: .combine)
             }
             switch row {
             case .pick:
-                VStack(spacing: 8) {
+                VStack(spacing: WorkStyle.buttonGap) {
                     Button {
                         isTagging = true
                     } label: {
                         Text("thread.card.early.pick")
                     }
-                    .buttonStyle(FilledButtonStyle()).accessibilityIdentifier("thread.card.early.pick")
+                    .buttonStyle(WorkButtonStyle(kind: .primary)).accessibilityIdentifier("thread.card.early.pick")
                     Button {
                         Task { await cards.decide(.decline) }
                     } label: {
                         buttonLabel("thread.card.early.notNow", isRunning: cards.sending == .decline)
                     }
-                    .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("thread.card.early.notNow")
+                    .buttonStyle(WorkButtonStyle(kind: .secondary)).accessibilityIdentifier("thread.card.early.notNow")
                 }
                 .disabled(cards.isSending || cards.isOffline)
             case .asked(let name):
@@ -135,13 +141,15 @@ struct ThreadCardHost: View {
                         openWeb: openWeb, requestChanges: { isRequestingChanges = true })
                     if cards.isOffline, !decision.hasNoButtons {
                         Text("thread.card.offline.decide").font(.footnote.weight(.medium)).foregroundStyle(
-                            Color.yakMuted
+                            WorkColor.secondaryText
                         )
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.offline")
                     }
                     if cards.isApprovalSlow {
-                        Text("thread.card.approveSlow").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                            .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.slow")
+                        Text("thread.card.approveSlow").font(.footnote.weight(.medium)).foregroundStyle(
+                            WorkColor.secondaryText
+                        )
+                        .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.slow")
                     }
                     footer(hasButtons: !decision.hasNoButtons)
                 }
@@ -173,9 +181,10 @@ struct ThreadCardHost: View {
                     if let login = panel.viewer.login {
                         Text("thread.card.coOwner.linkedAs \(login)").font(.body)
                     }
-                    Text("thread.card.coOwner.askAdmin").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("thread.card.coOwner.askAdmin").font(.footnote.weight(.medium)).foregroundStyle(
+                        WorkColor.secondaryText)
                 }
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading).questionFieldSurface()
+                .workBox()
             default:
                 Text(
                     verbatim: ([panel.holdReasons.joined(separator: " ")].filter { !$0.isEmpty }
@@ -184,16 +193,16 @@ struct ThreadCardHost: View {
                 .font(.subheadline).fixedSize(horizontal: false, vertical: true)
                 if let stat = panel.stat {
                     Text("thread.card.coOwner.files \(stat.files) \(stat.additions) \(stat.deletions)")
-                        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted).monospacedDigit()
-                        .padding(12).frame(maxWidth: .infinity, alignment: .leading).questionFieldSurface()
+                        .font(.footnote.monospaced())
+                        .workBox()
                 }
                 if case .accessCheckFailed = decision {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("thread.card.coOwner.checkFailed").font(.subheadline.weight(.semibold))
                         Text("thread.card.coOwner.checkFailedBody").font(.footnote.weight(.medium))
-                            .foregroundStyle(Color.yakMuted)
+                            .foregroundStyle(WorkColor.secondaryText)
                     }
-                    .padding(12).frame(maxWidth: .infinity, alignment: .leading).questionFieldSurface()
+                    .workBox()
                 }
             }
         }
@@ -228,7 +237,7 @@ struct ThreadCardHost: View {
             Text(verbatim: stop.nextStep).font(.subheadline.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
             if hasButtons {
-                VStack(spacing: 8) {
+                VStack(spacing: WorkStyle.buttonGap) {
                     if canRetry || canSetUp {
                         let action: ThreadWorkAction = canSetUp ? .setUpAndContinue : .retry
                         Button {
@@ -238,7 +247,8 @@ struct ThreadCardHost: View {
                                 canSetUp ? "thread.card.stopped.setUp" : "common.retry",
                                 isRunning: cards.sending == action, isOnFill: true)
                         }
-                        .buttonStyle(FilledButtonStyle()).accessibilityIdentifier("thread.card.stopped.retry")
+                        .buttonStyle(WorkButtonStyle(kind: .primary)).accessibilityIdentifier(
+                            "thread.card.stopped.retry")
                     }
                     if !moveTargets.isEmpty { moveMenu(moveTargets) }
                 }
@@ -260,8 +270,8 @@ struct ThreadCardHost: View {
         } label: {
             buttonLabel("thread.card.stopped.moveElsewhere", isRunning: isMoving)
                 .font(.headline).foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, minHeight: 44).padding(.vertical, 6)
-                .background(Color(.systemGray5), in: .rect(cornerRadius: 14))
+                .frame(maxWidth: .infinity, minHeight: WorkStyle.buttonHeight)
+                .background(WorkColor.buttonFill, in: .rect(cornerRadius: WorkStyle.buttonRadius))
         }
         .tint(.primary)
         .accessibilityIdentifier("thread.card.stopped.move")
@@ -284,10 +294,10 @@ struct ThreadCardHost: View {
     /// of the last action with a way to try again.
     @ViewBuilder private func footer(hasButtons: Bool) -> some View {
         if !canDrive {
-            Text("thread.card.reader").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("thread.card.reader").font(.footnote.weight(.medium)).foregroundStyle(WorkColor.secondaryText)
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.reader")
         } else if cards.isOffline, hasButtons, cards.state.coOwnerDecision == nil {
-            Text("thread.card.offline.other").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("thread.card.offline.other").font(.footnote.weight(.medium)).foregroundStyle(WorkColor.secondaryText)
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.offline")
         }
         if cards.isAlreadyAnswered {
@@ -303,14 +313,14 @@ struct ThreadCardHost: View {
                 } label: {
                     Text("common.retry")
                 }
-                .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("thread.card.messageRetry")
+                .buttonStyle(WorkButtonStyle(kind: .secondary)).accessibilityIdentifier("thread.card.messageRetry")
             }
         }
     }
 }
 
-/// The surface of a card: the question card's, with a tint over the whole surface for a warning or a failure. It is as
-/// tall as its content and scrolls inside when the pane has less room.
+/// The surface of a card: the tone's whole surface. It is as tall as its content and scrolls inside when the pane has
+/// less room.
 private struct CardContainer<Content: View>: View {
     let kind: String
     let tone: Tone
@@ -319,7 +329,7 @@ private struct CardContainer<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var inner: some View {
-        VStack(alignment: .leading, spacing: 10) { content }
+        VStack(alignment: .leading, spacing: WorkStyle.cardGap) { content }
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -330,9 +340,8 @@ private struct CardContainer<Content: View>: View {
             ScrollView { inner }
         }
         .id(dynamicTypeSize)
-        .questionCardSurface()
-        .background(tone.surfaceTint ?? .clear, in: .rect(cornerRadius: 16))
-        .padding(.horizontal, 8).padding(.bottom, 8)
+        .workCardSurface(tone: tone)
+        .padding(.horizontal, WorkStyle.cardSideMargin).padding(.bottom, WorkStyle.cardSideMargin)
         .layoutPriority(1)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.card.\(kind)")

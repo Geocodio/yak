@@ -76,18 +76,3 @@ struct ActionPage<Content: View, Actions: View>: View {
 
     private var actionStack: some View { VStack(spacing: 12) { actions } }
 }
-
-/// A filled control in the neutral ink color, for the cards of a thread, where only Open PR is rust-colored.
-struct FilledButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(isEnabled ? Color(.systemBackground) : Color.primary.opacity(0.72))
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.vertical, 6)
-            .background(isEnabled ? Color.primary : Color(.systemGray5), in: .rect(cornerRadius: 14))
-            .opacity(configuration.isPressed ? 0.85 : 1)
-    }
-}

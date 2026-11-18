@@ -44,7 +44,7 @@ struct NoticeCard: View {
                 } label: {
                     Text("chat.notice.openMoved").fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.bordered).tint(.primary).controlSize(.large).accessibilityIdentifier("notice.moved.open")
+                .buttonStyle(WorkButtonStyle(kind: .primary)).accessibilityIdentifier("notice.moved.open")
             }
             switch action {
             case .continueTurn:

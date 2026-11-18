@@ -1005,12 +1005,12 @@
         }
       }
     },
-    "chat.message.replyFrom %@" : {
+    "chat.message.replyBy %@ %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reply from %@"
+            "value" : "%1$@, replied in %2$@"
           }
         }
       }
@@ -1055,12 +1055,12 @@
         }
       }
     },
-    "chat.message.via %@" : {
+    "chat.message.viaBy %@ %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "via %@"
+            "value" : "%1$@, via %2$@"
           }
         }
       }
@@ -1071,6 +1071,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for Yak to read it"
+          }
+        }
+      }
+    },
+    "chat.message.you" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
           }
         }
       }
@@ -14284,6 +14294,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Check again"
+          }
+        }
+      }
+    },
+    "thread.card.coOwner.approve" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve and open the PR"
           }
         }
       }
