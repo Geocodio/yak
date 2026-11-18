@@ -11,6 +11,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\BranchPreviewLookup;
+use App\Services\Tasks\PullRequestDescription;
 use App\Support\DeploymentPresentation;
 use App\Support\Markdown;
 use Illuminate\Support\Collection;
@@ -53,7 +54,7 @@ final class PrReviewRunData
 
     /**
      * @param  Collection<int, YakTask>  $tasks
-     * @return array{runs: list<Run>, panel: Panel}
+     * @return array{runs: list<Run>, panel: Panel, description: ?string}
      */
     public static function build(Collection $tasks, string $repoSlug, int $prNumber): array
     {
@@ -63,7 +64,25 @@ final class PrReviewRunData
 
         $runs = $tasks->map(fn (YakTask $task): array => self::run($task, $reviews->get($task->id), $usages->get($task->id), $repoSlug, $prNumber))->values()->all();
 
-        return ['runs' => $runs, 'panel' => self::panel($tasks, $reviews, $runs, $repoSlug, $prNumber)];
+        return ['runs' => $runs, 'panel' => self::panel($tasks, $reviews, $runs, $repoSlug, $prNumber), 'description' => self::description($tasks)];
+    }
+
+    /**
+     * The pull request description as HTML, from the newest review run that has one.
+     *
+     * @param  Collection<int, YakTask>  $tasks
+     */
+    private static function description(Collection $tasks): ?string
+    {
+        foreach ($tasks as $task) {
+            $html = PullRequestDescription::html($task);
+
+            if ($html !== null) {
+                return $html;
+            }
+        }
+
+        return null;
     }
 
     /**

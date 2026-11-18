@@ -33,6 +33,7 @@ class PrReviewForPrController extends Controller
             'pr' => fn () => $this->prData($repoSlug, $prNumber),
             'runs' => fn () => $page()['runs'],
             'pullRequest' => fn () => $page()['panel'],
+            'description' => fn () => $page()['description'],
             'modelLabels' => fn () => app(ClaudeModelCatalog::class)->labels(),
         ]);
     }

@@ -69,3 +69,17 @@ it('keeps a failed older run expanded with its error and re-run button', functio
         ->assertSeeIn("[data-testid=\"review-run-{$failed->public_id}\"]", 'Diff fetch failed.')
         ->assertSeeIn("[data-testid=\"review-run-{$failed->public_id}\"]", 'Re-run this review');
 });
+
+it('keeps the pull request description collapsed until it is opened, and has none without a description', function () {
+    $this->actingAs(User::factory()->create());
+    seedReviewRun(['context' => json_encode(['pr_number' => 50, 'author' => 'imliam', 'body' => 'This moves billing off cents.'])]);
+
+    visit('/pr-reviews/for/geocodio/api/50')
+        ->assertVisible('[data-testid="pr-description-toggle"]')
+        ->assertDontSee('This moves billing off cents.')
+        ->click('[data-testid="pr-description-toggle"]')
+        ->assertSeeIn('[data-testid="pr-description"]', 'This moves billing off cents.')
+        ->assertNoJavaScriptErrors();
+
+    visit('/pr-reviews/for/geocodio/api/51')->assertMissing('[data-testid="pr-description"]');
+});

@@ -1,6 +1,6 @@
 import { Head, Link, useForm, usePoll } from '@inertiajs/react';
 import { Badge, Button, PageHeader, StatusPill, cn, type StatusPillTone } from '@geocodio/console-ui';
-import { ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
@@ -20,6 +20,7 @@ type Props = PageProps<{
     pr: PrReviewForPrSummary;
     runs: PrReviewRun[];
     pullRequest: PrReviewPullRequest;
+    description: string | null;
     modelLabels: Record<string, string>;
 }>;
 
@@ -197,7 +198,7 @@ function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
     );
 }
 
-export default function ForPr({ pr, runs, pullRequest, modelLabels }: Props) {
+export default function ForPr({ pr, runs, pullRequest, description, modelLabels }: Props) {
     const form = useForm({});
     const [shownIds, setShownIds] = useState<Set<string>>(() => new Set(window.location.hash.startsWith('#run-') ? [window.location.hash.slice(5)] : []));
     const [logTarget, setLogTarget] = useState<RunLogTarget | null>(null);
@@ -278,6 +279,16 @@ export default function ForPr({ pr, runs, pullRequest, modelLabels }: Props) {
                     {pullRequest.branch !== null && <span className="font-mono">{pullRequest.branch}</span>}
                 </p>
             </div>
+
+            {description !== null && (
+                <details className="group border-b border-hair px-4 py-2 sm:px-5" data-testid="pr-description">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13px] font-medium text-body [&::-webkit-details-marker]:hidden" data-testid="pr-description-toggle">
+                        <ChevronRight size={14} aria-hidden className="transition-transform group-open:rotate-90" />
+                        Pull request description
+                    </summary>
+                    <Prose html={description} className="mt-2 text-[13px]" />
+                </details>
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-5">
                 <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">

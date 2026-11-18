@@ -189,3 +189,24 @@ test('the preview of the branch is named with its readable status', function () 
     $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
         ->assertInertia(fn (Assert $page) => $page->where('pullRequest.preview.statusLabel', 'Starting')->has('modelLabels'));
 });
+
+test('the description comes from the newest run that has one, with uploaded images on the dashboard proxy', function () {
+    $assetId = '11111111-2222-3333-4444-555555555555';
+    $context = fn (?string $body): string => json_encode(['pr_number' => 50, 'author' => 'imliam', 'body' => $body]);
+    seedReviewRun(['created_at' => now()->subDays(2), 'context' => $context('Old **description**')]);
+    $withBody = seedReviewRun(['created_at' => now()->subDay(), 'context' => $context("Moves billing.\n\n![shot](https://github.com/user-attachments/assets/{$assetId})")]);
+    seedReviewRun(['created_at' => now(), 'context' => $context(null)]);
+
+    $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('description', fn ($html) => str_contains($html, 'Moves billing.')
+                && str_contains($html, route('tasks.pr-images.show', [$withBody, $assetId]))
+                && ! str_contains($html, 'github.com/user-attachments')));
+});
+
+test('the description is empty when no run recorded one', function () {
+    seedReviewRun();
+
+    $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertInertia(fn (Assert $page) => $page->where('description', null));
+});

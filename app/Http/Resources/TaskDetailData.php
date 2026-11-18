@@ -17,6 +17,7 @@ use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\BranchPreviewLookup;
 use App\Services\ChainMediaResolver;
+use App\Services\Tasks\PullRequestDescription;
 use App\Services\Tasks\TaskProgressSteps;
 use App\Services\Tasks\TaskStopSummary;
 use App\Services\ThreadBuilder;
@@ -330,15 +331,8 @@ final class TaskDetailData
         $title = $context['title'] ?? null;
         $body = $context['body'] ?? null;
 
-        // Uploads to a private repository only load with a github.com session,
-        // so they go through the dashboard's proxy.
         if ($body !== null && $entry->run !== null) {
-            $run = $entry->run;
-            $body = preg_replace_callback(
-                '#https://github\.com/user-attachments/assets/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#i',
-                fn (array $match): string => route('tasks.pr-images.show', [$run, $match[1]]),
-                (string) $body,
-            );
+            $body = PullRequestDescription::rewriteImages((string) $body, $entry->run);
         }
 
         $meta = collect([
