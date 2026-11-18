@@ -12,6 +12,7 @@ final class AppLockController {
     @ObservationIgnored private let authenticator: any DeviceOwnerAuthenticator
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private let coversWhenActive: Bool
+    @ObservationIgnored private let closePlayback: @MainActor () -> Void
     @ObservationIgnored private var launchAskPending: Bool
 
     @ObservationIgnored private var lockWindows: AnyObject?
@@ -37,8 +38,10 @@ final class AppLockController {
     /// The policy starts locked when the lock is on, so the first frame is already covered.
     init(
         settings: PrivacySettings, authenticator: any DeviceOwnerAuthenticator, clock: any YakClock,
-        backgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit, coversWhenActive: Bool = false
+        backgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit, coversWhenActive: Bool = false,
+        closePlayback: @escaping @MainActor () -> Void = {}
     ) {
+        self.closePlayback = closePlayback
         self.settings = settings
         self.authenticator = authenticator
         self.clock = clock
@@ -57,6 +60,16 @@ final class AppLockController {
             return
         }
         deferred = action
+    }
+
+    /// The one place the policy changes: when it goes from open to locked, the walkthrough playback closes so no
+    /// video, sound or picture in picture window continues behind the lock.
+    @discardableResult
+    private func apply(_ event: AppLockEvent) -> Bool {
+        let wasLocked = policy.isLocked
+        let result = policy.handle(event)
+        if policy.isLocked && !wasLocked { closePlayback() }
+        return result
     }
 
     private func runDeferredIfOpen() {
@@ -82,7 +95,7 @@ final class AppLockController {
         guard case .known(let capability) = await authenticator.capability() else { return }
         method = AppLockMethod.make(capability)
         guard policy.isOn, method == nil else { return }
-        policy.handle(.passcodeRemoved)
+        apply(.passcodeRemoved)
         settings.appLockOn = false
         launchAskPending = false
         showsPasscodeRemoved = true
@@ -100,8 +113,8 @@ final class AppLockController {
         storeUnreadable = false
         defer { runDeferredIfOpen() }
         guard settings.appLockOn, !policy.isOn else { return false }
-        policy.handle(.turnedOn)
-        launchAskPending = policy.handle(.launched)
+        apply(.turnedOn)
+        launchAskPending = apply(.launched)
         return launchAskPending
     }
 
@@ -116,7 +129,7 @@ final class AppLockController {
 
     func appEnteredBackground() {
         backgroundCount += 1
-        policy.handle(.enteredBackground(clock.now()))
+        apply(.enteredBackground(clock.now()))
         authenticator.cancel()
     }
 
@@ -124,7 +137,7 @@ final class AppLockController {
     /// Returns true when the policy just locked and the app should ask the owner by itself.
     func relockIfDue() -> Bool {
         let reloaded = reloadSettings()
-        let locked = policy.handle(.becameActive(clock.now())) || reloaded
+        let locked = apply(.becameActive(clock.now())) || reloaded
         if locked { launchAskPending = true }
         return locked
     }
@@ -158,7 +171,7 @@ final class AppLockController {
             unlock = .idle
             launchAskPending = true
         case .success:
-            policy.handle(.unlocked)
+            apply(.unlocked)
             unlock = .idle
             unlockCount += 1
             runDeferredIfOpen()
@@ -171,7 +184,7 @@ final class AppLockController {
             unlock = .failed
             failureCount += 1
         case .passcodeNotSet:
-            policy.handle(.passcodeRemoved)
+            apply(.passcodeRemoved)
             settings.appLockOn = false
             unlock = .idle
             showsPasscodeRemoved = true
@@ -182,7 +195,7 @@ final class AppLockController {
     func setOn(_ isOn: Bool) async {
         guard isOn else {
             settings.appLockOn = false
-            policy.handle(.turnedOff)
+            apply(.turnedOff)
             toggle = .idle
             runDeferredIfOpen()
             return
@@ -192,7 +205,7 @@ final class AppLockController {
         switch await authenticator.authenticate(reason: String(localized: "lock.turnOnReason")) {
         case .success:
             settings.appLockOn = true
-            policy.handle(.turnedOn)
+            apply(.turnedOn)
             toggle = .idle
             unlockCount += 1
         case .cancelled, .notInteractive:

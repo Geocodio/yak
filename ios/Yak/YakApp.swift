@@ -38,6 +38,15 @@ struct YakApp: App {
         let showTipsAgain = defaults.data(forKey: DebugMenuModel.showTipsKey) != nil
         if showTipsAgain { defaults.set(nil, forKey: DebugMenuModel.showTipsKey) }
         GestureTips.configure(showTipsAgain ? .resetThenNormal : .normal)
+        Task {
+            do { try await instances.persistMissingTints() } catch {
+                #if canImport(os)
+                    Logger(subsystem: "Yak", category: "Startup")
+                        .error(
+                            "Instance tints were not saved: \(String(describing: type(of: error)), privacy: .public)")
+                #endif
+            }
+        }
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
         let faults = DebugFaultSwitch()
         let environment: @Sendable () -> SessionEnvironment = {

@@ -69,6 +69,7 @@ targets:
           - $(YAK_BUNDLE_ID).refresh
         UIBackgroundModes:
           - fetch
+          - audio
   YakTests:
     type: bundle.unit-test
     platform: iOS
