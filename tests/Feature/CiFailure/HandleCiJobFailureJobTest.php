@@ -1,12 +1,14 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
 use App\Jobs\HandleCiJobFailureJob;
 use App\Jobs\RunYakJob;
 use App\Models\CiFailureClaim;
 use App\Models\CiJobFailure;
+use App\Models\FlakyTestClaim;
 use App\Models\Observation;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -372,4 +374,50 @@ it('starts the attempt history over once a fix merged', function () {
     expect(CiFailureClaim::where('yak_task_id', ciFailureTasks()->where('id', '!=', $merged->id)->sole()->id)->sole())
         ->attempt_count->toBe(0)
         ->last_outcome->toBeNull();
+});
+
+/**
+ * A cross-branch test failure: a failure on another branch, and a job on feature/b whose log names the same test class.
+ */
+function arrangeSharedTestFailure(): void
+{
+    fakeFailureGitHub(['excerpt' => "FAILED  Tests\\Feature\\FooTest > it works\n\nTests:  1 failed, 4 passed"]);
+    CiJobFailure::factory()->create([
+        'branch' => 'feature/a',
+        'job_name' => 'Test (Main)',
+        'test_names' => [CIBuildFailure::normalizeTestName('Tests\\Feature\\FooTest > it works')],
+    ]);
+}
+
+it('creates one claim per test class for a shared test failure', function () {
+    arrangeSharedTestFailure();
+
+    runFailureJob($this->repository, ['name' => 'Test (Main)', 'head_branch' => 'feature/b']);
+
+    $task = ciFailureTasks()->sole();
+
+    expect(CiFailureClaim::where('yak_task_id', $task->id)->sole())
+        ->test_class->toBe('Tests\\Feature\\FooTest')
+        ->job_name->toBe('Test (Main)');
+});
+
+it('declines a test failure the flaky scan already covers', function () {
+    arrangeSharedTestFailure();
+    FlakyTestClaim::create(['repo' => 'acme/widgets', 'test_class' => 'Tests\\Feature\\FooTest', 'skipped_pr_url' => 'https://github.com/acme/widgets/pull/8', 'created_at' => now()]);
+
+    runFailureJob($this->repository, ['name' => 'Test (Main)', 'head_branch' => 'feature/b']);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.flaky_claimed')->count())->toBe(1);
+});
+
+it('lists open flaky-test pull requests in the task context', function () {
+    fakeFailureGitHub();
+    YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'flaky-test', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/12', 'description' => 'Fix flaky FooTest']);
+
+    runFailureJob($this->repository);
+
+    expect(json_decode(ciFailureTasks()->sole()->context, true)['open_ci_failure_prs'])
+        ->toHaveCount(1)
+        ->{0}->url->toBe('https://github.com/acme/widgets/pull/12');
 });

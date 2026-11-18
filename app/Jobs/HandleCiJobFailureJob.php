@@ -8,6 +8,7 @@ use App\DataTransferObjects\CiFailureQualification;
 use App\Enums\TaskStatus;
 use App\Models\CiFailureClaim;
 use App\Models\CiJobFailure;
+use App\Models\FlakyTestClaim;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
@@ -208,6 +209,15 @@ class HandleCiJobFailureJob implements ShouldQueue
         }
 
         $keys = $this->claimKeys($failure, $qualification);
+
+        // The flaky-test scan already has these test classes covered.
+        $testClasses = array_values(array_filter(array_column($keys, 'test_class')));
+
+        if (array_intersect($testClasses, array_keys(FlakyTestClaim::liveClassesFor($repository->slug))) !== []) {
+            $this->declined($repository, 'ci_failure.flaky_claimed', $failure->job_name, "{$failure->job_name} is failing, but the flaky test scan already covers its tests.");
+
+            return null;
+        }
 
         $inFlight = YakTask::query()
             ->where('repo', $repository->slug)

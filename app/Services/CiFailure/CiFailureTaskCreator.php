@@ -221,7 +221,7 @@ class CiFailureTaskCreator
     {
         return array_values(YakTask::query()
             ->where('repo', $repository->slug)
-            ->where('source', self::SOURCE)
+            ->whereIn('source', [self::SOURCE, 'flaky-test'])
             ->whereNotNull('pr_url')
             ->whereNull('pr_merged_at')
             ->whereNull('pr_closed_at')
