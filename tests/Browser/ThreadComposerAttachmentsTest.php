@@ -191,7 +191,10 @@ it('uploads the attachments with the message and clears the draft', function () 
     $page->typeSlowly(THREAD_COMPOSER, 'overlaps the axis', 5);
     $page->click('[data-testid="thread-send"]')
         ->assertMissing('[data-testid="draft-attachment"]');
-    $page->wait(2);
+
+    for ($attempt = 0; $attempt < 50 && PendingSteeringMessage::count() === 0; $attempt++) {
+        usleep(100_000);
+    }
 
     $message = PendingSteeringMessage::sole();
 
@@ -272,13 +275,25 @@ function threadComposerWithToken(): mixed
     return $page;
 }
 
-function threadSelectionOf(mixed $page): array
+/**
+ * The composer's selection once it equals `$expected`, or what it still is after three seconds.
+ *
+ * @param  array{0: int, 1: int}  $expected
+ * @return array{0: int, 1: int}
+ */
+function threadSelectionOf(mixed $page, array $expected): array
 {
-    return $page->script(<<<'JS'
-        (() => {
+    $wanted = json_encode($expected);
+
+    return $page->script(<<<JS
+        new Promise((resolve) => {
             const textarea = document.querySelector('[data-testid="thread-composer-input"]');
-            return [textarea.selectionStart, textarea.selectionEnd];
-        })()
+            const start = Date.now();
+            (function poll() {
+                const selection = [textarea.selectionStart, textarea.selectionEnd];
+                if (JSON.stringify(selection) === '{$wanted}' || Date.now() - start > 3000) { resolve(selection); } else { setTimeout(poll, 50); }
+            })();
+        })
         JS);
 }
 
@@ -299,7 +314,7 @@ it('selects the whole token when it is clicked', function () {
         })()
         JS);
 
-    expect(threadSelectionOf($page))->toBe([3, 13]);
+    expect(threadSelectionOf($page, [3, 13]))->toBe([3, 13]);
 });
 
 it('selects and deselects a token in one step with shift and the arrow keys', function () {
@@ -308,24 +323,24 @@ it('selects and deselects a token in one step with shift and the arrow keys', fu
     // Moving left from after the token.
     $page->script('document.querySelector(\'' . THREAD_COMPOSER . '\').setSelectionRange(13, 13)');
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowLeft');
-    expect(threadSelectionOf($page))->toBe([3, 13]);
+    expect(threadSelectionOf($page, [3, 13]))->toBe([3, 13]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowLeft');
-    expect(threadSelectionOf($page))->toBe([2, 13]);
+    expect(threadSelectionOf($page, [2, 13]))->toBe([2, 13]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowRight');
-    expect(threadSelectionOf($page))->toBe([3, 13]);
+    expect(threadSelectionOf($page, [3, 13]))->toBe([3, 13]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowRight');
-    expect(threadSelectionOf($page))->toBe([13, 13]);
+    expect(threadSelectionOf($page, [13, 13]))->toBe([13, 13]);
 
     // Moving right from before it.
     $page->script('document.querySelector(\'' . THREAD_COMPOSER . '\').setSelectionRange(3, 3)');
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowRight');
-    expect(threadSelectionOf($page))->toBe([3, 13]);
+    expect(threadSelectionOf($page, [3, 13]))->toBe([3, 13]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowRight');
-    expect(threadSelectionOf($page))->toBe([3, 14]);
+    expect(threadSelectionOf($page, [3, 14]))->toBe([3, 14]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowLeft');
-    expect(threadSelectionOf($page))->toBe([3, 13]);
+    expect(threadSelectionOf($page, [3, 13]))->toBe([3, 13]);
     $page->keys(THREAD_COMPOSER, 'Shift+ArrowLeft');
-    expect(threadSelectionOf($page))->toBe([3, 3]);
+    expect(threadSelectionOf($page, [3, 3]))->toBe([3, 3]);
 });
 
 it('brings back the same attachment and label when an image that was just removed is pasted again', function () {
@@ -370,8 +385,13 @@ it('previews a code file read-only with highlighting picked from the extension',
         (() => [...document.querySelectorAll('[data-testid="media-lightbox-code"] .cm-line span')].map((span) => span.textContent))()
         JS))->toContain('function', '$items', '// cents');
 
-    // The code can't be edited (the file has no "q" in it to begin with).
-    $page->click('[data-testid="media-lightbox-code"] .cm-content')
-        ->keys('[data-testid="media-lightbox-code"] .cm-content', 'q')
-        ->assertDontSeeIn('[data-testid="media-lightbox-code"]', 'q');
+    // The code can't be edited (the file has no "q" in it to begin with). The highlighter has settled above;
+    // a text probe of the code box before and after the keypress shows nothing changed.
+    $page->click('[data-testid="media-lightbox-code"] .cm-content');
+    $before = $page->script('document.querySelector(\'[data-testid="media-lightbox-code"] .cm-content\').textContent');
+    $page->keys('[data-testid="media-lightbox-code"] .cm-content', 'q');
+    $page->wait(0.5);
+
+    expect($page->script('document.querySelector(\'[data-testid="media-lightbox-code"] .cm-content\').textContent'))->toBe($before)
+        ->and($before)->not->toContain('q');
 });

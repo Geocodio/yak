@@ -101,5 +101,6 @@ it('opens a thread in a new tab on a ctrl-click, a cmd-click and a middle-click,
     expect($openedPath("'click', { bubbles: true, ctrlKey: true }"))->toBe(route('threads.show', $thread, false))
         ->and($openedPath("'click', { bubbles: true, metaKey: true }"))->toBe(route('threads.show', $thread, false))
         ->and($openedPath("'auxclick', { bubbles: true, button: 1 }"))->toBe(route('threads.show', $thread, false));
-    $page->assertPathIs('/threads/log');
+    // A navigation would have started by now; the page must still be the log.
+    $page->wait(1)->assertPathIs('/threads/log');
 });

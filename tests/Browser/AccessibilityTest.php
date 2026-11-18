@@ -10,6 +10,7 @@ use App\Models\YakTask;
 use App\Services\CoOwner\GitHubWriteAccess;
 
 require_once __DIR__ . '/../Support/NewPageFixtures.php';
+require_once __DIR__ . '/../Support/AxeHelpers.php';
 require_once __DIR__ . '/../Helpers/ReviewRunHelpers.php';
 
 test('task list page has no accessibility issues', function () {
@@ -131,12 +132,13 @@ test('task page with the early warning notice has no accessibility issues', func
     visit(route('tasks.show', $task))->assertVisible('[data-testid="early-warning-picker"]')->assertNoAccessibilityIssues(0);
 })->skip('The task page is removed; its behaviour is covered on the thread page.');
 
-// The shared theme's faint text and green-on-green badges sit below the AA contrast ratio, so these pages are checked at the critical level.
+// The shared theme's faint text and green-on-green badges sit below the AA contrast ratio, so the contrast rule is off and every other serious violation fails.
 test('thread page has no accessibility issues', function () {
     $this->actingAs(User::factory()->create());
     [$thread] = seedConversationThread();
 
-    visit(route('threads.show', $thread))->assertVisible('[data-testid="thread-conversation-scroller"]')->assertNoAccessibilityIssues(0);
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="thread-conversation-scroller"]');
+    assertNoSeriousAccessibilityViolations($page);
 });
 
 test('thread page with the co-owner card has no accessibility issues', function () {
@@ -144,7 +146,8 @@ test('thread page with the co-owner card has no accessibility issues', function 
     $this->actingAs($viewer);
     $thread = seedCoOwnerCardThread($viewer);
 
-    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-co-owner"]')->assertNoAccessibilityIssues(0);
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="card-co-owner"]');
+    assertNoSeriousAccessibilityViolations($page);
 });
 
 test('thread page with the early warning card has no accessibility issues', function () {
@@ -152,14 +155,16 @@ test('thread page with the early warning card has no accessibility issues', func
     $this->actingAs($viewer);
     $thread = seedEarlyWarningCardThread($viewer);
 
-    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-early-warning"]')->assertNoAccessibilityIssues(0);
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="card-early-warning"]');
+    assertNoSeriousAccessibilityViolations($page);
 });
 
 test('thread page with the stop card has no accessibility issues', function () {
     $this->actingAs(User::factory()->create());
     $thread = seedStopCardThread();
 
-    visit(route('threads.show', $thread))->assertVisible('[data-testid="card-stop"]')->assertNoAccessibilityIssues(0);
+    $page = visit(route('threads.show', $thread))->assertVisible('[data-testid="card-stop"]');
+    assertNoSeriousAccessibilityViolations($page);
 });
 
 test('thread log has no accessibility issues', function () {
@@ -175,7 +180,8 @@ test('review page has no accessibility issues', function () {
     $review = PrReview::factory()->create(['yak_task_id' => $task->id, 'repo' => 'geocodio/api', 'pr_number' => 50, 'summary' => 'The move is consistent.']);
     PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'should_fix', 'category' => 'Tests', 'file_path' => 'app/Models/Subscription.php', 'line_number' => 189, 'body' => 'No test covers a negotiated price.']);
 
-    visit('/pr-reviews/for/geocodio/api/50')->assertVisible('[data-testid="review-runs"]')->assertNoAccessibilityIssues(0);
+    $page = visit('/pr-reviews/for/geocodio/api/50')->assertVisible('[data-testid="review-runs"]');
+    assertNoSeriousAccessibilityViolations($page);
 });
 
 test('repository Runs tab has no accessibility issues', function () {
@@ -184,5 +190,6 @@ test('repository Runs tab has no accessibility issues', function () {
     YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup, 'status' => 'failed', 'error_log' => 'port 8000 never answered within 90 seconds']);
     YakTask::factory()->success()->create(['repo' => $repository->slug, 'mode' => TaskMode::Setup]);
 
-    visit(route('repos.runs.index', $repository))->assertVisible('[data-testid="run-list"]')->assertNoAccessibilityIssues(0);
+    $page = visit(route('repos.runs.index', $repository))->assertVisible('[data-testid="run-list"]');
+    assertNoSeriousAccessibilityViolations($page);
 });

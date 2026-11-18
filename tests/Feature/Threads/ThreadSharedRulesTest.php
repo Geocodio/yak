@@ -187,13 +187,16 @@ describe('research report milestone', function () {
 
     it('has no report milestone without a report or for a task that is not research', function () {
         $research = Thread::factory()->create();
-        YakTask::factory()->success()->create(['thread_id' => $research->id, 'mode' => TaskMode::Research]);
+        $researchTask = YakTask::factory()->success()->create(['thread_id' => $research->id, 'mode' => TaskMode::Research]);
+        sharedRulesRun($research, $researchTask, 1);
         $fix = Thread::factory()->create();
         $fixTask = YakTask::factory()->success()->create(['thread_id' => $fix->id, 'mode' => TaskMode::Fix]);
+        sharedRulesReport($fixTask);
+        sharedRulesRun($fix, $fixTask, 1);
 
-        expect(collect(ThreadMilestonesData::for($research))->pluck('key')->all())->not->toContain('research_report')
+        expect(ThreadMilestonesData::for($research))->not->toBeEmpty()
+            ->and(collect(ThreadMilestonesData::for($research))->pluck('key')->all())->not->toContain('research_report')
             ->and(collect(ThreadMilestonesData::for($fix))->pluck('key')->all())->not->toContain('research_report');
-        expect($fixTask->mode)->toBe(TaskMode::Fix);
     });
 });
 
@@ -412,7 +415,11 @@ describe('progress and stop card', function () {
         ]);
         $running = YakTask::factory()->running()->create();
 
-        expect(ThreadCardsData::for(sharedRulesThread($expired), $this->viewer)['stopped']['kind'])->toBe('needs_you')
+        $cards = ThreadCardsData::for(sharedRulesThread($expired), $this->viewer);
+
+        expect($cards['stopped'])->toMatchArray(['kind' => 'needs_you', 'summary' => 'Yak asked a question and did not hear back, so it stopped.'])
+            ->and($cards['stopped']['kind'])->not->toBe(StopKind::YakStopped->value)
+            ->and($cards['card'])->toBe('stopped')
             ->and(ThreadCardsData::for(sharedRulesThread($running), $this->viewer)['stopped'])->toBeNull();
     });
 });

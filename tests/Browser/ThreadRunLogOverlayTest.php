@@ -149,6 +149,7 @@ it('does not fetch the log again when stepping back to an entry already seen', f
     $page->click('[data-testid="log-prev"]')->assertSee('grep -n calculateDistance');
     $requestsAfterThree = $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/log")).length');
 
+    expect($requestsAfterTwo)->toBeGreaterThan(0);
     expect($requestsAfterThree)->toBe($requestsAfterTwo);
 });
 
@@ -173,11 +174,14 @@ it('shows the output of a step that was running once the log is reopened', funct
 it('keeps a deep link to an entry older than the first page open', function () {
     [$thread, , $ids] = overlayThread(array_map(fn (int $number): string => "echo step-{$number}", range(1, 120)));
 
-    visit(route('threads.show', ['thread' => $thread, 'log' => $ids[4]]))
+    // The log pages in ascending order, 50 steps at a time, so step 60 is only on the second page.
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[59]]))
         ->assertVisible(OVERLAY)
-        ->assertSee('echo step-5')
-        ->assertSee('Step 5 of')
+        ->assertSee('echo step-60')
+        ->assertSee('Step 60 of')
         ->assertNoJavaScriptErrors();
+
+    expect($page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/log")).length'))->toBeGreaterThanOrEqual(2);
 });
 
 it('wraps a long command inside the detail pane instead of widening it', function () {
