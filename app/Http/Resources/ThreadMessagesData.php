@@ -67,6 +67,15 @@ final class ThreadMessagesData
                 continue;
             }
 
+            // A turn started from queued messages alone carries its prompt row only to track the turn.
+            if ($row->kind === TurnMessageKind::Prompt && $row->text === '' && $row->intent === null) {
+                continue;
+            }
+
+            $channelSource = $steer?->source ?? $row->source;
+            $authorName = $row->author_name ?? $steer?->author_name;
+            $isChannelSteer = $row->kind === TurnMessageKind::Steer && ($steer !== null || $row->author_name !== null || $row->source !== null);
+
             // A message shows the files it carried; the task's unlinked request files belong to its first run.
             $files = $steer !== null
                 ? $steer->attachments
@@ -84,8 +93,8 @@ final class ThreadMessagesData
             $text = $isRetry ? '' : ($steer !== null ? $steer->text : ($row->text ?? (string) $run->task?->description));
             $references = array_values(array_filter(array_column($attachments, 'reference')));
 
-            $author = $steer !== null
-                ? self::channelReply($steer) + self::author(null, $steer->author_name)
+            $author = $isChannelSteer
+                ? self::channelReply($channelSource) + self::author(null, $authorName)
                 : (($run->task !== null && $firstRunIds->contains($run->id))
                     ? self::author($run->task, $run->task->author?->name, $run->task->author_name, $run->driver?->name, $run->task->startedBy?->name)
                     : self::author(null, $run->driver?->name));
@@ -199,9 +208,9 @@ final class ThreadMessagesData
      *
      * @return array{via?: array{key: string, label: string, reference: null, url: null}, isReply?: true}
      */
-    private static function channelReply(PendingSteeringMessage $pending): array
+    private static function channelReply(?string $pendingSource): array
     {
-        $source = match ($pending->source) {
+        $source = match ($pendingSource) {
             'slack' => ThreadSource::Slack,
             'linear' => ThreadSource::Linear,
             'github_review' => ThreadSource::Github,

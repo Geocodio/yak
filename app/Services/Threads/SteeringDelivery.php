@@ -66,6 +66,7 @@ class SteeringDelivery
                 'text' => $message->text,
                 'pending_steering_message_id' => $message->id,
                 'send_key' => $message->send_key,
+                ...$message->conversationAuthor(),
             ]);
             ThreadTurns::trackUuid($run, $uuid);
 

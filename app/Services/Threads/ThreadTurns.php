@@ -161,8 +161,13 @@ class ThreadTurns
                 $this->answerOpenQuestion($task, $shownText ?? $prompt, $driver);
             }
 
-            $queued = PendingSteeringMessage::drainFor($task);
+            $drained = PendingSteeringMessage::takeableFor($task);
+            $queued = $drained->isEmpty() ? null : PendingSteeringMessage::render($drained);
             $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
+
+            if ($prompt === '' && $shownText === null && $drained->contains(fn (PendingSteeringMessage $message): bool => $message->source !== 'system')) {
+                $shownText = '';
+            }
             $uuid = (string) Str::uuid();
 
             if ($this->needsStandingInstructions($thread)) {
@@ -187,6 +192,7 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
+            PendingSteeringMessage::drain($task, $drained, $run);
             $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent, 'send_key' => $sendKey]);
 
             if ($storeAttachments !== null) {

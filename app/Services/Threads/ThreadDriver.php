@@ -11,6 +11,7 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
+use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\RunnerExited;
@@ -534,6 +535,10 @@ class ThreadDriver
         }
 
         $message->forceFill(['state' => $state])->save();
+
+        if ($uuid === (string) $run->getAttribute('prompt_uuid')) {
+            ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('kind', TurnMessageKind::Steer)->whereNull('pending_steering_message_id')->where('state', TurnMessageState::Sent)->update(['state' => $state]);
+        }
 
         $column = match ($state) {
             TurnMessageState::Queued => 'delivered_at',
