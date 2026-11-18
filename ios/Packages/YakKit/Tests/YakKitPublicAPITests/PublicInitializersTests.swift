@@ -107,3 +107,37 @@ private func requireSendable<Value: Sendable>(_ value: Value) -> Value { value }
     var open = requireSendable(OpenPerformanceIntervals<Int>())
     #expect(open.begin(.paneSwitch, token: 1).shouldBegin)
 }
+
+@Test func threadWorkModelsAreBuildableOutsideTheModule() {
+    let source = ThreadSource(key: .slack, label: "Slack", reference: "#general", url: nil)
+    let request = ThreadRequest(
+        source: source, starter: ThreadStarter(key: "yak", name: "Yak"), responsibleName: nil,
+        status: ThreadRequestStatus(key: .working, label: "Working", tone: .info))
+    let progress = ThreadProgress(steps: [ThreadProgressStep(key: .working, label: "Working", state: .current)])
+    let milestone = ThreadMilestone(key: .pushed, label: "Pushed", tone: .ok, runId: "1", afterSequence: 3)
+    let stop = ThreadStop(kind: .yakStopped, summary: "S", nextStep: "N")
+    let flags = ThreadActionFlags(canRetry: true, canMove: true, moveTargets: ["example/web"])
+    let warning = EarlyWarningNotice(
+        areas: [EarlyWarningArea(name: "A", risk: "high")], state: "shown", canPick: true, repoName: "example/api")
+    let show = ThreadShow(
+        thread: ThreadDetail(
+            id: "a1", name: "a1", title: "T", repo: "unknown", kind: "thread", status: .open, visibility: "private",
+            sandboxState: "none", runnerState: "idle", pullRequestCount: 0, isOwner: true, isStarred: false,
+            hasRepository: false),
+        canDrive: true, messages: [],
+        composer: Composer(state: .stopped, models: [], nextAttachmentNumber: 1),
+        panes: ThreadPanes(chat: true, preview: false, terminal: false, changes: false, files: false),
+        latestSequence: 0, request: request, progress: progress, milestones: [milestone], card: .stopped,
+        repositoryQuestion: RepositoryQuestion(prompt: "P", options: ["example/web"], canAnswer: true),
+        earlyWarning: warning, stopped: stop, actions: flags, isLegacy: true,
+        legacyAnswers: [LegacyAnswer(runTaskId: "t", html: "", at: "2026-11-15T09:00:00Z")])
+    #expect(show.actions.canRetry && !show.thread.hasRepository && show.card == .stopped)
+    _ = ThreadMessage(
+        id: "m", text: "", authorInitials: "Y", state: .read, sentAt: "2026-11-15T09:00:00Z", bodyHtml: "",
+        via: source, isReply: true, isRetry: true, retryNumber: 1, canEditText: false)
+    _ = ThreadNotice(
+        kind: "moved", title: "Moved", body: "B", canContinue: false, repo: "example/web", threadId: "a2",
+        threadTitle: "T")
+    _ = MessageSendResult(status: .sent, notice: "Trying again with your note.")
+    _ = ThreadStateChange(status: .open, sandboxState: "ready", runnerState: "idle", showKey: "abc")
+}

@@ -11,11 +11,14 @@ public struct MessageSendResult: Codable, Equatable, Sendable {
     public let status: SendStatus
     public let uuid: String?
     public let threadId: String?
+    /// A sentence to show the person: the answer to a reply on a stopped thread says what happened to the retry.
+    public let notice: String?
 
-    public init(status: SendStatus, uuid: String? = nil, threadId: String? = nil) {
+    public init(status: SendStatus, uuid: String? = nil, threadId: String? = nil, notice: String? = nil) {
         self.status = status
         self.uuid = uuid
         self.threadId = threadId
+        self.notice = notice
     }
 }
 
