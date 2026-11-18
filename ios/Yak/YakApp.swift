@@ -62,7 +62,7 @@ struct YakApp: App {
                         baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
                         systemDescription: system)
                 },
-                makeEnvironment: environment, observers: parts.observers, push: parts.push))
+                makeEnvironment: environment, observers: parts.observers, push: parts.push, widgets: parts.widgets))
     }
 
     /// Runs for every launch, with or without a scene, so a background relaunch for an upload session reaches the
@@ -80,12 +80,18 @@ struct YakApp: App {
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
                 } else if let shareCase = TestMode.value("yakTestShare") {
                     ShareTestHost(caseName: shareCase).preferredColorScheme(TestMode.colorScheme())
+                } else if TestMode.value("yakTestScreen") == "widget-gallery" {
+                    WidgetGallery(
+                        stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "needs-you")
                 } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
                     MarkdownGallery()
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView.preferredColorScheme(TestMode.colorScheme())
+                        .overlay(alignment: .top) {
+                            if let intent = TestMode.intentName { IntentTestResultView(name: intent) }
+                        }
                 }
             #else
                 rootView
@@ -96,6 +102,9 @@ struct YakApp: App {
     private var rootView: some View {
         RootView(model: model)
             .appRoot(parts, model: model)
+            .task {
+                for await link in QuickActions.links() { await model.handle(url: link) }
+            }
             .task {
                 delegate.attach(parts.push)
                 delegate.attach(uploads: parts.uploads)

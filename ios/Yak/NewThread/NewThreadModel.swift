@@ -77,7 +77,9 @@ final class NewThreadModel {
         text = prefill?.text ?? ""
     }
 
-    static func lastRepositoryKey(_ instance: UUID) -> String { "newThread.lastRepo.\(instance.uuidString)" }
+    nonisolated static func lastRepositoryKey(_ instance: UUID) -> String {
+        "newThread.lastRepo.\(instance.uuidString)"
+    }
 
     private var lastRepository: String? { defaults.string(forKey: Self.lastRepositoryKey(session.instance.id)) }
 

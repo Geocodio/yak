@@ -56,6 +56,23 @@ module FastLanes
     !counts.empty?
   end
 
+  # The `-only-testing` identifiers (`Bundle/Class/test`) of the failed test cases in the JSON of
+  # `xcresulttool get test-results tests`.
+  def self.failed_tests(results)
+    found = []
+    walk = lambda do |nodes|
+      (nodes || []).each do |node|
+        if node["nodeType"] == "Test Case"
+          found << node["nodeIdentifierURL"].to_s.split("/").last(3).join("/") if node["result"] == "Failed"
+        else
+          walk.call(node["children"])
+        end
+      end
+    end
+    walk.call(results["testNodes"])
+    found.uniq
+  end
+
   def self.file_digest(path)
     File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
   end

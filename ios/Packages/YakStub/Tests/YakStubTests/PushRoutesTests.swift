@@ -55,7 +55,7 @@ private let hexToken = String(repeating: "0123456789abcdef", count: 4)
         let refused = try call("PUT", "push-tokens/alert", "{\"token\":\"xyz\",\"environment\":\"production\"}")
         #expect(refused.0 == 422)
         #expect(refused.1["error"] as? String == "validation_failed")
-        #expect(try call("PUT", "push-tokens/widget", body).0 == 404)
+        #expect(try call("PUT", "push-tokens/live_activity", body).0 == 404)
         #expect(try call("DELETE", "push-tokens/alert").0 == 204)
         #expect(try tokens().isEmpty)
     }
