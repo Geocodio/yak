@@ -321,6 +321,9 @@ struct DrawerView: View {
         } label: {
             Text("overview.child.open")
         }
+        if case .thread(let id) = row.target, case .loading = menu {
+            OpenInNewWindowButton(threadID: id, instanceID: instance.id)
+        }
         switch menu {
         case .loading:
             Button {
@@ -344,6 +347,9 @@ struct DrawerView: View {
                     Text("overview.child.split")
                 }
                 .disabled(drawer.isOffline)
+            }
+            if case .thread(let id) = row.target {
+                OpenInNewWindowButton(threadID: id, instanceID: instance.id)
             }
             if actions.contains(.drop) {
                 Button(role: .destructive) {

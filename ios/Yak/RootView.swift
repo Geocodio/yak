@@ -3,6 +3,10 @@ import YakKit
 
 struct RootView: View {
     let model: AppModel
+    /// What this window was asked to show; the window keeps it equal to the thread it shows.
+    @Binding var request: WindowRequest?
+    /// Links reach a window through the lock.
+    let appLock: AppLockController
 
     @SceneStorage("yak.scene") private var restoredScene: Data?
     @State private var scene: SceneModel?
@@ -35,18 +39,20 @@ struct RootView: View {
         .animation(.spring, value: model.route)
         .animation(.spring, value: model.linkPairing?.state)
         .task {
-            if scene == nil { scene = model.makeSceneModel(restored: restoredScene) }
+            if scene == nil { scene = model.makeSceneModel(restored: restoredScene, request: request) }
+            // The window's phase is recorded when it starts, so a window whose phase never changes still counts for
+            // the pause, and a rebuilt window resumes the sessions.
+            if let scene { await model.scenePhaseChanged(scene, to: scenePhase) }
             await model.reloadRoute()
         }
+        .onOpenURL { url in model.receive(url: url, in: scene, through: appLock) }
         .onChange(of: scene?.state) { restoredScene = scene?.encodedState }
+        .onChange(of: scene?.windowValue) { if request != scene?.windowValue { request = scene?.windowValue } }
+        // The window registers when it is made and leaves when it goes away; a route change rebuilds only the screen
+        // inside it. The app pauses its live updates when every window is in the background, not when one is.
         .onChange(of: scenePhase) { _, phase in
-            Task {
-                switch phase {
-                case .background: await model.sessions.enterBackground()
-                case .active: await model.sessions.enterForeground()
-                default: break
-                }
-            }
+            guard let scene else { return }
+            Task { await model.scenePhaseChanged(scene, to: phase) }
         }
         .onChange(of: model.network.isOnline) { _, isOnline in
             Task { await model.sessions.networkChanged(isOnline: isOnline) }
@@ -58,7 +64,11 @@ extension RootView {
     /// The explanation screen after a pairing, shown over whatever the route shows.
     fileprivate var explanationBinding: Binding<NotificationExplanationRequest?> {
         Binding(
-            get: { model.push?.explanation },
+            get: {
+                guard let scene else { return nil }
+                let explanation = model.push?.explanation
+                return model.presentsExplanation(in: scene, isShowing: explanation != nil) ? explanation : nil
+            },
             set: { if $0 == nil { model.push?.explanation = nil } })
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import YakKit
 
 #if canImport(os)
@@ -41,16 +42,164 @@ final class AppModel {
     private let normalizeAddress: @Sendable (String) -> URL?
     private let parseLink: @Sendable (URL) -> PairingLink?
     private let normalizeLinkAddress: @Sendable (String) -> URL?
-    /// The window the app shows; links that are not pairing links go to it.
-    private weak var scene: SceneModel?
+    /// A window the app shows, held weakly.
+    private struct WeakScene { weak var scene: SceneModel? }
+    private var scenes: [WeakScene] = []
+    private weak var lastActiveScene: SceneModel?
+    /// The window links, pushes, quick actions and continued activities go to: the most recently active one that is
+    /// still connected, else the last one that connected. They never open a window of their own.
+    var routingScene: SceneModel? { lastActiveScene ?? scenes.last { $0.scene != nil }?.scene }
+
+    /// A window that is in front becomes the routing one. A window that is missing from the list (it was removed
+    /// and is back in front) is registered again.
+    func sceneBecameActive(_ scene: SceneModel) {
+        prune()
+        if !scenes.contains(where: { $0.scene === scene }) { scenes.append(WeakScene(scene: scene)) }
+        lastActiveScene = scene
+    }
+
+    /// A window leaves the list when its scene really disconnects: nothing else holds its model then, and the weak
+    /// reference empties. A screen going away, or a cover over the window, never removes it. `prune` clears what the
+    /// emptied references left behind.
+    private func prune() {
+        scenes.removeAll { $0.scene == nil }
+        let live = Set(scenes.compactMap(\.scene).map(ObjectIdentifier.init))
+        phases = phases.filter { live.contains($0.key) }
+    }
+
+    /// Removes a window at once (a scene that disconnected while something still holds its model).
+    func sceneDisconnected(_ scene: SceneModel) {
+        scenes.removeAll { $0.scene == nil || $0.scene === scene }
+        phases[ObjectIdentifier(scene)] = nil
+        if lastActiveScene === scene { lastActiveScene = nil }
+        if presentingScene === scene { presentingScene = nil }
+        if explanationPresenter === scene { explanationPresenter = nil }
+    }
+
+    @ObservationIgnored private var hasAnnouncedActive = false
+    @ObservationIgnored private var hasAnnouncedBackground = false
+
+    /// True for the first window to ask after the app became active, so work that belongs to the app (the push
+    /// registration) runs once, not once per window.
+    func claimActiveAnnouncement() -> Bool {
+        defer { hasAnnouncedActive = true }
+        return !hasAnnouncedActive
+    }
+
+    /// True for the first window to ask after the app went to the background, so the Spotlight refresh runs once.
+    func claimBackgroundAnnouncement() -> Bool {
+        defer { hasAnnouncedBackground = true }
+        return !hasAnnouncedBackground
+    }
+
+    /// What a window's phase did to the app as a whole.
+    enum AppPhaseChange: Equatable { case none, enteredBackground, enteredForeground }
+
+    @ObservationIgnored private var phases: [ObjectIdentifier: ScenePhase] = [:]
+    /// Whether every window is in the background; the live updates stop only then.
+    private(set) var isInBackground = false
+
+    /// A window's phase changed. The app goes to the background when every window is there, and live updates and the
+    /// feed pause only then; one window leaving never pauses another that is still in front.
+    @discardableResult
+    func scenePhaseChanged(_ scene: SceneModel, to phase: ScenePhase) async -> AppPhaseChange {
+        prune()
+        phases[ObjectIdentifier(scene)] = phase
+        switch phase {
+        case .active:
+            sceneBecameActive(scene)
+            hasAnnouncedBackground = false
+            let wasInBackground = isInBackground
+            isInBackground = false
+            await sessions.enterForeground()
+            return wasInBackground ? .enteredForeground : .none
+        case .background:
+            let isEveryWindowInBackground = scenes.compactMap(\.scene).allSatisfy {
+                phases[ObjectIdentifier($0)] == .background
+            }
+            guard isEveryWindowInBackground, !isInBackground else { return .none }
+            isInBackground = true
+            hasAnnouncedActive = false
+            BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+            await sessions.enterBackground()
+            await widgets?.enteredBackground()
+            return .enteredBackground
+        default:
+            return .none
+        }
+    }
+
+    @ObservationIgnored private var quickActionsTask: Task<Void, Never>?
+
+    /// Turns the Home Screen quick actions into links, once for the app, each through the lock's gate. Every window calls it; only the first starts
+    /// the loop, and closing a window never ends it.
+    func followQuickActions(through appLock: AppLockController) {
+        guard quickActionsTask == nil else { return }
+        quickActionsTask = Task { [weak self] in
+            await AppParts.route(QuickActions.links(), through: appLock) { await self?.handle(url: $0) }
+        }
+    }
+
+    /// A link, widget tap or activity a window received: it opens in that window, and only once the lock is open.
+    func receive(url: URL, in scene: SceneModel?, through appLock: AppLockController) {
+        AppParts.open(url, through: appLock) { [weak self, weak scene] url in
+            if let scene { await self?.handle(url: url, in: scene) } else { await self?.handle(url: url) }
+        }
+    }
+
+    /// How many windows are registered.
+    var connectedSceneCount: Int { scenes.compactMap(\.scene).count }
+
     /// A link that arrived before the window chose its first screen; the cold start reads it once.
     private(set) var launchLink: DeepLink?
     /// The task page to show in the in-app browser.
-    var browserURL: URL?
+    var browserURL: URL? { didSet { claimPresenter() } }
     /// A task link or push waiting for the shell to open its native screen.
     var taskToOpen: String?
     /// An instance a link named that this phone is not paired with; the shell shows the connect flow for it.
-    var addressToConnect: URL?
+    var addressToConnect: URL? { didSet { claimPresenter() } }
+    /// The window that shows the browser and the connect sheet: the routing one when they opened. They are app-wide
+    /// values and show in one window only.
+    @ObservationIgnored private weak var presentingScene: SceneModel?
+
+    private func claimPresenter() {
+        if browserURL == nil, addressToConnect == nil {
+            presentingScene = nil
+        } else if presentingScene == nil {
+            presentingScene = routingScene
+        }
+    }
+
+    /// The window that shows the notification explanation, claimed when it first shows.
+    @ObservationIgnored private weak var explanationPresenter: SceneModel?
+
+    /// Whether the notification explanation shows in this window: the routing one when it started to show, and the
+    /// same one until it is dismissed, so it never moves between windows.
+    func presentsExplanation(in scene: SceneModel, isShowing: Bool) -> Bool {
+        guard isShowing else {
+            explanationPresenter = nil
+            return false
+        }
+        if explanationPresenter == nil { explanationPresenter = routingScene }
+        return explanationPresenter === scene
+    }
+
+    /// Whether the app-wide sheets (the browser and the connect sheet) show in this window.
+    func presentsSheets(in scene: SceneModel) -> Bool { (presentingScene ?? routingScene) === scene }
+
+    /// The task id a link or push waits to open, taken by the routing window only.
+    func takeTaskToOpen(for scene: SceneModel) -> String? {
+        guard routingScene === scene, let id = taskToOpen else { return nil }
+        taskToOpen = nil
+        return id
+    }
+
+    /// What a push tap asks a screen to show, taken by the routing window only.
+    func takePendingPush(for scene: SceneModel) -> PushPending? {
+        guard routingScene === scene, let pending = push?.pending else { return nil }
+        push?.clearPending()
+        return pending
+    }
     /// Set by the shell from the window's size class, for links that open a thread.
     var isCompactWidth = true
     /// The instance whose session is running, so leaving it stops the session.
@@ -117,7 +266,7 @@ final class AppModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
             onPaired: { [weak self] instance in
-                self?.scene?.justPairedUserName = instance.userName
+                self?.routingScene?.justPairedUserName = instance.userName
                 await self?.reloadRoute()
                 await self?.observers.paired(instance)
             },
@@ -126,10 +275,23 @@ final class AppModel {
     }
 
     /// The model of a window; `restored` is what the window saved last time.
-    func makeSceneModel(restored: Data?) -> SceneModel {
-        let model = SceneModel(state: SceneModel.restoredState(from: restored))
-        scene = model
+    func makeSceneModel(restored: Data?, request: WindowRequest? = nil) -> SceneModel {
+        let state = SceneModel.restoredState(from: restored)
+        let model: SceneModel
+        if case .signedIn(let active) = route {
+            model = SceneModel(state: state, request: request, activeInstance: active.id)
+        } else {
+            model = SceneModel(state: state)
+        }
+        scenes.removeAll { $0.scene == nil }
+        scenes.append(WeakScene(scene: model))
         return model
+    }
+
+    /// A link a window received: that window takes it, because it is the one the event reached.
+    func handle(url: URL, in scene: SceneModel) async {
+        sceneBecameActive(scene)
+        await handle(url: url)
     }
 
     /// A `yak://pair` link starts pairing up to the confirmation; the other links go to the window.
@@ -149,7 +311,7 @@ final class AppModel {
     }
 
     func handle(link: DeepLink) async {
-        guard let scene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
+        guard let scene = routingScene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
             if case .pair = link { return }
             if hasLoaded, case .connect = route {
                 switch link {
@@ -252,7 +414,13 @@ final class AppModel {
             } else {
                 runningInstance = active.id
                 // A window that belongs to another instance starts over; a link switch already claimed it.
-                if let scene, scene.state.instanceID != active.id { scene.reset(instanceID: active.id) }
+                for scene in scenes.compactMap(\.scene) {
+                    if scene.state.instanceID != active.id {
+                        scene.reset(instanceID: active.id)
+                    } else {
+                        scene.instanceChanged(to: active.id)
+                    }
+                }
                 activeSession = sessions.session(for: active)
                 route = .signedIn(active)
             }

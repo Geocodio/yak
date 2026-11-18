@@ -1,42 +1,57 @@
 import SwiftUI
 import YakKit
 
-/// Keeps every pane opened in this thread alive and shows the focused one. Opacity and hit testing hide the others,
-/// so switching never reloads a pane. The views go away with the thread.
+/// Keeps every pane opened in this thread alive and puts each shown one in its slot's frame. Opacity and hit testing
+/// hide the others, so switching or moving never reloads a pane. With one slot a pane fills the host. The views go
+/// away with the thread. This is the only place a pane view is built, in one `ForEach` keyed by `PaneID`.
 struct PaneHost: View {
     let thread: ThreadModel
+    /// The focused pane: a pane that is not shown waits one step to the side it would slide in from.
     let focused: PaneID
+    let slots: PaneSlotsModel
+    /// The corners of a pane in a two-slot layout; a single pane is not clipped.
+    let cornerRadius: CGFloat
 
-    @State private var opened: [PaneID] = []
-    @Environment(SceneModel.self) private var scene
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var isStill: Bool { StillMotion.isOn(reduceMotion: reduceMotion) }
+    private var isSingle: Bool { slots.arrangement == .single }
+
+    /// With one slot the focused pane is the shown one, read in the same update as `focused` so the fade and the slide
+    /// run with the switch; with two slots the placement the layout wrote says which panes are shown.
+    static func isShown(_ id: PaneID, focused: PaneID, isSingle: Bool, placed: Bool) -> Bool {
+        isSingle ? id == focused : placed
+    }
+
+    /// A pane moves to its slot at once, with no fade: a text size change or a focus move re-plans the slots, and the
+    /// screen must be still, text fully opaque, for the accessibility audit.
     var body: some View {
-        ZStack {
-            ForEach(opened, id: \.self) { id in
+        ZStack(alignment: isSingle ? .center : .topLeading) {
+            ForEach(slots.alive, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
-                    let isFocused = id == focused
+                    let isShown = Self.isShown(id, focused: focused, isSingle: isSingle, placed: slots.isShown(id))
+                    let frame = slots.frame(for: id)
+                    // A pane that waits for its slot's frame is neither drawn nor reachable.
+                    let isVisible = isShown && (isSingle || frame != nil)
                     descriptor.content(thread)
-                        .opacity(isFocused ? 1 : 0)
-                        .offset(x: reduceMotion || isFocused ? 0 : offset(of: id))
+                        .frame(width: frame?.width, height: frame?.height)
+                        .background(isSingle ? Color.clear : Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius).inset(by: isSingle ? -4000 : 0))
+                        .offset(x: (frame?.minX ?? 0) + slide(of: id, isShown: isShown), y: frame?.minY ?? 0)
+                        .opacity(isVisible ? 1 : 0)
                         .environment(\.paneID, id)
-                        .environment(\.isPaneShown, scene.isShown(id, among: thread.panes))
-                        .allowsHitTesting(isFocused)
-                        .accessibilityHidden(!isFocused)
+                        .environment(\.isPaneShown, isShown)
+                        .allowsHitTesting(isVisible)
+                        .accessibilityHidden(!isVisible)
                 }
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28), value: focused)
-        .onAppear { open(focused) }
-        .onChange(of: focused) { open(focused) }
+        .animation(
+            isSingle ? (isStill ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28)) : nil, value: focused)
     }
 
-    private func open(_ id: PaneID) {
-        if !opened.contains(id) { opened.append(id) }
-    }
-
-    /// A pane that is not focused waits one step to the side it would slide in from.
-    private func offset(of id: PaneID) -> CGFloat {
+    private func slide(of id: PaneID, isShown: Bool) -> CGFloat {
+        guard !isStill, !isShown, isSingle else { return 0 }
         let order = thread.panes
         guard let own = order.firstIndex(of: id), let current = order.firstIndex(of: focused) else { return 0 }
         return own < current ? -24 : 24

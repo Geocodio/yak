@@ -59,7 +59,6 @@ struct PreviewBarRow: View {
             }
             .padding(.horizontal, 12)
             .background(Color(.secondarySystemBackground), in: .capsule)
-            .opacity(canEdit ? 1 : 0.55)
             progress
         }
         .background { reloadShortcut }
@@ -78,8 +77,8 @@ struct PreviewBarRow: View {
                 Image(systemName: model.isSecure ? "lock.fill" : "lock.open")
                     .font(.footnote).foregroundStyle(model.isSecure ? Color.green : Color.yakMuted)
                     .accessibilityHidden(true)
-                Text(model.address).font(.system(.subheadline, design: .monospaced)).lineLimit(1)
-                    .truncationMode(.middle)
+                Text(model.address).font(.system(.subheadline, design: .monospaced).weight(.medium)).lineLimit(1)
+                    .foregroundStyle(canEdit ? Color.primary : Color.yakMuted).truncationMode(.middle)
                 Spacer(minLength: 0)
             }
             .frame(minHeight: 44).contentShape(.rect)

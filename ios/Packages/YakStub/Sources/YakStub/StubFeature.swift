@@ -77,6 +77,7 @@ enum StubFeatures {
         StubTerminalFeature.shared,
         StubFilesControl(),
         StubOverview(),
+        StubLayout(),
     ]
 }
 

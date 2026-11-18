@@ -152,17 +152,11 @@ final class AppParts {
 extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
-        onOpenURL { url in AppParts.open(url, through: parts.system.appLock) { await model.handle(url: $0) } }
-            .task {
-                await AppParts.route(QuickActions.links(), through: parts.system.appLock) {
-                    await model.handle(url: $0)
-                }
-            }
-            .environment(parts.system)
+        environment(parts.system)
             .appLockWindow(parts.system.appLock)
             .modifier(ShortcutGate(controller: parts.system.appLock))
             .modifier(SpotlightRoot(system: parts.system, model: model))
-            .modifier(PushRoot(push: parts.push, widgets: parts.widgets, model: model))
+            .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .environment(\.walkthroughPlayback, parts.walkthroughPlayback)
             .onChange(of: model.network.isOnline, initial: true) { _, isOnline in
@@ -178,11 +172,10 @@ extension View {
     }
 }
 
-/// Push's scene-root work: it becomes active with the app, follows the network and asks for the next refresh when
-/// the app goes to the background.
+/// Push's scene-root work: it becomes active with the app and follows the network. The next refresh is asked for when
+/// the app as a whole goes to the background, which `AppModel` decides.
 private struct PushRoot: ViewModifier {
     let push: PushController
-    let widgets: WidgetReloadScheduler
     let model: AppModel
     @Environment(\.scenePhase) private var scenePhase
 
@@ -190,10 +183,7 @@ private struct PushRoot: ViewModifier {
         content
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
-                case .active: Task { await push.appBecameActive() }
-                case .background:
-                    BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
-                    Task { await widgets.enteredBackground() }
+                case .active where model.claimActiveAnnouncement(): Task { await push.appBecameActive() }
                 default: break
                 }
             }
@@ -215,6 +205,7 @@ private struct SpotlightRoot: ViewModifier {
                 await system.spotlight.reindex()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                guard model.claimBackgroundAnnouncement() else { return }
                 Task { await system.spotlight.reindexInBackground() }
             }
             .onReceive(

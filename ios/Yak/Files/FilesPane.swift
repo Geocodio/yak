@@ -63,7 +63,7 @@ struct FilesPane: View {
                                 .transformPreference(PaneMenuItemsKey.self) { if mode != current { $0 = [:] } }
                                 .opacity(mode == current ? 1 : 0)
                                 .allowsHitTesting(mode == current)
-                                .accessibilityHidden(mode != current)
+                                .accessibilityHidden(mode != current || !isPaneShown)
                         }
                     }
                 }
@@ -73,6 +73,7 @@ struct FilesPane: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files")
+        .accessibilityHidden(!isPaneShown)
         .onAppear {
             pinModeOnceKnown()
             routeFileOpenRequest()

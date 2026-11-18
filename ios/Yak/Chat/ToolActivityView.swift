@@ -7,6 +7,7 @@ struct ToolActivityView: View {
     let isCurrentStep: Bool
     @Environment(\.chatStartsExpanded) private var startsExpanded
     @State private var isExpanded: Bool?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var expanded: Bool { isExpanded ?? startsExpanded }
 
@@ -35,7 +36,9 @@ struct ToolActivityView: View {
             HStack(spacing: 8) {
                 if isTinted { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 InlineOrStacked {
+                    // The id is on the text, so a text size change redraws it while the row keeps its expanded state.
                     Text(verbatim: item.text ?? "").font(.subheadline.weight(.medium))
+                        .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
                     if isTinted, let start = RelativeAge.parse(item.at) { ElapsedView(since: start) }
                 }
             }

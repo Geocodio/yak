@@ -41,7 +41,7 @@ struct PreviewPane: View {
             if let model {
                 if hasShownPage, let dataStore {
                     PreviewWebView(model: model, dataStore: dataStore)
-                        .accessibilityHidden(model.card?.kind != .page)
+                        .accessibilityHidden(model.card?.kind != .page || !isPaneShown)
                 }
                 // A card or page change fades; the fade is opacity only, so it also suits Reduce Motion.
                 Group { layer(model) }
@@ -102,7 +102,7 @@ struct PreviewPane: View {
             instanceHost: PreviewNavigation.authority(of: thread.session.instance.url) ?? "",
             backend: backend, clock: SystemClock(), terminalAvailable: hasTerminal,
             canOpenFiles: Self.canOpenFiles(thread),
-            focus: { scene.focus(pane: $0) }, fileOpenRequest: { thread.fileOpenRequest },
+            focus: { scene.select($0) }, fileOpenRequest: { thread.fileOpenRequest },
             setFileOpenRequest: { thread.fileOpenRequest = $0 })
         model = next
         await next.start()

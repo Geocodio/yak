@@ -1,0 +1,46 @@
+import Foundation
+import Testing
+import YakKit
+
+@testable import Yak
+
+@MainActor @Test func newWindowAsksForABlankWindowEachTime() {
+    var requests: [WindowRequest] = []
+    for _ in 0..<2 { WindowRoutes.newWindow(open: { requests.append($0) }, supportsMultipleWindows: true) }
+    #expect(requests.count == 2 && requests[0] != requests[1])
+    for request in requests {
+        if case .blank = request { continue }
+        Issue.record("not a blank window")
+    }
+}
+
+@MainActor @Test func nothingOpensWithoutMultipleWindows() {
+    var requests: [WindowRequest] = []
+    WindowRoutes.newWindow(open: { requests.append($0) }, supportsMultipleWindows: false)
+    WindowRoutes.open(
+        thread: "d0e515ef", instance: UUID(), open: { requests.append($0) }, supportsMultipleWindows: false)
+    #expect(requests.isEmpty)
+}
+
+@MainActor @Test func openInNewWindowNamesTheActiveInstanceAndTheThread() {
+    var requests: [WindowRequest] = []
+    let instance = UUID()
+    WindowRoutes.open(
+        thread: "d0e515ef", instance: instance, open: { requests.append($0) }, supportsMultipleWindows: true)
+    #expect(requests == [.thread(instance: instance, id: "d0e515ef")])
+}
+
+@MainActor @Test func onlyARegularWidthIPadWindowShowsTheNoThreadView() {
+    #expect(NoThreadView.isShown(supportsMultipleWindows: true, isCompactWidth: false))
+    #expect(!NoThreadView.isShown(supportsMultipleWindows: true, isCompactWidth: true))
+    // A wide iPhone shows the placeholder, as it always did.
+    #expect(!NoThreadView.isShown(supportsMultipleWindows: false, isCompactWidth: false))
+}
+
+@MainActor @Test func severalWindowsNeedSeveralScenesAndARegularWindow() {
+    #expect(SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: false, isCompactHeight: false))
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: false, isCompactWidth: false, isCompactHeight: false))
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: true, isCompactHeight: false))
+    // A large iPhone held sideways is regular wide and compact high.
+    #expect(!SeveralWindows.isAvailable(supportsMultipleScenes: true, isCompactWidth: false, isCompactHeight: true))
+}
