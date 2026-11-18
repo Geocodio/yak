@@ -114,8 +114,26 @@ export type TeleportData = {
     canTeleport: boolean;
 };
 
+/** An archived walkthrough version; mirrors `App\Http\Resources\ThreadWalkthroughData::earlier()`. */
+export type EarlierWalkthrough = {
+    number: number;
+    /** The thread event the recording ended at; the card sits after the reply up to it. */
+    anchorSequence: number | null;
+    recordedAt: string | null;
+    video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
+    screenshots: { url: string; caption: string | null }[];
+};
+
 /** The latest walkthrough recording; mirrors `App\Http\Resources\ThreadWalkthroughData`. */
 export type ThreadWalkthrough = {
+    number: number;
+    /** The number the recording in progress gets. */
+    nextNumber: number;
+    /** The thread event the recording ended at; the card sits after the reply up to it. */
+    anchorSequence: number | null;
+    recordedAt: string | null;
+    /** Code changed after this recording was made. */
+    isOutdated: boolean;
     isRecording: boolean;
     isRendering: boolean;
     video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
@@ -201,6 +219,7 @@ export type ThreadPageData = {
     teleport: TeleportData;
     publishWarning: boolean;
     walkthrough: ThreadWalkthrough | null;
+    earlierWalkthroughs: EarlierWalkthrough[];
     sharedFiles: SharedFile[];
     isLegacy: boolean;
     /** Yak's answers of a thread made from an old task, in time order; empty for other threads. */

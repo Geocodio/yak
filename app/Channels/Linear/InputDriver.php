@@ -45,7 +45,7 @@ class InputDriver implements InputDriverContract
         $externalId = $identifier !== '' ? "LINEAR-{$identifier}" : $issueId;
         $mode = $this->detectMode($title, $issue, $issueId);
         $repository = $this->detectRepo($description);
-        $body = $this->composeBody($title, $description, $promptContextXml);
+        $parsed = app(IssueImages::class)->extract($this->composeBody($title, $description, $promptContextXml));
 
         $payloadCreator = $session['creator']['name'] ?? null;
         $payloadCreatorId = $session['creator']['id'] ?? null;
@@ -58,7 +58,7 @@ class InputDriver implements InputDriverContract
 
         return new TaskDescription(
             title: Str::limit($title, 100),
-            body: $body,
+            body: $parsed['text'],
             channel: 'linear',
             externalId: $externalId,
             repository: $repository,
@@ -66,6 +66,7 @@ class InputDriver implements InputDriverContract
                 'mode' => $mode->value,
                 'title' => $title,
                 'description' => $description,
+                'images' => $parsed['images'],
                 'linear_issue_id' => $issueId,
                 'linear_issue_identifier' => $identifier,
                 'linear_issue_url' => $issueUrl,

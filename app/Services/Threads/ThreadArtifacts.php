@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class ThreadArtifacts
 {
-    /** Roles that make up one recording; a newer recording replaces all of them. */
+    /** Roles that make up one recording; a newer recording archives what it shows and replaces all of them. */
     private const array RECORDING_ROLES = ['script', 'manifest', 'shot', 'still', 'voiceover', 'screenshot'];
 
     public function collect(Thread $thread): void
@@ -49,7 +49,7 @@ class ThreadArtifacts
             return;
         }
 
-        $this->dropSupersededRecording($task, $collected);
+        $this->dropSupersededRecording($thread, $task, $collected);
         $artifacts = ArtifactPersister::persist($task);
         $this->anchorSharedFiles($thread, $artifacts);
 
@@ -104,11 +104,13 @@ class ThreadArtifacts
         }
     }
 
-    private function dropSupersededRecording(YakTask $task, string $collected): void
+    private function dropSupersededRecording(Thread $thread, YakTask $task, string $collected): void
     {
         if (! File::exists("{$collected}/script.json")) {
             return;
         }
+
+        app(ThreadWalkthroughs::class)->beginRecording($thread, $task);
 
         foreach ($task->artifacts()->whereIn('role', self::RECORDING_ROLES)->get() as $artifact) {
             Storage::disk('artifacts')->delete((string) $artifact->disk_path);

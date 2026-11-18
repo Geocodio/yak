@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Channels\Linear\IssueImages;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
@@ -162,6 +163,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 "Starting on `{$this->task->repo}` — exploring the codebase now.",
             );
         }
+
+        app(IssueImages::class)->storeForTask($this->task);
 
         // The job ends once the turn is written. The thread driver reports the
         // turn's end and DispatchAfterTurnWork queues FinishRunYakTurnJob.
