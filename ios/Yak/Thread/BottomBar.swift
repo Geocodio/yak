@@ -31,9 +31,10 @@ struct BottomBar: View {
 
     private var bar: some View {
         layout
-            .padding(.horizontal, 10).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Design.Space.barPadding)
             .background { BarSurface() }
-            .padding(.horizontal, 8).padding(.bottom, 4)
+            .padding(.horizontal, Design.Space.barInset).padding(.bottom, Design.Space.tight)
             .simultaneousGesture(swipe)
             .accessibilityElement(children: .contain)
             .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
@@ -47,7 +48,7 @@ struct BottomBar: View {
                 row
             }
         } else {
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: Design.Space.small) {
                 control
                 row
             }
@@ -93,10 +94,12 @@ struct BarSurface: View {
         // The thread's text would show through glass at accessibility text sizes, where the bar covers much of the
         // screen, and the audit cannot read the bar's text on glass in dark mode.
         if reduceTransparency || dynamicTypeSize.isAccessibilitySize || colorScheme == .dark {
-            RoundedRectangle(cornerRadius: 28).fill(Color(.secondarySystemBackground))
-                .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
+            RoundedRectangle(cornerRadius: Design.Radius.bar).fill(Color.yakBar)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Design.Radius.bar)
+                        .stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
         } else {
-            Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 28))
+            Color.clear.glassEffect(.regular, in: .rect(cornerRadius: Design.Radius.bar))
         }
     }
 }

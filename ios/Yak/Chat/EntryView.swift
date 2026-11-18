@@ -76,8 +76,13 @@ struct MessageBubble<Content: View>: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 18))
+            .padding(.horizontal, Design.Space.large - 1).padding(.vertical, Design.Space.compact + 2)
+            .background(
+                Color.yakBubble,
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: Design.Radius.bubble, bottomLeadingRadius: Design.Radius.bubble,
+                    bottomTrailingRadius: Design.Radius.bubbleTail, topTrailingRadius: Design.Radius.bubble)
+            )
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
@@ -203,7 +208,7 @@ struct AttachmentChip: View {
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
+        .background(Color.yakFill, in: .rect(cornerRadius: 10))
         .accessibilityElement(children: .combine)
     }
 }
@@ -229,7 +234,7 @@ private struct EditQueuedSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 12) {
                 TextEditor(text: $text)
-                    .padding(8).background(Color(.secondarySystemFill), in: .rect(cornerRadius: 12))
+                    .padding(8).background(Color.yakBubble, in: .rect(cornerRadius: 12))
                     .frame(minHeight: 120)
                     .accessibilityLabel("chat.message.editField")
                     .accessibilityIdentifier("message.edit.field")

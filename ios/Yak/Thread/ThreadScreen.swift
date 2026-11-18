@@ -60,7 +60,7 @@ struct ThreadScreen: View {
                 if let model {
                     content(model, placement: placement, hasStrip: hasStrip)
                 } else {
-                    Color(.systemBackground)
+                    Color.yakBackground
                 }
             }
         }
@@ -126,13 +126,13 @@ struct ThreadScreen: View {
                 .collectingPaneSlots(into: slots)
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
+            .toolbarBackground(Color.yakBackground, for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {

@@ -96,7 +96,7 @@ struct ThreadLayoutView: View {
                         alignment: plan.arrangement == .single ? .center : .topLeading)
                 slotLayer(plan, focused: focused)
             }
-            .background(plan.arrangement == .single ? Color.clear : Color(.secondarySystemBackground))
+            .background(plan.arrangement == .single ? Color.clear : Color.yakCard)
             .coordinateSpace(name: Self.coordinateSpace)
             if plan.arrangement == .single {
                 bar(for: focused, placement: singlePlacement, slot: nil, beside: nil, plan: plan)
@@ -198,7 +198,7 @@ struct ThreadLayoutView: View {
                 GeometryReader { proxy in
                     OverviewSidePanel(thread: thread, width: Double(proxy.size.width)) { scene.select(.overview) }
                 }
-                .background(Color(.systemBackground))
+                .background(Color.yakBackground)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             }
             if let entry = forcedBar.map({ Optional($0) }) ?? plan.bars[slot.position] {

@@ -36,9 +36,9 @@ struct PaneMenuButton: View {
             }
             .font(.body)
             .foregroundStyle(.primary)
-            .padding(.horizontal, 6)
-            .frame(minWidth: 44, minHeight: 44)
-            .background(Color.primary.opacity(0.08), in: .capsule)
+            .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.compact + 2)
+            .frame(minWidth: Design.Size.control, minHeight: Design.Size.control)
+            .background(Color.yakFillStrong, in: .capsule)
             .contentShape(.capsule)
             .hoverEffect(.highlight)
         }
@@ -118,12 +118,12 @@ struct PaneMarkLabel: ViewModifier {
 
     private func marked(_ content: Content, style: PaneMarkStyle) -> some View {
         content
-            .foregroundStyle(mark == .focused && style == .capsules ? Color(.systemBackground) : .primary)
+            .foregroundStyle(mark == .focused && style == .capsules ? Color.yakBackground : .primary)
             .background {
                 if mark == .focused, style == .capsules {
-                    Capsule().fill(Color.primary)
+                    RoundedRectangle(cornerRadius: Design.Radius.row).fill(Color.primary)
                 } else if mark == .second, style == .capsules {
-                    Capsule().strokeBorder(Color.secondary, lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: Design.Radius.row).strokeBorder(Color.yakMuted, lineWidth: 1.5)
                 }
             }
     }
@@ -162,7 +162,7 @@ struct PaneRow: View {
     }
 
     private var row: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Design.Space.tight) {
             ForEach(panes, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     PaneRowButton(
@@ -185,16 +185,18 @@ private struct PaneRowButton: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(spacing: 2) {
+            VStack(spacing: Design.Space.hairline * 2) {
                 Image(systemName: descriptor.symbol).font(.body)
                     .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
-                Text(descriptor.name).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+                Text(descriptor.name).font(.caption2.weight(.semibold)).lineLimit(1).fixedSize(
+                    horizontal: true, vertical: false)
             }
             .foregroundStyle(.primary)
-            .padding(.horizontal, 12).padding(.vertical, 4)
-            .frame(minWidth: 56, minHeight: 44)
+            .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
+            .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
             .background(
-                mark == nil && isSelected ? Color.primary.opacity(0.12) : .clear, in: .rect(cornerRadius: 12)
+                mark == nil && isSelected ? Color.yakFillStrong : .clear,
+                in: .rect(cornerRadius: Design.Radius.row)
             )
             .modifier(PaneMarkLabel(mark: mark))
             .contentShape(.rect)
@@ -251,7 +253,7 @@ struct PaneBadgeView: View {
             Text(number, format: .number).font(.caption2.weight(.bold)).foregroundStyle(Color.yakOnBadge)
                 .padding(.horizontal, 4).frame(minWidth: 14, minHeight: 14)
                 .background(Color.yakBadge, in: .capsule)
-                .overlay(Capsule().stroke(Color(.systemBackground), lineWidth: 1.5))
+                .overlay(Capsule().stroke(Color.yakBackground, lineWidth: 1.5))
                 .accessibilityHidden(true)
         }
     }
@@ -261,7 +263,7 @@ struct PaneBadgeView: View {
 struct QuestionBadge: View {
     var body: some View {
         Circle().fill(Color.blue).frame(width: 9, height: 9)
-            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
+            .overlay(Circle().stroke(Color.yakBackground, lineWidth: 1.5))
             .accessibilityHidden(true)
     }
 }

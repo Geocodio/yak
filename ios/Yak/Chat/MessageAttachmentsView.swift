@@ -71,7 +71,7 @@ private struct AttachmentTile: View {
                     Text(verbatim: reference).font(.caption2.weight(.medium)).padding(.horizontal, 8).padding(
                         .vertical, 3
                     )
-                    .background(Color(.systemBackground), in: .capsule).padding(6)
+                    .background(Color.yakBackground, in: .capsule).padding(6)
                 }
             }
             .frame(width: side, height: side).clipShape(.rect(cornerRadius: 14))
@@ -106,7 +106,7 @@ private struct AttachmentTile: View {
                 placeholder(symbol: "photo", text: nil)
             }
         case .loading:
-            Color(.tertiarySystemFill).opacity(isSlowToLoad ? 1 : 0)
+            Color.yakFill.opacity(isSlowToLoad ? 1 : 0)
         case .failed: placeholder(symbol: "photo", text: "common.retry")
         case .offline: placeholder(symbol: "photo", text: "chat.attachment.offline")
         case .notAvailable: unavailable
@@ -118,12 +118,12 @@ private struct AttachmentTile: View {
             Image(systemName: symbol).font(.title2).accessibilityHidden(true)
             if let text { Text(text).font(.caption) }
         }
-        .foregroundStyle(Color.yakMuted).frame(width: side, height: side).background(Color(.tertiarySystemFill))
+        .foregroundStyle(Color.yakMuted).frame(width: side, height: side).background(Color.yakFill)
     }
 
     private var unavailable: some View {
         Text("chat.attachment.webOnly").font(.caption2).foregroundStyle(Color.yakMuted).padding(8)
-            .frame(width: side, height: side).background(Color(.tertiarySystemFill))
+            .frame(width: side, height: side).background(Color.yakFill)
     }
 
     private func load() async {
@@ -213,7 +213,7 @@ private struct AttachmentFileRow: View {
                 if failed { Text("chat.attachment.failed").font(.footnote).foregroundStyle(Color.yakMuted) }
             }
             .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 52)
-            .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 14))
+            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
         }
         .buttonStyle(.plain)
         .disabled(row.openURL == nil || isOpening)

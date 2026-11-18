@@ -6,7 +6,7 @@ private struct CardSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 14))
+            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
     }
 }
 
@@ -112,6 +112,6 @@ struct StateBadge: View {
     var body: some View {
         Text(verbatim: text).font(.caption.weight(.semibold)).foregroundStyle(.primary)
             .padding(.horizontal, 8).padding(.vertical, 2)
-            .background(Color(.tertiarySystemFill), in: .capsule)
+            .background(Color.yakFill, in: .capsule)
     }
 }

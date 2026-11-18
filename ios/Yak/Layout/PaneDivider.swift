@@ -35,7 +35,7 @@ struct PaneDivider: View {
             .fill(Color(.systemGray).opacity(isDragging ? 0.8 : 0.5))
             .frame(width: isDragging ? 56 : 44, height: 5)
             .frame(maxWidth: .infinity).frame(height: Self.bandHeight)
-            .background(reduceTransparency ? Color(.secondarySystemBackground) : .clear)
+            .background(reduceTransparency ? Color.yakCard : .clear)
             .contentShape(.rect)
             .hoverEffect(.lift)
             .gesture(dragGesture)

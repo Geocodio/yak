@@ -44,7 +44,7 @@ struct ActivityStrip: View {
                 Text("activity.steer").font(.subheadline.weight(.bold)).fixedSize()
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(Color(.secondarySystemBackground), in: .capsule)
+            .background(Color.yakCard, in: .capsule)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -63,7 +63,7 @@ struct ActivityStrip: View {
                 Text("question.chip \(count)").font(.subheadline.weight(.medium)).lineLimit(2)
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(Color(.secondarySystemBackground), in: .capsule)
+            .background(Color.yakCard, in: .capsule)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
