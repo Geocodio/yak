@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
-import { Button, Menu } from '@geocodio/console-ui';
+import { Button, Menu, cn } from '@geocodio/console-ui';
 import { Layers, Plus } from 'lucide-react';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { focusAfterPaletteCloses } from '@/commandPalette/focusAfterPaletteCloses';
 import { THREAD_GROUP, composerActions } from '@/commandPalette/threadPageActions';
@@ -35,6 +36,10 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
         attachments: [],
         attachment_refs: [],
     });
+    const isPhone = useMediaQuery('(max-width: 639px)');
+    // The phone composer is one line with Send; the attach button, model picker and hint appear once the field has
+    // been focused, and stay so, so a picker's popup taking focus does not fold the row away.
+    const [hasToolsOpened, setHasToolsOpened] = useState(false);
     const [editingQueuedId, setEditingQueuedId] = useState<number | null>(null);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -83,6 +88,8 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     }, [queued, editingQueuedId]);
     const canManageQueued = composer.state !== 'readonly' && composer.state !== 'disabled_closed' && composer.state !== 'legacy';
 
+    const showTools = hasToolsOpened || disabled || !empty || draft.files.length > 0 || queued.length > 0;
+
     const submit = () => {
         if (disabled || form.processing || empty) {
             return;
@@ -120,10 +127,30 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
         }
     };
 
+    const sendControls = (
+            <div className="flex shrink-0 gap-2 max-sm:pr-2">
+                {working && (
+                    <Button variant="secondary" className="h-7 max-sm:h-11" onClick={() => router.post(stop.url(thread.id), {}, { preserveScroll: true })} data-testid="thread-stop">
+                        Stop
+                    </Button>
+                )}
+                <Button
+                    variant="primary"
+                    className="h-7 max-sm:h-11"
+                    onClick={submit}
+                    pending={form.processing}
+                    disabled={disabled || empty}
+                    data-testid="thread-send"
+                >
+                    {waitsForRepository ? 'Queue' : 'Send'}
+                </Button>
+            </div>
+    );
+
     return (
-        <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8" data-testid="thread-composer">
+        <div className="shrink-0 border-t border-hair bg-app px-4 py-4 max-sm:px-3.5 max-sm:pt-2.5 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8" data-testid="thread-composer">
             <div className="mx-auto max-w-[820px]">
-                <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent" {...draft.dropzoneProps}>
+                <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent max-sm:flex max-sm:flex-wrap max-sm:items-center" onFocus={() => setHasToolsOpened(true)} {...draft.dropzoneProps}>
                     <AttachmentDropOverlay draft={draft} />
                     <QueuedMessages
                         messages={queued}
@@ -135,13 +162,14 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         inlineEditingId={editingQueuedId}
                         onInlineEditEnd={() => setEditingQueuedId(null)}
                         testId="thread-queued-messages"
-                        className="max-h-40 overflow-y-auto"
+                        className="max-h-40 overflow-y-auto max-sm:basis-full"
                     />
                     <AttachmentTextarea
                         ref={editorRef}
                         inputRef={inputRef}
                         draft={draft}
-                        rows={2}
+                        rows={isPhone ? 1 : 2}
+                        wrapperClassName="max-sm:min-w-32 max-sm:flex-1"
                         placeholder={isOffline && !disabled ? 'Add a message. It is sent when the connection is back.' : placeholder}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
@@ -149,17 +177,20 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         onPaste={draft.onPaste}
                         disabled={disabled}
                         aria-invalid={errors.message ? true : undefined}
-                        className="w-full resize-none border-0 shadow-none focus:ring-0"
+                        className="w-full resize-none border-0 shadow-none focus:ring-0 max-sm:min-h-11"
                         data-testid="thread-composer-input"
                     />
-                    <DraftAttachments draft={draft} errors={errors} progress={null} />
+                    {isPhone && sendControls}
+                    <div className="max-sm:basis-full">
+                        <DraftAttachments draft={draft} errors={errors} progress={null} />
+                    </div>
                     {(errors.message || errors.model) && (
-                        <p role="alert" data-testid="thread-composer-error" className="px-3 pb-2 text-[12px] text-fail">
+                        <p role="alert" data-testid="thread-composer-error" className="px-3 pb-2 text-[12px] max-sm:basis-full text-fail">
                             {errors.message ?? errors.model}
                         </p>
                     )}
-                    <div className="flex items-center justify-between gap-3 border-t border-hair px-3 py-2">
-                        <div className="flex min-w-0 items-center gap-3">
+                    <div className={cn('flex items-center justify-between gap-3 border-t border-hair px-3 py-2 max-sm:basis-full', isPhone && !showTools && 'hidden')} data-testid="thread-composer-tools-row">
+                        <div className="flex min-w-0 items-center gap-3 max-sm:flex-1 max-sm:flex-wrap max-sm:gap-x-1 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11" data-testid="thread-composer-tools">
                             {!disabled && onAddSubThread !== undefined && (
                                 <Menu
                                     trigger={<Plus size={14} aria-hidden />}
@@ -172,27 +203,11 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
                             <ContextRing composer={composer} model={form.data.model} />
-                            <span className="truncate text-[11px] text-faint" data-testid="thread-composer-hint">
+                            <span className="text-[11px] text-faint sm:truncate max-sm:basis-full" data-testid="thread-composer-hint">
                                 {hint}
                             </span>
                         </div>
-                        <div className="flex shrink-0 gap-2">
-                            {working && (
-                                <Button variant="secondary" className="h-7" onClick={() => router.post(stop.url(thread.id), {}, { preserveScroll: true })} data-testid="thread-stop">
-                                    Stop
-                                </Button>
-                            )}
-                            <Button
-                                variant="primary"
-                                className="h-7"
-                                onClick={submit}
-                                pending={form.processing}
-                                disabled={disabled || empty}
-                                data-testid="thread-send"
-                            >
-                                {waitsForRepository ? 'Queue' : 'Send'}
-                            </Button>
-                        </div>
+                        {!isPhone && sendControls}
                     </div>
                 </div>
             </div>

@@ -4,11 +4,14 @@ namespace App\Actions;
 
 use App\Facades\Telemetry;
 use App\Jobs\Deployments\ResolvePreviewRepairJob;
+use App\Models\CiFailureClaim;
 use App\Models\PreviewRepair;
 use App\Models\PrReview;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
+use App\Services\CiFailure\CiFailureOutcome;
+use App\Services\CiFailure\CiFailureTaskCreator;
 use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\Threads\ThreadCloser;
@@ -34,6 +37,7 @@ class RecordPullRequestOutcome
         DateTimeInterface|string|null $closedAt = null,
         string $via = 'webhook',
         ?int $humanCommits = null,
+        ?string $mergeCommitSha = null,
     ): bool {
         if ($prUrl === '') {
             return false;
@@ -75,6 +79,21 @@ class RecordPullRequestOutcome
         }
 
         $this->closeThreads($tasks, $rows, $merged, $closedAt);
+
+        if ($merged && $mergeCommitSha !== null) {
+            CiFailureClaim::query()
+                ->whereIn('yak_task_id', $tasks->where('source', CiFailureTaskCreator::SOURCE)->pluck('id'))
+                ->update(['fix_merge_sha' => $mergeCommitSha]);
+        }
+
+        // A fix whose pull request was closed unmerged counts as a failed
+        // attempt, so the next red run waits out the backoff.
+        if (! $merged) {
+            CiFailureClaim::query()
+                ->whereIn('yak_task_id', $tasks->where('source', CiFailureTaskCreator::SOURCE)->whereIn('id', $stampedTaskIds)->pluck('id'))
+                ->get()
+                ->each(fn (CiFailureClaim $claim) => $claim->recordFailedAttempt(CiFailureOutcome::PullRequestClosed->value));
+        }
 
         $root = $tasks->first();
 

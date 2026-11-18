@@ -36,6 +36,17 @@ class TaskTrigger
                     array_values($context['tests'] ?? []),
                 ),
             ],
+            'ci-failure' => [
+                'label' => 'CI job ' . ($context['job_name'] ?? $task->external_id),
+                'url' => TaskSourceUrl::resolve($task),
+                'lines' => array_map(
+                    fn (array $failure): array => [
+                        'text' => (string) $failure['branch'],
+                        'url' => $failure['job_url'] ?? null,
+                    ],
+                    array_values(array_filter($context['failures'] ?? [], is_array(...))),
+                ),
+            ],
             'preview-repair' => [
                 'label' => 'Failed preview of ' . ($context['branch_name'] ?? 'a branch'),
                 'url' => $task->external_url,

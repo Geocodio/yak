@@ -1,0 +1,476 @@
+<?php
+
+use App\Channels\GitHub\AppService;
+use App\DataTransferObjects\CIBuildFailure;
+use App\Enums\TaskStatus;
+use App\Events\TaskStatusChanged;
+use App\Jobs\HandleCiJobFailureJob;
+use App\Jobs\RunYakJob;
+use App\Models\CiFailureClaim;
+use App\Models\CiJobFailure;
+use App\Models\FlakyTestClaim;
+use App\Models\Observation;
+use App\Models\Repository;
+use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
+use App\Services\CiFailure\CiFailureNotificationGate;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
+
+beforeEach(function () {
+    Queue::fake();
+    Cache::flush();
+    config()->set('yak.channels.github.installation_id', 99);
+
+    $this->repository = Repository::factory()->create([
+        'slug' => 'acme/widgets',
+        'github_full_name' => 'acme/widgets',
+        'default_branch' => 'main',
+        'ci_system' => 'github_actions',
+    ]);
+});
+
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array{run: array<string, mixed>, excerpt: ?string, ancestor: bool, pullRequest: ?array<string, mixed>}
+ */
+function fakeFailureGitHub(array $overrides = []): AppService
+{
+    $options = array_merge([
+        'run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'event' => 'push', 'head_repository_full_name' => 'acme/widgets', 'head_sha' => 'x', 'head_branch' => 'main'],
+        'isTag' => false,
+        'excerpt' => 'boom',
+        'ancestor' => true,
+        'pullRequest' => null,
+        'runException' => null,
+    ], $overrides);
+
+    $mock = Mockery::mock(AppService::class);
+
+    if ($options['runException'] !== null) {
+        $mock->shouldReceive('getWorkflowRun')->andThrow($options['runException']);
+    } else {
+        $mock->shouldReceive('getWorkflowRun')->andReturn($options['run']);
+    }
+
+    // Each call tries the repo lock: failing to get it means a GitHub call ran while the lock was held.
+    $guarded = function (mixed $value) {
+        return function () use ($value) {
+            $lock = Cache::lock('ci-failure:acme/widgets', 30);
+
+            if ($lock->get()) {
+                $lock->release();
+            } else {
+                $GLOBALS['ciFailureGitHubCallsUnderLock'][] = true;
+            }
+
+            return $value;
+        };
+    };
+
+    $GLOBALS['ciFailureGitHubCallsUnderLock'] = [];
+    $mock->shouldReceive('isTag')->andReturnUsing($guarded($options['isTag']));
+    $mock->shouldReceive('findOpenPullRequestForBranch')->andReturnUsing($guarded(null));
+    $mock->shouldReceive('getJobLogExcerpt')->andReturnUsing($guarded($options['excerpt']));
+    $mock->shouldReceive('getBranchHeadSha')->andReturnUsing($guarded('default-head'));
+    $mock->shouldReceive('compareCommits')->andReturnUsing($guarded(['status' => 'diverged', 'merge_base_sha' => 'merge-base']));
+    $mock->shouldReceive('isAncestor')->andReturnUsing($guarded($options['ancestor']));
+    $mock->shouldReceive('findPullRequestForCommit')->andReturnUsing($guarded($options['pullRequest']));
+
+    app()->instance(AppService::class, $mock);
+
+    return $mock;
+}
+
+/**
+ * @param  array<string, mixed>  $job
+ * @return array<string, mixed>
+ */
+function failurePayload(array $job = []): array
+{
+    static $jobId = 5000;
+    $jobId++;
+
+    return [
+        'action' => 'completed',
+        'workflow_job' => array_merge([
+            'id' => $jobId,
+            'run_id' => 77,
+            'name' => 'Static Analysis',
+            'workflow_name' => 'CI',
+            'conclusion' => 'failure',
+            'head_branch' => 'main',
+            'head_sha' => 'sha-' . $jobId,
+            'html_url' => "https://github.com/acme/widgets/actions/runs/77/job/{$jobId}",
+            'completed_at' => now()->toIso8601String(),
+            'steps' => [
+                ['name' => 'Checkout', 'conclusion' => 'success'],
+                ['name' => 'Run phpstan', 'conclusion' => 'failure'],
+            ],
+        ], $job),
+        'repository' => ['id' => 1, 'full_name' => 'acme/widgets'],
+        'sender' => ['login' => 'octocat', 'type' => 'User'],
+    ];
+}
+
+/**
+ * @param  array<string, mixed>  $job
+ */
+function runFailureJob(Repository $repository, array $job = []): void
+{
+    (new HandleCiJobFailureJob($repository->id, failurePayload($job)))->handle(app(AppService::class));
+}
+
+function ciFailureTasks()
+{
+    return YakTask::query()->where('source', 'ci-failure');
+}
+
+it('ignores fork runs with a fork_run observation', function () {
+    fakeFailureGitHub(['run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'head_repository_full_name' => 'someone/widgets', 'head_sha' => 'x', 'head_branch' => 'main']]);
+
+    runFailureJob($this->repository);
+
+    expect(CiJobFailure::count())->toBe(0)
+        ->and(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.fork_run')->count())->toBe(1);
+});
+
+it('ignores runs triggered by an untrusted event with an untrusted_event observation', function (string $event) {
+    fakeFailureGitHub(['run' => ['path' => '.github/workflows/ci.yml', 'name' => 'CI', 'event' => $event, 'head_repository_full_name' => 'acme/widgets', 'head_sha' => 'x', 'head_branch' => 'main']]);
+
+    runFailureJob($this->repository);
+
+    expect(CiJobFailure::count())->toBe(0)
+        ->and(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.untrusted_event')->count())->toBe(1);
+})->with(['issues', 'issue_comment', 'pull_request_target']);
+
+it('ignores a failure on a tag', function () {
+    fakeFailureGitHub(['isTag' => true]);
+
+    runFailureJob($this->repository, ['head_branch' => 'v1.2.0']);
+
+    expect(CiJobFailure::count())->toBe(0);
+});
+
+it('creates a ci-failure Fix task with context and claims when qualified', function () {
+    fakeFailureGitHub();
+
+    runFailureJob($this->repository);
+
+    $task = ciFailureTasks()->sole();
+    $context = json_decode($task->context, true);
+
+    expect($task->description)->toBe('Fix CI: Static Analysis failing on main')
+        ->and($task->mode->value)->toBe('fix')
+        ->and($context['job_name'])->toBe('Static Analysis')
+        ->and($context['workflow_path'])->toBe('.github/workflows/ci.yml')
+        ->and($context['failures'][0]['failed_step'])->toBe('Run phpstan')
+        ->and($context['failures'][0]['log_excerpt'])->toBe('boom')
+        ->and(CiFailureClaim::where('yak_task_id', $task->id)->count())->toBe(1)
+        ->and(Observation::where('kind', 'ci_failure.task_created')->count())->toBe(1);
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('describes a cross-branch failure by its branch count', function () {
+    fakeFailureGitHub();
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Static Analysis', 'failed_step' => 'Run phpstan']);
+
+    runFailureJob($this->repository, ['head_branch' => 'feature/b']);
+
+    expect(ciFailureTasks()->sole()->description)->toBe('Fix CI: Static Analysis failing on 2 branches');
+});
+
+it('extracts advisory ids into context', function () {
+    fakeFailureGitHub(['excerpt' => 'Found GHSA-cfgh-2345-jmpq and CVE-2026-12345 and GHSA-cfgh-2345-jmpq']);
+
+    runFailureJob($this->repository);
+
+    $task = ciFailureTasks()->sole();
+
+    expect(json_decode($task->context, true)['advisory_ids'])->toBe(['GHSA-cfgh-2345-jmpq', 'CVE-2026-12345'])
+        ->and($task->description)->toBe('Fix CI: Static Analysis (GHSA-cfgh-2345-jmpq, CVE-2026-12345)');
+});
+
+it('stays silent for a single red branch', function () {
+    fakeFailureGitHub();
+
+    runFailureJob($this->repository, ['head_branch' => 'feature/a']);
+
+    expect(CiJobFailure::count())->toBe(1)
+        ->and(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::count())->toBe(0);
+});
+
+it('skips a job that failed only because a needed job failed', function () {
+    fakeFailureGitHub();
+
+    runFailureJob($this->repository, ['needs' => ['build'], 'steps' => []]);
+
+    expect(CiJobFailure::count())->toBe(0)
+        ->and(ciFailureTasks()->count())->toBe(0);
+});
+
+it('declines with task_in_flight while a ci-failure task is working and claims the job on that task', function () {
+    fakeFailureGitHub();
+    $working = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Running, 'pr_url' => null]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(1)
+        ->and(Observation::where('kind', 'ci_failure.task_in_flight')->count())->toBe(1)
+        ->and(CiFailureClaim::where('yak_task_id', $working->id)->where('job_name', 'Static Analysis')->count())->toBe(1);
+});
+
+it('declines an already claimed job while the fix PR is open', function () {
+    fakeFailureGitHub();
+    $task = YakTask::factory()->create([
+        'repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success,
+        'pr_url' => 'https://github.com/acme/widgets/pull/5', 'pr_merged_at' => null, 'pr_closed_at' => null,
+    ]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'yak_task_id' => $task->id]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(1)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('does not suppress a branch that already contains the fix merge sha', function () {
+    fakeFailureGitHub(['ancestor' => true]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha']);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(1);
+});
+
+it('suppresses a stale branch missing the fix merge sha within the claim window', function () {
+    fakeFailureGitHub(['ancestor' => false]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha']);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('respects blocked_until', function () {
+    fakeFailureGitHub();
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'blocked_until' => now()->addDay()]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('throttles repeated declined observations to one per hour', function () {
+    fakeFailureGitHub();
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'blocked_until' => now()->addDay()]);
+
+    runFailureJob($this->repository);
+    runFailureJob($this->repository);
+    runFailureJob($this->repository);
+
+    expect(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('sets the merged PR author as responsible for a default-branch failure', function () {
+    fakeFailureGitHub(['pullRequest' => ['number' => 3, 'title' => 'Break it', 'url' => 'u', 'author' => 'Jane Dev']]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->sole()->responsible_name)->toBe('Jane Dev');
+});
+
+it('creates one task when ten branches fail concurrently', function () {
+    fakeFailureGitHub();
+
+    foreach (range(1, 10) as $number) {
+        runFailureJob($this->repository, ['head_branch' => "feature/{$number}"]);
+    }
+
+    expect(ciFailureTasks()->count())->toBe(1)
+        ->and(CiJobFailure::count())->toBe(10);
+});
+
+it('rethrows for retry when the run lookup fails and creates no task', function () {
+    fakeFailureGitHub(['runException' => new RuntimeException('GitHub down')]);
+
+    expect(fn () => runFailureJob($this->repository))->toThrow(RuntimeException::class);
+
+    expect(ciFailureTasks()->count())->toBe(0);
+});
+
+it('keeps suppressing when a claim is blocked even though the branch contains the fix sha', function () {
+    fakeFailureGitHub(['ancestor' => true]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'blocked_until' => now()->addDay()]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('does not call GitHub while holding the repo lock', function () {
+    fakeFailureGitHub(['pullRequest' => ['number' => 3, 'title' => 't', 'url' => 'u', 'author' => 'Jane Dev']]);
+    CiFailureClaim::factory()->create(['job_name' => 'Other Job', 'fix_merge_sha' => 'fixsha']);
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'job_name' => 'Static Analysis', 'failed_step' => 'Run phpstan']);
+
+    runFailureJob($this->repository, ['head_branch' => 'feature/b']);
+
+    expect(ciFailureTasks()->count())->toBe(1)
+        ->and($GLOBALS['ciFailureGitHubCallsUnderLock'])->toBe([]);
+});
+
+function endCiFailureAttempt(YakTask $task, TaskStatus $status, ?string $summary): void
+{
+    $task->updateQuietly(['status' => $status, 'result_summary' => $summary, 'completed_at' => now()]);
+    event(new TaskStatusChanged($task->fresh(), TaskStatus::Running, $status));
+}
+
+it('carries backoff and notify-once state from one attempt to the next', function () {
+    fakeFailureGitHub();
+
+    runFailureJob($this->repository);
+    $first = ciFailureTasks()->sole();
+    endCiFailureAttempt($first, TaskStatus::Success, "No fix.\n\nCI-FAILURE-OUTCOME: cannot_fix");
+
+    $firstClaim = CiFailureClaim::where('yak_task_id', $first->id)->sole();
+
+    expect($firstClaim->attempt_count)->toBe(1)
+        ->and((int) round(now()->diffInHours($firstClaim->blocked_until, true)))->toBe(24)
+        ->and(CiFailureNotificationGate::shouldNotify($first->fresh()))->toBeTrue();
+
+    $this->travelTo(now()->addHours(25));
+    runFailureJob($this->repository);
+    $second = ciFailureTasks()->where('id', '!=', $first->id)->sole();
+
+    expect(CiFailureClaim::where('yak_task_id', $second->id)->sole())
+        ->attempt_count->toBe(1)
+        ->last_outcome->toBe('cannot_fix');
+
+    endCiFailureAttempt($second, TaskStatus::Success, "Still no fix.\n\nCI-FAILURE-OUTCOME: cannot_fix");
+
+    $secondClaim = CiFailureClaim::where('yak_task_id', $second->id)->sole();
+
+    expect($secondClaim->attempt_count)->toBe(2)
+        ->and((int) round(now()->diffInHours($secondClaim->blocked_until, true)))->toBe(48)
+        ->and(CiFailureNotificationGate::shouldNotify($second->fresh()))->toBeFalse();
+});
+
+it('starts the attempt history over once a fix merged', function () {
+    fakeFailureGitHub();
+    $merged = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(10)]);
+    CiFailureClaim::factory()->create([
+        'repo' => 'acme/widgets', 'job_name' => 'Static Analysis', 'yak_task_id' => $merged->id,
+        'attempt_count' => 2, 'last_outcome' => 'fixed', 'created_at' => now()->subDays(10),
+    ]);
+
+    runFailureJob($this->repository);
+
+    expect(CiFailureClaim::where('yak_task_id', ciFailureTasks()->where('id', '!=', $merged->id)->sole()->id)->sole())
+        ->attempt_count->toBe(0)
+        ->last_outcome->toBeNull();
+});
+
+/**
+ * A cross-branch test failure: a failure on another branch, and a job on feature/b whose log names the same test class.
+ */
+function arrangeSharedTestFailure(): void
+{
+    fakeFailureGitHub(['excerpt' => "FAILED  Tests\\Feature\\FooTest > it works\n\nTests:  1 failed, 4 passed"]);
+    CiJobFailure::factory()->create([
+        'branch' => 'feature/a',
+        'job_name' => 'Test (Main)',
+        'test_names' => [CIBuildFailure::normalizeTestName('Tests\\Feature\\FooTest > it works')],
+    ]);
+}
+
+it('creates one claim per test class for a shared test failure', function () {
+    arrangeSharedTestFailure();
+
+    runFailureJob($this->repository, ['name' => 'Test (Main)', 'head_branch' => 'feature/b']);
+
+    $task = ciFailureTasks()->sole();
+
+    expect(CiFailureClaim::where('yak_task_id', $task->id)->sole())
+        ->test_class->toBe('Tests\\Feature\\FooTest')
+        ->job_name->toBe('Test (Main)');
+});
+
+it('declines a test failure the flaky scan already covers', function () {
+    arrangeSharedTestFailure();
+    FlakyTestClaim::create(['repo' => 'acme/widgets', 'test_class' => 'Tests\\Feature\\FooTest', 'skipped_pr_url' => 'https://github.com/acme/widgets/pull/8', 'created_at' => now()]);
+
+    runFailureJob($this->repository, ['name' => 'Test (Main)', 'head_branch' => 'feature/b']);
+
+    expect(ciFailureTasks()->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.flaky_claimed')->count())->toBe(1);
+});
+
+it('lists open flaky-test pull requests in the task context', function () {
+    fakeFailureGitHub();
+    YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'flaky-test', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/12', 'description' => 'Fix flaky FooTest']);
+
+    runFailureJob($this->repository);
+
+    expect(json_decode(ciFailureTasks()->sole()->context, true)['open_ci_failure_prs'])
+        ->toHaveCount(1)
+        ->{0}->url->toBe('https://github.com/acme/widgets/pull/12');
+});
+
+it('queues an orphaned in-flight task that was never dispatched', function () {
+    fakeFailureGitHub();
+    $orphan = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Pending, 'dispatched_at' => null, 'created_at' => now()->subMinutes(10)]);
+
+    runFailureJob($this->repository);
+
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job): bool => $job->task->is($orphan));
+    expect($orphan->fresh()->dispatched_at)->not->toBeNull()
+        ->and(ciFailureTasks()->count())->toBe(1);
+});
+
+it('leaves a recent or already dispatched in-flight task alone', function (array $state) {
+    fakeFailureGitHub();
+    YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Pending] + $state);
+
+    runFailureJob($this->repository);
+
+    Queue::assertNothingPushed();
+})->with([
+    'recent' => [['dispatched_at' => null, 'created_at' => now()->subMinute()]],
+    'dispatched' => [['dispatched_at' => now()->subMinutes(10), 'created_at' => now()->subMinutes(20)]],
+]);
+
+it('records no task_created observation when the task cannot be queued', function () {
+    fakeFailureGitHub();
+    $this->mock(AgentJobDispatcher::class)->shouldReceive('dispatch')->andThrow(new RuntimeException('queue down'));
+
+    expect(fn () => runFailureJob($this->repository))->toThrow(RuntimeException::class)
+        ->and(Observation::where('kind', 'ci_failure.task_created')->count())->toBe(0);
+});
+
+it('measures the fix window from the merge, not from when the claim was created', function () {
+    fakeFailureGitHub(['ancestor' => false]);
+    $task = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(2)]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'yak_task_id' => $task->id, 'created_at' => now()->subDays(20)]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->where('id', '!=', $task->id)->count())->toBe(0)
+        ->and(Observation::where('kind', 'ci_failure.already_claimed')->count())->toBe(1);
+});
+
+it('lets a fix that merged long ago stop suppressing even when its claim is recent', function () {
+    fakeFailureGitHub(['ancestor' => false]);
+    $task = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(20)]);
+    CiFailureClaim::factory()->create(['job_name' => 'Static Analysis', 'fix_merge_sha' => 'fixsha', 'yak_task_id' => $task->id, 'created_at' => now()->subHour()]);
+
+    runFailureJob($this->repository);
+
+    expect(ciFailureTasks()->where('id', '!=', $task->id)->count())->toBe(1);
+});

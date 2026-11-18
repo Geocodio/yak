@@ -18,6 +18,7 @@ use App\Models\PreviewRepair;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
+use App\Services\CiFailure\CiFailureOutcome;
 use App\Services\IncusSandboxManager;
 use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\SandboxArtifactCollector;
@@ -183,7 +184,9 @@ trait FinishesAgentRuns
 
         TaskLogger::info($this->task, 'Answered without code changes');
 
-        $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
+        $message = YakPersonality::generate(NotificationType::Result, $this->task->source === 'ci-failure'
+            ? (string) CiFailureOutcome::withoutLine($result->resultSummary)
+            : $result->resultSummary);
         SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
     }
 

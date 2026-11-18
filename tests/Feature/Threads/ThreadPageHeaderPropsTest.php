@@ -16,7 +16,7 @@ it('gives the header its diff totals and pull request', function () {
 
     $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('diffTotals', ['additions' => 30, 'deletions' => 5, 'filesCount' => 2])
-        ->where('pullRequest', ['number' => 12, 'url' => 'https://github.com/acme/app/pull/12'])
+        ->where('pullRequest', ['number' => 12, 'url' => 'https://github.com/acme/app/pull/12', 'state' => 'open'])
         ->where('brief', null));
 });
 
@@ -57,3 +57,11 @@ it('gives the page catalog labels for model ids and aliases', function () {
         ->where('modelLabels.claude-sonnet-5-5', 'Sonnet 5.5')
         ->where('modelLabels.sonnet', 'Sonnet 5.5'));
 });
+
+it('gives the pull request its state', function (?string $stored, string $expected) {
+    $thread = Thread::factory()->create();
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_url' => 'https://github.com/acme/app/pull/12', 'pull_request_number' => 12, 'pull_request_state' => $stored]);
+
+    $this->actingAs(User::factory()->create())->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('pullRequest.state', $expected));
+})->with([[null, 'open'], ['open', 'open'], ['merged', 'merged'], ['closed', 'closed']]);

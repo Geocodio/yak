@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Button, ConfirmDialog, cn } from '@geocodio/console-ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import { cancel } from '@/routes/threads';
 import { store } from '@/routes/threads/repository-answer';
 import type { SharedProps } from '@/types/shared';
@@ -16,19 +17,25 @@ type Props = {
 
 /** "Which repository is this for?": a list of the repositories Yak offers, a Start button for the chosen one, and a way to cancel the request. */
 export function RepositoryQuestionCard({ threadId, question, sourceKey, canCancel = false }: Props) {
-    const [selected, setSelected] = useState<string | null>(question.selected);
-    useEffect(() => setSelected(question.selected), [question.selected]);
+    const [selected, setSelected] = useCardDraft<string | null>(cardDraftKey(threadId, 'repository_question', 'selected'), question.selected);
+    const syncedSelected = useRef(question.selected);
+    useEffect(() => {
+        if (syncedSelected.current !== question.selected) {
+            syncedSelected.current = question.selected;
+            setSelected(question.selected);
+        }
+    }, [question.selected, setSelected]);
     // A repository that stopped being offered cannot stay picked.
     useEffect(() => setSelected((current) => (current !== null && question.options.includes(current) ? current : null)), [question.options]);
     const hasOtherOptions = question.otherOptions.length > 0;
-    const [isOtherChosen, setIsOtherChosen] = useState(false);
-    const [otherChoice, setOtherChoice] = useState('');
+    const [isOtherChosen, setIsOtherChosen] = useCardDraft<boolean>(cardDraftKey(threadId, 'repository_question', 'isOtherChosen'), false);
+    const [otherChoice, setOtherChoice] = useCardDraft<string>(cardDraftKey(threadId, 'repository_question', 'otherChoice'), '');
     const isOther = hasOtherOptions && (isOtherChosen || question.options.length === 0);
     const chosen = isOther ? (question.otherOptions.includes(otherChoice) ? otherChoice : null) : selected;
     const [isStarting, setIsStarting] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useCardDraft<string | null>(cardDraftKey(threadId, 'repository_question', 'error'), null);
     const isDisabled = !question.canAnswer || isStarting || isCancelling;
 
     const start = () => {

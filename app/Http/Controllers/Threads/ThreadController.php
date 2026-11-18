@@ -8,6 +8,7 @@ use App\Http\Resources\ThreadQueuedMessagesData;
 use App\Http\Resources\ThreadRequestData;
 use App\Http\Resources\ThreadRunLogData;
 use App\Http\Resources\ThreadShowData;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\ThreadTasks;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class ThreadController extends Controller
             'isExpiredCoOwnerStop' => ! $thread->is_legacy && ($head = ThreadTasks::head($thread)) !== null && ThreadCardsData::isExpiredCoOwnerStop($head),
             'queuedMessages' => ThreadQueuedMessagesData::for($thread, $request->user()),
             'runs' => ThreadRunLogData::runs($thread),
-            'openLog' => is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null,
+            'openLog' => (is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null) ?? $this->openRun($request, $thread),
         ]);
     }
 
@@ -52,5 +53,21 @@ class ThreadController extends Controller
         }
 
         return in_array($sharedCard, [null, 'repository_question'], true) ? ['repositoryQuestion' => $question, 'card' => 'repository_question'] : [];
+    }
+
+    /**
+     * A `?run=` address opens the full log of that run of the thread, on its first step.
+     *
+     * @return array{runId: string, entryId: null}|null
+     */
+    private function openRun(Request $request, Thread $thread): ?array
+    {
+        $runId = $request->query('run');
+
+        if ($thread->is_legacy || ! is_string($runId) || ! ctype_digit($runId) || ! TaskRun::query()->where('thread_id', $thread->id)->whereKey((int) $runId)->exists()) {
+            return null;
+        }
+
+        return ['runId' => $runId, 'entryId' => null];
     }
 }

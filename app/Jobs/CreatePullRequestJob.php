@@ -16,6 +16,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Services\CiFailure\CiFailureOutcome;
 use App\Services\CoOwner\CoOwnerGate;
 use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\PullRequestBodySections;
@@ -431,6 +432,12 @@ class CreatePullRequestJob implements ShouldQueue
                 $trigger['lines'],
             ));
             $parts[] = '**Flaky tests:** ' . $tests . ($trigger['url'] !== null ? " ([CI build]({$trigger['url']}))" : '');
+        } elseif ($this->task->source === 'ci-failure' && $trigger !== null) {
+            $branches = implode(', ', array_map(
+                fn (array $line): string => $line['url'] !== null ? '[' . self::codeSpan($line['text']) . "]({$line['url']})" : self::codeSpan($line['text']),
+                $trigger['lines'],
+            ));
+            $parts[] = '**Failing CI job:** ' . self::codeSpan((string) preg_replace('/^CI job /', '', $trigger['label'])) . ($branches !== '' ? " on {$branches}" : '');
         } elseif ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
@@ -449,7 +456,9 @@ class CreatePullRequestJob implements ShouldQueue
         $parts[] = '';
         $parts[] = PullRequestBodySections::wrap(
             PullRequestBodySections::DESCRIPTION,
-            $this->task->result_summary ?? '_No summary available._',
+            $this->task->source === 'ci-failure'
+                ? CiFailureOutcome::withoutLine($this->task->result_summary) ?: '_No summary available._'
+                : $this->task->result_summary ?? '_No summary available._',
         );
 
         if ($this->task->thread_id !== null) {

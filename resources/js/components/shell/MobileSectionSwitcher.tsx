@@ -18,16 +18,15 @@ export function MobileSectionSwitcher({ active, onSelect }: { active: RailSectio
                     type="button"
                     role="tab"
                     aria-selected={active === section}
-                    aria-label={label}
-                    title={label}
                     onClick={() => onSelect(section)}
                     data-testid={`mobile-section-${section}`}
                     className={cn(
-                        'relative flex h-9 flex-1 items-center justify-center rounded-control text-[12.5px] text-muted',
+                        'relative flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-control py-1 text-[11px] text-muted',
                         active === section && 'bg-panel font-medium text-body shadow-card',
                     )}
                 >
                     <Icon size={18} />
+                    <span>{label}</span>
                     {section === 'threads' && props.nav.needsYouCount > 0 ? (
                         <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-pill bg-brand" data-testid="mobile-threads-dot" />
                     ) : null}

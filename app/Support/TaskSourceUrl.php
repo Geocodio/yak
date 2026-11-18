@@ -17,7 +17,7 @@ class TaskSourceUrl
             'slack' => self::slackUrl($task),
             'linear' => self::linearUrl($task),
             'sentry' => self::externalUrl($task) ?? self::sentryIssueFromEventUrl($task),
-            'flaky-test' => self::externalUrl($task),
+            'flaky-test', 'ci-failure' => self::externalUrl($task),
             default => null,
         };
     }

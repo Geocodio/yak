@@ -24,6 +24,8 @@ export function useRunLog(url: string | null, isLive = false): {
     isLoadingMore: boolean;
     /** The last request for a further page failed; the pages already loaded stay. */
     moreFailed: boolean;
+    /** The server refused the last request because searches came too fast. */
+    isRateLimited: boolean;
     loadMore: () => void;
     retry: () => void;
     search: (query: string) => void;
@@ -32,6 +34,7 @@ export function useRunLog(url: string | null, isLive = false): {
     const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [moreFailed, setMoreFailed] = useState(false);
+    const [isRateLimited, setIsRateLimited] = useState(false);
     const [query, setQuery] = useState('');
     const [attempt, setAttempt] = useState(0);
     const timer = useRef<number | undefined>(undefined);
@@ -59,6 +62,7 @@ export function useRunLog(url: string | null, isLive = false): {
         const current = ++generation.current;
         setStatus('loading');
         setMoreFailed(false);
+        setIsRateLimited(false);
         setPages([]);
         request(null)
             .then((page) => {
@@ -67,8 +71,9 @@ export function useRunLog(url: string | null, isLive = false): {
                     setStatus('ready');
                 }
             })
-            .catch(() => {
+            .catch((failure: unknown) => {
                 if (generation.current === current) {
+                    setIsRateLimited(failure instanceof Error && failure.message.includes('(429)'));
                     setStatus('error');
                 }
             });
@@ -141,13 +146,14 @@ export function useRunLog(url: string | null, isLive = false): {
     );
 
     useEffect(() => {
-        if (status !== 'ready' || !isLive) {
+        // A search reads the whole run on the server, so a searched log is a snapshot and is not read again.
+        if (status !== 'ready' || !isLive || query !== '') {
             return;
         }
         const interval = window.setInterval(() => refreshPending(true), REFRESH_INTERVAL_MS);
 
         return () => window.clearInterval(interval);
-    }, [status, isLive, refreshPending]);
+    }, [status, isLive, query, refreshPending]);
 
     // The run ended while the log was open: one last read fills in what the final steps answered.
     useEffect(() => {
@@ -162,5 +168,5 @@ export function useRunLog(url: string | null, isLive = false): {
         timer.current = window.setTimeout(() => setQuery(value.trim()), SEARCH_DELAY_MS);
     }, []);
 
-    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, moreFailed, loadMore, retry: () => setAttempt((value) => value + 1), search };
+    return { entries, status, hasMore: nextCursor !== null, isLoadingMore, moreFailed, isRateLimited, loadMore, retry: () => setAttempt((value) => value + 1), search };
 }

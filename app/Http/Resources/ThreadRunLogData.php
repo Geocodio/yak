@@ -11,6 +11,7 @@ use App\Models\YakTask;
 use App\Services\Threads\ThreadTasks;
 use App\Services\Threads\ThreadTurns;
 use App\Support\Markdown;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -39,21 +40,22 @@ final class ThreadRunLogData
             return ['entries' => [], 'nextCursor' => null];
         }
 
-        $events = self::runEvents($thread, $bounds)->where('sequence', '>', max($cursor, $bounds['start']));
+        $steps = self::runEvents($thread, $bounds)->where('sequence', '>', max($cursor, $bounds['start']))->where('payload->role', '!=', 'tool_result');
 
         if (filled($search)) {
-            $events->whereRaw("payload like ? escape '|'", [self::likePattern($search)]);
+            $sequences = array_slice(self::matchingSequences($thread, $bounds, clone $steps, $search), 0, self::PAGE_SIZE + 1);
+            $page = self::runEvents($thread, $bounds)->whereIn('sequence', $sequences)->orderBy('sequence')->get();
         } else {
-            $events->where('payload->role', '!=', 'tool_result');
+            $page = $steps->orderBy('sequence')->limit(self::PAGE_SIZE + 1)->get();
         }
 
-        $page = $events->orderBy('sequence')->limit(self::PAGE_SIZE + 1)->get();
         $hasMore = $page->count() > self::PAGE_SIZE;
         $page = $page->take(self::PAGE_SIZE)->values();
         $results = self::toolResults($thread, $bounds, $page);
+        $numbers = self::stepNumbers($thread, $bounds, $page);
 
         return [
-            'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped(self::eventEntry($event, $results)))->all()),
+            'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped([...self::eventEntry($event, $results), 'number' => $numbers[$event->sequence] ?? null]))->all()),
             'nextCursor' => $hasMore ? $page->last()?->sequence : null,
         ];
     }
@@ -82,7 +84,7 @@ final class ThreadRunLogData
     /**
      * The runs that have events, each with where its answer ends, so the page can offer a full log after it.
      *
-     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool, model: ?string, isActive: bool}>
+     * @return list<array{runId: string, afterSequence: int, durationSeconds: int, stepCount: int, isRetry: bool, model: ?string, isActive: bool, startedAt: ?string}>
      */
     public static function runs(Thread $thread): array
     {
@@ -103,6 +105,7 @@ final class ThreadRunLogData
                     'isRetry' => $run->kind === TaskRunKind::Retry,
                     'model' => $run->model,
                     'isActive' => in_array($run->turn_state, ThreadTurns::ACTIVE_STATES, true),
+                    'startedAt' => ($run->started_at ?? $run->created_at)?->toIso8601String(),
                 ];
             }
         }
@@ -177,7 +180,7 @@ final class ThreadRunLogData
      *
      * @param  array{start: int, end: ?int}  $bounds
      * @param  Collection<int, ThreadEvent>  $page
-     * @return array<string, array{text: string, isError: bool}>
+     * @return array<string, array{text: string, isError: bool, at: CarbonInterface}>
      */
     private static function toolResults(Thread $thread, array $bounds, Collection $page): array
     {
@@ -190,10 +193,70 @@ final class ThreadRunLogData
         $results = [];
 
         foreach (self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereIn('payload->toolUseId', $ids)->orderBy('sequence')->get() as $event) {
-            $results[(string) $event->payload['toolUseId']] = ['text' => (string) ($event->payload['text'] ?? ''), 'isError' => (bool) ($event->payload['isError'] ?? false)];
+            $results[(string) $event->payload['toolUseId']] = ['text' => (string) ($event->payload['text'] ?? ''), 'isError' => (bool) ($event->payload['isError'] ?? false), 'at' => $event->created_at];
         }
 
         return $results;
+    }
+
+    /**
+     * The step number of each entry on a page (its place among all steps of the run), by sequence: one count of the
+     * steps before the page and one read of the step sequences inside the page's range, so a page costs two small
+     * queries however long the run is.
+     *
+     * @param  array{start: int, end: ?int}  $bounds
+     * @param  Collection<int, ThreadEvent>  $page
+     * @return array<int, int>
+     */
+    private static function stepNumbers(Thread $thread, array $bounds, Collection $page): array
+    {
+        if ($page->isEmpty()) {
+            return [];
+        }
+
+        $first = (int) $page->first()->sequence;
+        $before = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->where('sequence', '<', $first)->count();
+        $inRange = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->whereBetween('sequence', [$first, (int) $page->last()->sequence])->orderBy('sequence')->pluck('sequence')->all();
+
+        return array_map(fn (int $index): int => $before + $index + 1, array_flip(array_map('intval', $inRange)));
+    }
+
+    /**
+     * The sequences of the steps after the cursor that match a search, in order, at most a page and one more: a step
+     * matches by its own text, or by the output of its tool call. The output rows are matched in one scan that reads
+     * only their tool-use ids, and the call events are walked in sequence order in batches of 100 until a page and one
+     * more have matched, so the work stops with the page however long the run is. The page is the first of the merged
+     * lists and the cursor reaches the rest.
+     *
+     * @param  array{start: int, end: ?int}  $bounds
+     * @param  Builder<ThreadEvent>  $steps  the steps after the cursor
+     * @return list<int>
+     */
+    private static function matchingSequences(Thread $thread, array $bounds, Builder $steps, string $search): array
+    {
+        $limit = self::PAGE_SIZE + 1;
+        $pattern = self::likePattern($search);
+        $own = (clone $steps)->whereRaw("payload like ? escape '|'", [$pattern])->orderBy('sequence')->limit($limit)->pluck('sequence')->map(fn (mixed $sequence): int => (int) $sequence)->all();
+        $callIds = self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereRaw("payload like ? escape '|'", [$pattern])->select('payload->toolUseId as call_id')->pluck('call_id')
+            ->map(fn (mixed $id): string => trim((string) $id, '"'))->filter()->flip();
+        $byOutput = [];
+
+        if ($callIds->isNotEmpty()) {
+            foreach ($steps->where('payload->role', 'assistant')->select(['sequence', 'payload'])->lazyById(100, 'sequence') as $event) {
+                if (collect(self::toolCalls($event))->contains(fn (array $call): bool => $callIds->has((string) ($call['id'] ?? '')))) {
+                    $byOutput[] = (int) $event->sequence;
+
+                    if (count($byOutput) >= $limit) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        $sequences = array_values(array_unique([...$own, ...$byOutput]));
+        sort($sequences);
+
+        return array_slice($sequences, 0, $limit);
     }
 
     /**
@@ -233,7 +296,7 @@ final class ThreadRunLogData
     }
 
     /**
-     * @param  array<string, array{text: string, isError: bool}>  $results
+     * @param  array<string, array{text: string, isError: bool, at: CarbonInterface}>  $results
      * @return array<string, mixed>
      */
     private static function eventEntry(ThreadEvent $event, array $results): array
@@ -243,7 +306,7 @@ final class ThreadRunLogData
         $calls = self::toolCalls($event);
 
         return match (true) {
-            $calls !== [] => self::toolEntry($base, $calls, $results),
+            $calls !== [] => self::toolEntry($event, $base, $calls, $results),
             ($payload['role'] ?? null) === 'assistant' => self::assistantEntry($base, $payload),
             ($payload['role'] ?? null) === 'user' => [...$base, 'badge' => 'prompt', 'kind' => 'prompt', 'text' => Str::limit(Markdown::toPlainText((string) ($payload['text'] ?? '')), 200), 'prompt' => ['user' => (string) ($payload['text'] ?? ''), 'system' => '', 'meta' => []]],
             ($payload['role'] ?? null) === 'result' => self::resultEntry($base, $payload),
@@ -255,10 +318,10 @@ final class ThreadRunLogData
     /**
      * @param  array<string, mixed>  $base
      * @param  list<array<string, mixed>>  $calls
-     * @param  array<string, array{text: string, isError: bool}>  $results
+     * @param  array<string, array{text: string, isError: bool, at: CarbonInterface}>  $results
      * @return array<string, mixed>
      */
-    private static function toolEntry(array $base, array $calls, array $results): array
+    private static function toolEntry(ThreadEvent $event, array $base, array $calls, array $results): array
     {
         $first = $calls[0];
         $name = (string) ($first['name'] ?? 'tool');
@@ -272,6 +335,9 @@ final class ThreadRunLogData
             'kind' => 'tool',
             'tool' => $name,
             'text' => Str::limit(trim($name . ' ' . $subject), 200),
+            'subject' => Str::limit($subject, 500),
+            'isShellCommand' => count($calls) === 1 && $name === 'Bash' && isset($input['command']),
+            'durationSeconds' => $found === [] ? null : (int) abs($event->created_at->diffInSeconds(max(array_column($found, 'at')))),
             'error' => in_array(true, array_column($found, 'isError'), true),
             'input' => count($calls) === 1 && $name === 'Bash' && isset($input['command'])
                 ? (string) $input['command']

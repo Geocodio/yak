@@ -6,6 +6,7 @@ use App\Jobs\Deployments\GarbageCollectTemplateSnapshotsJob;
 use App\Jobs\Deployments\HibernateIdleDeploymentsJob;
 use App\Jobs\Deployments\SweepExpiredDeploymentsJob;
 use App\Jobs\Deployments\WatchdogStuckDeploymentsJob;
+use App\Models\CiJobFailure;
 use App\Models\DeviceAuthorization;
 use App\Models\DevicePairingCode;
 use App\Services\Devices\DeviceFlow;
@@ -48,7 +49,7 @@ Schedule::command('yak:check-stack-usage')->everyFiveMinutes()->withoutOverlappi
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->hourly()->withoutOverlapping();
-Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class, DevicePairingCode::class]])->daily();
+Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class, DevicePairingCode::class, CiJobFailure::class]])->daily();
 Schedule::call(function (): void {
     app(DeviceFlow::class)->clearRepeatableTokens();
     app(PairingCodes::class)->clearRepeatableTokens();
