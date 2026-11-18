@@ -255,11 +255,12 @@ private final class OutboxBackedComposerBackend: ComposerBackend, @unchecked Sen
 
     /// Waits until the outbox has answered the item with a refusal.
     func waitForRefusal() async -> OutboxItem? {
-        for _ in 0..<500 {
-            if let item = await outbox.items().first, case .refused = item.state { return item }
-            try? await Task.sleep(for: .milliseconds(10))
+        var refused: OutboxItem?
+        _ = await TestTimeScale.poll {
+            if let item = await outbox.items().first, case .refused = item.state { refused = item }
+            return refused != nil
         }
-        return nil
+        return refused
     }
 }
 

@@ -97,11 +97,7 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 }
 
@@ -241,13 +237,8 @@ private func chatSnapshot(
     await model.start(initialTitle: nil)
     let sent = try await fixture.session.send(OutboxDraft(target: .thread("d0e515ef"), text: "Hello"))
     let outbox = try #require(await fixture.session.outbox())
-    var isRefused = false
-    for _ in 0..<600 where !isRefused {
-        if case .refused? = await outbox.items().first?.state {
-            isRefused = true
-        } else {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+    let isRefused = await TestTimeScale.poll {
+        if case .refused? = await outbox.items().first?.state { true } else { false }
     }
     #expect(isRefused)
     let removed = await model.removeUnsent(sent.id)
@@ -269,12 +260,9 @@ private func chatSnapshot(
         OutboxDraft(target: .thread("d0e515ef"), text: "Hello", attachments: [attachment], sendKey: key))
     let outbox = try #require(await fixture.session.outbox())
     var refused: OutboxItem?
-    for _ in 0..<600 where refused == nil {
-        if let item = await outbox.items().first, case .refused = item.state {
-            refused = item
-        } else {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+    _ = await TestTimeScale.poll {
+        if let item = await outbox.items().first, case .refused = item.state { refused = item }
+        return refused != nil
     }
     let item = try #require(refused)
     // Edit hands the refused message to the composer: its text, model and files, and it leaves the outbox.
@@ -349,12 +337,10 @@ private func chatSnapshot(
     /// The engine's own snapshots can arrive after a canned one and replace the items waiting for a parse, so the
     /// canned snapshot is applied until a parse has finished and its publication waits for the flush delay.
     func applyUntilAFlushWaits(_ snapshot: ConversationSnapshot) async throws -> Bool {
-        for _ in 0..<600 {
+        await TestTimeScale.poll {
             await model.apply(snapshot)
-            if clock.sleeperCount(waking: .milliseconds(50)) >= 1 { return true }
-            try await Task.sleep(for: .milliseconds(5))
+            return clock.sleeperCount(waking: .milliseconds(50)) >= 1
         }
-        return false
     }
     #expect(try await applyUntilAFlushWaits(chatSnapshot(.completed, items: [textItem("m1:0", "First")])))
     await model.retry()
