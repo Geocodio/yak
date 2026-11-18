@@ -16,6 +16,7 @@ use App\Models\Thread;
 use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\QueuedMessages;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -294,13 +295,13 @@ it('switches a queued message and edits it, by row id or uuid', function () {
     expect(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeFalse();
 });
 
-it('refuses a queued message of another thread with a 404 and keeps it', function () {
+it('answers a queued message of another thread like a missing one and keeps it', function () {
     $task = threadActionTask(['status' => TaskStatus::Running]);
     $other = threadActionTask(['status' => TaskStatus::Running]);
     $foreign = threadActionQueuedMessage($other);
 
-    $this->actingAs($this->user)->patch(route('threads.queued-messages.update', [threadActionThread($task), $foreign->id]), ['mode' => 'queue', 'text' => 'hijacked'])->assertNotFound();
-    $this->actingAs($this->user)->delete(route('threads.queued-messages.destroy', [threadActionThread($task), $foreign->uuid]))->assertNotFound();
+    $this->actingAs($this->user)->patch(route('threads.queued-messages.update', [threadActionThread($task), $foreign->id]), ['mode' => 'queue', 'text' => 'hijacked'])->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
+    $this->actingAs($this->user)->delete(route('threads.queued-messages.destroy', [threadActionThread($task), $foreign->uuid]))->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
 
     expect($foreign->fresh()->text)->toBe('and the footer');
 });
