@@ -2,6 +2,7 @@
 
 use App\Actions\RecordPullRequestOutcome;
 use App\Channels\GitHub\AppService;
+use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
@@ -10,6 +11,7 @@ use App\Models\CiFailureClaim;
 use App\Models\CiJobFailure;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CiFailure\CiFailureNotificationGate;
 use App\Services\CiFailure\CiFailureOutcome;
@@ -252,4 +254,33 @@ it('does not back off when a ci-failure pull request merges', function () {
 
     expect($claim->fresh()->attempt_count)->toBe(0)
         ->and($claim->fresh()->blocked_until)->toBeNull();
+});
+
+it('direct messages the responsible user about the first cannot_fix and not about a repeat', function () {
+    $responsible = User::factory()->create(['slack_user_id' => 'U123', 'direct_messages_enabled' => true]);
+    [$task] = ciFailureTaskWithClaim(task: ['responsible_user_id' => $responsible->id]);
+    $this->mock(SlackNotificationDriver::class)->shouldReceive('sendDirect')->once();
+
+    finishCiFailureTask($task, TaskStatus::Success, outcomeLine('cannot_fix'));
+    app()->call([new SendNotificationJob($task->fresh(), NotificationType::Result, 'No fix', personalize: false), 'handle']);
+
+    $this->travelTo(now()->addMinute());
+    finishCiFailureTask($task->fresh(), TaskStatus::Success, outcomeLine('cannot_fix'));
+    app()->call([new SendNotificationJob($task->fresh(), NotificationType::Result, 'No fix', personalize: false), 'handle']);
+});
+
+it('direct messages the responsible user about a failed run with an outcome line', function () {
+    $responsible = User::factory()->create(['slack_user_id' => 'U123', 'direct_messages_enabled' => true]);
+    [$task] = ciFailureTaskWithClaim(task: ['responsible_user_id' => $responsible->id]);
+    $this->mock(SlackNotificationDriver::class)->shouldReceive('sendDirect')->once();
+
+    finishCiFailureTask($task, TaskStatus::Failed, outcomeLine('cannot_fix'));
+    app()->call([new SendNotificationJob($task->fresh(), NotificationType::Error, 'It broke', personalize: false), 'handle']);
+});
+
+it('never direct messages the responsible user about a cancelled ci-failure task', function () {
+    $responsible = User::factory()->create(['slack_user_id' => 'U123', 'direct_messages_enabled' => true]);
+    [$task] = ciFailureTaskWithClaim(task: ['responsible_user_id' => $responsible->id]);
+
+    expect(app(DirectMessageRecipients::class)->for($task, NotificationType::Cancelled))->toBe([]);
 });
