@@ -6,6 +6,9 @@ use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
 use App\Services\CiFailure\CiFailureQualifier;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
 
 function qualifierRepository(): Repository
 {
@@ -16,11 +19,23 @@ function qualifierRepository(): Repository
     ]);
 }
 
-function fakeQualifierGitHub(bool $isAncestor = true, ?string $defaultHead = 'default-head', ?string $excerpt = 'boom'): void
+/**
+ * @param  array<string, string>  $pullRequestBases  branch => base ref of its open pull request
+ */
+function fakeQualifierGitHub(bool $isAncestor = true, ?string $defaultHead = 'default-head', ?string $excerpt = 'boom', array $pullRequestBases = [], mixed $comparison = null): void
 {
-    test()->mock(AppService::class, function ($mock) use ($isAncestor, $defaultHead, $excerpt) {
+    test()->mock(AppService::class, function ($mock) use ($isAncestor, $defaultHead, $excerpt, $pullRequestBases, $comparison) {
         $mock->shouldReceive('getBranchHeadSha')->andReturn($defaultHead);
-        $mock->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        $mock->shouldReceive('findOpenPullRequestForBranch')->andReturnUsing(
+            fn (int $installationId, string $slug, string $branch): ?array => isset($pullRequestBases[$branch]) ? ['base' => ['ref' => $pullRequestBases[$branch]]] : null,
+        );
+
+        if ($comparison instanceof Throwable) {
+            $mock->shouldReceive('compareCommits')->andThrow($comparison);
+        } else {
+            $mock->shouldReceive('compareCommits')->andReturn($comparison ?? ['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        }
+
         $mock->shouldReceive('isAncestor')->andReturn($isAncestor);
         $mock->shouldReceive('getJobLogExcerpt')->andReturn($excerpt);
     });
@@ -253,4 +268,66 @@ it('counts two branches by the same author', function () {
     $failure = CiJobFailure::factory()->create(['branch' => 'feature/b', 'actor_login' => 'octocat']);
 
     expect(qualifyFailure($failure)->qualifies)->toBeTrue();
+});
+
+it('drops a candidate whose open pull request targets another branch', function () {
+    fakeQualifierGitHub(pullRequestBases: ['feature/a' => 'release/1.x']);
+    CiJobFailure::factory()->create(['branch' => 'feature/a']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b']);
+
+    $result = qualifyFailure($failure);
+
+    expect($result->qualifies)->toBeFalse()->and($result->reason)->toBe('single_branch');
+});
+
+it('keeps a candidate whose open pull request targets the default branch', function () {
+    fakeQualifierGitHub(pullRequestBases: ['feature/a' => 'main']);
+    CiJobFailure::factory()->create(['branch' => 'feature/a']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b']);
+
+    expect(qualifyFailure($failure)->qualifies)->toBeTrue();
+});
+
+it('keeps a candidate when the pull request lookup fails', function () {
+    test()->mock(AppService::class, function ($mock) {
+        $mock->shouldReceive('findOpenPullRequestForBranch')->andThrow(new RuntimeException('GitHub is down'));
+        $mock->shouldReceive('getBranchHeadSha')->andReturn('default-head');
+        $mock->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        $mock->shouldReceive('isAncestor')->andReturn(true);
+        $mock->shouldReceive('getJobLogExcerpt')->andReturn('boom');
+    });
+    CiJobFailure::factory()->create(['branch' => 'feature/a']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b']);
+
+    expect(qualifyFailure($failure)->qualifies)->toBeTrue();
+});
+
+it('drops a candidate whose commit GitHub cannot compare instead of throwing', function (mixed $comparison) {
+    fakeQualifierGitHub(comparison: $comparison);
+    CiJobFailure::factory()->create(['branch' => 'feature/a']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b']);
+
+    $result = qualifyFailure($failure);
+
+    expect($result->qualifies)->toBeFalse()->and($result->reason)->toBe('shared_parent');
+})->with([
+    'not found' => fn () => new RequestException(new Response(Http::response([], 404)->wait())),
+    'empty merge base' => [['status' => 'diverged', 'merge_base_sha' => '']],
+]);
+
+it('caches the merge base per sha pair', function () {
+    test()->mock(AppService::class, function ($mock) {
+        $mock->shouldReceive('findOpenPullRequestForBranch')->andReturn(null);
+        $mock->shouldReceive('getBranchHeadSha')->andReturn('default-head');
+        $mock->shouldReceive('compareCommits')->once()->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);
+        $mock->shouldReceive('isAncestor')->andReturn(true);
+        $mock->shouldReceive('getJobLogExcerpt')->andReturn('boom');
+    });
+    CiJobFailure::factory()->create(['branch' => 'feature/a', 'head_sha' => 'sha-a']);
+    $failure = CiJobFailure::factory()->create(['branch' => 'feature/b', 'head_sha' => 'sha-b']);
+
+    $repository = qualifierRepository();
+
+    app(CiFailureQualifier::class)->qualify($repository, $failure);
+    app(CiFailureQualifier::class)->qualify($repository, $failure);
 });

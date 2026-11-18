@@ -37,6 +37,7 @@ it('turns two red branches into one ci-failure task end to end', function () {
         'head_sha' => 'sha',
     ]);
     $github->shouldReceive('isTag')->andReturn(false);
+    $github->shouldReceive('findOpenPullRequestForBranch')->andReturn(null);
     $github->shouldReceive('getJobLogExcerpt')->andReturn('Found GHSA-cfgh-2345-jmpq in lodash');
     $github->shouldReceive('getBranchHeadSha')->andReturn('default-head');
     $github->shouldReceive('compareCommits')->andReturn(['status' => 'diverged', 'merge_base_sha' => 'merge-base']);

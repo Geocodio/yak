@@ -65,6 +65,7 @@ function fakeFailureGitHub(array $overrides = []): AppService
 
     $GLOBALS['ciFailureGitHubCallsUnderLock'] = [];
     $mock->shouldReceive('isTag')->andReturnUsing($guarded($options['isTag']));
+    $mock->shouldReceive('findOpenPullRequestForBranch')->andReturnUsing($guarded(null));
     $mock->shouldReceive('getJobLogExcerpt')->andReturnUsing($guarded($options['excerpt']));
     $mock->shouldReceive('getBranchHeadSha')->andReturnUsing($guarded('default-head'));
     $mock->shouldReceive('compareCommits')->andReturnUsing($guarded(['status' => 'diverged', 'merge_base_sha' => 'merge-base']));

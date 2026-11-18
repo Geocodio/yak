@@ -9,7 +9,10 @@ use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /**
  * Decides whether a failed CI job has enough cross-branch evidence to be
@@ -35,7 +38,7 @@ class CiFailureQualifier
             return new CiFailureQualification(false, 'stale_after_green', collect([$failure]));
         }
 
-        $candidates = $this->candidates($failure);
+        $candidates = $this->withDefaultBranchTargets($repository, $this->candidates($failure));
 
         if ($failure->branch === $repository->default_branch) {
             if ($failure->isTestJob() && $candidates->isEmpty()) {
@@ -115,6 +118,34 @@ class CiFailureQualifier
     }
 
     /**
+     * Drops candidates whose open pull request targets a branch other than
+     * the default branch: a stacked pull request fails for its parent's
+     * reasons. A branch with no open pull request, or a lookup that fails,
+     * stays a candidate.
+     *
+     * @param  Collection<int, CiJobFailure>  $candidates
+     * @return Collection<int, CiJobFailure>
+     */
+    private function withDefaultBranchTargets(Repository $repository, Collection $candidates): Collection
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        return $candidates->filter(function (CiJobFailure $candidate) use ($repository, $installationId): bool {
+            try {
+                $pullRequest = $this->appService->findOpenPullRequestForBranch($installationId, $repository->github_full_name, $candidate->branch);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return true;
+            }
+
+            $base = data_get($pullRequest, 'base.ref');
+
+            return $base === null || $base === $repository->default_branch;
+        })->values();
+    }
+
+    /**
      * Keeps candidates whose merge base with the failure is on the default
      * branch, so the failure is not just a shared feature-branch parent.
      *
@@ -135,20 +166,39 @@ class CiFailureQualifier
         }
 
         return $candidates->filter(function (CiJobFailure $candidate) use ($repository, $failure, $installationId, $defaultHeadSha): bool {
-            $comparison = $this->appService->compareCommits(
-                $installationId,
-                $repository->github_full_name,
-                $candidate->head_sha,
-                $failure->head_sha,
-            );
+            $mergeBase = $this->mergeBase($installationId, $repository, $candidate->head_sha, $failure->head_sha);
 
-            return $this->appService->isAncestor(
+            return $mergeBase !== '' && $this->appService->isAncestor(
                 $installationId,
                 $repository->github_full_name,
-                $comparison['merge_base_sha'],
+                $mergeBase,
                 $defaultHeadSha,
             );
         })->values();
+    }
+
+    /**
+     * The merge base of two commits, or an empty string when GitHub does not
+     * know one of them (a force-pushed away sha, for example). A commit pair's
+     * merge base never changes, so the answer is cached for a day.
+     */
+    private function mergeBase(int $installationId, Repository $repository, string $baseSha, string $headSha): string
+    {
+        return Cache::remember(
+            "ci-failure-merge-base:{$repository->github_full_name}:{$baseSha}:{$headSha}",
+            now()->addDay(),
+            function () use ($installationId, $repository, $baseSha, $headSha): string {
+                try {
+                    return $this->appService->compareCommits($installationId, $repository->github_full_name, $baseSha, $headSha)['merge_base_sha'];
+                } catch (RequestException $exception) {
+                    if ($exception->response->status() === 404) {
+                        return '';
+                    }
+
+                    throw $exception;
+                }
+            },
+        );
     }
 
     private function sharesCause(Repository $repository, CiJobFailure $failure, CiJobFailure $candidate): bool
