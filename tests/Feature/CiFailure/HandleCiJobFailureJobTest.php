@@ -12,6 +12,7 @@ use App\Models\FlakyTestClaim;
 use App\Models\Observation;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\CiFailure\CiFailureNotificationGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -420,4 +421,35 @@ it('lists open flaky-test pull requests in the task context', function () {
     expect(json_decode(ciFailureTasks()->sole()->context, true)['open_ci_failure_prs'])
         ->toHaveCount(1)
         ->{0}->url->toBe('https://github.com/acme/widgets/pull/12');
+});
+
+it('queues an orphaned in-flight task that was never dispatched', function () {
+    fakeFailureGitHub();
+    $orphan = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Pending, 'dispatched_at' => null, 'created_at' => now()->subMinutes(10)]);
+
+    runFailureJob($this->repository);
+
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job): bool => $job->task->is($orphan));
+    expect($orphan->fresh()->dispatched_at)->not->toBeNull()
+        ->and(ciFailureTasks()->count())->toBe(1);
+});
+
+it('leaves a recent or already dispatched in-flight task alone', function (array $state) {
+    fakeFailureGitHub();
+    YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Pending] + $state);
+
+    runFailureJob($this->repository);
+
+    Queue::assertNothingPushed();
+})->with([
+    'recent' => [['dispatched_at' => null, 'created_at' => now()->subMinute()]],
+    'dispatched' => [['dispatched_at' => now()->subMinutes(10), 'created_at' => now()->subMinutes(20)]],
+]);
+
+it('records no task_created observation when the task cannot be queued', function () {
+    fakeFailureGitHub();
+    $this->mock(AgentJobDispatcher::class)->shouldReceive('dispatch')->andThrow(new RuntimeException('queue down'));
+
+    expect(fn () => runFailureJob($this->repository))->toThrow(RuntimeException::class)
+        ->and(Observation::where('kind', 'ci_failure.task_created')->count())->toBe(0);
 });

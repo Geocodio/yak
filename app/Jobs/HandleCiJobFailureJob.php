@@ -32,6 +32,11 @@ class HandleCiJobFailureJob implements ShouldQueue
 
     public int $tries = 3;
 
+    /** Minutes a ci-failure task may sit Pending and undispatched before it counts as orphaned. */
+    private const int ORPHAN_MINUTES = 5;
+
+    private ?YakTask $orphanedTask = null;
+
     /** @var list<int> */
     public array $backoff = [30, 120];
 
@@ -45,6 +50,8 @@ class HandleCiJobFailureJob implements ShouldQueue
 
     public function handle(AppService $github): void
     {
+        $this->orphanedTask = null;
+
         $repository = Repository::find($this->repositoryId);
 
         if ($repository === null) {
@@ -102,8 +109,16 @@ class HandleCiJobFailureJob implements ShouldQueue
         );
 
         if ($task === null) {
+            // A task that was created but never queued would block the
+            // repository for good, so queue it now.
+            if ($this->orphanedTask !== null) {
+                app(AgentJobDispatcher::class)->dispatch($this->orphanedTask, RunYakJob::class);
+            }
+
             return;
         }
+
+        app(AgentJobDispatcher::class)->dispatch($task, RunYakJob::class);
 
         ObservationRecorder::acted(
             source: CiFailureTaskCreator::SOURCE,
@@ -114,8 +129,6 @@ class HandleCiJobFailureJob implements ShouldQueue
             referenceUrl: $task->external_url,
             task: $task,
         );
-
-        app(AgentJobDispatcher::class)->dispatch($task, RunYakJob::class);
     }
 
     /**
@@ -232,6 +245,12 @@ class HandleCiJobFailureJob implements ShouldQueue
                     ['repo' => $repository->slug, 'workflow_path' => $failure->workflow_path, 'yak_task_id' => $inFlight->id] + $key,
                     ['created_at' => now()],
                 );
+            }
+
+            if ($inFlight->status === TaskStatus::Pending
+                && $inFlight->dispatched_at === null
+                && $inFlight->created_at?->lt(now()->subMinutes(self::ORPHAN_MINUTES))) {
+                $this->orphanedTask = $inFlight;
             }
 
             $this->declined($repository, 'ci_failure.task_in_flight', $failure->job_name, "{$failure->job_name} is failing, but Yak is already fixing another CI failure.", $inFlight);
