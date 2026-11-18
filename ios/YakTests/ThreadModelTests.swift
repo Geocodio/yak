@@ -439,14 +439,15 @@ private final class ThreadRecorder: @unchecked Sendable {
     await fixture.session.stop()
 }
 
-@MainActor @Test func aClearDeliveredAfterTheModelClosedNamesNothing() async throws {
+@MainActor @Test func aClearDeliveredToAClosedEngineNamesNothing() async throws {
     let fixture = try await Fixture()
     fixture.transport.answerMessages(with: #"{"status":"sent","uuid":null,"threadId":"n3w7hr3d"}"#)
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     await model.start(initialTitle: nil)
     #expect(await fixture.eventually { model.snapshot?.show != nil })
-    await model.stop()
-    // The person left the thread; the delivery reaches no engine, so nothing can open the new thread.
+    // The thread's engine is closed while the session still forwards to it; the delivery must name nothing.
+    let engine = try #require(model.engine)
+    await engine.close()
     _ = try await fixture.session.send(OutboxDraft(target: .thread("d0e515ef"), text: "/clear"))
     let outbox = try #require(await fixture.session.outbox())
     var isDelivered = false
@@ -454,7 +455,9 @@ private final class ThreadRecorder: @unchecked Sendable {
         if await outbox.items().isEmpty { isDelivered = true } else { try await Task.sleep(for: .milliseconds(5)) }
     }
     #expect(isDelivered)
+    try await Task.sleep(for: .milliseconds(50))
     #expect(model.replacementThreadID == nil)
+    await model.stop()
     await fixture.session.stop()
 }
 
