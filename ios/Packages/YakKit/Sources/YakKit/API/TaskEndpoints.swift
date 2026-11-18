@@ -1,12 +1,5 @@
 import Foundation
 
-private struct RerouteBody: Encodable, Sendable { let repo: String }
-private struct FeedbackBody: Encodable, Sendable { let feedback: String }
-private struct TagBody: Encodable, Sendable {
-    let userID: Int
-    enum CodingKeys: String, CodingKey { case userID = "user_id" }
-}
-
 private struct TaskAnswersBody: Encodable, Sendable {
     let answers: [String: QuestionAnswer]
     let note: String?
@@ -19,12 +12,6 @@ private struct TaskAnswersBody: Encodable, Sendable {
         try container.encode(answers, forKey: .answers)
         try container.encode(note, forKey: .note)
     }
-}
-
-/// A trimmed value cut to `limit` characters, or nil when nothing is left.
-private func cleaned(_ value: String?, limit: Int) -> String? {
-    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
-    return String(trimmed.prefix(limit))
 }
 
 private func pageItem(_ page: Int) -> URLQueryItem {
@@ -67,7 +54,7 @@ extension Endpoint where Response == StatusResponse {
         case .retryRender: return Endpoint(method: .post, path: "\(base)/retry-render")
         case .reroute(let repo):
             return Endpoint(
-                method: .post, path: "\(base)/reroute", body: RerouteBody(repo: cleaned(repo, limit: 255) ?? ""))
+                method: .post, path: "\(base)/reroute", body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
         case .approve:
             // Approve opens the pull request before it answers, which can take longer than 15 seconds.
             return Endpoint(method: .post, path: "\(base)/co-owner/approve", timeout: .seconds(60))
