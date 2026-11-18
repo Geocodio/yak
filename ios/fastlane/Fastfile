@@ -5,6 +5,7 @@ IOS_ROOT = File.expand_path("..", __dir__)
 require_relative "lib/release_support"
 require_relative "lib/fast_lanes"
 import("Releasefile")
+import("E2eFastfile")
 
 # The classes the iPad and the Duo run (`core_only`). A new feature smoke test runs on the iPhone row only, and adds
 # its class here, one line, to run on the others.
