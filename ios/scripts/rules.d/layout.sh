@@ -25,3 +25,19 @@ if [ -n "$posture_hits" ]; then
     echo "$posture_hits"
     fail 'yakTestPosture outside Yak/Layout/HingeReader.swift'
 fi
+
+# A view never unregisters its window: a cover or a route change makes views disappear while the window stays. A
+# window leaves the app model when its scene is gone.
+disconnect_hits=$(grep -rnF --include='*.swift' 'sceneDisconnected(' Yak 2>/dev/null | grep -v '^Yak/AppModel.swift:' || true)
+if [ -n "$disconnect_hits" ]; then
+    echo "$disconnect_hits"
+    fail 'sceneDisconnected called outside Yak/AppModel.swift'
+fi
+
+# One answer to "several windows": the iPhone must never take the iPad's window paths.
+windows_hits=$(grep -rnE --include='*.swift' 'supportsMultipleScenes|environment\(\\\.supportsMultipleWindows|Environment\(\\\.supportsMultipleWindows' Yak 2>/dev/null \
+    | grep -v '^Yak/Windows/WindowRoutes.swift:' | grep -vE '^[^:]+:[0-9]+:\s*///' || true)
+if [ -n "$windows_hits" ]; then
+    echo "$windows_hits"
+    fail 'supportsMultipleScenes or supportsMultipleWindows outside Yak/Windows/WindowRoutes.swift (use SeveralWindows)'
+fi

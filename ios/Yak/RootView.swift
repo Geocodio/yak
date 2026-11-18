@@ -37,8 +37,15 @@ struct RootView: View {
         .animation(.spring, value: model.linkPairing?.state)
         .task {
             if scene == nil { scene = model.makeSceneModel(restored: restoredScene, request: request) }
-            if let scene, scenePhase == .active { model.sceneBecameActive(scene) }
+            // The window's phase is recorded when it starts, so a window whose phase never changes still counts for
+            // the pause, and a rebuilt window resumes the sessions.
+            if let scene { await model.scenePhaseChanged(scene, to: scenePhase) }
             await model.reloadRoute()
+        }
+        .onOpenURL { url in
+            Task {
+                if let scene { await model.handle(url: url, in: scene) } else { await model.handle(url: url) }
+            }
         }
         .onChange(of: scene?.state) { restoredScene = scene?.encodedState }
         .onChange(of: scene?.windowValue) { if request != scene?.windowValue { request = scene?.windowValue } }
@@ -48,7 +55,6 @@ struct RootView: View {
             guard let scene else { return }
             Task { await model.scenePhaseChanged(scene, to: phase) }
         }
-        .onDisappear { if let scene { model.sceneDisconnected(scene) } }
         .onChange(of: model.network.isOnline) { _, isOnline in
             Task { await model.sessions.networkChanged(isOnline: isOnline) }
         }
@@ -59,7 +65,11 @@ extension RootView {
     /// The explanation screen after a pairing, shown over whatever the route shows.
     fileprivate var explanationBinding: Binding<NotificationExplanationRequest?> {
         Binding(
-            get: { scene.flatMap { model.routingScene === $0 } == true ? model.push?.explanation : nil },
+            get: {
+                guard let scene else { return nil }
+                let explanation = model.push?.explanation
+                return model.presentsExplanation(in: scene, isShowing: explanation != nil) ? explanation : nil
+            },
             set: { if $0 == nil { model.push?.explanation = nil } })
     }
 }

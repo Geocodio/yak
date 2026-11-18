@@ -533,3 +533,66 @@ private final class SleeperCount: @unchecked Sendable {
     model.addressToConnect = URL(string: "https://other.example.com")!
     #expect(model.presentsSheets(in: first) && !model.presentsSheets(in: second))
 }
+
+@MainActor @Test func aLinkGoesToTheWindowThatReceivedIt() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    first.applyColdStart(.drawer(.mine))
+    second.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    await model.handle(
+        url: URL(string: "yak://thread?instance=https%3A%2F%2Ffirst.example.com&id=a1b2c3d4")!, in: first)
+    #expect(first.state.threadID == "a1b2c3d4" && second.state.threadID == nil)
+}
+
+@MainActor @Test func aWindowThatIsReleasedLeavesTheRegistryAndACoverNeverRemovesIt() async {
+    let (model, _) = makeLinkModel()
+    var scene: SceneModel? = model.makeSceneModel(restored: nil)
+    let other = model.makeSceneModel(restored: nil)
+    model.sceneBecameActive(other)
+    _ = await model.scenePhaseChanged(scene!, to: .active)
+    #expect(model.connectedSceneCount == 2)
+    // A full-screen cover going up and down touches nothing in the model: both windows stay and still route.
+    #expect(model.routingScene === scene || model.routingScene === other)
+    scene = nil
+    #expect(model.connectedSceneCount == 1)
+    #expect(await model.scenePhaseChanged(other, to: .background) == .enteredBackground)
+}
+
+@MainActor @Test func aWindowRecordsItsPhaseWhenItStartsSoItCannotBlockThePause() async {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    _ = await model.scenePhaseChanged(first, to: .background)
+    // The second window started in the background and its phase never changed afterwards.
+    #expect(await model.scenePhaseChanged(second, to: .background) == .enteredBackground)
+}
+
+@MainActor @Test func theExplanationStaysInTheWindowThatClaimedIt() {
+    let (model, _) = makeLinkModel()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    model.sceneBecameActive(first)
+    #expect(model.presentsExplanation(in: first, isShowing: true))
+    model.sceneBecameActive(second)
+    #expect(model.presentsExplanation(in: first, isShowing: true))
+    #expect(!model.presentsExplanation(in: second, isShowing: true))
+    #expect(!model.presentsExplanation(in: first, isShowing: false))
+    #expect(model.presentsExplanation(in: second, isShowing: true))
+}
+
+@MainActor @Test func aLinkThatArrivesWhileACoverIsUpIsHandledByTheStillRegisteredWindow() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let scene = model.makeSceneModel(restored: nil)
+    scene.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(scene)
+    // A cover goes up over the window: the window stays registered, so the link has somewhere to go.
+    await model.handle(link: .thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4"))
+    #expect(scene.state.threadID == "a1b2c3d4" && model.takeLaunchLink() == nil)
+}

@@ -53,16 +53,27 @@ final class AppModel {
     /// A window that is in front becomes the routing one. A window that is missing from the list (it was removed
     /// and is back in front) is registered again.
     func sceneBecameActive(_ scene: SceneModel) {
+        prune()
         if !scenes.contains(where: { $0.scene === scene }) { scenes.append(WeakScene(scene: scene)) }
         lastActiveScene = scene
     }
 
-    /// Called when the window itself goes away, never when one of its screens does.
+    /// A window leaves the list when its scene really disconnects: nothing else holds its model then, and the weak
+    /// reference empties. A screen going away, or a cover over the window, never removes it. `prune` clears what the
+    /// emptied references left behind.
+    private func prune() {
+        scenes.removeAll { $0.scene == nil }
+        let live = Set(scenes.compactMap(\.scene).map(ObjectIdentifier.init))
+        phases = phases.filter { live.contains($0.key) }
+    }
+
+    /// Removes a window at once (a scene that disconnected while something still holds its model).
     func sceneDisconnected(_ scene: SceneModel) {
         scenes.removeAll { $0.scene == nil || $0.scene === scene }
         phases[ObjectIdentifier(scene)] = nil
         if lastActiveScene === scene { lastActiveScene = nil }
         if presentingScene === scene { presentingScene = nil }
+        if explanationPresenter === scene { explanationPresenter = nil }
     }
 
     /// What a window's phase did to the app as a whole.
@@ -76,6 +87,7 @@ final class AppModel {
     /// feed pause only then; one window leaving never pauses another that is still in front.
     @discardableResult
     func scenePhaseChanged(_ scene: SceneModel, to phase: ScenePhase) async -> AppPhaseChange {
+        prune()
         phases[ObjectIdentifier(scene)] = phase
         switch phase {
         case .active:
@@ -90,8 +102,8 @@ final class AppModel {
             }
             guard isEveryWindowInBackground, !isInBackground else { return .none }
             isInBackground = true
-            await sessions.enterBackground()
             BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+            await sessions.enterBackground()
             await widgets?.enteredBackground()
             return .enteredBackground
         default:
@@ -131,6 +143,20 @@ final class AppModel {
         } else if presentingScene == nil {
             presentingScene = routingScene
         }
+    }
+
+    /// The window that shows the notification explanation, claimed when it first shows.
+    @ObservationIgnored private weak var explanationPresenter: SceneModel?
+
+    /// Whether the notification explanation shows in this window: the routing one when it started to show, and the
+    /// same one until it is dismissed, so it never moves between windows.
+    func presentsExplanation(in scene: SceneModel, isShowing: Bool) -> Bool {
+        guard isShowing else {
+            explanationPresenter = nil
+            return false
+        }
+        if explanationPresenter == nil { explanationPresenter = routingScene }
+        return explanationPresenter === scene
     }
 
     /// Whether the app-wide sheets (the browser and the connect sheet) show in this window.
@@ -235,6 +261,12 @@ final class AppModel {
         scenes.removeAll { $0.scene == nil }
         scenes.append(WeakScene(scene: model))
         return model
+    }
+
+    /// A link a window received: that window takes it, because it is the one the event reached.
+    func handle(url: URL, in scene: SceneModel) async {
+        sceneBecameActive(scene)
+        await handle(url: url)
     }
 
     /// A `yak://pair` link starts pairing up to the confirmation; the other links go to the window.
