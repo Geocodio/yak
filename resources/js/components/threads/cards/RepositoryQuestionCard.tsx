@@ -20,6 +20,11 @@ export function RepositoryQuestionCard({ threadId, question, sourceKey, canCance
     useEffect(() => setSelected(question.selected), [question.selected]);
     // A repository that stopped being offered cannot stay picked.
     useEffect(() => setSelected((current) => (current !== null && question.options.includes(current) ? current : null)), [question.options]);
+    const hasOtherOptions = question.otherOptions.length > 0;
+    const [isOtherChosen, setIsOtherChosen] = useState(false);
+    const [otherChoice, setOtherChoice] = useState('');
+    const isOther = hasOtherOptions && (isOtherChosen || question.options.length === 0);
+    const chosen = isOther ? (question.otherOptions.includes(otherChoice) ? otherChoice : null) : selected;
     const [isStarting, setIsStarting] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
@@ -27,12 +32,12 @@ export function RepositoryQuestionCard({ threadId, question, sourceKey, canCance
     const isDisabled = !question.canAnswer || isStarting || isCancelling;
 
     const start = () => {
-        if (selected === null) {
+        if (chosen === null) {
             return;
         }
         setError(null);
         setIsStarting(true);
-        router.post(store.url(threadId), { repo: selected }, {
+        router.post(store.url(threadId), { repo: chosen }, {
             preserveScroll: true,
             onSuccess: (page) => setError((page.props as unknown as SharedProps).flash.error ?? null),
             onError: (errors) => setError(Object.values(errors)[0] ?? 'Yak could not start in that repository. Try again.'),
@@ -62,7 +67,7 @@ export function RepositoryQuestionCard({ threadId, question, sourceKey, canCance
             </p>
             <div className="flex flex-col gap-2" role="radiogroup" aria-labelledby="repository-question-title">
                 {question.options.map((option) => {
-                    const isSelected = option === selected;
+                    const isSelected = !isOther && option === selected;
 
                     return (
                         <button
@@ -71,7 +76,10 @@ export function RepositoryQuestionCard({ threadId, question, sourceKey, canCance
                             role="radio"
                             aria-checked={isSelected}
                             disabled={isDisabled}
-                            onClick={() => setSelected(option)}
+                            onClick={() => {
+                                setSelected(option);
+                                setIsOtherChosen(false);
+                            }}
                             className={cn(
                                 'flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-[9px] border px-3 py-2.5 text-left text-[13px] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0',
                                 isSelected ? 'border-accent bg-accent-soft' : 'border-hair bg-panel hover:bg-panel-2',
@@ -83,13 +91,47 @@ export function RepositoryQuestionCard({ threadId, question, sourceKey, canCance
                         </button>
                     );
                 })}
+                {hasOtherOptions && (
+                    <div className={cn('rounded-[9px] border', isOther ? 'border-accent bg-accent-soft' : 'border-hair bg-panel')}>
+                        <button
+                            type="button"
+                            role="radio"
+                            aria-checked={isOther}
+                            disabled={isDisabled}
+                            onClick={() => setIsOtherChosen(true)}
+                            className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left text-[13px] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0"
+                            data-testid="repository-other"
+                        >
+                            <span className={cn('size-4 shrink-0 rounded-full border-[1.5px]', isOther ? 'border-[5px] border-accent' : 'border-muted')} aria-hidden />
+                            Another repository
+                        </button>
+                        {isOther && (
+                            <div className="px-3 pb-3">
+                                <label htmlFor="repository-other-select" className="sr-only">Another repository</label>
+                                <select
+                                    id="repository-other-select"
+                                    value={otherChoice}
+                                    disabled={isDisabled}
+                                    onChange={(event) => setOtherChoice(event.target.value)}
+                                    className="h-11 w-full rounded-control border border-hair bg-panel px-2 font-mono text-[12.5px] text-body sm:h-9"
+                                    data-testid="repository-other-select"
+                                >
+                                    <option value="">Choose a repository</option>
+                                    {question.otherOptions.map((repo) => (
+                                        <option key={repo} value={repo}>{repo}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             {error !== null && (
                 <p role="alert" id="repository-question-error" className="mt-3 rounded-control bg-fail-soft px-3 py-2 text-[13px]" data-testid="repository-question-error">{error}</p>
             )}
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap [&>button]:max-sm:min-h-11 [&>button]:max-sm:w-full">
-                <Button variant="primary" pending={isStarting} pendingLabel="Starting…" disabled={isDisabled || selected === null} onClick={start} aria-describedby={error !== null ? 'repository-question-error' : undefined} data-testid="repository-start">
-                    {selected === null ? 'Pick a repository' : `Start in ${selected}`}
+                <Button variant="primary" pending={isStarting} pendingLabel="Starting…" disabled={isDisabled || chosen === null} onClick={start} aria-describedby={error !== null ? 'repository-question-error' : undefined} data-testid="repository-start">
+                    {chosen === null ? 'Pick a repository' : `Start in ${chosen}`}
                 </Button>
                 {canCancel && (
                     <Button variant="destructive" disabled={isDisabled} onClick={() => setIsConfirmingCancel(true)} data-testid="repository-cancel">

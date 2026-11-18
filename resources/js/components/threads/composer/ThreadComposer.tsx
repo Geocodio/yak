@@ -43,7 +43,8 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     const isOwnerless = request !== null && request.starter.key === 'yak' && request.responsibleName === null && !thread.isOwner;
     const copy = composerCopy(notice, composer.state, teleportState, isOwnerless);
     const hint = DISABLED_COPY[composer.state] ?? (copy.isDefaultHint && request !== null ? channelHint(request.source, isOwnerless) : null) ?? copy.hint;
-    const placeholder = isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
+    const waitsForRepository = !thread.hasRepository && !disabled;
+    const placeholder = waitsForRepository ? 'Add details for Yak. They are sent when work starts.' : isOwnerless && copy.placeholder === 'Message Claude' ? 'Message Claude to take over this thread' : copy.placeholder;
     const draft = useAttachmentDraft({
         enabled: !disabled,
         firstNumber: composer.nextAttachmentNumber,
@@ -189,7 +190,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                                 disabled={disabled || empty}
                                 data-testid="thread-send"
                             >
-                                Send
+                                {waitsForRepository ? 'Queue' : 'Send'}
                             </Button>
                         </div>
                     </div>

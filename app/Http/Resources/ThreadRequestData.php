@@ -61,10 +61,6 @@ final class ThreadRequestData
             return null;
         }
 
-        if (! $thread->hasRepository() && RepoClarificationResolver::awaitingRepoChoice($head)) {
-            return self::waitingForRepositoryProgress();
-        }
-
         $steps = TaskProgressSteps::for(ThreadTasks::pullRequestTask($thread) ?? $head, $head, ThreadTasks::coOwnerRequest($thread));
 
         $keys = count($steps) === count(self::STEP_KEYS) ? self::STEP_KEYS : array_values(array_diff(self::STEP_KEYS, ['co_owner']));
@@ -83,10 +79,19 @@ final class ThreadRequestData
     }
 
     /**
-     * @return ThreadProgress
+     * The progress row the web page shows while a thread waits for its repository; null for any other thread.
+     * The app API keeps the standard steps, so only the Inertia page props use this.
+     *
+     * @return ?ThreadProgress
      */
-    private static function waitingForRepositoryProgress(): array
+    public static function waitingForRepositoryProgress(Thread $thread): ?array
     {
+        $head = ThreadTasks::head($thread);
+
+        if ($head === null || ! $thread->isOpen() || $thread->hasRepository() || ! RepoClarificationResolver::awaitingRepoChoice($head)) {
+            return null;
+        }
+
         $steps = [
             ['received', 'Received', 'Task landed in the queue.', 'done'],
             ['waiting_for_repository', 'Waiting for a repository', 'Work starts when you pick the repository.', 'current'],

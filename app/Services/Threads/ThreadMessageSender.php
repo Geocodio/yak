@@ -76,6 +76,10 @@ class ThreadMessageSender
         }
 
         if (! $thread->hasRepository()) {
+            if ($input->queueWithoutRepository && $input->intent === null && ! ClearCommand::matches($input->text)) {
+                return $this->queueUntilRepository($thread, $user, $input);
+            }
+
             throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
         }
 
@@ -98,6 +102,16 @@ class ThreadMessageSender
         }
 
         return $this->deliver($thread, $user, $input);
+    }
+
+    /**
+     * A message to a thread that waits for its repository is kept and goes out with the first prompt once work starts.
+     */
+    private function queueUntilRepository(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        $message = $this->turns->steer($thread, $input->text, $user, $input->model, $input->storeAttachments, 'thread', $input->sendKey, true, $input->effort);
+
+        return new ThreadMessageResult('queued', $message->uuid, null);
     }
 
     /**

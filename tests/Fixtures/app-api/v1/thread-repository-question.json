@@ -165,15 +165,15 @@
                 "tooltip": "Task landed in the queue."
             },
             {
-                "key": "waiting_for_repository",
-                "label": "Waiting for a repository",
-                "state": "current",
-                "tooltip": "Work starts when you pick the repository."
+                "key": "picked_up",
+                "label": "Picked up",
+                "state": "done",
+                "tooltip": "An agent has claimed the task and started setup."
             },
             {
                 "key": "working",
                 "label": "Working",
-                "state": "upcoming",
+                "state": "current",
                 "tooltip": "Agent is investigating the codebase and implementing the fix."
             },
             {
@@ -184,7 +184,7 @@
             },
             {
                 "key": "ci",
-                "label": "CI",
+                "label": "CI passed",
                 "state": "upcoming",
                 "tooltip": "CI verifies the changes before the pull request opens."
             },
@@ -193,6 +193,12 @@
                 "label": "Pull request",
                 "state": "upcoming",
                 "tooltip": "Pull request opened for human review."
+            },
+            {
+                "key": "done",
+                "label": "Done",
+                "state": "upcoming",
+                "tooltip": "Task complete."
             }
         ]
     },

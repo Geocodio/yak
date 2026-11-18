@@ -191,7 +191,8 @@ export type ThreadStopped = { kind: 'needs_you' | 'yak_retrying' | 'yak_stopped'
 export type ThreadActions = { canStop: boolean; canRetry: boolean; canCancel: boolean; canMove: boolean; moveTargets: string[]; canRequestReview: boolean; canRetryRender: boolean };
 
 /** The question that gates a thread without a repository; mirrors `ThreadCardsData`. */
-export type RepositoryQuestion = { prompt: string; options: string[]; selected: string | null; canAnswer: boolean };
+/** `otherOptions` are the active repositories Yak did not offer; the "Another repository" picker lists them. */
+export type RepositoryQuestion = { prompt: string; options: string[]; otherOptions: string[]; selected: string | null; canAnswer: boolean };
 
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {

@@ -114,13 +114,16 @@ final class ThreadTaskActions
         return $head;
     }
 
-    public function answerRepository(Thread $thread, YakTask $head, string $repo): void
+    /**
+     * @param  bool  $mayPickAnyActive  the web card's "Another repository" option: any active repository, not only the offered ones
+     */
+    public function answerRepository(Thread $thread, YakTask $head, string $repo, bool $mayPickAnyActive = false): void
     {
         if ($thread->hasRepository()) {
             throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_ALREADY_PICKED, 'This thread already has a repository.');
         }
 
-        if (! in_array($repo, RepoClarificationResolver::offeredOptions($head), true)) {
+        if (! $mayPickAnyActive && ! in_array($repo, RepoClarificationResolver::offeredOptions($head), true)) {
             throw ThreadActionRefused::because(ThreadActionRefused::REPOSITORY_NOT_OFFERED, 'Pick one of the repositories Yak offered.');
         }
 

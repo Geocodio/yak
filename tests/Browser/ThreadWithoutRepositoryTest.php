@@ -84,6 +84,7 @@ it('keeps the error in the card when the repository became inactive', function (
 
 it('shows a read-only viewer the card with disabled controls', function () {
     $thread = threadWithoutRepository();
+    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
     $owner = User::factory()->create();
     $thread->forceFill(['visibility' => 'private', 'owner_user_id' => $owner->id])->save();
     $viewer = User::factory()->create();
@@ -95,6 +96,7 @@ it('shows a read-only viewer the card with disabled controls', function () {
         ->assertDisabled('[data-testid="repository-start"]')
         ->assertDisabled('[data-testid="repository-option"]:first-child')
         ->assertMissing('[data-testid="repository-cancel"]')
+        ->assertDisabled('[data-testid="repository-other"]')
         ->assertNoJavaScriptErrors();
 });
 
@@ -119,5 +121,53 @@ it('shows no card when no repository is offered, and still the waiting state', f
     visit("/threads/{$thread->public_id}")
         ->assertMissing('[data-testid="card-repository-question"]')
         ->assertSeeIn('[data-testid="thread-no-repository-pill"]', 'No repository yet')
+        ->assertNoJavaScriptErrors();
+});
+
+it('starts work in another repository picked from the full list', function () {
+    Queue::fake();
+    $thread = threadWithoutRepository(['acme/web']);
+    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->click('[data-testid="repository-other"]')
+        ->assertDisabled('[data-testid="repository-start"]')
+        ->select('[data-testid="repository-other-select"]', 'acme/other')
+        ->assertSeeIn('[data-testid="repository-start"]', 'Start in acme/other')
+        ->click('[data-testid="repository-start"]')
+        ->assertMissing('[data-testid="card-repository-question"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($thread->fresh()->repo)->toBe('acme/other');
+});
+
+it('keeps the card, the error and Another repository when the only offered repository went inactive', function () {
+    Queue::fake();
+    $thread = threadWithoutRepository(['acme/web']);
+    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
+    $this->actingAs(User::factory()->create());
+
+    $page = visit("/threads/{$thread->public_id}")->click('[data-testid="repository-option"]:first-child');
+    Repository::where('slug', 'acme/web')->update(['is_active' => false]);
+
+    $page->click('[data-testid="repository-start"]')
+        ->assertVisible('[data-testid="repository-question-error"]')
+        ->assertVisible('[data-testid="repository-other-select"]')
+        ->assertVisible('[data-testid="repository-cancel"]')
+        ->assertNoJavaScriptErrors();
+});
+
+it('keeps a message typed in the composer as queued until work starts', function () {
+    Queue::fake();
+    $thread = threadWithoutRepository();
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")
+        ->assertAttribute('[data-testid="thread-composer"] textarea', 'placeholder', 'Add details for Yak. They are sent when work starts.')
+        ->assertSeeIn('[data-testid="thread-send"]', 'Queue')
+        ->type('[data-testid="thread-composer"] textarea', 'Also fix the timezone.')
+        ->click('[data-testid="thread-send"]')
+        ->assertSeeIn('[data-testid="thread-queued-messages"]', 'Also fix the timezone.')
         ->assertNoJavaScriptErrors();
 });
