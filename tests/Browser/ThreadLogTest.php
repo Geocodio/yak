@@ -104,3 +104,12 @@ it('opens a thread in a new tab on a ctrl-click, a cmd-click and a middle-click,
     // A navigation would have started by now; the page must still be the log.
     $page->wait(1)->assertPathIs('/threads/log');
 });
+
+it('fits the table inside its container at 1280 px with a long title', function () {
+    $this->actingAs(User::factory()->create());
+    Thread::factory()->create(['title' => str_repeat('A very long thread title ', 12), 'last_activity_at' => now()]);
+
+    $page = visit(route('threads.log'))->resize(1280, 800)->assertVisible('[data-testid="thread-log-table"]');
+
+    expect($page->script("(() => { const box = document.querySelector('[data-testid=\"thread-log-scroll\"]'); return box.scrollWidth <= box.clientWidth; })()"))->toBeTrue();
+});

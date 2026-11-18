@@ -115,3 +115,13 @@ it('shows an expired co-owner request as a stop card with no Retry button', func
         ->assertMissing('[data-testid="stop-retry"]')
         ->assertNoJavaScriptErrors();
 });
+
+it('scrolls the progress row so the failed step is in view on a phone', function () {
+    $this->actingAs(User::factory()->create());
+    $thread = stoppedThread();
+
+    $page = visit("/threads/{$thread->public_id}")->on()->mobile()->assertVisible('[data-testid="thread-progress-row"]');
+
+    expect($page->script("(() => { const row = document.querySelector('[data-testid=\"thread-progress-row\"]'); const step = row.querySelector('[data-focus=\"true\"]'); return step.getBoundingClientRect().right <= row.getBoundingClientRect().right && row.scrollLeft > 0; })()"))->toBeTrue()
+        ->and($page->script('document.documentElement.scrollLeft'))->toBe(0);
+});

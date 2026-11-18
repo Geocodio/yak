@@ -68,7 +68,7 @@ export function ThreadLogTable({ rows, sort, direction, onSort }: { rows: Thread
                         <StackedTd label="Status" className="w-6">
                             <span className={cn('inline-block size-2 rounded-full', DOT[row.status.tone])} role="img" aria-label={row.status.label} />
                         </StackedTd>
-                        <StackedTd label="Thread" className="min-w-0 max-w-[420px]">
+                        <StackedTd label="Thread" className="min-w-0 md:w-full md:max-w-0">
                             <Link href={row.url} className="block min-w-0" data-testid="thread-log-link">
                                 <span className="block truncate text-[13px] font-semibold text-body">{row.title}</span>
                                 <span className="block truncate text-[12px] text-muted" data-testid="thread-log-status-line">
