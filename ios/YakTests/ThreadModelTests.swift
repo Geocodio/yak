@@ -20,6 +20,10 @@ private struct NoSockets: WebSocketConnector {
 private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var paths: [String] = []
+    private var messageAnswer: String?
+
+    /// A send to the thread answers with this body (200) instead of the closed-thread refusal.
+    func answerMessages(with body: String) { lock.withLock { messageAnswer = body } }
 
     static let me = """
         {"user":{"id":7,"name":"Test Person","email":"person@example.test","initials":"TP","isAdmin":false},
@@ -65,7 +69,11 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
         } else if path.hasSuffix("threads/d0e515ef/continue") {
             return Self.refusal(url, status: 409, code: "turn_running", message: "m")
         } else if path.hasSuffix("threads/d0e515ef/messages") {
-            return Self.refusal(url, status: 409, code: "thread_closed", message: "This thread is closed.")
+            if let answer = lock.withLock({ messageAnswer }) {
+                body = answer
+            } else {
+                return Self.refusal(url, status: 409, code: "thread_closed", message: "This thread is closed.")
+            }
         } else if path.hasSuffix("queued-messages/q1") {
             return Self.refusal(url, status: 409, code: "message_delivered", message: "")
         } else {
@@ -391,5 +399,61 @@ private final class ThreadRecorder: @unchecked Sendable {
     let first = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     let second = ThreadModel(threadID: "d0e515ef", session: fixture.session, composer: first.composer)
     #expect(second.composer === first.composer)
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aDeliveredClearNamesTheNewThreadWhileTheModelIsOpen() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.answerMessages(with: #"{"status":"sent","uuid":null,"threadId":"n3w7hr3d"}"#)
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    #expect(await fixture.eventually { model.snapshot?.show != nil })
+    #expect(model.replacementThreadID == nil)
+    _ = try await fixture.session.send(OutboxDraft(target: .thread("d0e515ef"), text: "/clear"))
+    #expect(await fixture.eventually { model.replacementThreadID == "n3w7hr3d" })
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aRefusedClearKeepsTheOldThreadAndShowsTheFailure() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    #expect(await fixture.eventually { model.snapshot?.show != nil })
+    let sent = try await fixture.session.send(OutboxDraft(target: .thread("d0e515ef"), text: "/clear"))
+    let outbox = try #require(await fixture.session.outbox())
+    var isRefused = false
+    for _ in 0..<600 where !isRefused {
+        if case .refused? = await outbox.items().first?.state {
+            isRefused = true
+        } else {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+    #expect(isRefused)
+    #expect(model.replacementThreadID == nil)
+    // The failure shows as for any message: the item stays in the outbox, in the conversation, for Retry or Edit.
+    #expect(await fixture.eventually { model.rows.isEmpty == false })
+    #expect(await outbox.items().map(\.id) == [sent.id])
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aClearDeliveredAfterTheModelClosedNamesNothing() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.answerMessages(with: #"{"status":"sent","uuid":null,"threadId":"n3w7hr3d"}"#)
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    #expect(await fixture.eventually { model.snapshot?.show != nil })
+    await model.stop()
+    // The person left the thread; the delivery reaches no engine, so nothing can open the new thread.
+    _ = try await fixture.session.send(OutboxDraft(target: .thread("d0e515ef"), text: "/clear"))
+    let outbox = try #require(await fixture.session.outbox())
+    var isDelivered = false
+    for _ in 0..<600 where !isDelivered {
+        if await outbox.items().isEmpty { isDelivered = true } else { try await Task.sleep(for: .milliseconds(5)) }
+    }
+    #expect(isDelivered)
+    #expect(model.replacementThreadID == nil)
     await fixture.session.stop()
 }

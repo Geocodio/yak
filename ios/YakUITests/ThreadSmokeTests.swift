@@ -260,6 +260,32 @@ import XCTest
         XCTAssertTrue(stub.lastMessage().contains("Then update the docs"))
     }
 
+    /// A `/clear` starts a new thread, and the screen follows it.
+    func testAClearOpensTheNewThread() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
+        field.tap()
+        field.typeText("/clear")
+        app.buttons["composer.send"].tap()
+        XCTAssertTrue(app.staticTexts["A fresh start"].waitForExistence(timeout: Wait.appear), app.debugDescription)
+        // The old thread's title is not on the thread screen any more; the title element reads the new one.
+        let title = app.descendants(matching: .any).matching(identifier: "thread.title").firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: Wait.appear))
+        wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "label CONTAINS %@", "A fresh start"), object: title)
+            ],
+            timeout: Wait.appear)
+        try audit()
+    }
+
     /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns.
     /// The "Not sent" line under the bubble belongs to the chat.
     func testADroppedConnectionShowsOfflineAndRecovers() throws {
