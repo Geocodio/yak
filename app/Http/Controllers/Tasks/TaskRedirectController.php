@@ -43,18 +43,37 @@ class TaskRedirectController extends Controller
             return;
         }
 
-        $root = $found->rootTask();
+        $root = $found;
+
+        while ($root->parent_task_id !== null) {
+            $root = YakTask::query()->withoutGlobalScopes()->find($root->parent_task_id) ?? $root;
+
+            if ($root->id === $found->id || $root->parent_task_id === null) {
+                break;
+            }
+        }
+
+        $members = collect([$root]);
+        $frontier = [$root->id];
+
+        while ($frontier !== []) {
+            $children = YakTask::query()->withoutGlobalScopes()->whereIn('parent_task_id', $frontier)->get();
+            $members = $members->concat($children);
+            $frontier = $children->pluck('id')->all();
+        }
 
         $waitsOnPerson = fn (YakTask $task): bool => in_array($task->status, [TaskStatus::AwaitingClarification, TaskStatus::AwaitingCoOwner], true);
+        $memberIds = $members->pluck('id')->all();
 
-        if ($root->thread_id !== null || ! ($waitsOnPerson($found) || $waitsOnPerson($root))) {
+        if ($members->contains(fn (YakTask $member): bool => $member->thread_id !== null)
+            || ! ($waitsOnPerson($found) || $waitsOnPerson($root))
+            || YakTask::query()->whereIn('id', $memberIds)->count() !== count($memberIds)) {
             return;
         }
 
         $thread = app(ThreadFactory::class)->forTask($root);
 
-        YakTask::query()->withoutGlobalScopes()->whereIn('id', $root->conversation()->pluck('id'))->whereNull('thread_id')
-            ->get()->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
+        $members->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
 
         $found->setAttribute('thread_id', $thread->id);
     }

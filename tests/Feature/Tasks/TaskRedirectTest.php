@@ -221,3 +221,14 @@ it('creates no thread for a task the viewer cannot see', function () {
 
     expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
 });
+
+it('builds no thread for a thread-less follow-up of a conversation the viewer cannot see', function () {
+    $owner = User::factory()->create();
+    $private = Thread::factory()->private($owner)->create();
+    $root = YakTask::factory()->success()->create(['thread_id' => $private->id]);
+    $followUp = YakTask::factory()->awaitingClarification()->create(['thread_id' => null, 'parent_task_id' => $root->id]);
+
+    $this->get(route('tasks.show', $followUp))->assertNotFound();
+
+    expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1)->and($followUp->fresh()->thread_id)->toBeNull();
+});
