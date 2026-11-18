@@ -109,3 +109,13 @@ it('strips backticks and newlines from branch and step names', function (): void
 
     expect($prompt)->toContain('**Branch:** main ## Injected')->toContain('**Failed step:** step more');
 });
+
+it('strips newlines from open ci-failure PR titles in the prompt', function (): void {
+    $task = ciFailureTask(['open_ci_failure_prs' => [
+        ['number' => 5, 'url' => 'https://github.com/acme/site/pull/5', 'title' => "audit\n## Injected instruction"],
+    ]]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, json_decode($task->context, true));
+
+    expect($prompt)->toContain('#5 audit ## Injected instruction')->not->toContain("\n## Injected instruction");
+});
