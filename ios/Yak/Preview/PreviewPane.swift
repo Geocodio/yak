@@ -70,10 +70,16 @@ struct PreviewPane: View {
         .onChange(of: isShown) { Task { await model?.setVisible(isShown) } }
         .onChange(of: thread.snapshot) { Task { await model?.update(thread: thread.snapshot) } }
         .onChange(of: thread.fileOpenRequest) { model?.fileOpenRequestChanged() }
+        .onChange(of: thread.fileOpenFailure) { model?.fileOpenFailed() }
+        .onChange(of: Self.canOpenFiles(thread)) { _, can in model?.update(canOpenFiles: can) }
         .onChange(of: model?.card?.kind == .page) { _, isPage in
             if isPage, !hasShownPage, let model { showPage(model) }
         }
         .modifier(PreviewBarSlots(model: model))
+    }
+
+    static func canOpenFiles(_ thread: ThreadModel) -> Bool {
+        FilesMode.built.contains(.everything) && thread.panes.contains(.files)
     }
 
     private func showPage(_ model: PreviewModel) {
@@ -91,11 +97,11 @@ struct PreviewPane: View {
         let backend = LivePreviewBackend(
             preview: preview, session: thread.session, engine: thread.engine, defaults: defaults)
         let hasTerminal = Panes.built.contains(.terminal) && (thread.snapshot?.show?.panes.terminal ?? false)
-        let canOpenFiles = FilesMode.built.contains(.everything) && thread.panes.contains(.files)
         let next = PreviewModel(
             threadID: thread.threadID,
             instanceHost: PreviewNavigation.authority(of: thread.session.instance.url) ?? "",
-            backend: backend, clock: SystemClock(), terminalAvailable: hasTerminal, canOpenFiles: canOpenFiles,
+            backend: backend, clock: SystemClock(), terminalAvailable: hasTerminal,
+            canOpenFiles: Self.canOpenFiles(thread),
             focus: { scene.focus(pane: $0) }, fileOpenRequest: { thread.fileOpenRequest },
             setFileOpenRequest: { thread.fileOpenRequest = $0 })
         model = next

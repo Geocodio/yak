@@ -12,20 +12,25 @@ struct FileOpenRequest: Equatable, Sendable {
 /// dropped by the open that is still running, and a request clears itself only while it is still the current one.
 @MainActor
 final class FileOpenHandler {
-    private let open: (String, Bool) async -> Void
+    private let open: (String, Bool) async -> Bool
+    private let failed: (FileOpenRequest) -> Void
     private var lastTaken: UUID?
     private var tail: Task<Void, Never>?
 
-    init(open: @escaping (String, Bool) async -> Void) { self.open = open }
+    /// `failed` hears of a request whose file could not be opened.
+    init(open: @escaping (String, Bool) async -> Bool, failed: @escaping (FileOpenRequest) -> Void = { _ in }) {
+        self.open = open
+        self.failed = failed
+    }
 
     func take(_ request: FileOpenRequest?, current: () -> FileOpenRequest?, clear: () -> Void) async {
         guard let request, request.id != lastTaken else { return }
         lastTaken = request.id
         if current()?.id == request.id { clear() }
         let previous = tail
-        let opening = Task { [open] in
+        let opening = Task { [open, failed] in
             await previous?.value
-            await open(request.path, request.edit)
+            if await !open(request.path, request.edit) { failed(request) }
         }
         tail = opening
         await opening.value

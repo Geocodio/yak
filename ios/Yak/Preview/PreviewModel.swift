@@ -79,7 +79,7 @@ final class PreviewModel {
     @ObservationIgnored private let backend: any PreviewBackend
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private let terminalAvailable: Bool
-    @ObservationIgnored private let canOpenFiles: Bool
+    @ObservationIgnored private var canOpenFiles: Bool
     @ObservationIgnored private let fileOpenRequest: @MainActor () -> FileOpenRequest?
     @ObservationIgnored private let setFileOpenRequest: @MainActor (FileOpenRequest?) -> Void
     @ObservationIgnored private var fileOpenTask: Task<Void, Never>?
@@ -193,11 +193,7 @@ final class PreviewModel {
             return
         }
         isSecure = status.url?.lowercased().hasPrefix("https://") ?? false
-        let made = PreviewCard.make(
-            status: status, canDrive: next.canDrive, blockedReason: next.blockedReason, isRestoring: next.isRestoring,
-            sandboxState: next.sandboxState, hasKnownPreviewURL: next.lastPreviewURL != nil,
-            restoreTookTooLong: next.restoreTookTooLong, pendingIntent: intents.pending.first,
-            terminalAvailable: terminalAvailable, canOpenFiles: canOpenFiles)
+        let made = makeCard(status: status, snapshot: next)
         card = made
         let isPage = made.kind == .page
         if isPage, !lastCardWasPage, case .refused = page { page = .idle }
@@ -206,6 +202,21 @@ final class PreviewModel {
         }
         lastCardWasPage = isPage
         if wasOfflineBefore, !next.isOffline, page == .problem(.offline) { Task { await reload() } }
+    }
+
+    private func makeCard(status: PreviewStatus, snapshot next: PreviewSnapshot) -> PreviewCard {
+        PreviewCard.make(
+            status: status, canDrive: next.canDrive, blockedReason: next.blockedReason, isRestoring: next.isRestoring,
+            sandboxState: next.sandboxState, hasKnownPreviewURL: next.lastPreviewURL != nil,
+            restoreTookTooLong: next.restoreTookTooLong, pendingIntent: intents.pending.first,
+            terminalAvailable: terminalAvailable, canOpenFiles: canOpenFiles)
+    }
+
+    /// The thread's panes changed: the card offers or withdraws "Edit .yak/preview.yml" at once.
+    func update(canOpenFiles next: Bool) {
+        guard next != canOpenFiles else { return }
+        canOpenFiles = next
+        if let status = snapshot.status { card = makeCard(status: status, snapshot: snapshot) }
     }
 
     private func apply(intents next: PreviewIntentState) {
@@ -364,10 +375,13 @@ final class PreviewModel {
         fileOpenTask?.cancel()
         fileOpenTask = Task { [weak self, clock] in
             do { try await clock.sleep(for: Self.fileOpenTimeout) } catch { return }
-            guard let self, self.fileOpenRequest()?.id == request.id else { return }
-            self.setFileOpenRequest(nil)
-            self.isPerforming = nil
-            self.setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
+            guard let self else { return }
+            if self.fileOpenRequest()?.id == request.id {
+                self.setFileOpenRequest(nil)
+                self.setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
+            }
+            // The card never stays busy past its own timer.
+            if self.isPerforming == .editManifest { self.isPerforming = nil }
         }
     }
 
@@ -376,6 +390,13 @@ final class PreviewModel {
         guard fileOpenRequest() == nil, isPerforming == .editManifest else { return }
         fileOpenTask?.cancel()
         isPerforming = nil
+    }
+
+    /// The Files pane took the request but could not open the file.
+    func fileOpenFailed() {
+        fileOpenTask?.cancel()
+        if isPerforming == .editManifest { isPerforming = nil }
+        setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
     }
 
     private func report(_ outcome: ThreadActionOutcome) {

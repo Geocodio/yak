@@ -16,7 +16,10 @@ struct FilesEverythingView: FilesModeView {
         self.thread = thread
         let model = FilesEverythingModel(thread: thread, timings: .forThisRun)
         _model = State(initialValue: model)
-        _openHandler = State(initialValue: FileOpenHandler { path, edit in await model.open(path: path, edit: edit) })
+        _openHandler = State(
+            initialValue: FileOpenHandler(
+                open: { path, edit in await model.open(path: path, edit: edit) },
+                failed: { thread.fileOpenFailure = $0 }))
     }
 
     var body: some View {

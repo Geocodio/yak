@@ -23,7 +23,10 @@ final class FilesEverythingModel {
     @ObservationIgnored private let makeDocument: (String) async -> YakKit.FileDocument?
     @ObservationIgnored private var fileTree: FileTree?
     @ObservationIgnored private var reading: Task<Void, Never>?
-    @ObservationIgnored private var isOpening = false
+    /// Opens run one after the other, so a hand-off that arrives while a file loads waits for it.
+    @ObservationIgnored private var openChain: Task<Bool, Never>?
+    /// An edit that was asked for while the file could not load; it starts when the file loads on reconnect.
+    @ObservationIgnored private var isEditWanted = false
 
     init(
         thread: ThreadModel, restore: SandboxRestore, makeTree: @escaping () async -> FileTree?,
@@ -96,7 +99,12 @@ final class FilesEverythingModel {
         await document?.reloadIfUnchanged()
     }
 
-    func networkChanged(isOnline: Bool) async { await fileTree?.networkChanged(isOnline: isOnline) }
+    func networkChanged(isOnline: Bool) async {
+        await fileTree?.networkChanged(isOnline: isOnline)
+        guard isOnline, let document, document.hasFailedToLoad else { return }
+        await document.reload()
+        if isEditWanted, await document.edit() { isEditWanted = false }
+    }
 
     func setFindText(_ text: String) {
         guard text != findText else { return }
@@ -128,21 +136,41 @@ final class FilesEverythingModel {
 
     // MARK: Open file
 
-    /// Opens a file in the viewer, or in the editor with `edit`. Opening the file that is already open keeps it.
-    func open(path: String, edit: Bool) async {
-        guard !isOpening else { return }
-        isOpening = true
-        defer { isOpening = false }
-        if openPath != path {
-            guard let opened = await makeDocument(path) else { return }
+    /// Opens a file in the viewer, or in the editor with `edit`; false when no document could be made. Opening the
+    /// file that is already open keeps its text, and reloads it only when its load failed. A file with a save in
+    /// flight is left alone until the save ends, and its draft stays for when the file opens again.
+    @discardableResult
+    func open(path: String, edit: Bool) async -> Bool {
+        let previous = openChain
+        let opening = Task { @MainActor [self] in
+            _ = await previous?.value
+            return await performOpen(path: path, edit: edit)
+        }
+        openChain = opening
+        return await opening.value
+    }
+
+    private func performOpen(path: String, edit: Bool) async -> Bool {
+        if openPath == path, let current = document {
+            if current.hasFailedToLoad { await current.reload() }
+        } else {
+            if let current = document {
+                for _ in 0..<100 where current.isSaving { try? await Task.sleep(for: .milliseconds(100)) }
+            }
+            guard let opened = await makeDocument(path) else { return false }
             let previous = document
             let model = FileDocumentModel(document: opened, path: path, mark: mark(of: path))
             document = model
             openPath = path
+            isEditWanted = false
             await previous?.close()
             await model.start()
         }
-        if edit { _ = await document?.edit() }
+        if edit, let current = document, !current.isEditing {
+            let didStart = await current.edit()
+            isEditWanted = !didStart && current.hasFailedToLoad
+        }
+        return true
     }
 
     func closeFile() async {

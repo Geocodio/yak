@@ -349,6 +349,42 @@ private func snapshot(
         #expect(model.actionLineRetry == .editManifest)
     }
 
+    @Test func theButtonAppearsWhenFilesArrivesLater() async {
+        let backend = FakeBackend()
+        let model = PreviewModel(
+            threadID: "d0e515ef", instanceHost: "yak.example.test", backend: backend, clock: ManualClock(),
+            terminalAvailable: false, canOpenFiles: false, openURL: { _ in })
+        await model.start()
+        backend.send(snapshot(.failing, url: nil))
+        await settle { model.card != nil }
+        #expect(model.card?.actions.contains(.editManifest) == false)
+        model.update(canOpenFiles: true)
+        #expect(model.card?.actions.contains(.editManifest) == true)
+        model.update(canOpenFiles: false)
+        #expect(model.card?.actions.contains(.editManifest) == false)
+    }
+
+    @Test func theCardNeverStaysBusyPastItsOwnTimer() async {
+        let (model, clock, box) = make()
+        await model.perform(.editManifest)
+        await settle { clock.sleeperCount > 0 }
+        // Another request took over before the timer fired; the timer still frees the card.
+        box.request = FileOpenRequest(path: "other", edit: false)
+        clock.advance(.seconds(5))
+        await settle { model.isPerforming == nil }
+        #expect(model.isPerforming == nil)
+        #expect(box.request?.path == "other")
+    }
+
+    @Test func aFailedOpenFreesTheCardAndSaysSo() async {
+        let (model, _, box) = make()
+        await model.perform(.editManifest)
+        box.request = nil
+        model.fileOpenFailed()
+        #expect(model.isPerforming == nil)
+        #expect(model.actionLine == "Files did not open. Try again.")
+    }
+
     @Test func aTakenRequestShowsNoError() async {
         let (model, clock, box) = make()
         await model.perform(.editManifest)

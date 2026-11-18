@@ -11,6 +11,7 @@ struct FilePageView: View {
     let openWeb: () -> Void
     /// Opens this file in the Files editor; nil when the person cannot edit it from here.
     var edit: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Editing starts from a diff only for a file that still exists, is text and fits the diff: a deleted, binary or
     /// too large file stays a diff, and so does a page whose file is gone.
@@ -60,20 +61,32 @@ struct FilePageView: View {
                 Text("files.renamedFrom \(old)").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 16) {
-                viewedButton
-                if let edit {
-                    Button(action: edit) {
-                        Label {
-                            Text("files.page.edit")
-                        } icon: {
-                            Image(systemName: "pencil").accessibilityHidden(true)
-                        }
-                        .font(.footnote.weight(.semibold)).frame(minHeight: 44)
-                    }
-                    .foregroundStyle(.primary).accessibilityIdentifier("files.page.edit")
+            // Two actions that must not clip stack at accessibility text sizes, as the bar below does.
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 0) {
+                    viewedButton
+                    editButton
+                }
+            } else {
+                HStack(spacing: 16) {
+                    viewedButton
+                    editButton
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var editButton: some View {
+        if let edit {
+            Button(action: edit) {
+                Label {
+                    Text("files.page.edit")
+                } icon: {
+                    Image(systemName: "pencil").accessibilityHidden(true)
+                }
+                .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+            }
+            .foregroundStyle(.primary).accessibilityIdentifier("files.page.edit")
         }
     }
 
