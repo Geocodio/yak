@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\ThreadList;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -35,6 +36,21 @@ class HandleInertiaRequests extends Middleware
      *
      * @see https://inertiajs.com/asset-versioning
      */
+    /**
+     * A background fetch (events, diff, share) that lands between an action's redirect and the page visit that follows
+     * it would age the flashed errors and messages away unseen, so a fetch keeps them for the visit.
+     */
+    public function handle(Request $request, Closure $next)
+    {
+        $response = parent::handle($request, $next);
+
+        if (! $request->header('X-Inertia') && $request->header('Sec-Fetch-Mode') === 'cors' && $request->hasSession()) {
+            $request->session()->reflash();
+        }
+
+        return $response;
+    }
+
     public function version(Request $request): ?string
     {
         return parent::version($request);
