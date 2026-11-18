@@ -12,7 +12,7 @@ struct DrawerRowView: View {
     var isRunning = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var indicatorSize = 22.0
+    @ScaledMetric(relativeTo: .body) private var indicatorSize = Design.Size.statusColumn
     @ScaledMetric(relativeTo: .body) private var indentation = 18.0
 
     var body: some View {
@@ -27,13 +27,19 @@ struct DrawerRowView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         if isTask {
-                            Label("drawer.taskLabel", systemImage: "checklist").font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.yakMuted).accessibilityIdentifier("drawer.taskLabel")
+                            HStack(spacing: Design.Space.tight) {
+                                Image(systemName: "checklist")
+                                Text("drawer.taskLabel")
+                            }
+                            .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                            .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
                         }
-                        Text(row.title).font(.body).foregroundStyle(.primary)
+                        Text(row.title).font(.yakRowTitle).foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
-                        Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
-                            .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
+                        Text(subtitle).font(.footnote).foregroundStyle(
+                            row.indicator == .needsYou ? Color.yakAction : Color.yakMuted
+                        )
+                        .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
@@ -46,10 +52,10 @@ struct DrawerRowView: View {
                     if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
-                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? 12 : 20))
-                .padding(.vertical, 8)
-                .frame(minHeight: 44)
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.medium : Design.Space.compact))
+                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? Design.Space.medium : Design.Space.medium))
+                .padding(.vertical, Design.Space.small)
+                .frame(minHeight: Design.Size.row - 2 * Design.Space.small + Design.Space.small)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -69,7 +75,9 @@ struct DrawerRowView: View {
                 .accessibilityIdentifier("drawer.toggle.\(row.id)")
             }
         }
-        .background(row.indicator == .needsYou ? Color.yakAction.opacity(0.10) : Color.clear)
+        .background(
+            row.indicator == .needsYou ? Color.yakAction.opacity(0.14) : Color.clear,
+            in: .rect(cornerRadius: Design.Radius.row))
     }
 
     /// A neutral hairline that shows the nesting.
@@ -87,7 +95,7 @@ struct DrawerRowView: View {
         let layout =
             isInline ? AnyLayout(HStackLayout(spacing: 8)) : AnyLayout(VStackLayout(alignment: .trailing, spacing: 4))
         layout {
-            if let age { Text(age).font(.footnote.weight(.medium)).foregroundStyle(.primary) }
+            if let age { Text(age).font(.footnote).foregroundStyle(Color.yakMuted) }
             if row.isPrivate {
                 Image(systemName: "lock.fill").font(.caption).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
@@ -182,7 +190,9 @@ struct DrawerIndicator: View {
         .accessibilityHidden(true)
     }
 
-    private func dot(_ color: Color) -> some View { Circle().fill(color).frame(width: 10, height: 10) }
+    private func dot(_ color: Color) -> some View {
+        Circle().fill(color).frame(width: Design.Size.statusDot, height: Design.Size.statusDot)
+    }
 
     private func glyph(_ name: String) -> some View {
         Image(systemName: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
