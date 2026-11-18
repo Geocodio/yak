@@ -91,3 +91,105 @@ private func instance(_ address: String) -> Instance {
     #expect(scene.isShown(.files))
     #expect(!scene.isShown(.chat))
 }
+
+// MARK: Two panes and several windows
+
+private func sideBySideInputs() -> LayoutInputs {
+    LayoutInputs(isCompactWidth: false, isCompactHeight: false, detailWidth: 900, hasVerticalToolbarEdge: false)
+}
+
+@MainActor @Test func aStoredStateWithoutTheNewFieldsDecodes() {
+    let stored = Data(#"{"threadID":"e5f6g7h8","focusedPane":"chat","isDrawerOpen":true,"filter":"mine"}"#.utf8)
+    let state = SceneModel.restoredState(from: stored)
+    #expect(state.secondPane == nil && !state.secondPaneLeads && state.lastSecondPane == nil)
+    #expect(state.stackedFraction == 0.5 && state.instanceID == nil)
+}
+
+@MainActor @Test func theNewFieldsRoundTrip() throws {
+    let state = SceneState(
+        instanceID: UUID(), threadID: "e5f6g7h8", focusedPane: .preview, secondPane: .chat, secondPaneLeads: true,
+        lastSecondPane: .files, stackedFraction: 0.6)
+    let data = try JSONEncoder().encode(state)
+    #expect(SceneModel.restoredState(from: data) == state)
+}
+
+@MainActor @Test func aSceneForAnotherInstanceDropsItsThread() {
+    let state = SceneState(instanceID: UUID(), threadID: "e5f6g7h8", secondPane: .preview)
+    let scene = SceneModel(state: state, request: nil, activeInstance: UUID())
+    #expect(scene.state.threadID == nil && scene.state.secondPane == nil)
+    #expect(scene.state.isDrawerOpen)
+    let same = UUID()
+    let kept = SceneModel(
+        state: SceneState(instanceID: same, threadID: "e5f6g7h8"), request: nil, activeInstance: same)
+    #expect(kept.state.threadID == "e5f6g7h8")
+}
+
+@MainActor @Test func aRequestedWindowSkipsColdStart() {
+    let active = UUID()
+    let scene = SceneModel(
+        state: SceneState(), request: .thread(instance: active, id: "d0e515ef"), activeInstance: active)
+    #expect(scene.state.threadID == "d0e515ef")
+    scene.applyColdStart(.newThread)
+    #expect(scene.state.threadID == "d0e515ef" && !scene.state.isNewThreadOpen)
+}
+
+@MainActor @Test func aRequestForAnotherInstanceOpensTheDrawer() {
+    let scene = SceneModel(
+        state: SceneState(), request: .thread(instance: UUID(), id: "d0e515ef"), activeInstance: UUID())
+    #expect(scene.state.threadID == nil && scene.state.isDrawerOpen)
+}
+
+@MainActor @Test func aBlankWindowOpensNoThread() {
+    let scene = SceneModel(state: SceneState(threadID: "d0e515ef"), request: .blank(UUID()), activeInstance: UUID())
+    #expect(scene.state.threadID == nil && scene.state.isDrawerOpen)
+    #expect(scene.windowValue == nil)
+}
+
+@MainActor @Test func isShownFollowsThePlan() {
+    let scene = SceneModel(state: SceneState())
+    let panes: [PaneID] = [.chat, .preview, .files]
+    let state = PaneState(focused: .chat, second: .preview)
+    scene.updatePlan(PaneLayoutRules.plan(state, available: panes, inputs: sideBySideInputs()))
+    #expect(scene.isShown(.chat) && scene.isShown(.preview))
+    #expect(!scene.isShown(.files))
+}
+
+@MainActor @Test func pushStillFocusesFiles() {
+    let scene = SceneModel(state: SceneState(focusedPane: .chat, secondPane: .files))
+    scene.focus(pane: .files)
+    #expect(scene.state.focusedPane == .files)
+    #expect(scene.paneState.focused == .files && scene.paneState.second == nil)
+}
+
+@MainActor @Test func anUnknownPaneNameKeepsTheThread() {
+    let stored = Data(
+        #"{"threadID":"e5f6g7h8","focusedPane":"files","secondPane":"whiteboard","lastSecondPane":"whiteboard"}"#.utf8)
+    let state = SceneModel.restoredState(from: stored)
+    #expect(state.threadID == "e5f6g7h8" && state.focusedPane == .files)
+    #expect(state.secondPane == nil && state.lastSecondPane == nil)
+}
+
+@MainActor @Test func anOversizedStoredSceneIsIgnored() {
+    let json = #"{"threadID":"e5f6g7h8"}"#
+    func padded(to size: Int) -> Data { Data((json + String(repeating: " ", count: size - json.utf8.count)).utf8) }
+    #expect(SceneModel.restoredState(from: padded(to: 4097)) == SceneState())
+    #expect(SceneModel.restoredState(from: padded(to: 4096)).threadID == "e5f6g7h8")
+}
+
+@MainActor @Test func aWindowThatChangesThreadUpdatesItsValue() {
+    let active = UUID()
+    let scene = SceneModel(state: SceneState(), request: nil, activeInstance: active)
+    scene.open(thread: "d0e515ef", isCompactWidth: false)
+    #expect(scene.windowValue == .thread(instance: active, id: "d0e515ef"))
+    scene.open(thread: "a1b2c3d4", isCompactWidth: false)
+    #expect(scene.windowValue == .thread(instance: active, id: "a1b2c3d4"))
+    scene.closeThread()
+    #expect(scene.windowValue == nil)
+}
+
+@MainActor @Test func applyWritesThePaneFieldsAndRemembersTheLastSecond() {
+    let scene = SceneModel(state: SceneState())
+    scene.apply(PaneState(focused: .preview, second: .chat, secondLeads: true, stackedFraction: 9))
+    #expect(scene.state.focusedPane == .preview && scene.state.secondPane == .chat)
+    #expect(scene.state.lastSecondPane == .chat && scene.state.stackedFraction == 0.7)
+}
