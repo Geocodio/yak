@@ -92,6 +92,11 @@ struct JourneyServer {
     static func audit(_ app: XCUIApplication, in test: XCTestCase) throws {
         let bars = AuditRules.Bars(app)
         try app.performAccessibilityAudit { issue in
+            let systemBars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, systemBars.contains(where: { $0.frame.contains(element.frame) }) {
+                // The system caps the size of text in its bars, as the thread smoke tests allow.
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+            }
             if AuditRules.isContrastOfAnElementOffScreen(issue, bars: bars) { return true }
             if AuditRules.isContrastOfTextBehindABar(issue, bars: bars) { return true }
             if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
