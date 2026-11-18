@@ -498,6 +498,7 @@ class WebhookController extends Controller
             mergedAt: $request->input('pull_request.merged_at'),
             closedAt: $request->input('pull_request.closed_at'),
             via: 'webhook',
+            mergeCommitSha: $request->input('pull_request.merge_commit_sha'),
         );
 
         if (! $recorded) {

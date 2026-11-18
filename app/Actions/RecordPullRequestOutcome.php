@@ -4,11 +4,13 @@ namespace App\Actions;
 
 use App\Facades\Telemetry;
 use App\Jobs\Deployments\ResolvePreviewRepairJob;
+use App\Models\CiFailureClaim;
 use App\Models\PreviewRepair;
 use App\Models\PrReview;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
+use App\Services\CiFailure\CiFailureTaskCreator;
 use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\Threads\ThreadCloser;
@@ -34,6 +36,7 @@ class RecordPullRequestOutcome
         DateTimeInterface|string|null $closedAt = null,
         string $via = 'webhook',
         ?int $humanCommits = null,
+        ?string $mergeCommitSha = null,
     ): bool {
         if ($prUrl === '') {
             return false;
@@ -75,6 +78,12 @@ class RecordPullRequestOutcome
         }
 
         $this->closeThreads($tasks, $rows, $merged, $closedAt);
+
+        if ($merged && $mergeCommitSha !== null) {
+            CiFailureClaim::query()
+                ->whereIn('yak_task_id', $tasks->where('source', CiFailureTaskCreator::SOURCE)->pluck('id'))
+                ->update(['fix_merge_sha' => $mergeCommitSha]);
+        }
 
         $root = $tasks->first();
 

@@ -13,6 +13,8 @@ use App\Facades\Telemetry;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CiFailure\CiFailureNotificationGate;
+use App\Services\CiFailure\CiFailureTaskCreator;
 use App\Services\DirectMessageRecipients;
 use App\Services\Tasks\StopMessage;
 use App\Services\Threads\ThreadNotificationGuard;
@@ -72,6 +74,12 @@ class SendNotificationJob implements ShouldQueue
 
         try {
             if ($this->isCancelledByStarter()) {
+                return;
+            }
+
+            if ($this->type === NotificationType::Error
+                && $this->task->source === CiFailureTaskCreator::SOURCE
+                && ! CiFailureNotificationGate::shouldNotify($this->task)) {
                 return;
             }
 
