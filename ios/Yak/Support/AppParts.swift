@@ -140,7 +140,11 @@ extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in AppParts.open(url, through: parts.system.appLock) { await model.handle(url: $0) } }
-            .task { await AppParts.route(QuickActions.links(), through: parts.system.appLock) { await model.handle(url: $0) } }
+            .task {
+                await AppParts.route(QuickActions.links(), through: parts.system.appLock) {
+                    await model.handle(url: $0)
+                }
+            }
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
             .modifier(ShortcutGate(controller: parts.system.appLock))
@@ -195,7 +199,9 @@ private struct SpotlightRoot: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 Task { await system.spotlight.reindexInBackground() }
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) {
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)
+            ) {
                 _ in Task { await system.spotlight.reindex() }
             }
             .onContinueUserActivity(CSSearchableItemActionType) { activity in

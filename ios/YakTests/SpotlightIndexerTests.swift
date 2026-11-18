@@ -350,7 +350,8 @@ private func titles(_ change: SpotlightChange) -> [String] {
         #expect(fixture.writer.changes == [.eraseAll])
         fixture.writer.release()
         for _ in 0..<2000 { await Task.yield() }
-        #expect(fixture.writer.changes == [.eraseAll], "a late erase lands nothing, so nothing is rebuilt or erased again")
+        #expect(
+            fixture.writer.changes == [.eraseAll], "a late erase lands nothing, so nothing is rebuilt or erased again")
     }
 
     @Test func aSuccessfulEraseAllKeepsTheFlagWhileAnAbandonedReplaceIsStillInFlight() async throws {

@@ -135,7 +135,7 @@ import YakKit
         for _ in 0..<500 where app.accessibilityElementsHidden { await Task.yield() }
         #expect(!app.accessibilityElementsHidden)
         app.isHidden = true
-        windows.lockWindows.forEach { $0.isHidden = true }
+        for lockWindow in windows.lockWindows { lockWindow.isHidden = true }
     }
 
     @Test func keyGoesBackToTheWindowThatTookKeyWhileLockedEvenWhenNoneWasKeyAtTheStart() throws {
