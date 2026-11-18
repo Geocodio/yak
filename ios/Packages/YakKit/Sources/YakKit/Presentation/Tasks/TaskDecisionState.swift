@@ -18,7 +18,12 @@ public enum TaskDecisionState: Equatable, Sendable {
     case decided(status: String, by: String?)
 
     public static func make(_ task: AppTask) -> TaskDecisionState {
-        guard task.canDrive, let panel = task.coOwner else { return .none }
+        make(canDrive: task.canDrive, panel: task.coOwner)
+    }
+
+    /// The same rules for any screen that holds a co-owner panel; `canDrive` is whatever the screen's server answer allows.
+    public static func make(canDrive: Bool, panel: CoOwnerPanel?) -> TaskDecisionState {
+        guard canDrive, let panel else { return .none }
         guard panel.status == "pending" else { return .decided(status: panel.status, by: panel.decidedBy) }
         if panel.viewer.isRequester { return .waitingForOthers(asked: panel.asked) }
         guard panel.viewer.isLinked else { return .linkGitHub(connectURL: panel.connectUrl) }
@@ -38,7 +43,11 @@ public enum EarlyWarningRow: Equatable, Sendable {
     case asked(name: String)
 
     public static func make(_ task: AppTask) -> EarlyWarningRow {
-        guard task.canDrive, let notice = task.earlyWarning else { return .none }
+        make(canDrive: task.canDrive, notice: task.earlyWarning)
+    }
+
+    public static func make(canDrive: Bool, notice: EarlyWarningNotice?) -> EarlyWarningRow {
+        guard canDrive, let notice else { return .none }
         if notice.state == "tagged", let name = notice.taggedName { return .asked(name: name) }
         if notice.canPick { return .pick(fallbackName: notice.fallbackName) }
         return .none
