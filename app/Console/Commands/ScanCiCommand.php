@@ -10,6 +10,7 @@ use App\DataTransferObjects\ExistingFixPrMatch;
 use App\DataTransferObjects\PullRequestCandidate;
 use App\Enums\TaskMode;
 use App\Jobs\RunYakJob;
+use App\Models\CiFailureClaim;
 use App\Models\FlakyTestClaim;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -320,8 +321,10 @@ class ScanCiCommand extends Command
         Collection $openPullRequests,
     ): Collection {
         $finder = app(ExistingFixPrFinder::class);
+        $ciFailureClaims = CiFailureClaim::liveFor($repository->slug)
+            ->reject(fn (CiFailureClaim $claim): bool => $claim->isLiveOnlyByFixMergeSha());
 
-        return $group->filter(function (array $candidate) use ($repository, $claimed, $openPullRequests, $finder): bool {
+        return $group->filter(function (array $candidate) use ($repository, $claimed, $openPullRequests, $finder, $ciFailureClaims): bool {
             $failure = $candidate['failure'];
             $testClass = $failure->testClass();
 
@@ -338,6 +341,25 @@ class ScanCiCommand extends Command
                     subject: $testClass,
                     referenceUrl: $claim->skipped_pr_url,
                     task: $claim->task,
+                    metadata: ['test_name' => $failure->testName],
+                );
+
+                return false;
+            }
+
+            $ciFailureClaim = $ciFailureClaims->first(fn (CiFailureClaim $claim): bool => $claim->test_class === $testClass);
+
+            if ($ciFailureClaim !== null) {
+                $this->components->warn("Skipping {$failure->testName} — a ci-failure task already covers it.");
+
+                $this->observeDeclined(
+                    source: self::SOURCE,
+                    kind: 'flaky_test.ci_failure_in_flight',
+                    summary: "{$testClass} is covered by a ci-failure fix, so the flaky scan stepped aside.",
+                    repo: $repository->slug,
+                    subject: $testClass,
+                    referenceUrl: $ciFailureClaim->skipped_pr_url,
+                    task: $ciFailureClaim->task,
                     metadata: ['test_name' => $failure->testName],
                 );
 

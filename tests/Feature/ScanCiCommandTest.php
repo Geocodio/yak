@@ -7,6 +7,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Models\CiFailureClaim;
 use App\Models\FlakyTestClaim;
 use App\Models\Observation;
 use App\Models\Repository;
@@ -1087,4 +1088,33 @@ test('a dry run reports the existing-pr skip without writing anything', function
     expect(YakTask::count())->toBe(0);
     expect(FlakyTestClaim::count())->toBe(0);
     expect(Observation::count())->toBe(0);
+});
+
+test('it skips a flaky test while a ci-failure claim covers it', function () {
+    Repository::factory()->create(['slug' => 'ci-repo', 'ci_system' => 'github_actions']);
+
+    $task = YakTask::factory()->pending()->create(['repo' => 'ci-repo', 'source' => 'ci-failure']);
+
+    CiFailureClaim::factory()->create([
+        'repo' => 'ci-repo',
+        'job_name' => null,
+        'test_class' => 'Tests\\Feature\\LoginTest',
+        'yak_task_id' => $task->id,
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'Error detail',
+            buildUrl: 'https://github.com/org/repo/actions/runs/456',
+            buildId: '456',
+            branch: 'main',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'ci-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'ci-repo')->where('source', 'flaky-test')->count())->toBe(0);
+    expect(Observation::where('kind', 'flaky_test.ci_failure_in_flight')->count())->toBe(1);
 });
