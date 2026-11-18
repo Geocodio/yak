@@ -171,3 +171,15 @@ it('keeps a message typed in the composer as queued until work starts', function
         ->assertSeeIn('[data-testid="thread-queued-messages"]', 'Also fix the timezone.')
         ->assertNoJavaScriptErrors();
 });
+
+it('shows the no-repository pill and the card on a phone, without the literal unknown', function () {
+    $thread = threadWithoutRepository();
+    $this->actingAs(User::factory()->create());
+
+    visit("/threads/{$thread->public_id}")->on()->mobile()
+        ->assertSeeIn('[data-testid="thread-phone-pill"]', 'No repository yet')
+        ->assertVisible('[data-testid="card-repository-question"]')
+        ->assertDontSee('unknown')
+        ->assertSeeIn('[data-testid="thread-send"]', 'Queue')
+        ->assertNoJavaScriptErrors();
+});

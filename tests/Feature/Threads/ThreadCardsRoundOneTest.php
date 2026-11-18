@@ -58,7 +58,7 @@ it('refuses an offered repository that has since become inactive, attaching noth
     expect(ThreadCardsData::for($thread, $this->requester)['repositoryQuestion']['options'])->toBe(['web']);
 
     $this->actingAs($this->requester)->post(route('threads.repository-answer.store', $thread), ['repo' => 'old'])
-        ->assertSessionHas('error', 'Pick one of the repositories Yak offered.')
+        ->assertSessionHas('error', 'Yak could not start in that repository. Pick another one.')
         ->assertSessionMissing('success');
 
     expect($thread->fresh()->hasRepository())->toBeFalse();
