@@ -103,3 +103,24 @@ it('keeps the composer and its Send button on screen at 375 px with a card above
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]]);
 });
+
+it('keeps the composer and its Send button on screen at 375 x 667 with a stop card above it', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    $thread = seedStopCardThread();
+
+    $page = visit(route('threads.show', $thread));
+    $page->resize(375, 667)->assertVisible('[data-testid="card-stop"]')->assertVisible('[data-testid="thread-send"]');
+
+    $fits = $page->script(<<<'JS'
+        (() => ['thread-composer', 'thread-composer-input', 'thread-send'].map((testId) => {
+            const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+            return [testId, rect.top >= 0 && rect.bottom <= window.innerHeight + 1 && rect.left >= 0 && rect.right <= window.innerWidth + 1];
+        }))()
+    JS);
+
+    expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
+        ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
+
+    $page->assertVisible('[data-testid="stop-retry"]')->click('[data-testid="stop-retry"]')->assertNoJavaScriptErrors();
+});

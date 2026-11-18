@@ -287,3 +287,17 @@ it('keeps a thread with a pull request out of the stopped composer', function ()
 
     $this->actingAs($this->requester)->get('/threads/' . cardsThread($task)->public_id)->assertInertia(fn (Assert $page) => $page->where('composer.state', 'idle'));
 });
+
+it('titles the stop as an expired co-owner request only when the head task expired with its own request', function () {
+    $first = YakTask::factory()->create(['repo' => 'web', 'status' => TaskStatus::Expired]);
+    CoOwnerRequest::factory()->create(['task_id' => $first->id, 'repository_id' => $this->web->id, 'status' => CoOwnerRequestStatus::Expired, 'decided_at' => now()]);
+    $thread = cardsThread($first);
+
+    $this->actingAs($this->requester)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page->where('isExpiredCoOwnerStop', true));
+
+    YakTask::factory()->failed()->create(['repo' => 'web', 'thread_id' => $thread->id, 'parent_task_id' => $first->id, 'stop_kind' => StopKind::YakStopped, 'stop_summary' => 'Tests kept failing.']);
+
+    $this->actingAs($this->requester)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('isExpiredCoOwnerStop', false)
+        ->where('stopped.summary', 'Tests kept failing.'));
+});
