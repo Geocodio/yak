@@ -113,6 +113,34 @@ import Testing
         #expect(call(feature, "POST threads/d0e515ef/pull-requests/77/fix", scenario).status == 409)
     }
 
+    @Test func aSavedOrderListsTheRowsThatWayAndAFailureRemembersNothing() throws {
+        let feature = StubChanges()
+        let scenario = try context("pull-request-open")
+        func rowIDs() -> [Int] {
+            (call(feature, "GET threads/d0e515ef/pull-requests", scenario).json["pullRequests"] as? [[String: Any]]
+                ?? [])
+                .compactMap { $0["rowId"] as? Int }
+        }
+        #expect(rowIDs() == [77, 78])
+        let saved = call(
+            feature, "PUT threads/d0e515ef/pull-requests/order", scenario, body: #"{"order":[78,77]}"#)
+        #expect(saved.status == 200)
+        #expect(rowIDs() == [78, 77])
+        #expect(feature.state.get().lastOrderBody == #"{"order":[78,77]}"#)
+
+        let failing = StubChanges()
+        let failed = try context("pull-request-order-failed")
+        #expect(
+            call(failing, "PUT threads/d0e515ef/pull-requests/order", failed, body: #"{"order":[78,77]}"#).status == 500
+        )
+        #expect(failing.state.get().rowOrder.isEmpty)
+        let conflicting = StubChanges()
+        let conflict = try context("pull-request-order-conflict")
+        let refused = call(
+            conflicting, "PUT threads/d0e515ef/pull-requests/order", conflict, body: #"{"order":[78,77]}"#)
+        #expect(refused.status == 409)
+    }
+
     @Test func everyNewPairHasScenarioData() throws {
         let scenario = try context("changes")
         for pair in StubChanges().fixturePairs {

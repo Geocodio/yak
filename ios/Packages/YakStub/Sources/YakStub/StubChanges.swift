@@ -9,6 +9,7 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         "tasks-error", "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
         "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working", "changes-slow",
         "pull-request-open", "pull-request-slow", "pull-request-held", "pull-request-failed", "pull-request-refused",
+        "pull-request-order-failed", "pull-request-order-conflict",
     ]
     let fixturePairs = [
         StubFixturePair(server: "tasks", scenario: "scenario-tasks"),
@@ -41,6 +42,9 @@ final class StubChanges: StubFeature, @unchecked Sendable {
         var answeredQuestions = false
         var lastBody = ""
         var lastPullRequestBody = ""
+        /// The body of the last merge order the stub took, and the row ids it now lists first.
+        var lastOrderBody = ""
+        var rowOrder: [Int] = []
         /// The thread's files were captured again: their ids are 100 higher.
         var recaptured = false
         /// When the person asked Yak to open the pull request; it is open two seconds later.
@@ -111,7 +115,9 @@ final class StubChanges: StubFeature, @unchecked Sendable {
     }
 
     func control(_ request: StubRequest) -> StubReply? {
-        text(request.path.hasSuffix("last-pull-request") ? state.get().lastPullRequestBody : state.get().lastBody)
+        if request.path.hasSuffix("last-order") { return text(state.get().lastOrderBody) }
+        return text(
+            request.path.hasSuffix("last-pull-request") ? state.get().lastPullRequestBody : state.get().lastBody)
     }
 
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? {
