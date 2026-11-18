@@ -58,6 +58,56 @@ class CiFailureClaim extends Model
     }
 
     /**
+     * Counts one more failed attempt: the outcome is recorded and the claim
+     * blocks new tasks for the next step of the retry backoff schedule, the
+     * last step repeating.
+     */
+    public function recordFailedAttempt(string $outcome): void
+    {
+        $backoff = array_values((array) config('yak.ci_failure.retry_backoff_hours'));
+        $attempts = $this->attempt_count + 1;
+
+        $this->update([
+            'last_outcome' => $outcome,
+            'attempt_count' => $attempts,
+            'blocked_until' => now()->addHours((int) $backoff[min($attempts - 1, count($backoff) - 1)]),
+        ]);
+    }
+
+    /**
+     * The attempt count and last outcome of the latest earlier claim for the
+     * same job or test class, so backoff and notify-once continue across
+     * tasks. A fix that merged starts the history over.
+     *
+     * @param  array{job_name: string, test_class: string|null}  $key
+     * @return array{attempt_count: int, last_outcome: string}|array{}
+     */
+    public static function priorStateFor(string $repo, string $workflowPath, array $key): array
+    {
+        $prior = static::query()
+            ->with('task')
+            ->where('repo', $repo)
+            ->where('workflow_path', $workflowPath)
+            ->where('job_name', $key['job_name'])
+            ->when(
+                $key['test_class'] === null,
+                fn (Builder $query) => $query->whereNull('test_class'),
+                fn (Builder $query) => $query->where('test_class', $key['test_class']),
+            )
+            ->whereNotNull('last_outcome')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($prior === null) {
+            return [];
+        }
+
+        $mergedFix = in_array($prior->last_outcome, ['fixed', 'unverified_fix'], true) && $prior->task?->pr_merged_at !== null;
+
+        return $mergedFix ? [] : ['attempt_count' => $prior->attempt_count, 'last_outcome' => (string) $prior->last_outcome];
+    }
+
+    /**
      * Whether the recent fix merge sha is the only reason this claim is live,
      * so a failure whose head contains the sha is no longer covered by it.
      */

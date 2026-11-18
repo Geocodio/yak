@@ -249,7 +249,7 @@ class HandleCiJobFailureJob implements ShouldQueue
                 'workflow_path' => $failure->workflow_path,
                 'yak_task_id' => $task->id,
                 'created_at' => now(),
-            ] + $key);
+            ] + $key + CiFailureClaim::priorStateFor($repository->slug, $failure->workflow_path, $key));
         }
 
         return $task;

@@ -2,6 +2,7 @@
 
 use App\Channels\GitHub\AppService;
 use App\Enums\TaskStatus;
+use App\Events\TaskStatusChanged;
 use App\Jobs\HandleCiJobFailureJob;
 use App\Jobs\RunYakJob;
 use App\Models\CiFailureClaim;
@@ -9,6 +10,7 @@ use App\Models\CiJobFailure;
 use App\Models\Observation;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\CiFailure\CiFailureNotificationGate;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
@@ -319,4 +321,55 @@ it('does not call GitHub while holding the repo lock', function () {
 
     expect(ciFailureTasks()->count())->toBe(1)
         ->and($GLOBALS['ciFailureGitHubCallsUnderLock'])->toBe([]);
+});
+
+function endCiFailureAttempt(YakTask $task, TaskStatus $status, ?string $summary): void
+{
+    $task->updateQuietly(['status' => $status, 'result_summary' => $summary, 'completed_at' => now()]);
+    event(new TaskStatusChanged($task->fresh(), TaskStatus::Running, $status));
+}
+
+it('carries backoff and notify-once state from one attempt to the next', function () {
+    fakeFailureGitHub();
+
+    runFailureJob($this->repository);
+    $first = ciFailureTasks()->sole();
+    endCiFailureAttempt($first, TaskStatus::Success, "No fix.\n\nCI-FAILURE-OUTCOME: cannot_fix");
+
+    $firstClaim = CiFailureClaim::where('yak_task_id', $first->id)->sole();
+
+    expect($firstClaim->attempt_count)->toBe(1)
+        ->and((int) round(now()->diffInHours($firstClaim->blocked_until, true)))->toBe(24)
+        ->and(CiFailureNotificationGate::shouldNotify($first->fresh()))->toBeTrue();
+
+    $this->travelTo(now()->addHours(25));
+    runFailureJob($this->repository);
+    $second = ciFailureTasks()->where('id', '!=', $first->id)->sole();
+
+    expect(CiFailureClaim::where('yak_task_id', $second->id)->sole())
+        ->attempt_count->toBe(1)
+        ->last_outcome->toBe('cannot_fix');
+
+    endCiFailureAttempt($second, TaskStatus::Success, "Still no fix.\n\nCI-FAILURE-OUTCOME: cannot_fix");
+
+    $secondClaim = CiFailureClaim::where('yak_task_id', $second->id)->sole();
+
+    expect($secondClaim->attempt_count)->toBe(2)
+        ->and((int) round(now()->diffInHours($secondClaim->blocked_until, true)))->toBe(48)
+        ->and(CiFailureNotificationGate::shouldNotify($second->fresh()))->toBeFalse();
+});
+
+it('starts the attempt history over once a fix merged', function () {
+    fakeFailureGitHub();
+    $merged = YakTask::factory()->create(['repo' => 'acme/widgets', 'source' => 'ci-failure', 'status' => TaskStatus::Success, 'pr_url' => 'https://github.com/acme/widgets/pull/3', 'pr_merged_at' => now()->subDays(10)]);
+    CiFailureClaim::factory()->create([
+        'repo' => 'acme/widgets', 'job_name' => 'Static Analysis', 'yak_task_id' => $merged->id,
+        'attempt_count' => 2, 'last_outcome' => 'fixed', 'created_at' => now()->subDays(10),
+    ]);
+
+    runFailureJob($this->repository);
+
+    expect(CiFailureClaim::where('yak_task_id', ciFailureTasks()->where('id', '!=', $merged->id)->sole()->id)->sole())
+        ->attempt_count->toBe(0)
+        ->last_outcome->toBeNull();
 });

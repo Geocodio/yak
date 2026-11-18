@@ -46,22 +46,17 @@ class RecordCiFailureOutcome
         $isFailed = $event->to === TaskStatus::Failed;
         $outcome = $isFailed && ! CiFailureOutcome::hasLine($summary) ? CiFailureOutcome::Infrastructure : CiFailureOutcome::fromSummary($summary);
         $backsOff = $isFailed || $outcome === CiFailureOutcome::CannotFix;
-        $backoff = array_values((array) config('yak.ci_failure.retry_backoff_hours'));
         $shouldNotify = false;
 
         foreach ($claims as $claim) {
-            $updates = ['last_outcome' => $outcome->value];
-
-            if ($backsOff) {
-                $attempts = $claim->attempt_count + 1;
-                $updates['attempt_count'] = $attempts;
-                $updates['blocked_until'] = now()->addHours((int) $backoff[min($attempts - 1, count($backoff) - 1)]);
-            }
-
             $shouldNotify = $shouldNotify
                 || ($outcome !== CiFailureOutcome::Infrastructure && $claim->last_outcome !== $outcome->value);
 
-            $claim->update($updates);
+            if ($backsOff) {
+                $claim->recordFailedAttempt($outcome->value);
+            } else {
+                $claim->update(['last_outcome' => $outcome->value]);
+            }
         }
 
         if ($isFailed || ! in_array($outcome, [CiFailureOutcome::Fixed, CiFailureOutcome::UnverifiedFix], true)) {
