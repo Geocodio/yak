@@ -63,7 +63,7 @@ it('opens the log overlay on the entry a deep link names', function () {
     visit(route('threads.show', ['thread' => $thread, 'log' => $ids[1]]))
         ->assertVisible(OVERLAY)
         ->assertSee('vendor/bin/phpstan analyse')
-        ->assertSee('Step 2 of 2')
+        ->assertSee('Step 2 · Run')
         ->assertNoJavaScriptErrors();
 });
 
@@ -73,7 +73,7 @@ it('keeps the overlay the same width whichever entry is open', function () {
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0]]))->assertVisible(OVERLAY);
     $widthOnFirst = $page->script('document.querySelector(\'[data-testid="transcript-overlay"]\').offsetWidth');
 
-    $page->click('[data-testid="log-next"]')->assertSee('Step 2 of 2');
+    $page->click('[data-testid="log-next"]')->assertSee('Step 2 · Run');
     $widthOnSecond = $page->script('document.querySelector(\'[data-testid="transcript-overlay"]\').offsetWidth');
 
     expect($widthOnSecond)->toBe($widthOnFirst);
@@ -85,9 +85,9 @@ it('steps the overlay with the keyboard and closes it with escape', function () 
     visit(route('threads.show', $thread))
         ->click('[data-testid="run-log-button"]')
         ->assertVisible(OVERLAY)
-        ->assertSee('Step 1 of 2')
+        ->assertSee('Step 1 · Run')
         ->keys('[data-testid="transcript-overlay"]', ['ArrowRight'])
-        ->assertSee('Step 2 of 2')
+        ->assertSee('Step 2 · Run')
         ->keys('[data-testid="transcript-overlay"]', ['Escape'])
         ->assertMissing(OVERLAY)
         ->assertNoJavaScriptErrors();
@@ -98,7 +98,7 @@ it('scrolls the rail to the opened entry', function () {
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[34]]))
         ->assertVisible(OVERLAY)
-        ->assertSee('Step 35 of 40');
+        ->assertSee('Step 35 · Run');
 
     $selectedIsInView = $page->script(<<<'JS'
         (() => {
@@ -119,7 +119,7 @@ it('opens the rail scrolled to a deep link that arrives on a later page of the l
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[129]]))
         ->assertVisible(OVERLAY)
-        ->assertSee('Step 130 of');
+        ->assertSee('Step 130 · Run');
 
     $selectedIsInView = $page->script(<<<'JS'
         (() => {
@@ -158,7 +158,7 @@ it('shows the output of a step that was still running once it arrives, on the st
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0]]))
         ->assertVisible(OVERLAY)
-        ->assertSee('Step 1 of 2')
+        ->assertSee('Step 1 · Run')
         ->assertDontSee('deploy finished successfully');
 
     ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 100, 'type' => 'entry', 'payload' => ['role' => 'tool_result', 'toolUseId' => 'toolu_0', 'isError' => false, 'text' => 'deploy finished successfully']]);
@@ -168,7 +168,7 @@ it('shows the output of a step that was still running once it arrives, on the st
     }
 
     $page->assertSee('deploy finished successfully')
-        ->assertSee('Step 1 of 2')
+        ->assertSee('Step 1 · Run')
         ->assertNoJavaScriptErrors();
 });
 
@@ -177,7 +177,7 @@ it('does not read a finished run again when a step has no output', function () {
 
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0]]))
         ->assertVisible(OVERLAY)
-        ->assertSee('Step 1 of 1');
+        ->assertSee('Step 1 · Run');
     $countRequests = fn () => $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/log")).length');
     $before = $countRequests();
     $page->wait(4);
@@ -205,7 +205,7 @@ it('keeps a deep link to an entry older than the first page open', function () {
     $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[59]]))
         ->assertVisible(OVERLAY)
         ->assertSee('echo step-60')
-        ->assertSee('Step 60 of')
+        ->assertSee('Step 60 · Run')
         ->assertNoJavaScriptErrors();
 
     expect($page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/log")).length'))->toBeGreaterThanOrEqual(2);
@@ -234,15 +234,15 @@ it('shows full assistant messages, log details and the empty state', function ()
 
     $page = visit(route('threads.show', $thread))
         ->click('[data-testid="run-log-button"]')
-        ->assertSee('Step 1 of 3')
+        ->assertSee('Step 1 · Reply')
         ->assertSee('Approve with suggestions');
 
     $page->click('[data-testid="log-next"]')
-        ->assertSee('Step 2 of 3')
+        ->assertSee('Step 2 · Error')
         ->assertSee('Structured review missing required key: verdict');
 
     $page->click('[data-testid="log-next"]')
-        ->assertSee('Step 3 of 3')
+        ->assertSee('Step 3 · Start')
         ->assertSee('Session started')
         ->assertNoJavaScriptErrors();
 });

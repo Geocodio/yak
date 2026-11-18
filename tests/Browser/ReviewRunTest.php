@@ -83,3 +83,32 @@ it('keeps the pull request description collapsed until it is opened, and has non
 
     visit('/pr-reviews/for/geocodio/api/51')->assertMissing('[data-testid="pr-description"]');
 });
+
+it('moves between the runs of a pull request inside the full log', function () {
+    $this->actingAs(User::factory()->create());
+    [$oldest, $middle, $failed] = seedThreeReviewRuns();
+    TaskLog::create(['yak_task_id' => $middle->id, 'level' => 'info', 'message' => 'Reading the middle diff']);
+
+    $page = visit('/pr-reviews/for/geocodio/api/50');
+    $page->script("window.location.hash = '#run-{$middle->public_id}'");
+    $page->click("[data-testid=\"review-run-{$middle->public_id}\"] [data-testid=\"run-full-log\"]")
+        ->assertSeeIn('[data-testid="transcript-run-line"]', 'Run 2 of 3')
+        ->assertSee('Reading the middle diff')
+        ->click('[data-testid="run-next"]')
+        ->assertSeeIn('[data-testid="transcript-run-line"]', 'Run 3 of 3')
+        ->assertSee('Reading the diff')
+        ->assertAttribute('[data-testid="run-next"]', 'disabled', '')
+        ->assertNoJavaScriptErrors();
+});
+
+it('does not write a step link into the address of the review page', function () {
+    $this->actingAs(User::factory()->create());
+    [, $middle] = seedThreeReviewRuns();
+    TaskLog::create(['yak_task_id' => $middle->id, 'level' => 'info', 'message' => 'Reading the middle diff']);
+
+    $page = visit('/pr-reviews/for/geocodio/api/50');
+    $page->script("window.location.hash = '#run-{$middle->public_id}'");
+    $page->click("[data-testid=\"review-run-{$middle->public_id}\"] [data-testid=\"run-full-log\"]")->assertSee('Reading the middle diff');
+
+    expect($page->script('new URL(location.href).searchParams.has("log")'))->toBeFalse();
+});

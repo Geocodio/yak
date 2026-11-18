@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 export const log = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ log.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 log.url = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ log.url = (args: { thread: string | { public_id: string }, task: string | { publ
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 log.get = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ log.get = (args: { thread: string | { public_id: string }, task: string | { publ
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 log.head = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
