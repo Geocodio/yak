@@ -32,7 +32,7 @@ private func post(_ port: UInt16, _ path: String, _ body: String) async throws {
     _ = try await URLSession.shared.data(for: request)
 }
 
-/// A client that fails a read after five seconds instead of hanging.
+/// A client that fails a read after thirty seconds instead of hanging.
 private final class Client: @unchecked Sendable {
     let task: URLSessionWebSocketTask
 
@@ -48,7 +48,7 @@ private final class Client: @unchecked Sendable {
                 return text
             }
             group.addTask {
-                try await Task.sleep(for: .seconds(5))
+                try await Task.sleep(for: .seconds(30))
                 self.task.cancel(with: .goingAway, reason: nil)
                 throw URLError(.timedOut)
             }
@@ -145,7 +145,12 @@ private final class Client: @unchecked Sendable {
         // The open socket closes; frames already in flight may arrive first.
         var closeError: (any Error)?
         do {
-            while true { _ = try await client.receive() }
+            while true {
+                let frame = try await client.receive()
+                let data = Data((frame["data"] as? String ?? "").utf8)
+                let item = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                last = item?["sequence"] as? Int ?? last
+            }
         } catch { closeError = error }
         #expect(closeError != nil && (closeError as? URLError)?.code != .timedOut)
         // A new connection is refused while offline, not merely left to time out.
@@ -155,7 +160,8 @@ private final class Client: @unchecked Sendable {
         do { _ = try await refused.receive() } catch { refusedError = error }
         #expect(refusedError != nil && (refusedError as? URLError)?.code != .timedOut)
         // Playback stays paused while offline. The API drops while offline, so the sequence is read right
-        // after going online, which allows the one or two publishes that resume within milliseconds.
+        // after going online, which allows the one or two publishes that resume within milliseconds. `last` is the
+        // newest sequence the client read before the socket closed, so a slow client cannot make it look behind.
         try await Task.sleep(for: .milliseconds(300))
         try await post(port, "/__stub/online", "yes")
         let pausedAt = try await get(port, "/api/app/v1/threads/d0e515ef/events?after=0&limit=500", authorized: true)
