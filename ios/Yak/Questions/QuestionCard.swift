@@ -18,6 +18,8 @@ struct QuestionCard: View {
     @FocusState private var isTyping: Bool
     @FocusState private var isNoteFocused: Bool
     @AccessibilityFocusState private var focusedStep: Int?
+    /// A vertical text field keeps the height of the largest text size it has seen, so each text size gets a new one.
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// A question step is at most 70 percent of the pane, the review 60, and while the person types it may use nearly all of it, because
     /// the card is the input then. It never gets less than room for the header, one option and the action row.
@@ -204,7 +206,7 @@ struct QuestionCard: View {
         @Bindable var model = model
         return VStack(alignment: .leading, spacing: 10) {
             TextField("question.field", text: $model.typedText, axis: .vertical).lineLimit(1...4)
-                .focused($isTyping).padding(12).textFieldStyle(.plain).questionFieldSurface()
+                .focused($isTyping).id(dynamicTypeSize).padding(12).textFieldStyle(.plain).questionFieldSurface()
                 .accessibilityIdentifier("question.field")
             HStack(spacing: 12) {
                 Button("common.cancel") {
@@ -238,7 +240,7 @@ struct QuestionCard: View {
                 .disabled(model.isSending)
             }
             TextField("question.note", text: noteBinding, axis: .vertical).lineLimit(1...4)
-                .focused($isNoteFocused)
+                .focused($isNoteFocused).id(dynamicTypeSize)
                 .padding(12).questionFieldSurface().disabled(model.isSending)
                 .accessibilityIdentifier("question.note")
         }
