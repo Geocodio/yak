@@ -40,6 +40,9 @@ pest()->extend(TestCase::class)
         // Thread tests never reach Incus or the pipe broker. Tests that need
         // the real Redis streams construct RedisBrokerStreams themselves.
         app()->singleton(SandboxManager::class, FakeSandboxManager::class);
+
+        // Thread ids restart at 1 in every test while Redis outlives them, so each test gets its own event-window key space.
+        config(['yak.threads.realtime_key_prefix' => uniqid('feature-', true) . ':']);
         app()->singleton(BrokerStreams::class, FakeBrokerStreams::class);
         app()->singleton(SessionFileSync::class, FakeSessionFileSync::class);
 
