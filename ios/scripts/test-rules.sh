@@ -377,30 +377,30 @@ expect_fail "hosts: the report names the literal's line" "release: hosts" "Plant
 
 # extension targets: discovery, groups, override, minimum version, privacy
 planted_share() {
-    plant YakShare/target.yml <<'EOF'
+    plant YakPlanted/target.yml <<'EOF'
 targets:
-  YakShare:
+  YakPlanted:
     type: app-extension
     platform: iOS
 EOF
-    cp "$work/ios/Yak/Yak.entitlements" "$work/ios/YakShare/YakShare.entitlements"
+    cp "$work/ios/Yak/Yak.entitlements" "$work/ios/YakPlanted/YakPlanted.entitlements"
 }
 fresh
 planted_share
-expect_fail "discovery: an app-extension target that no file registers" "release: privacy manifests" "YakShare: YakShare/PrivacyInfo.xcprivacy is missing"
-if ! grep -qF "release: extension targets: YakShare" <<<"$output"; then
-    echo "FAIL  discovery: the output lacks 'release: extension targets: YakShare'"
+expect_fail "discovery: an app-extension target that no file registers" "release: privacy manifests" "YakPlanted: YakPlanted/PrivacyInfo.xcprivacy is missing"
+if ! grep -qF "release: extension targets: YakPlanted" <<<"$output"; then
+    echo "FAIL  discovery: the output lacks 'release: extension targets: YakPlanted'"
     failures=$((failures + 1))
 fi
 fresh
 planted_share
-cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakShare/PrivacyInfo.xcprivacy"
+cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakPlanted/PrivacyInfo.xcprivacy"
 expect_pass "discovery: a complete extension target passes"
 fresh
 planted_share
-cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakShare/PrivacyInfo.xcprivacy"
-sed -i.bak 's/\$(YAK_APP_GROUP)/group.com.example.other/' "$work/ios/YakShare/YakShare.entitlements"
-expect_fail "groups: another app group" "release: groups" "YakShare"
+cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakPlanted/PrivacyInfo.xcprivacy"
+sed -i.bak 's/\$(YAK_APP_GROUP)/group.com.example.other/' "$work/ios/YakPlanted/YakPlanted.entitlements"
+expect_fail "groups: another app group" "release: groups" "YakPlanted"
 fresh
 plant YakOther/YakOther.entitlements <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -415,8 +415,8 @@ EOF
 expect_fail "override: extension_targets names a target the scan cannot see" "release: groups" "YakOther"
 fresh
 planted_share
-cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakShare/PrivacyInfo.xcprivacy"
-cat >> "$work/ios/YakShare/target.yml" <<'EOF'
+cp "$work/ios/Yak/Support/PrivacyInfo.xcprivacy" "$work/ios/YakPlanted/PrivacyInfo.xcprivacy"
+cat >> "$work/ios/YakPlanted/target.yml" <<'EOF'
     deploymentTarget: "27.1"
 EOF
 expect_fail "minimum version: a target above the project's" "release: minimum version" "27.1"
@@ -477,10 +477,10 @@ https://help.example.org
 EOF
 expect_fail "hosts: a raw string and a triple-quoted string" "release: hosts" "Yak/Raw.swift"
 fresh
-plant YakShare/target.yml <<'EOF'
+plant YakPlanted/target.yml <<'EOF'
 targets: [unclosed
 EOF
-expect_fail "a target.yml that is not YAML is named, not read as target names" "YakShare/target.yml: cannot be read as YAML"
+expect_fail "a target.yml that is not YAML is named, not read as target names" "YakPlanted/target.yml: cannot be read as YAML"
 if grep -q "extension targets: .*cannot" <<<"$output"; then
     echo "FAIL  the YAML finding leaked into the target names"
     failures=$((failures + 1))
