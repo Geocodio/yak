@@ -3,6 +3,7 @@
 use App\DataTransferObjects\CiFailureQualification;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
+use App\Models\User;
 use App\Services\CiFailure\CiFailureTaskCreator;
 
 beforeEach(function () {
@@ -49,4 +50,19 @@ it('caps an excerpt from its tail and keeps only the newest failure per branch',
         ->and(strlen($failures[0]['log_excerpt']))->toBeLessThanOrEqual(8000)
         ->and($failures[0]['log_excerpt'])->toEndWith('THE END')
         ->and($task->description)->toBe('Fix CI: Test (Main) failing on 2 branches');
+});
+
+it('makes the pull request author the responsible user when their GitHub login is linked', function () {
+    $defaultUser = User::factory()->create();
+    $author = User::factory()->create(['github_login' => 'octo-author']);
+    $this->repository->update(['default_responsible_user_id' => $defaultUser->id]);
+
+    $failure = CiJobFailure::factory()->create(['branch' => 'main']);
+    $qualification = new CiFailureQualification(true, 'default_branch', collect([$failure]));
+
+    $task = app(CiFailureTaskCreator::class)->create($this->repository, $qualification, ['excerpts' => [], 'author' => 'octo-author']);
+    $fallback = app(CiFailureTaskCreator::class)->create($this->repository, $qualification, ['excerpts' => [], 'author' => 'stranger']);
+
+    expect($task->responsible_user_id)->toBe($author->id)
+        ->and($fallback->responsible_user_id)->toBe($defaultUser->id);
 });

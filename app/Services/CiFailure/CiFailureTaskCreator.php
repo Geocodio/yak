@@ -9,6 +9,7 @@ use App\Enums\TaskMode;
 use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
@@ -116,6 +117,7 @@ class CiFailureTaskCreator
         $newest = $qualification->evidence->sortByDesc('failed_at')->firstOrFail();
 
         $author = $gathered['author'];
+        $authorUser = $author !== null && $author !== '' ? User::query()->where('github_login', $author)->first() : null;
 
         $resolver = app(ResponsiblePersonResolver::class);
 
@@ -127,8 +129,8 @@ class CiFailureTaskCreator
             'description' => $this->description($repository, $failure, $evidence, $advisoryIds),
             'context' => $encodedContext,
             'source' => self::SOURCE,
-            'responsible_name' => $resolver->resolve(null, $author, $repository->slug),
-            'responsible_user_id' => $resolver->resolveUser(null, null, $repository->slug)?->id,
+            'responsible_name' => $resolver->resolve($authorUser?->name, $author, $repository->slug),
+            'responsible_user_id' => $resolver->resolveUser($authorUser, null, $repository->slug)?->id,
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => self::SOURCE, 'repo' => $repository->slug]);
