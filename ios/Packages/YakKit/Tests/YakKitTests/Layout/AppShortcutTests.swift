@@ -65,6 +65,16 @@ private func combination(_ shortcut: AppShortcut) -> Combination {
         }
     }
 
+    /// The terminal and the editor get Escape, Tab, arrows and Control combinations from the emulator and the text
+    /// view first; the app takes only Command combinations, and a bare key only inside a sheet.
+    @Test func noBareOrControlKeyIsBoundOutsideASheet() {
+        for shortcut in AppShortcut.allCases where shortcut.scope != .sheet {
+            #expect(shortcut.modifiers.contains(.command), "\(shortcut) would take a key the terminal needs")
+            #expect(!shortcut.modifiers.contains(.control), "\(shortcut) uses Control")
+            #expect(shortcut.key != .escape)
+        }
+    }
+
     @Test func paneNumbersFollowThePaneOrder() {
         let focus: [AppShortcut] = [.focusChat, .focusPreview, .focusFiles, .focusTerminal, .focusOverview]
         #expect(focus.map(\.pane) == [.chat, .preview, .files, .terminal, .overview])

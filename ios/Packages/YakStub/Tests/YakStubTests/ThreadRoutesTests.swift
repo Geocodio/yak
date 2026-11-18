@@ -130,6 +130,11 @@ private func rowIDs(_ reply: StubReply, _ key: String) throws -> [String] {
         #expect(answer["threadId"] as? String == "n3w7hr3d")
     }
 
+    @Test func theThreadAClearStartsCanBeOpened() throws {
+        let shown = try object(reply(.paired, "GET", "threads/n3w7hr3d"))
+        #expect((shown["thread"] as? [String: Any])?["id"] as? String == "n3w7hr3d")
+    }
+
     @Test func answeringClosesTheQuestion() throws {
         let threads = StubThreads()
         #expect(

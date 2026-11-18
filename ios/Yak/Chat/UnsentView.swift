@@ -21,7 +21,11 @@ struct UnsentView: View {
                     }
                 }
             }
-            stateLine
+            if let line = thread.uploadLine(for: item) {
+                UploadLine(state: line, itemID: item.id, thread: thread)
+            } else {
+                stateLine
+            }
             if case .refused = item.state { actions }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)

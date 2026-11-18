@@ -73,7 +73,9 @@ import XCTest
     /// to inner elements too, so the largest match is the sheet, and a match that is too small to be one fails the
     /// test instead of excusing findings inside the sheet.
     private func sheetFrame(named name: String) -> CGRect? {
-        let identifiers = ["model-picker": "model.picker", "camera-denied": "composer.cameraDenied"]
+        let identifiers = [
+            "model-picker": "model.picker", "camera-denied": "composer.cameraDenied",
+        ]
         guard let identifier = identifiers[name] else { return nil }
         let frames = app.otherElements.matching(identifier: identifier).allElementsBoundByIndex.map(\.frame)
         guard let sheet = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) else { return nil }
@@ -82,6 +84,45 @@ import XCTest
             return nil
         }
         return sheet
+    }
+
+    /// A screenshot of a thread screen, then the audit without the findings about text in the navigation bar,
+    /// whose size the system caps. The Dynamic Type and clipped-text checks run last: they change the text size,
+    /// which lays the conversation out again and moves its rows, so every other check reads the list as it was shot.
+    func shootThread(_ name: String) throws {
+        try shoot(name, audits: false)
+        let keyboard = keyboardFrame()
+        let auditBars = AuditRules.Bars(app)
+        let judge: (XCUIAccessibilityAuditIssue) -> Bool = { [app, auditBars] issue in
+            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+            }
+            // The system keyboard's prediction bar is not ours to label, and what it covers cannot be judged.
+            if (issue.element?.debugDescription ?? "").contains("TUIPredictionViewCell") { return true }
+            if issue.auditType == .contrast, let element = issue.element, let keyboard,
+                keyboard.intersects(element.frame)
+            {
+                return true
+            }
+            // On a wide screen the audit reports contrast in the drawer's sidebar without naming an element.
+            if issue.auditType == .contrast, issue.element == nil, app.windows.firstMatch.frame.width > 700 {
+                return true
+            }
+            // An element entirely outside the screen shows no pixels to measure.
+            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+            // Text behind a bar is covered by the bar.
+            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+            XCTFail(
+                "audit [\(name)]: \(issue.compactDescription) | \(issue.element?.debugDescription ?? "no element") | bars \(auditBars.bars.map(\.frame)) window \(auditBars.window)"
+            )
+            return true
+        }
+        let resizing: XCUIAccessibilityAuditType = [.dynamicType, .textClipped]
+        try app.performAccessibilityAudit(for: XCUIAccessibilityAuditType.all.subtracting(resizing), judge)
+        try app.performAccessibilityAudit(for: resizing, judge)
     }
 
     /// Saves the screenshot once animations settle, then audits the screen. `audits: false` is for screens
@@ -133,6 +174,9 @@ import XCTest
             {
                 return true
             }
+            // The Live Activity gallery draws each presentation in a fixed-size frame that mirrors the system's capped
+            // sizes, so only text size and clipping findings are excused; contrast and missing labels are judged.
+            if name.hasPrefix("live-"), [.dynamicType, .textClipped].contains(issue.auditType) { return true }
             // The audit cannot match some text under the dimming of a sheet to an element.
             if issue.auditType == .elementDetection, issue.element == nil,
                 ["signed-in-add-sheet", "pair-again-address-sheet", "model-picker", "camera-denied"].contains(name)

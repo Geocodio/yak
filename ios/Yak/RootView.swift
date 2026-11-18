@@ -1,4 +1,5 @@
 import SwiftUI
+import YakKit
 
 struct RootView: View {
     let model: AppModel
@@ -26,6 +27,10 @@ struct RootView: View {
                 }
             }
         }
+        .environment(\.isNetworkOnline, model.network.isOnline)
+        .fullScreenCover(item: explanationBinding) { request in
+            NotificationExplanationCover(request: request, model: model)
+        }
         .sensoryFeedback(.success, trigger: model.linkPairingSuccessCount)
         .animation(.spring, value: model.route)
         .animation(.spring, value: model.linkPairing?.state)
@@ -45,6 +50,37 @@ struct RootView: View {
         }
         .onChange(of: model.network.isOnline) { _, isOnline in
             Task { await model.sessions.networkChanged(isOnline: isOnline) }
+        }
+    }
+}
+
+extension RootView {
+    /// The explanation screen after a pairing, shown over whatever the route shows.
+    fileprivate var explanationBinding: Binding<NotificationExplanationRequest?> {
+        Binding(
+            get: { model.push?.explanation },
+            set: { if $0 == nil { model.push?.explanation = nil } })
+    }
+}
+
+/// Builds the explanation's model once per request, so a redraw keeps the phase.
+private struct NotificationExplanationCover: View {
+    let request: NotificationExplanationRequest
+    let model: AppModel
+    @State private var explanationModel: NotificationExplanationModel?
+
+    var body: some View {
+        Group {
+            if let explanationModel {
+                NotificationExplanationView(model: explanationModel)
+            } else {
+                Color(.systemBackground)
+            }
+        }
+        .onAppear {
+            guard explanationModel == nil, let push = model.push else { return }
+            explanationModel = NotificationExplanationModel(
+                request: request, push: push, isOnline: { model.network.isOnline }, clock: SystemClock())
         }
     }
 }

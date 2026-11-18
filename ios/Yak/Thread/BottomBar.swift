@@ -16,7 +16,7 @@ struct BottomBar: View {
     private var isInStrip: Bool { placement == .trailingStrip && slots.stripRows[focused] != nil }
 
     var body: some View {
-        if !isInStrip { bar }
+        if !isInStrip, !thread.question.isEditing { bar }
     }
 
     private var bar: some View {

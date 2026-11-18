@@ -284,9 +284,5 @@ func everyProblemHasItsScreenText(name: String) {
 }
 
 @MainActor private func waitUntil(_ condition: @MainActor () -> Bool) async throws {
-    for _ in 0..<200 {
-        if condition() { return }
-        try await Task.sleep(for: .milliseconds(10))
-    }
-    Issue.record("condition never became true")
+    if await !TestTimeScale.poll(condition) { Issue.record("condition never became true") }
 }

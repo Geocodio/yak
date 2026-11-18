@@ -126,7 +126,7 @@ private func makeItem(_ key: String, _ text: String, streaming: Bool = false) ->
         #expect(await cache.document(for: makeItem("a", "")) == "text 20")
     }
 
-    @Test func evictingAKeyDropsItsPendingParse() async {
+    @Test func anItemDroppedBeyondTheCapacityLosesItsPendingParse() async {
         let (cache, counter, clock) = makeCache()
         await cache.update(with: [makeItem("a", "one", streaming: true)])
         await cache.update(with: [makeItem("a", "two", streaming: true)])
@@ -148,12 +148,56 @@ private func makeItem(_ key: String, _ text: String, streaming: Bool = false) ->
         #expect(await cache.document(for: makeItem("a", "")) == "partial done")
     }
 
-    @Test func dropsTheLeastRecentlyUsed() async {
+    /// A thread with more text items than any fixed limit: each item parses once, however many snapshots follow.
+    @Test func aLongThreadParsesEachItemOnce() async {
+        let (cache, counter, _) = makeCache()
+        let items = (0..<1200).map { makeItem("key-\($0)", "text \($0)") }
+        for _ in 0..<3 { await cache.update(with: items) }
+        #expect(counter.count == items.count)
+    }
+
+    /// An earlier page joins the front of a long thread: only its own items parse.
+    @Test func anEarlierPageParsesOnlyItsOwnItems() async {
+        let (cache, counter, _) = makeCache()
+        let history = (0..<500).map { makeItem("key-\($0)", "text \($0)") }
+        await cache.update(with: history)
+        let page = (500..<560).map { makeItem("key-\($0)", "text \($0)") }
+        await cache.update(with: page + history)
+        #expect(counter.count == 560)
+    }
+
+    /// The model reads a document after its parse; every item in the current list still has one then.
+    @Test func everyItemInTheListKeepsItsDocument() async {
         let (cache, _, _) = makeCache()
-        let items = (0...400).map { makeItem("key-\($0)", "text \($0)") }
+        let items = (0..<1200).map { makeItem("key-\($0)", "text \($0)") }
         await cache.update(with: items)
-        #expect(await cache.document(for: items[0]) == nil)
-        #expect(await cache.document(for: items[400]) == "text 400")
+        await cache.update(with: items)
+        for item in items {
+            #expect(await cache.document(for: item) == item.text)
+        }
+    }
+
+    @Test func itemsThatLeftTheListAreDroppedBeyondTheCapacity() async {
+        let (cache, _, _) = makeCache()
+        let items = (0...MarkdownCache<CountingRenderer>.capacity).map { makeItem("key-\($0)", "text \($0)") }
+        await cache.update(with: items)
+        let kept = makeItem("kept", "kept")
+        await cache.update(with: [kept])
+        var stored = 0
+        for item in items where await cache.document(for: item) != nil { stored += 1 }
+        #expect(stored == MarkdownCache<CountingRenderer>.capacity - 1)
+        #expect(await cache.document(for: kept) == "kept")
+    }
+
+    /// A snapshot that briefly lists nothing, as while reconnecting, drops nothing, also for a thread above the
+    /// capacity.
+    @Test func aBrieflyEmptyListParsesNothingAgain() async {
+        let (cache, counter, _) = makeCache()
+        let items = (0..<(MarkdownCache<CountingRenderer>.capacity + 200)).map { makeItem("key-\($0)", "text \($0)") }
+        await cache.update(with: items)
+        await cache.update(with: [])
+        await cache.update(with: items)
+        #expect(counter.count == items.count)
     }
 
     private static let appSample = """

@@ -1,6 +1,6 @@
 public struct ThreadShow: Codable, Equatable, Sendable {
     public let thread: ThreadDetail
-    public let canDrive: Bool
+    public var canDrive: Bool
     public let messages: [ThreadMessage]
     public let composer: Composer
     public let notice: ThreadNotice?

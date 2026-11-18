@@ -103,10 +103,7 @@ private func snapshot(
     }
 
     private func settle(_ condition: () -> Bool) async {
-        for _ in 0..<200 where !condition() {
-            await Task.yield()
-            try? await Task.sleep(for: .milliseconds(5))
-        }
+        _ = await TestTimeScale.poll(condition)
     }
 
     @Test func theFirstReadyLoadSignsInOnce() async throws {
@@ -300,5 +297,119 @@ private func snapshot(
         await model.perform(.restore)
         #expect(model.actionLine == nil)
         #expect(model.isPerforming == nil)
+    }
+}
+
+@MainActor private final class FileRequestBox {
+    var request: FileOpenRequest?
+    var focused: [PaneID] = []
+}
+
+@MainActor @Suite struct PreviewModelEditManifestTests {
+    private func make() -> (PreviewModel, ManualClock, FileRequestBox) {
+        let clock = ManualClock()
+        let box = FileRequestBox()
+        let model = PreviewModel(
+            threadID: "d0e515ef", instanceHost: "yak.example.test", backend: FakeBackend(), clock: clock,
+            terminalAvailable: false, canOpenFiles: true, openURL: { _ in }, focus: { box.focused.append($0) },
+            fileOpenRequest: { box.request }, setFileOpenRequest: { box.request = $0 })
+        return (model, clock, box)
+    }
+
+    private func settle(_ condition: () -> Bool) async {
+        for _ in 0..<200 where !condition() {
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
+    @Test func theTapAsksFilesToOpenTheManifestForEditing() async {
+        let (model, _, box) = make()
+        await model.perform(.editManifest)
+        #expect(box.request?.path == ".yak/preview.yml" && box.request?.edit == true)
+        #expect(box.focused == [.files])
+        #expect(model.isPerforming == .editManifest)
+    }
+
+    @Test func anUntakenRequestEndsAfterFiveSeconds() async {
+        let (model, clock, box) = make()
+        await model.perform(.editManifest)
+        await settle { clock.sleeperCount > 0 }
+        clock.advance(.seconds(4.9))
+        await Task.yield()
+        #expect(box.request != nil && model.isPerforming == .editManifest)
+        clock.advance(.seconds(0.1))
+        await settle { box.request == nil }
+        #expect(box.request == nil)
+        #expect(model.isPerforming == nil)
+        #expect(model.actionLine == "Files did not open. Try again.")
+        #expect(model.actionLineRetry == .editManifest)
+    }
+
+    @Test func theButtonAppearsWhenFilesArrivesLater() async {
+        let backend = FakeBackend()
+        let model = PreviewModel(
+            threadID: "d0e515ef", instanceHost: "yak.example.test", backend: backend, clock: ManualClock(),
+            terminalAvailable: false, canOpenFiles: false, openURL: { _ in })
+        await model.start()
+        backend.send(snapshot(.failing, url: nil))
+        await settle { model.card != nil }
+        #expect(model.card?.actions.contains(.editManifest) == false)
+        model.update(canOpenFiles: true)
+        #expect(model.card?.actions.contains(.editManifest) == true)
+        model.update(canOpenFiles: false)
+        #expect(model.card?.actions.contains(.editManifest) == false)
+    }
+
+    @Test func theCardNeverStaysBusyPastItsOwnTimer() async {
+        let (model, clock, box) = make()
+        await model.perform(.editManifest)
+        await settle { clock.sleeperCount > 0 }
+        // Another request took over before the timer fired; the timer still frees the card.
+        box.request = FileOpenRequest(path: "other", edit: false)
+        clock.advance(.seconds(5))
+        await settle { model.isPerforming == nil }
+        #expect(model.isPerforming == nil)
+        #expect(box.request?.path == "other")
+    }
+
+    @Test func aFailedOpenFreesTheCardAndSaysSo() async {
+        let (model, _, box) = make()
+        await model.perform(.editManifest)
+        box.request = nil
+        model.fileOpenFailed()
+        #expect(model.isPerforming == nil)
+        #expect(model.actionLine == "Files did not open. Try again.")
+    }
+
+    @Test func aTakenRequestShowsNoError() async {
+        let (model, clock, box) = make()
+        await model.perform(.editManifest)
+        await settle { clock.sleeperCount > 0 }
+        clock.advance(.seconds(1))
+        box.request = nil
+        model.fileOpenRequestChanged()
+        #expect(model.isPerforming == nil)
+        clock.advance(.seconds(10))
+        await Task.yield()
+        #expect(model.actionLine == nil)
+    }
+
+    @Test func aNewerRequestIsNotClearedByTheOldTimer() async {
+        let (model, clock, box) = make()
+        await model.perform(.editManifest)
+        await settle { clock.sleeperCount > 0 }
+        clock.advance(.seconds(3))
+        box.request = nil
+        model.fileOpenRequestChanged()
+        await model.perform(.editManifest)
+        let second = box.request
+        await settle { clock.sleeperCount > 0 }
+        clock.advance(.seconds(2))
+        await Task.yield()
+        #expect(box.request == second && model.actionLine == nil)
+        clock.advance(.seconds(3))
+        await settle { box.request == nil }
+        #expect(box.request == nil && model.actionLine == "Files did not open. Try again.")
     }
 }

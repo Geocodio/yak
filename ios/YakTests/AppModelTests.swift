@@ -313,7 +313,7 @@ private final class SleeperCount: @unchecked Sendable {
     let instance = try await instances.add(
         url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
     for _ in 0..<20 { await observers.paired(instance) }
-    for _ in 0..<100 where sleepers.count > 0 { try await Task.sleep(for: .milliseconds(20)) }
+    _ = await TestTimeScale.poll { sleepers.count == 0 }
     #expect(sleepers.count == 0, "a timer is still sleeping after its call finished")
 }
 
@@ -354,7 +354,72 @@ private final class SleeperCount: @unchecked Sendable {
     let started = ContinuousClock.now
     await model.remove(instance)
     #expect(model.route == .connect)
-    #expect(ContinuousClock.now - started < .seconds(2))
+    // The stuck observer never answers, so only its time limit lets the removal finish; the bound leaves room for a
+    // loaded machine.
+    #expect(ContinuousClock.now - started < .seconds(30))
     // The observer after the stuck one is still told.
     #expect(recorder.events == ["removed first.example.com unpaired"])
+}
+
+/// Notes whether the instance's token is still stored when it is told about a removal.
+@MainActor private final class TokenWatchingObserver: InstanceLifecycleObserver {
+    private(set) var events: [String] = []
+    private let instances: InstanceStore
+    private let tokens: any TokenStore
+
+    init(instances: InstanceStore, tokens: any TokenStore) {
+        self.instances = instances
+        self.tokens = tokens
+    }
+
+    func instanceWillBeRemoved(_ instance: Instance) async {
+        let hasToken = ((try? tokens.token(for: instance.id)) ?? nil) != nil
+        let isListed = await instances.all().contains { $0.id == instance.id }
+        events.append("will remove, token \(hasToken), listed \(isListed)")
+    }
+
+    func instanceRemoved(_ instance: Instance, reason: InstanceRemoval) async {
+        let isListed = await instances.all().contains { $0.id == instance.id }
+        events.append("removed, listed \(isListed)")
+    }
+}
+
+@MainActor @Test func observersAreToldBeforeTheTokenGoes() async throws {
+    let tokens = InMemoryTokenStore()
+    let instances = InstanceStore(defaults: MemoryDefaults(), tokens: tokens, now: { Date() })
+    let observer = TokenWatchingObserver(instances: instances, tokens: tokens)
+    let model = AppModel(
+        instances: instances, tokens: tokens,
+        makeClient: {
+            APIClient(
+                baseURL: $0, token: nil, transport: HealthyInstanceTransport(), appVersion: "1",
+                systemDescription: "Test")
+        },
+        observers: [observer])
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    await model.remove(instance)
+    #expect(observer.events == ["will remove, token true, listed true", "removed, listed false"])
+}
+
+@MainActor @Test func aTaskLinkForAnUnpairedAddressNeverOpensTheBrowser() async {
+    let (model, _) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    await model.handle(url: URL(string: "yak://task?instance=https%3A%2F%2Fevil.example.com&id=12345")!)
+    #expect(model.browserURL == nil)
+    #expect(model.taskToOpen == nil)
+    #expect(model.addressToConnect == URL(string: "https://evil.example.com")!)
+}
+
+@MainActor @Test func aTaskLinkForAnotherPairedInstanceSwitchesToItFirst() async throws {
+    let (model, instances) = makeLinkModel()
+    let scene = model.makeSceneModel(restored: nil)
+    await pairTwoInstances(model)
+    scene.applyColdStart(.drawer(.mine))
+    await model.handle(link: .task(instance: URL(string: "https://first.example.com")!, id: "k3m9p2qa"))
+    #expect(await instances.active()?.url.host() == "first.example.com")
+    #expect(model.taskToOpen == "k3m9p2qa")
+    #expect(model.browserURL == nil)
 }

@@ -39,6 +39,14 @@ Archive, upload to TestFlight and tag. Option notes: replaces the notes taken fr
 
 Rebuild the last released version so TestFlight keeps an unexpired build.
 
+### ios e2e
+
+```sh
+[bundle exec] fastlane ios e2e
+```
+
+Nightly journeys against a real local Yak: fastlane e2e device:"iPhone 18 Pro" only:testJourney1... keep_server:true skip_server_tests:true. No retry: a flaky journey is a bug. Keeps the server logs, the screenshots and the test summary in ios/build/e2e/evidence (after a clean token scan); the result bundle is deleted
+
 ### ios generate
 
 ```sh
@@ -61,7 +69,7 @@ Format check and project rules. The self-test of the rule scripts runs when they
 [bundle exec] fastlane ios ui_smoke
 ```
 
-UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" only:testName. Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test is retried only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)
+UI smoke tests against the stub server: fastlane ui_smoke device:"iPhone Duo" only:testName. Builds once and reuses the build while ios/ is unchanged (rebuild:true forces a build). part:1 or part:2 runs one half of the classes, split by test count. Takes one of YAK_SIM_SLOTS simulator slots (default 4). A failed test (at most 3) runs once more, in a second xcodebuild call, only on CI or with retry:true. The simulator it booted is shut down afterwards (keep:true leaves it booted)
 
 ### ios walkthrough
 

@@ -29,6 +29,50 @@ module FastLanes
     digest.hexdigest
   end
 
+  # Splits test classes, given as {name => test count}, into `parts` lists of about the same number of tests and returns
+  # the 1-based `part`. Greedy and deterministic: the biggest class goes to the lightest part, ties by name.
+  def self.split_classes(counts, parts:, part:)
+    raise ArgumentError, "part must be 1..#{parts}" unless (1..parts).cover?(part)
+    groups = Array.new(parts) { {names: [], total: 0} }
+    counts.sort_by { |name, count| [-count, name] }.each do |name, count|
+      group = groups.min_by.with_index { |candidate, index| [candidate[:total], index] }
+      group[:names] << name
+      group[:total] += count
+    end
+    groups[part - 1][:names].sort
+  end
+
+  RUNNER_NEVER_CONNECTED = [
+    "Failed to establish communication with the test runner",
+    "Channel disconnected"
+  ].freeze
+
+  # True when the output of a failed xcodebuild test step shows that the test runner never connected, so no test ran:
+  # one of the strings above, or every "Executed N tests" line says 0. A run in which a test executed and failed is not.
+  def self.runner_never_started?(output)
+    counts = output.scan(/Executed (\d+) tests?,/).flatten.map(&:to_i)
+    return false if counts.any?(&:positive?)
+    return true if RUNNER_NEVER_CONNECTED.any? { |text| output.include?(text) }
+    !counts.empty?
+  end
+
+  # The `-only-testing` identifiers (`Bundle/Class/test`) of the failed test cases in the JSON of
+  # `xcresulttool get test-results tests`.
+  def self.failed_tests(results)
+    found = []
+    walk = lambda do |nodes|
+      (nodes || []).each do |node|
+        if node["nodeType"] == "Test Case"
+          found << node["nodeIdentifierURL"].to_s.split("/").last(3).join("/") if node["result"] == "Failed"
+        else
+          walk.call(node["children"])
+        end
+      end
+    end
+    walk.call(results["testNodes"])
+    found.uniq
+  end
+
   def self.file_digest(path)
     File.file?(path) ? Digest::SHA256.file(path).hexdigest : "missing"
   end

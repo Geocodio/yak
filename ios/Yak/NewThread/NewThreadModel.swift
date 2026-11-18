@@ -77,7 +77,9 @@ final class NewThreadModel {
         text = prefill?.text ?? ""
     }
 
-    static func lastRepositoryKey(_ instance: UUID) -> String { "newThread.lastRepo.\(instance.uuidString)" }
+    nonisolated static func lastRepositoryKey(_ instance: UUID) -> String {
+        "newThread.lastRepo.\(instance.uuidString)"
+    }
 
     private var lastRepository: String? { defaults.string(forKey: Self.lastRepositoryKey(session.instance.id)) }
 
@@ -196,6 +198,7 @@ final class NewThreadModel {
             let loaded = try await session.newThreadOptions()
             guard !Task.isCancelled else { return }
             options = loaded
+            Task { await session.noteNewThreadOptions(loaded, lastRepo: lastRepository) }
             form = NewThreadForm(
                 options: loaded, saved: form.draft, lastUsedRepo: lastRepository, linkRepo: prefill?.repo)
             load = .ready

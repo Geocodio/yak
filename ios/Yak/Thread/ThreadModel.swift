@@ -21,6 +21,8 @@ final class ThreadModel {
     private(set) var engine: ThreadEngine?
     /// Lives as long as the model, so typed text survives a retry and a slow load.
     let composer: ComposerModel
+    /// The open question round, answered in the card above the bar.
+    let question = QuestionModel(canDrive: nil)
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
     /// The rows of the conversation, with the day dividers, from the newest snapshot.
@@ -28,7 +30,7 @@ final class ThreadModel {
     /// The parsed Markdown of the text items, by item key. An item has none until its first parse is done.
     private(set) var documents: [String: AppMarkdownRenderer.Document] = [:]
     /// A short message about a refused or failed action, cleared after six seconds or on the next action.
-    private(set) var actionLine: String?
+    private var reportedActionLine: String?
     /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
     private(set) var announcement: String?
     private(set) var announcementSerial = 0
@@ -53,7 +55,15 @@ final class ThreadModel {
     @ObservationIgnored private var actionLineSerial = 0
     /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
     @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
+    /// A file another pane wants open in Files; the Files pane takes it and clears it.
+    var fileOpenRequest: FileOpenRequest?
+    /// The last request whose file the Files pane could not open.
+    var fileOpenFailure: FileOpenRequest?
     /// The drawer row's title, shown until the thread's own arrives.
+    /// Progress and failures of this thread's background uploads.
+    let uploadWatch = UploadWatch()
+    /// The loader of this thread's attachment thumbnails and files, made when the first one is asked for.
+    let attachmentLoading = AttachmentLoading()
     private var initialTitle: String?
     private var isStarted = false
     private var isVisible = false
@@ -61,18 +71,42 @@ final class ThreadModel {
     /// Counts opens and closes, so an open that finishes after a stop closes its own engine again.
     private var generation = 0
 
+    /// The sandbox restore the Terminal and Files panes share, so two taps in two panes send one request.
+    private(set) var restore: SandboxRestore = SandboxRestore { .failed(.offline) }
+
+    /// Told each time the thread starts or stops counting as seen, so a push for it can stay quiet.
+    private let onVisibilityChange: @MainActor (Bool) -> Void
+    /// Told each snapshot, so a running turn can start a Live Activity.
+    private let onSnapshot: @MainActor (ConversationSnapshot) -> Void
+
     /// `composer` is the one an earlier model of the same thread made, so a thread never has two.
-    init(threadID: String, session: InstanceSession, composer: ComposerModel? = nil) {
+    init(
+        threadID: String, session: InstanceSession, composer: ComposerModel? = nil,
+        onVisibilityChange: @escaping @MainActor (Bool) -> Void = { _ in },
+        onSnapshot: @escaping @MainActor (ConversationSnapshot) -> Void = { _ in }
+    ) {
         self.threadID = threadID
         self.session = session
+        self.onVisibilityChange = onVisibilityChange
+        self.onSnapshot = onSnapshot
         self.composer =
             composer
             ?? ComposerModel(
                 key: .thread(threadID),
                 backend: LiveComposerBackend(session: session, engine: nil, threadID: threadID), clock: SystemClock())
+        restore = SandboxRestore { [weak self] in
+            guard let engine = await self?.engine else { return .failed(.offline) }
+            return await engine.retryRestore()
+        }
         markdownCache = MarkdownCache(renderer: AppMarkdownRenderer(), clock: session.clock) { [weak self] key in
             self?.markdownChanged(key)
         }
+    }
+
+    /// The words for a refused or failed action; while an action waits out the server's rate limit for more than five
+    /// seconds, the line that says so.
+    var actionLine: String? {
+        reportedActionLine ?? (snapshot?.isActionSlow == true ? String(localized: "chat.action.slow") : nil)
     }
 
     var title: String { snapshot?.show?.thread.title ?? initialTitle ?? "" }
@@ -108,16 +142,22 @@ final class ThreadModel {
     func stop() async {
         guard isStarted else { return }
         isStarted = false
+        onVisibilityChange(false)
         await files.stop()
         await composer.flush()
+        await question.flush()
         await close()
     }
 
     /// Saves the draft now; the screen calls it when the app goes to the background.
-    func flushDraft() async { await composer.flush() }
+    func flushDraft() async {
+        await composer.flush()
+        await question.flush()
+    }
 
     func setVisible(_ visible: Bool) async {
         isVisible = visible
+        onVisibilityChange(visible)
         await engine?.setVisible(visible)
     }
 
@@ -145,7 +185,9 @@ final class ThreadModel {
         }
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
+        question.use(backend: LiveQuestionBackend(engine: opened))
         await opened.setVisible(isVisible)
+        uploadWatch.start(summaries: await session.uploadSummaries(), clock: session.clock)
         if ownName == nil { ownName = await session.me()?.user.name }
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
@@ -153,7 +195,12 @@ final class ThreadModel {
                 await self.apply(next)
                 // The thread can close while `apply` waits; the composer then keeps what it has.
                 guard !Task.isCancelled else { return }
+                self.onSnapshot(next)
+                self.noteOpenedForSharing(next)
                 self.composer.update(snapshot: next)
+                self.question.canDrive = next.show?.canDrive
+                if let show = next.show { await self.question.update(question: show.question) }
+                if !next.isOffline { self.question.connectionRestored() }
             }
         }
     }
@@ -162,13 +209,14 @@ final class ThreadModel {
         generation += 1
         readingTask?.cancel()
         readingTask = nil
+        uploadWatch.stop()
         markdownTask?.cancel()
         flushTask?.cancel()
         actionLineTask?.cancel()
         markdownTask = nil
         flushTask = nil
         actionLineTask = nil
-        actionLine = nil
+        reportedActionLine = nil
         dirtyMarkdownKeys = []
         await markdownCache?.clear()
         guard engine != nil else { return }
@@ -364,18 +412,18 @@ extension ThreadModel {
     private func setActionLine(_ text: String) {
         actionLineSerial += 1
         let mine = actionLineSerial
-        actionLine = text
+        reportedActionLine = text
         actionLineTask?.cancel()
         actionLineTask = Task { [weak self] in
             do { try await self?.session.clock.sleep(for: .seconds(6)) } catch { return }
             guard let self, self.actionLineSerial == mine else { return }
-            self.actionLine = nil
+            self.reportedActionLine = nil
         }
     }
 
     private func clearActionLine() {
         actionLineSerial += 1
         actionLineTask?.cancel()
-        actionLine = nil
+        reportedActionLine = nil
     }
 }

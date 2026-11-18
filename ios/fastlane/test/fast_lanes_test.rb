@@ -3,6 +3,17 @@ require "tmpdir"
 require_relative "../lib/fast_lanes"
 
 class FastLanesTest < Minitest::Test
+  def test_split_classes_balances_by_count_and_covers_every_class_once
+    counts = {"A" => 9, "B" => 9, "C" => 7, "D" => 7, "E" => 3, "F" => 1}
+    one = FastLanes.split_classes(counts, parts: 2, part: 1)
+    two = FastLanes.split_classes(counts, parts: 2, part: 2)
+    assert_equal counts.keys.sort, (one + two).sort
+    assert_empty(one & two)
+    assert_equal one, FastLanes.split_classes(counts, parts: 2, part: 1)
+    assert_operator (one.sum { |name| counts[name] } - two.sum { |name| counts[name] }).abs, :<=, 2
+    assert_raises(ArgumentError) { FastLanes.split_classes(counts, parts: 2, part: 3) }
+  end
+
   def in_repository
     Dir.mktmpdir do |root|
       system("git -C #{root} init -q && git -C #{root} config user.email t@example.invalid && git -C #{root} config user.name t")
@@ -84,5 +95,28 @@ class FastLanesTest < Minitest::Test
       assert_raises(RuntimeError) { FastLanes.with_slot(count: 2, directory: directory) { raise "boom" } }
       assert_empty Dir.children(directory)
     end
+  end
+
+  def test_failed_tests_names_only_failed_cases
+    test_case = ->(name, result) {
+      {"nodeType" => "Test Case", "result" => result, "nodeIdentifierURL" => "test://com.apple.xcode/Yak/YakUITests/PairingSmokeTests/#{name}",
+       "children" => [{"nodeType" => "Failure Message", "name" => "x"}]}
+    }
+    results = {"testNodes" => [{"nodeType" => "Test Plan", "children" => [{"nodeType" => "UI test bundle", "children" => [
+      {"nodeType" => "Test Suite", "children" => [test_case.call("testA", "Failed"), test_case.call("testB", "Passed"), test_case.call("testC", "Skipped")]}
+    ]}]}]}
+    assert_equal ["YakUITests/PairingSmokeTests/testA"], FastLanes.failed_tests(results)
+    assert_empty FastLanes.failed_tests({"testNodes" => []})
+  end
+
+  def test_runner_never_started
+    assert FastLanes.runner_never_started?("x\nYakUITests-Runner encountered an error (Failed to establish communication with the test runner. (Underlying Error: Channel disconnected))")
+    assert FastLanes.runner_never_started?("Test Suite 'Selected tests' passed\nExecuted 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds\n")
+    refute FastLanes.runner_never_started?("Executed 0 tests, with 0 failures\nExecuted 12 tests, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
+    refute FastLanes.runner_never_started?("Executed 1 test, with 1 failure (0 unexpected) in 3.0 (3.1) seconds")
+    refute FastLanes.runner_never_started?("error: compile failed")
+    refute FastLanes.runner_never_started?(
+      "Executed 12 tests, with 1 failure (0 unexpected) in 3.0 (3.1) seconds\n(Underlying Error: Channel disconnected)"
+    )
   end
 end

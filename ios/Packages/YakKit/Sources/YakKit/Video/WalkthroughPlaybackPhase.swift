@@ -17,6 +17,8 @@ public enum WalkthroughVideoProblem: Equatable, Sendable {
             case ("NSURLErrorDomain", -1009): return .offline
             case ("NSURLErrorDomain", -1001): return .timedOut
             case ("CoreMediaErrorDomain", -12660), ("CoreMediaErrorDomain", -12938): return .expired
+            // What the simulator reports for a 403 on a progressive MP4: no read permission over a media OS status.
+            case ("NSURLErrorDomain", -1102), ("NSOSStatusErrorDomain", -12660): return .expired
             case ("AVFoundationErrorDomain", -11828): return .unsupported
             default: continue
             }

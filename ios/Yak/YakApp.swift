@@ -7,6 +7,7 @@ import YakKit
 
 @main
 struct YakApp: App {
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var delegate
     @State private var model: AppModel
     private let parts: AppParts
 
@@ -15,9 +16,11 @@ struct YakApp: App {
         let system = DeviceDescription.current().systemDescription
         #if DEBUG
             if let testMode = TestMode.current() {
-                let parts = AppParts.make(storage: nil, isTestMode: true, defaults: MemoryDefaults())
-                self.parts = parts
-                _model = State(initialValue: testMode.makeModel(version: version, system: system, parts: parts))
+                GestureTips.configure(TestSystemOptions.current().tips == .show ? .shown : .hidden)
+                let made = testMode.make(version: version, system: system)
+                self.parts = made.parts
+                Self.attachLaunchWork(made.parts)
+                _model = State(initialValue: made.model)
                 return
             }
         #endif
@@ -32,33 +35,78 @@ struct YakApp: App {
         }
         let tokens = storage?.tokens ?? KeychainTokenStore(accessGroup: nil)
         let defaults: any KeyValueStore = storage?.defaults ?? UserDefaults.standard
-        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() })
-        let parts = AppParts.make(storage: storage, isTestMode: false, defaults: defaults)
-        self.parts = parts
+        let instances = InstanceStore(defaults: defaults, tokens: tokens, now: { Date() }, build: PushBuild.current())
+        let showTipsAgain = defaults.data(forKey: DebugMenuModel.showTipsKey) != nil
+        if showTipsAgain { defaults.set(nil, forKey: DebugMenuModel.showTipsKey) }
+        GestureTips.configure(showTipsAgain ? .resetThenNormal : .normal)
+        Task {
+            do { try await instances.persistMissingTints() } catch {
+                #if canImport(os)
+                    Logger(subsystem: "Yak", category: "Startup")
+                        .error(
+                            "Instance tints were not saved: \(String(describing: type(of: error)), privacy: .public)")
+                #endif
+            }
+        }
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
-        _model = State(
-            initialValue: AppModel(
-                instances: instances, tokens: tokens,
-                makeClient: { url in
-                    APIClient(
-                        baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
-                        systemDescription: system)
-                },
-                makeEnvironment: {
-                    .app(version: version, system: system, files: files, allowsInsecureRealtime: false)
-                },
-                observers: parts.observers))
+        let uploads = storage.map {
+            UploadSessions(
+                appBundleID: $0.appBundleID, appGroup: $0.appGroup, files: $0.files, clock: SystemClock(),
+                instances: instances, tokens: tokens, appVersion: version, systemDescription: system)
+        }
+        let faults = DebugFaultSwitch()
+        let environment: @Sendable () -> SessionEnvironment = {
+            .app(
+                version: version, system: system, files: files, allowsInsecureRealtime: false, faults: faults,
+                uploads: uploads.map { sessions in { @Sendable (instance: UUID) in sessions.link(for: instance) } })
+        }
+        let parts = AppParts.make(
+            storage: storage, isTestMode: false,
+            context: AppPartsContext(
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults,
+                uploads: uploads, faults: faults))
+        self.parts = parts
+        Self.attachLaunchWork(parts)
+        BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
+        let model = AppModel(
+            instances: instances, tokens: tokens,
+            makeClient: { url in
+                APIClient(
+                    baseURL: url, token: nil, transport: URLSessionTransport(), appVersion: version,
+                    systemDescription: system)
+            },
+            makeEnvironment: environment, observers: parts.observers, push: parts.push, widgets: parts.widgets)
+        parts.system.modelBox.model = model
+        _model = State(initialValue: model)
+    }
+
+    /// Runs for every launch, with or without a scene, so a background relaunch for an upload session reaches the
+    /// sessions.
+    private static func attachLaunchWork(_ parts: AppParts) {
+        PushAppDelegate.register(launchUploads: parts.uploads)
+        parts.uploads?.removeExpiredStaging()
     }
 
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-                if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
+                if TestMode.value("yakTestScreen") == "live-activity-gallery" {
+                    LiveActivityGallery(
+                        stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else if let shareCase = TestMode.value("yakTestShare") {
+                    ShareTestHost(caseName: shareCase).preferredColorScheme(TestMode.colorScheme())
+                } else if TestMode.value("yakTestScreen") == "widget-gallery" {
+                    WidgetGallery(
+                        stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "needs-you")
+                } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
                     MarkdownGallery()
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView.preferredColorScheme(TestMode.colorScheme())
+                        .overlay(alignment: .top) {
+                            if let intent = TestMode.intentName { IntentTestResultView(name: intent) }
+                        }
                 }
             #else
                 rootView
@@ -69,5 +117,10 @@ struct YakApp: App {
     private var rootView: some View {
         RootView(model: model)
             .appRoot(parts, model: model)
+            .task {
+                delegate.attach(parts.push)
+                delegate.attach(uploads: parts.uploads)
+                await parts.push.start()
+            }
     }
 }

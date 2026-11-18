@@ -59,6 +59,10 @@ final class AppModel {
     private var prepare: (@Sendable (InstanceStore) async -> Void)?
     let network: NetworkMonitor
     private let observers: InstanceObservers
+    /// Push: the badge and the foreground rule. Nil in unit tests that do not need it.
+    let push: PushController?
+    /// The widgets' reloads. Nil in unit tests that do not need it.
+    let widgets: WidgetReloadScheduler?
     /// How many sheets are open. The pairing link screen is presented by the topmost one, because a screen
     /// cannot present over a sheet that its own parent presented.
     var openSheetCount = 0
@@ -76,8 +80,12 @@ final class AppModel {
         prepare: (@Sendable (InstanceStore) async -> Void)? = nil,
         network: NetworkMonitor = NetworkMonitor(),
         observers: [any InstanceLifecycleObserver] = [],
-        observerTimeout: Duration = .seconds(5)
+        observerTimeout: Duration = .seconds(5),
+        push: PushController? = nil,
+        widgets: WidgetReloadScheduler? = nil
     ) {
+        self.push = push
+        self.widgets = widgets
         self.observers = InstanceObservers(observers: observers, timeout: observerTimeout)
         self.network = network
         self.normalizeAddress = normalizeAddress
@@ -90,6 +98,18 @@ final class AppModel {
         self.makeClient = makeClient
         self.pairing = Pairing(
             makeClient: makeClient, instances: instances, sleep: { try await Task.sleep(for: $0) })
+        push?.activate = { [weak self] instance in await self?.activate(instance) }
+        push?.openLink = { [weak self] link in await self?.handle(url: link) }
+    }
+
+    /// A push tap names another instance: it becomes the active one and the route follows.
+    func activate(_ instance: Instance) async {
+        guard await instances.active()?.id != instance.id else { return }
+        do { try await instances.setActive(instance.id) } catch {
+            logFailure("Switching instance failed")
+            return
+        }
+        await reloadRoute()
     }
 
     /// The model for a pairing screen; it refreshes the route once pairing succeeds.
@@ -114,6 +134,7 @@ final class AppModel {
 
     /// A `yak://pair` link starts pairing up to the confirmation; the other links go to the window.
     func handle(url: URL) async {
+        let url = InstanceMatch.pairedLink(url, instances: await instances.all(), normalize: normalizeLinkAddress)
         if let link = parseLink(url) {
             await pair(link: link)
         } else if let link = DeepLink(url: url, normalize: normalizeLinkAddress, parsePair: parseLink) {
@@ -148,8 +169,21 @@ final class AppModel {
             do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
             await reloadRoute()
         case .unknownInstance(let address): addressToConnect = address
-        case .openTaskPage(let page):
-            if let id = TaskLink.id(from: page) { taskToOpen = id } else { browserURL = page }
+        case .openTaskPage(let page): openTask(page: page)
+        case .switchInstanceThenOpenTaskPage(let target, let page):
+            do { try await instances.setActive(target.id) } catch { logFailure("Switching instance failed") }
+            await reloadRoute()
+            openTask(page: page)
+        }
+    }
+
+    /// A task page of a paired instance: the native screen, or the browser when the id is not a native one.
+    /// The address always comes from a paired instance, and the browser takes only a safe https address.
+    private func openTask(page: URL) {
+        if let id = TaskLink.id(from: page) {
+            taskToOpen = id
+        } else {
+            browserURL = WebLinkRule.safeURL(page.absoluteString)
         }
     }
 
@@ -258,8 +292,9 @@ final class AppModel {
             let me = try await makeClient(instance.url).authenticated(token: token).send(.me())
             try await instances.update(instance.id, from: me)
             show(.idle)
-            if !isBackground, let updated = await instances.all().first(where: { $0.id == instance.id }) {
-                route = .signedIn(updated)
+            if let updated = await instances.all().first(where: { $0.id == instance.id }) {
+                if !isBackground { route = .signedIn(updated) }
+                await observers.refreshed(updated)
             }
         } catch let failure as APIFailure {
             switch failure {
@@ -275,8 +310,14 @@ final class AppModel {
         }
     }
 
+    /// The person removes an instance: the parts that registered something tell the server first, then the session
+    /// tells the server this device is gone and erases every local copy.
     func remove(_ instance: Instance) async {
-        do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
+        await observers.willRemove(instance, removalTimeout: Self.removalTimeout)
+        await sessions.session(for: instance).unpair()
+        if await instances.all().contains(where: { $0.id == instance.id }) {
+            do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
+        }
         refreshState = .idle
         wantsScanner = false
         await reloadRoute()
@@ -289,6 +330,9 @@ final class AppModel {
         await reloadRoute()
         await observers.removed(instance, reason: .revoked)
     }
+
+    /// Five seconds for the token deletions and a second of margin.
+    static let removalTimeout: Duration = .seconds(6)
 
     private func logFailure(_ message: String) {
         #if canImport(os)

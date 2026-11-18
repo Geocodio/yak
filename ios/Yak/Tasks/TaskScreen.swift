@@ -15,7 +15,7 @@ struct TaskScreen: View {
     @State private var isRequestingChanges = false
     @State private var isTagging = false
     @State private var isConfirmingCancel = false
-    @State private var isShowingVideo = false
+    @Environment(\.walkthroughPlayback) private var playback
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -37,11 +37,6 @@ struct TaskScreen: View {
                 if case .pick(let fallbackName) = model.earlyWarning {
                     TagCoOwnerSheet(model: model, fallbackName: fallbackName, close: { isTagging = false })
                         .presentationDetents([.large]).presentationBackground(Color(.systemBackground))
-                }
-            }
-            .sheet(isPresented: $isShowingVideo) {
-                if let url = model.playableVideoURL {
-                    WalkthroughVideoSheet(url: url, close: { isShowingVideo = false })
                 }
             }
             .sensoryFeedback(.success, trigger: model.successCount)
@@ -180,13 +175,23 @@ struct TaskScreen: View {
                 row(title: String(localized: "task.walkthrough.failed"), detail: walkthrough.error, isLink: false)
                     .accessibilityIdentifier("task.walkthrough")
             default:
-                if model.playableVideoURL != nil {
+                if model.playableVideoURL != nil, let playback {
                     Button {
-                        isShowingVideo = true
+                        model.playWalkthrough(with: playback)
                     } label: {
                         row(title: String(localized: "task.walkthrough.title"), detail: nil, isLink: true)
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("task.walkthrough")
+                } else if let webURL = WebLinkRule.safeURL(walkthrough.videoUrl) {
+                    Button {
+                        openWeb(webURL)
+                    } label: {
+                        row(title: String(localized: "task.walkthrough.web"), detail: nil, isLink: true)
+                    }
+                    .buttonStyle(.plain).accessibilityIdentifier("task.walkthrough")
+                } else {
+                    row(title: String(localized: "task.walkthrough.unavailable"), detail: nil, isLink: false)
+                        .accessibilityIdentifier("task.walkthrough")
                 }
             }
         }

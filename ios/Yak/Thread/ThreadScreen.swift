@@ -17,14 +17,45 @@ struct ThreadScreen: View {
     let isCoveredByDrawer: Bool
     let isCompactWidth: Bool
     let openWeb: (URL) -> Void
+    /// Push stays quiet for the thread while it shows.
+    var push: PushController?
 
     @State private var model: ThreadModel?
     @State private var copiedLink = 0
+    @State private var isAddSubThreadOpen = false
+    @State private var isShareOpen = false
     @State private var slots = PaneSlots()
+    /// The pane the title returns to when it leaves the Overview.
+    @State private var paneBeforeOverview: PaneID = .chat
+    /// The width of the thread screen, which decides between the Overview pane and the side panel.
+    @State private var availableWidth: Double = 0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var overviewPlacement: OverviewPlacement {
+        OverviewPlacement.choose(isCompactWidth: isCompactWidth, availableWidth: availableWidth)
+    }
+
+    private var isSidePanel: Bool {
+        if case .sidePanel = overviewPlacement { true } else { false }
+    }
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
+    /// Plain http appears only against the stub of test mode.
+    private static var allowsInsecure: Bool {
+        #if DEBUG
+            TestMode.current() != nil
+        #else
+            false
+        #endif
+    }
+
+    private var handoffURL: URL? {
+        HandoffLink.webURL(instance: instanceURL, threadID: threadID, allowsInsecure: Self.allowsInsecure)
+    }
+
     private var webURL: URL { instanceURL.appending(path: "threads").appending(path: threadID) }
 
     private struct Opening: Hashable {
@@ -45,11 +76,24 @@ struct ThreadScreen: View {
                 }
             }
         }
+        .threadHandoff(
+            webURL: handoffURL,
+            isActive: ThreadHandoff.isActive(
+                webURL: handoffURL, isVisible: isVisible, isLocked: system.appLock.isLocked)
+        )
+        .onGeometryChange(for: Double.self) {
+            Double($0.size.width)
+        } action: {
+            availableWidth = $0
+        }
+        .onChange(of: isSidePanel) { moveOverviewBetweenPaneAndPanel() }
         .task(id: Opening(threadID: threadID, isSessionActive: isSessionActive)) { await run() }
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
         // A `/clear` starts a new thread; the window follows it.
         .onChange(of: model?.replacementThreadID) { _, replacement in
-            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+            if let replacement, let sentFrom = model?.threadID {
+                scene.openReplacement(replacement, sentFrom: sentFrom, isCompactWidth: isCompactWidth)
+            }
         }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
@@ -61,7 +105,15 @@ struct ThreadScreen: View {
         // A change of `isSessionActive` runs this again for the same thread: the composer, and any send in flight in
         // it, stays the only one for that thread.
         let sameThreadComposer = model?.threadID == threadID ? model?.composer : nil
-        let next = ThreadModel(threadID: threadID, session: session, composer: sameThreadComposer)
+        let next = ThreadModel(
+            threadID: threadID, session: session, composer: sameThreadComposer,
+            onVisibilityChange: { [push, instanceURL, threadID] isVisible in
+                push?.setVisible(thread: threadID, instance: instanceURL, isVisible: isVisible)
+            },
+            onSnapshot: { [push, instanceURL, threadID] snapshot in
+                // The start may wait on the network, so the snapshot loop does not wait for it.
+                Task { await push?.observe(thread: threadID, instanceURL: instanceURL, snapshot: snapshot) }
+            })
         model = next
         // Drafts are local files, so the field shows the saved text before the session is active.
         await next.composer.load()
@@ -94,9 +146,17 @@ struct ThreadScreen: View {
                     }
                     .animation(.easeInOut(duration: 0.2), value: activity)
                 }
+                if case .sidePanel(let width) = overviewPlacement, scene.state.isOverviewPanelOpen,
+                    thread.panes.contains(.overview)
+                {
+                    OverviewSidePanel(thread: thread, width: width) { scene.setOverviewPanelOpen(false) }
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(Color(.systemBackground))
+            .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.3), value: isPanelShown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
@@ -107,13 +167,23 @@ struct ThreadScreen: View {
                         ToolbarItem(placement: .topBarLeading) { threadsButton }
                     }
                     ToolbarItem(placement: .principal) {
-                        ThreadTitle(title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine)
+                        ThreadTitle(
+                            title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
+                            action: thread.panes.contains(.overview) ? { toggleOverview(focused) } : nil)
                     }
-                    ToolbarItem(placement: .topBarTrailing) { threadMenu(focused.wrappedValue) }
+                    ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
                 }
+            }
+            .sheet(isPresented: $isAddSubThreadOpen) {
+                AddSubThreadSheet(session: session, parentID: threadID) {
+                    scene.open(thread: $0, isCompactWidth: isCompactWidth)
+                }
+            }
+            .sheet(isPresented: $isShareOpen) {
+                ShareSheet(session: session, threadID: threadID) { await model?.engine?.refreshShow() }
             }
             .overlay(alignment: .top) { copiedToast }
             .background { shortcuts(focused, panes: thread.panes) }
@@ -122,10 +192,46 @@ struct ThreadScreen: View {
         .sensoryFeedback(.success, trigger: copiedLink)
     }
 
+    /// The title and Command I open the Overview; from the Overview they return to the pane before it.
+    private func toggleOverview(_ focused: Binding<PaneID>) {
+        if isSidePanel {
+            scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
+        } else if focused.wrappedValue == .overview {
+            focused.wrappedValue = paneBeforeOverview
+        } else {
+            paneBeforeOverview = focused.wrappedValue
+            focused.wrappedValue = .overview
+        }
+    }
+
+    /// With the side panel the Overview is never the focused pane: choosing it opens or closes the panel.
     private func focusedBinding(_ thread: ThreadModel) -> Binding<PaneID> {
         Binding(
-            get: { scene.shownPane(among: thread.panes) },
-            set: { scene.focus(pane: $0) })
+            get: {
+                let shown = scene.shownPane(among: thread.panes)
+                return isSidePanel && shown == .overview ? paneBeforeOverview : shown
+            },
+            set: { next in
+                if isSidePanel, next == .overview {
+                    scene.setOverviewPanelOpen(!scene.state.isOverviewPanelOpen)
+                } else {
+                    scene.focus(pane: next)
+                }
+            })
+    }
+
+    private var isPanelShown: Bool { isSidePanel && scene.state.isOverviewPanelOpen }
+
+    /// A window that grows or shrinks across the panel's width turns the open Overview into the other form.
+    private func moveOverviewBetweenPaneAndPanel() {
+        if isSidePanel {
+            guard scene.isShown(.overview) else { return }
+            scene.focus(pane: paneBeforeOverview == .overview ? .chat : paneBeforeOverview)
+            scene.setOverviewPanelOpen(true)
+        } else if scene.state.isOverviewPanelOpen {
+            scene.setOverviewPanelOpen(false)
+            scene.focus(pane: .overview)
+        }
     }
 
     /// The app's own strip on the trailing edge: the threads button, the pane button and the menu, top to bottom.
@@ -138,7 +244,7 @@ struct ThreadScreen: View {
             if let line = activityLine(thread, focused: focused.wrappedValue) {
                 ActivityStripButton(line: line) { openChat(focusComposer: $0) }
             }
-            threadMenu(focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
+            threadMenu(thread, shownPane: focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
         }
         .tint(.primary)
         .padding(.vertical, 8).padding(.horizontal, 6)
@@ -166,8 +272,24 @@ struct ThreadScreen: View {
         ThreadsButton(needsYouCount: needsYouCount) { scene.setDrawerOpen(true) }
     }
 
-    private func threadMenu(_ shownPane: PaneID) -> some View {
+    private func threadMenu(_ thread: ThreadModel, shownPane: PaneID) -> some View {
         Menu {
+            if thread.snapshot?.show?.canDrive == true {
+                Button {
+                    isAddSubThreadOpen = true
+                } label: {
+                    Label("thread.menu.addSubThread", systemImage: "arrow.triangle.branch")
+                }
+                .accessibilityIdentifier("thread.menu.addSubThread")
+            }
+            if thread.snapshot?.show?.thread.isOwner == true {
+                Button {
+                    isShareOpen = true
+                } label: {
+                    Label("thread.menu.share", systemImage: "person.2")
+                }
+                .accessibilityIdentifier("thread.menu.share")
+            }
             PaneMenuItems(slots: slots, focused: shownPane)
             Button {
                 openWeb(webURL)
@@ -193,12 +315,26 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat, Command 2 Preview when the thread has one.
+    /// Command 1 focuses Chat, Command 2 Preview, Command 3 Files and Command 4 Terminal when the thread has them;
+    /// Command I and Command 5 open the Overview.
     private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
         ZStack {
             Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
             if panes.contains(.preview) {
                 Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+            if panes.contains(.files) {
+                Button(AppShortcut.focusFiles.title) { focused.wrappedValue = .files }.yakShortcut(.focusFiles)
+            }
+            if panes.contains(.terminal) {
+                Button(AppShortcut.focusTerminal.title) { focused.wrappedValue = .terminal }.yakShortcut(.focusTerminal)
+            }
+            if panes.contains(.overview) {
+                Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)
+                Button("pane.overview") {
+                    if focused.wrappedValue != .overview { paneBeforeOverview = focused.wrappedValue }
+                    focused.wrappedValue = .overview
+                }.yakShortcut(.focusOverview)
             }
         }
         .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)

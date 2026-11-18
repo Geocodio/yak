@@ -67,8 +67,16 @@ extension StubFeature {
 enum StubFeatures {
     /// One line per feature.
     static let all: [any StubFeature] = [
+        StubWidgets(),
+        StubPush(),
         StubPreviewFeature(),
+        StubWalkthroughVideo(),
+        // Before the changes feature, which answers the core thread's show in every scenario.
+        StubQuestions(),
         StubChanges(),
+        StubTerminalFeature.shared,
+        StubFilesControl(),
+        StubOverview(),
     ]
 }
 

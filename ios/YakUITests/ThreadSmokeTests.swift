@@ -16,7 +16,7 @@ import XCTest
     private func launch(scenario: String, extraArguments: [String] = []) throws {
         try stub.play(scenario)
         app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"] + extraArguments
-        app.launch()
+        app.launchRetryingOnce()
     }
 
     private func openDrawerIfNeeded() {
@@ -27,27 +27,29 @@ import XCTest
 
     func testColdStartWithOneThreadThatNeedsYouOpensIt() throws {
         try launch(scenario: "question-open")
-        XCTAssertTrue(app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.staticTexts["Retry failed rows when the import times out"].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.appear))
         try audit()
     }
 
     func testDrawerNestsSubThreadsAndOpensAThread() throws {
         try launch(scenario: "paired")
         openDrawerIfNeeded()
-        XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:a1b2c3d4"].exists)
         // The header shows the stored instance, which `me` renamed after the launch.
         let switcher = app.buttons["drawer.switcher"]
         let renamed = NSPredicate(format: "label == %@", "Switch instance. Now: Example Yak")
-        wait(for: [XCTNSPredicateExpectation(predicate: renamed, object: switcher)], timeout: 10)
+        wait(for: [XCTNSPredicateExpectation(predicate: renamed, object: switcher)], timeout: Wait.appear)
         XCTAssertFalse(app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"].exists)
         app.buttons["drawer.toggle.thread:a1b2c3d4"].tap()
         let child = app.descendants(matching: .any)["drawer.row.thread:e5f6g7h8"]
-        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        XCTAssertTrue(child.waitForExistence(timeout: Wait.appear))
         try audit()
         child.tap()
-        XCTAssertTrue(app.staticTexts["Split the billing job"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Split the billing job"].waitForExistence(timeout: Wait.appear))
         try audit()
     }
 
@@ -58,16 +60,16 @@ import XCTest
         openDrawerIfNeeded()
         let rows = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "drawer.row.thread:"))
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: Wait.firstLoad))
         for text in ["This thread is not here anymore", "You are offline"] {
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
         rows.firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.appear))
         let gone = NSPredicate(format: "exists == false")
         for identifier in ["thread.loading", "thread.slow", "thread.notFound", "thread.offline", "thread.error"] {
             let element = app.descendants(matching: .any)[identifier]
-            wait(for: [XCTNSPredicateExpectation(predicate: gone, object: element)], timeout: 15)
+            wait(for: [XCTNSPredicateExpectation(predicate: gone, object: element)], timeout: Wait.appear)
             XCTAssertFalse(element.exists, identifier)
         }
         for text in ["This thread is not here anymore", "This is taking longer than usual", "Loading the conversation"]
@@ -83,23 +85,23 @@ import XCTest
         try launch(scenario: "one-thread-working")
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
         let first = app.staticTexts["Looking at the importer."]
         let last = app.staticTexts["Done. Failed rows now retry three times."]
-        XCTAssertTrue(first.waitForExistence(timeout: 15))
-        XCTAssertTrue(last.waitForExistence(timeout: 15))
+        XCTAssertTrue(first.waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear))
         let group = app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@", "Read 1 file, Ran 1 command")
         ).firstMatch
-        XCTAssertTrue(group.waitForExistence(timeout: 5))
+        XCTAssertTrue(group.waitForExistence(timeout: Wait.appear))
         XCTAssertLessThan(first.frame.minY, group.frame.minY)
         XCTAssertLessThan(group.frame.minY, last.frame.minY)
         // No step is still running once the turn has ended.
         let running = app.descendants(matching: .any)["step.current"]
         wait(
             for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: running)],
-            timeout: 15)
+            timeout: Wait.appear)
         try audit()
     }
 
@@ -110,9 +112,9 @@ import XCTest
         try stub.hold(after: 67)
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
-        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: Wait.appear))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
         list.swipeDown()
         func firstStep() throws -> any XCUIElementSnapshot {
@@ -147,18 +149,18 @@ import XCTest
         try launch(scenario: "long-history")
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         try stub.setOnline(false)
         row.tap()
         Thread.sleep(forTimeInterval: 4)
         try stub.setOnline(true)
         let last = app.staticTexts["Step 1200."]
-        XCTAssertTrue(last.waitForExistence(timeout: 60))
+        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear))
         // The rows keep arriving and growing as their Markdown is parsed; the end stays in view through all of it.
         Thread.sleep(forTimeInterval: 3)
         let list = app.descendants(matching: .any)["conversation"].firstMatch
-        XCTAssertTrue(list.waitForExistence(timeout: 10))
-        XCTAssertTrue(last.waitForExistence(timeout: 10), "the end left the screen")
+        XCTAssertTrue(list.waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear), "the end left the screen")
         let centre = CGPoint(x: last.frame.midX, y: last.frame.midY)
         XCTAssertTrue(list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
         XCTAssertFalse(app.descendants(matching: .any)["chat.jumpToLatest"].exists)
@@ -169,11 +171,11 @@ import XCTest
         try launch(scenario: "long-history")
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
-        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: 60))
+        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: Wait.appear))
         let list = app.descendants(matching: .any)["conversation"].firstMatch
-        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(list.waitForExistence(timeout: Wait.firstLoad))
         let loading = app.staticTexts["Loading earlier messages"]
         var isLoading = false
         // The row shows for the 12 seconds the stub holds the page; on a slow machine a swipe takes long, so every
@@ -206,10 +208,11 @@ import XCTest
         let before = tracked.frame.minY
         let result = XCTWaiter().wait(
             for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: loading)],
-            timeout: 30)
+            timeout: Wait.appear)
         XCTAssertEqual(result, .completed)
         let moved = app.staticTexts[label]
-        XCTAssertTrue(moved.waitForExistence(timeout: 10), "\(label) left the screen when the earlier messages arrived")
+        XCTAssertTrue(
+            moved.waitForExistence(timeout: Wait.appear), "\(label) left the screen when the earlier messages arrived")
         print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
         XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
     }
@@ -226,34 +229,113 @@ import XCTest
         defer { try? stub.setPlaybackMilliseconds(400) }
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
-        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 30), "the scripted turn never started")
+        XCTAssertTrue(
+            app.buttons["composer.stop"].waitForExistence(timeout: Wait.appear), "the scripted turn never started")
         try stub.setPlaybackMilliseconds(600_000)
         let field = app.textFields["composer.field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
         field.tap()
         field.typeText("Also cover the empty file case")
         let send = app.buttons["composer.send"]
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        XCTAssertTrue(send.waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended before the send")
         send.tap()
         waitForLastMessage(containing: "steer")
         XCTAssertTrue(stub.lastMessage().contains("Also cover the empty file case"))
         field.tap()
         field.typeText("Then update the docs")
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        XCTAssertTrue(send.waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(app.buttons["composer.stop"].exists, "the scripted turn ended early, before the long press")
         send.press(forDuration: 1.0)
         let afterTurn = app.descendants(matching: .any).matching(identifier: "composer.sendAfterTurn").firstMatch
-        XCTAssertTrue(afterTurn.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(afterTurn.waitForExistence(timeout: Wait.appear), app.debugDescription)
         // The menu opens with an animation; its item has no frame until it settles.
         wait(
             for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: afterTurn)],
-            timeout: 15)
+            timeout: Wait.appear)
         afterTurn.tap()
         waitForLastMessage(containing: "after_turn")
         XCTAssertTrue(stub.lastMessage().contains("Then update the docs"))
+    }
+
+    /// Smoke test 7: the pane button switches panes by a tap and by press and slide, a pane the thread does not have is
+    /// not offered, and a pane that is not shown is absent from the screen. The wide layouts (iPad, the Duo) show the
+    /// panes as a strip or a row instead of the button, so this runs on the narrow iPhone layout only.
+    func testPaneButtonSwitchesPanesAndAHiddenPaneIsAbsent() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
+        row.tap()
+        let conversation = app.descendants(matching: .any)["conversation"]
+        XCTAssertTrue(conversation.waitForExistence(timeout: Wait.appear))
+        let menu = app.buttons["pane.menu"]
+        if !menu.waitForExistence(timeout: Wait.appear) {
+            let isStripOrRow = app.buttons["pane.strip.chat"].exists || app.buttons["pane.row.chat"].exists
+            try XCTSkipIf(isStripOrRow, "This layout shows the panes as a strip or a row, not the pane button")
+            XCTFail("the thread has neither the pane button nor a strip of panes")
+        }
+        XCTAssertEqual(menu.value as? String, "Chat")
+        func item(_ name: String) -> XCUIElement {
+            app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        }
+        // A tap opens the menu with the panes this thread's show grants (preview: false in the scenario), and no other.
+        menu.tap()
+        for name in ["Chat", "Files", "Terminal", "Overview"] {
+            XCTAssertTrue(item(name).waitForExistence(timeout: Wait.appear), name)
+        }
+        XCTAssertFalse(item("Preview").exists, "the thread has no preview, so the menu must not offer it")
+        let overviewFrame = item("Overview").frame
+        item("Files").tap()
+        XCTAssertEqual(menu.value as? String, "Files")
+        // The chat is not shown: Files is on screen and the chat cannot be reached.
+        XCTAssertTrue(app.descendants(matching: .any)["files"].waitForExistence(timeout: Wait.appear))
+        wait(
+            for: [
+                XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == false"), object: conversation)
+            ],
+            timeout: Wait.appear)
+        // Press, slide to Overview and release in one motion; the menu opens where it did before.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.8,
+            thenDragTo: origin.withOffset(CGVector(dx: overviewFrame.midX, dy: overviewFrame.midY)))
+        let shown = NSPredicate(format: "value == %@", "Overview")
+        wait(for: [XCTNSPredicateExpectation(predicate: shown, object: menu)], timeout: Wait.appear)
+        XCTAssertEqual(menu.value as? String, "Overview")
+        menu.tap()
+        item("Chat").tap()
+        XCTAssertTrue(conversation.waitForExistence(timeout: Wait.appear))
+        try audit()
+    }
+
+    /// A `/clear` starts a new thread, and the screen follows it.
+    func testAClearOpensTheNewThread() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
+        try launch(scenario: "paired")
+        openDrawerIfNeeded()
+        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
+        row.tap()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
+        field.tap()
+        field.typeText("/clear")
+        app.buttons["composer.send"].tap()
+        XCTAssertTrue(app.staticTexts["A fresh start"].waitForExistence(timeout: Wait.appear), app.debugDescription)
+        // The old thread's title is not on the thread screen any more; the title element reads the new one.
+        let title = app.descendants(matching: .any).matching(identifier: "thread.title").firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: Wait.appear))
+        wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "label CONTAINS %@", "A fresh start"), object: title)
+            ],
+            timeout: Wait.appear)
+        try audit()
     }
 
     /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns.
@@ -263,24 +345,24 @@ import XCTest
         try launch(scenario: "paired")
         openDrawerIfNeeded()
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
         let field = app.textFields["composer.field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
         try stub.setOnline(false)
         field.tap()
         field.typeText("Also update the changelog")
         let offline = app.staticTexts["Offline. Showing a saved copy"]
-        XCTAssertTrue(offline.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(offline.waitForExistence(timeout: Wait.appear), app.debugDescription)
         app.buttons["composer.send"].tap()
         XCTAssertFalse(stub.lastMessage().contains("Also update the changelog"))
         try stub.setOnline(true)
-        waitForLastMessage(containing: "Also update the changelog", timeout: 20)
+        waitForLastMessage(containing: "Also update the changelog", timeout: Wait.appear)
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: offline)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: Wait.appear), .completed)
     }
 
-    private func waitForLastMessage(containing text: String, timeout: TimeInterval = 10) {
+    private func waitForLastMessage(containing text: String, timeout: TimeInterval = Wait.appear) {
         let arrived = XCTNSPredicateExpectation(
             predicate: NSPredicate { [stub] _, _ in stub.lastMessage().contains(text) }, object: nil)
         XCTAssertEqual(
@@ -289,30 +371,25 @@ import XCTest
     }
 
     private func audit() throws {
-        let auditBars = AuditRules.Bars(app)
-        try app.performAccessibilityAudit { [self, auditBars] issue in
-            let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
-            if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                // The system caps the size of text in its bars, and draws its glass under the threads badge.
-                if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+        try auditTwice(app) { [app] in
+            let auditBars = AuditRules.Bars(app)
+            return { issue in
+                let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                    // The system caps the size of text in its bars, and draws its glass under the threads badge.
+                    if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                    if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
+                }
+                // On a wide screen the audit reports contrast on the thread screen without naming an element.
+                if issue.auditType == .contrast, issue.element == nil { return true }
+                // An element entirely outside the screen shows no pixels to measure.
+                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+                // Text behind a bar is covered by the bar.
+                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+                // A search field is one line by design.
+                if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
+                return false
             }
-            // On a wide screen the audit reports contrast on the thread screen without naming an element.
-            if issue.auditType == .contrast, issue.element == nil { return true }
-            // An element entirely outside the screen shows no pixels to measure.
-            if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-            // Text behind a bar is covered by the bar.
-            if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-            // A search field is one line by design.
-            if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.lifetime = .keepAlways
-            screenshot.name = "audit-failure"
-            add(screenshot)
-            XCTFail(
-                "audit: \(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "none")"
-            )
-            return true
         }
     }
 }

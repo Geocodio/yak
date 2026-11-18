@@ -1,0 +1,21 @@
+{
+  "task": {"id": "k3m9p2qa", "status": "done", "statusLabel": "done", "mode": "fix",
+           "headline": "Upgrade the payments SDK", "summary": "Moves the SDK to the new major version.", "repo": "example/api",
+           "sourceLabel": "Linear", "sourceUrl": "https://linear.example.com/issue/ENG-12", "startedBy": "Test person",
+           "pr": {"number": 41, "state": "open", "url": "https://github.com/example/api/pull/41"},
+           "nextSteps": null, "branch": "yak/upgrade-payments-sdk", "cost": "$1.20"},
+  "threadId": "d0e515ef",
+  "canDrive": true,
+  "thread": [{"kind": "yak", "bodyHtml": "<p>Yak moved the SDK to the new major version.</p>"}],
+  "progress": {"steps": [
+    {"label": "Received", "tooltip": "Task landed in the queue.", "done": true, "current": false},
+    {"label": "Opened a PR", "tooltip": "The PR is open for review.", "done": true, "current": false}]},
+  "coOwner": null,
+  "earlyWarning": null,
+  "walkthrough": {"status": "ready", "videoUrl": "https://yak.example.com/video.mp4", "posterUrl": "https://yak.example.com/poster.png", "error": null},
+  "composer": {"state": "idle"},
+  "questions": null,
+  "actions": {"canRetry": false, "canCancel": false, "canRerunReview": false, "canRequestReview": false,
+              "canRetryRender": false, "canReroute": false, "rerouteTargets": []},
+  "pollInterval": 5000
+}

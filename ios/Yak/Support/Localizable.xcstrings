@@ -21,6 +21,66 @@
         }
       }
     },
+    "about.debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug"
+          }
+        }
+      }
+    },
+    "about.debug.requests %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requests: %@"
+          }
+        }
+      }
+    },
+    "about.licenses" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licenses"
+          }
+        }
+      }
+    },
+    "about.version %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (%@)"
+          }
+        }
+      }
+    },
+    "about.version.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "about.version.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version unknown"
+          }
+        }
+      }
+    },
     "activity.fetching %@" : {
       "localizations" : {
         "en" : {
@@ -137,6 +197,276 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak is working"
+          }
+        }
+      }
+    },
+    "addSubThread.add" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "addSubThread.brief.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What should it do?"
+          }
+        }
+      }
+    },
+    "addSubThread.brief.prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the work. The sub-thread sees only this."
+          }
+        }
+      }
+    },
+    "addSubThread.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.general" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.implement" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Implement"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kind"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.mockup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mockup"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "addSubThread.kind.researchNote" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reads and reports. It does not change files."
+          }
+        }
+      }
+    },
+    "addSubThread.model.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "addSubThread.model.same" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as this thread"
+          }
+        }
+      }
+    },
+    "addSubThread.name.count %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "addSubThread.name.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "addSubThread.name.prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "short-name-for-it"
+          }
+        }
+      }
+    },
+    "addSubThread.notAllowed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread cannot start sub-threads."
+          }
+        }
+      }
+    },
+    "addSubThread.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The sub-thread is added when you tap Add again online."
+          }
+        }
+      }
+    },
+    "addSubThread.offlineFailure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not added. Check the connection and try again. Your text is kept."
+          }
+        }
+      }
+    },
+    "addSubThread.openParent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the parent thread"
+          }
+        }
+      }
+    },
+    "addSubThread.problem.briefTooLong" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The description is too long."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.nameTooLong" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use at most 60 characters."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.noBrief" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe what it should do."
+          }
+        }
+      }
+    },
+    "addSubThread.problem.noName" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Give it a name."
+          }
+        }
+      }
+    },
+    "addSubThread.runsOn %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runs on %@."
+          }
+        }
+      }
+    },
+    "addSubThread.stackFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not check this thread. You can still try to add."
+          }
+        }
+      }
+    },
+    "addSubThread.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "addSubThread.unsure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sure this was added. Tap Add to check."
           }
         }
       }
@@ -311,6 +641,16 @@
         }
       }
     },
+    "chat.action.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
     "chat.announce.finished" : {
       "localizations" : {
         "en" : {
@@ -331,12 +671,72 @@
         }
       }
     },
+    "chat.attachment.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be loaded. Try again."
+          }
+        }
+      }
+    },
+    "chat.attachment.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the file"
+          }
+        }
+      }
+    },
     "chat.attachment.image %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Image %@"
+          }
+        }
+      }
+    },
+    "chat.attachment.image.speech %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, image"
+          }
+        }
+      }
+    },
+    "chat.attachment.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        }
+      }
+    },
+    "chat.attachment.webOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open this thread on the web to see this file."
+          }
+        }
+      }
+    },
+    "chat.attachments.more %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more files"
           }
         }
       }
@@ -885,6 +1285,56 @@
         }
       }
     },
+    "chat.upload.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Tap Retry, or it tries again later."
+          }
+        }
+      }
+    },
+    "chat.upload.progress %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld %%"
+          }
+        }
+      }
+    },
+    "chat.upload.progress.speech %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld percent"
+          }
+        }
+      }
+    },
+    "chat.upload.slow %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld %%. The connection is slow."
+          }
+        }
+      }
+    },
+    "chat.upload.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a connection. It sends by itself."
+          }
+        }
+      }
+    },
     "chat.waiting.active" : {
       "localizations" : {
         "en" : {
@@ -1071,6 +1521,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New"
+          }
+        }
+      }
+    },
+    "composer.paste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste image"
           }
         }
       }
@@ -1438,6 +1898,316 @@
         }
       }
     },
+    "debug.build.debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug build"
+          }
+        }
+      }
+    },
+    "debug.build.testFlight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TestFlight build"
+          }
+        }
+      }
+    },
+    "debug.fault.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        }
+      }
+    },
+    "debug.fault.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        }
+      }
+    },
+    "debug.fault.serverError" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server error"
+          }
+        }
+      }
+    },
+    "debug.fault.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slow (4 seconds)"
+          }
+        }
+      }
+    },
+    "debug.fault.verySlow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Very slow (10 seconds)"
+          }
+        }
+      }
+    },
+    "debug.gallery.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "debug.gallery.count %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld screens"
+          }
+        }
+      }
+    },
+    "debug.gallery.row" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "State gallery"
+          }
+        }
+      }
+    },
+    "debug.gallery.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "State gallery"
+          }
+        }
+      }
+    },
+    "debug.liveActivities" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Activities"
+          }
+        }
+      }
+    },
+    "debug.log.copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
+    "debug.log.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "debug.log.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No log lines in the last 10 minutes."
+          }
+        }
+      }
+    },
+    "debug.log.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The log could not be read."
+          }
+        }
+      }
+    },
+    "debug.log.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "debug.log.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the log"
+          }
+        }
+      }
+    },
+    "debug.log.partial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the lines read in 5 seconds."
+          }
+        }
+      }
+    },
+    "debug.log.refresh" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "debug.log.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "debug.log.row" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last 200 log lines"
+          }
+        }
+      }
+    },
+    "debug.log.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "debug.log.tooLong" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the log took too long."
+          }
+        }
+      }
+    },
+    "debug.requests.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to API requests until Yak restarts. The live connection and the terminal are not affected."
+          }
+        }
+      }
+    },
+    "debug.requests.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requests"
+          }
+        }
+      }
+    },
+    "debug.states.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "States"
+          }
+        }
+      }
+    },
+    "debug.tips.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tips show again after a restart"
+          }
+        }
+      }
+    },
+    "debug.tips.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tips show again after Yak restarts."
+          }
+        }
+      }
+    },
+    "debug.tips.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tips"
+          }
+        }
+      }
+    },
+    "debug.tips.row" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show tips again"
+          }
+        }
+      }
+    },
     "drawer.accountLabel %@" : {
       "localizations" : {
         "en" : {
@@ -1484,6 +2254,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "now"
+          }
+        }
+      }
+    },
+    "drawer.child.checking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking what this sub-thread allows"
           }
         }
       }
@@ -2010,6 +2790,26 @@
         }
       }
     },
+    "files.asleep.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It wakes when someone who can drive this thread opens it."
+          }
+        }
+      }
+    },
+    "files.asleep.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox is asleep"
+          }
+        }
+      }
+    },
     "files.banner.gone %@" : {
       "localizations" : {
         "en" : {
@@ -2036,6 +2836,166 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak is still working. The changes update when the turn ends."
+          }
+        }
+      }
+    },
+    "files.binary.detail %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld bytes. It cannot be shown here."
+          }
+        }
+      }
+    },
+    "files.binary.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a binary file"
+          }
+        }
+      }
+    },
+    "files.closed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed, so its sandbox is gone."
+          }
+        }
+      }
+    },
+    "files.computer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread runs on a computer, so its files are there."
+          }
+        }
+      }
+    },
+    "files.conflict.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy my text"
+          }
+        }
+      }
+    },
+    "files.conflict.createAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to create it again"
+          }
+        }
+      }
+    },
+    "files.conflict.deleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file was deleted since you opened it."
+          }
+        }
+      }
+    },
+    "files.conflict.keepMine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep mine"
+          }
+        }
+      }
+    },
+    "files.conflict.pick" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "files.conflict.text.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version of the file"
+          }
+        }
+      }
+    },
+    "files.conflict.theirs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theirs"
+          }
+        }
+      }
+    },
+    "files.conflict.theirsConfirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use their version?"
+          }
+        }
+      }
+    },
+    "files.conflict.theirsDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your text is replaced by theirs."
+          }
+        }
+      }
+    },
+    "files.conflict.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed since you opened it."
+          }
+        }
+      }
+    },
+    "files.conflict.useTheirs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use theirs"
+          }
+        }
+      }
+    },
+    "files.conflict.yours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yours"
           }
         }
       }
@@ -2070,6 +3030,106 @@
         }
       }
     },
+    "files.editor.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "files.editor.changedOnServer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak changed this file while you edit it. Saving shows both versions."
+          }
+        }
+      }
+    },
+    "files.editor.discard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard changes"
+          }
+        }
+      }
+    },
+    "files.editor.discardTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard your changes?"
+          }
+        }
+      }
+    },
+    "files.editor.keepEditing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep editing"
+          }
+        }
+      }
+    },
+    "files.editor.key.tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab"
+          }
+        }
+      }
+    },
+    "files.editor.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File editor"
+          }
+        }
+      }
+    },
+    "files.editor.restored" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored the text you had not saved."
+          }
+        }
+      }
+    },
+    "files.editor.save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "files.editor.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editing %@"
+          }
+        }
+      }
+    },
     "files.empty.detail" : {
       "localizations" : {
         "en" : {
@@ -2090,12 +3150,42 @@
         }
       }
     },
+    "files.error.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong. Try again in a moment."
+          }
+        }
+      }
+    },
     "files.error.offline" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You are offline. The changes load when the connection returns."
+          }
+        }
+      }
+    },
+    "files.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files did not load"
+          }
+        }
+      }
+    },
+    "files.everything.empty.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This repository has no files yet."
           }
         }
       }
@@ -2110,12 +3200,122 @@
         }
       }
     },
+    "files.find.clear" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        }
+      }
+    },
+    "files.find.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search did not finish."
+          }
+        }
+      }
+    },
+    "files.find.none %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No file matches \"%@\""
+          }
+        }
+      }
+    },
+    "files.find.partial" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching folders you opened and the files this thread changed."
+          }
+        }
+      }
+    },
+    "files.find.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a file"
+          }
+        }
+      }
+    },
+    "files.find.truncated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the first 100 matches."
+          }
+        }
+      }
+    },
+    "files.folder.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This folder is empty"
+          }
+        }
+      }
+    },
+    "files.folder.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open this folder."
+          }
+        }
+      }
+    },
+    "files.folder.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not loaded while offline"
+          }
+        }
+      }
+    },
+    "files.folder.truncated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the first 2,000 items. Use Find to reach the rest."
+          }
+        }
+      }
+    },
     "files.list.header %lld %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld files, %lld viewed"
+          }
+        }
+      }
+    },
+    "files.loading.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening the files"
           }
         }
       }
@@ -2166,6 +3366,96 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Files are not available yet."
+          }
+        }
+      }
+    },
+    "files.notFound.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to files"
+          }
+        }
+      }
+    },
+    "files.notFound.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been moved or deleted."
+          }
+        }
+      }
+    },
+    "files.notFound.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not there anymore"
+          }
+        }
+      }
+    },
+    "files.notHere.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is not here anymore"
+          }
+        }
+      }
+    },
+    "files.notInPullRequest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in the pull request"
+          }
+        }
+      }
+    },
+    "files.offline.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files load when the connection returns."
+          }
+        }
+      }
+    },
+    "files.offline.file.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file opens when the connection returns."
+          }
+        }
+      }
+    },
+    "files.offline.line" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing what was loaded"
+          }
+        }
+      }
+    },
+    "files.offline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline"
           }
         }
       }
@@ -2300,6 +3590,16 @@
         }
       }
     },
+    "files.page.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit file"
+          }
+        }
+      }
+    },
     "files.page.gone" : {
       "localizations" : {
         "en" : {
@@ -2420,12 +3720,82 @@
         }
       }
     },
+    "files.removed.askSomeone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask someone who can drive this thread to restore it."
+          }
+        }
+      }
+    },
+    "files.removed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore it to see the files. Restoring rebuilds it from the branch and can take a few minutes."
+          }
+        }
+      }
+    },
+    "files.removed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox was removed"
+          }
+        }
+      }
+    },
     "files.renamedFrom %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renamed from %@"
+          }
+        }
+      }
+    },
+    "files.restore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore sandbox"
+          }
+        }
+      }
+    },
+    "files.restoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can take a few minutes. You can leave this pane."
+          }
+        }
+      }
+    },
+    "files.restoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "files.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
           }
         }
       }
@@ -2440,12 +3810,72 @@
         }
       }
     },
+    "files.row.addedFile %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, added"
+          }
+        }
+      }
+    },
+    "files.row.containsChanges %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, contains changes"
+          }
+        }
+      }
+    },
+    "files.row.file %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, file"
+          }
+        }
+      }
+    },
+    "files.row.folderCollapsed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, folder, collapsed"
+          }
+        }
+      }
+    },
+    "files.row.folderExpanded %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, folder, expanded"
+          }
+        }
+      }
+    },
     "files.row.hunk %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Section %@"
+          }
+        }
+      }
+    },
+    "files.row.modified %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, modified"
           }
         }
       }
@@ -2466,6 +3896,216 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Removed: %@"
+          }
+        }
+      }
+    },
+    "files.save.again" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save again"
+          }
+        }
+      }
+    },
+    "files.save.asleep" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is asleep. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed, so the file cannot be saved. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.copyText" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy text"
+          }
+        }
+      }
+    },
+    "files.save.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. Something went wrong. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.forbidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread, so you cannot save."
+          }
+        }
+      }
+    },
+    "files.save.gone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is gone. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.save.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. You are offline. Your text is kept; save again when the connection returns."
+          }
+        }
+      }
+    },
+    "files.save.saved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved."
+          }
+        }
+      }
+    },
+    "files.save.savedWorking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved. Claude reads the change at its next step."
+          }
+        }
+      }
+    },
+    "files.save.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This text is too large to save from the app."
+          }
+        }
+      }
+    },
+    "files.save.waking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. The sandbox is waking. Your text is kept."
+          }
+        }
+      }
+    },
+    "files.slot.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The files show when a slot frees up."
+          }
+        }
+      }
+    },
+    "files.slot.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free sandbox slot"
+          }
+        }
+      }
+    },
+    "files.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "files.stillRestoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring is taking longer than usual. It may still finish; Retry checks again."
+          }
+        }
+      }
+    },
+    "files.stillRestoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still restoring"
+          }
+        }
+      }
+    },
+    "files.stillWaking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox is taking longer than usual."
+          }
+        }
+      }
+    },
+    "files.stillWaking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still waking"
+          }
+        }
+      }
+    },
+    "files.tooLarge.detail %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is %@; the app shows files up to 1 MB."
+          }
+        }
+      }
+    },
+    "files.tooLarge.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is too large to show"
           }
         }
       }
@@ -2506,6 +4146,976 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Viewed"
+          }
+        }
+      }
+    },
+    "files.viewer.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files"
+          }
+        }
+      }
+    },
+    "files.viewer.changed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak changed this file."
+          }
+        }
+      }
+    },
+    "files.viewer.colorsStop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Colors stop after the first 200,000 characters."
+          }
+        }
+      }
+    },
+    "files.viewer.copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy file"
+          }
+        }
+      }
+    },
+    "files.viewer.diff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View diff"
+          }
+        }
+      }
+    },
+    "files.viewer.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "files.viewer.folderAdded %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, added in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.folderChanged %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, changed in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File text"
+          }
+        }
+      }
+    },
+    "files.viewer.menu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File menu"
+          }
+        }
+      }
+    },
+    "files.viewer.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing the last copy"
+          }
+        }
+      }
+    },
+    "files.viewer.rootAdded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.rootChanged" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed in this thread"
+          }
+        }
+      }
+    },
+    "files.viewer.rootFolder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top folder"
+          }
+        }
+      }
+    },
+    "files.viewer.wrap" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrap lines"
+          }
+        }
+      }
+    },
+    "files.waking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was paused to save resources. The files show when it is awake."
+          }
+        }
+      }
+    },
+    "files.waking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
+          }
+        }
+      }
+    },
+    "focus.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only notifications from the Yaks you choose come through in this Focus."
+          }
+        }
+      }
+    },
+    "focus.param" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yaks that may notify"
+          }
+        }
+      }
+    },
+    "focus.summary.all" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Yaks"
+          }
+        }
+      }
+    },
+    "focus.summary.more %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$lld more"
+          }
+        }
+      }
+    },
+    "focus.summary.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Yaks"
+          }
+        }
+      }
+    },
+    "focus.summary.two %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ and %2$@"
+          }
+        }
+      }
+    },
+    "focus.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which Yaks notify you"
+          }
+        }
+      }
+    },
+    "gallery.area.App lock" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock"
+          }
+        }
+      }
+    },
+    "gallery.area.Chat" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        }
+      }
+    },
+    "gallery.area.Files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files"
+          }
+        }
+      }
+    },
+    "gallery.area.Overview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
+          }
+        }
+      }
+    },
+    "gallery.area.Pairing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing"
+          }
+        }
+      }
+    },
+    "gallery.area.Preview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "gallery.area.Push" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push"
+          }
+        }
+      }
+    },
+    "gallery.area.Settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "gallery.area.Tasks" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks"
+          }
+        }
+      }
+    },
+    "gallery.area.Terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal"
+          }
+        }
+      }
+    },
+    "gallery.area.Threads" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Threads"
+          }
+        }
+      }
+    },
+    "gallery.title.appLock.cover" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app switcher cover"
+          }
+        }
+      }
+    },
+    "gallery.title.appLock.locked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The lock screen"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.appTooOld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is too old"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.codeExpired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing code expired"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.codeInvalid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pairing code is not valid"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.denied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing was denied"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.serverTooOld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The instance is too old"
+          }
+        }
+      }
+    },
+    "gallery.title.pairing.unreachable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The instance cannot be reached"
+          }
+        }
+      }
+    },
+    "gallery.title.settings.appTooOld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is too old"
+          }
+        }
+      }
+    },
+    "gallery.title.settings.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refreshing failed"
+          }
+        }
+      }
+    },
+    "gallery.title.settings.serverTooOld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The instance is too old"
+          }
+        }
+      }
+    },
+    "gallery.title.settings.tokenUnreadable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved token cannot be read"
+          }
+        }
+      }
+    },
+    "gallery.title.settings.unreachable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The instance cannot be reached"
+          }
+        }
+      }
+    },
+    "gallery.title.tasks.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The task list is loading"
+          }
+        }
+      }
+    },
+    "gallery.title.tasks.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A list is offline"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread is loading"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.notFound" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The thread was not found"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline with no saved copy"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.serverError" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server answered with an error"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread is slow to load"
+          }
+        }
+      }
+    },
+    "intent.dialog.chooseRepository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a repository."
+          }
+        }
+      }
+    },
+    "intent.dialog.emptyText" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tell Yak what to work on."
+          }
+        }
+      }
+    },
+    "intent.dialog.instanceRemoved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That Yak is no longer paired."
+          }
+        }
+      }
+    },
+    "intent.dialog.noInstance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair Yak with an instance first."
+          }
+        }
+      }
+    },
+    "intent.dialog.noLastThread %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have not opened a thread on %@ yet."
+          }
+        }
+      }
+    },
+    "intent.dialog.offline %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not reach %@. Try again when you are online."
+          }
+        }
+      }
+    },
+    "intent.dialog.opening" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening your last thread."
+          }
+        }
+      }
+    },
+    "intent.dialog.pairAgain %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair %@ again in Yak."
+          }
+        }
+      }
+    },
+    "intent.dialog.refused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not start the thread."
+          }
+        }
+      }
+    },
+    "intent.dialog.reposUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not load your repositories. Try again in a moment."
+          }
+        }
+      }
+    },
+    "intent.dialog.saved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved. Yak starts the thread the next time it is online."
+          }
+        }
+      }
+    },
+    "intent.dialog.started %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started a thread in %@."
+          }
+        }
+      }
+    },
+    "intent.dialog.textTooLong" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That is too long for one message. Keep it under 4000 characters."
+          }
+        }
+      }
+    },
+    "intent.dialog.timedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak took too long to answer. Try again in a moment."
+          }
+        }
+      }
+    },
+    "intent.mode.fix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix"
+          }
+        }
+      }
+    },
+    "intent.mode.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "intent.mode.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode"
+          }
+        }
+      }
+    },
+    "intent.needsMe.many %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld things need you on %2$@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.manyAnywhere %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld things need you: %2$@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.none %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing needs you on %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.noneAnywhere" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing needs you."
+          }
+        }
+      }
+    },
+    "intent.needsMe.one %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One thing needs you on %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.oneAnywhere %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One thing needs you: %@."
+          }
+        }
+      }
+    },
+    "intent.needsMe.part %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld on %2$@"
+          }
+        }
+      }
+    },
+    "intent.needsMe.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What needs me?"
+          }
+        }
+      }
+    },
+    "intent.needsMe.unreachable %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ could not be reached, so its count may be old."
+          }
+        }
+      }
+    },
+    "intent.openLast.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open last thread"
+          }
+        }
+      }
+    },
+    "intent.openThread.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open thread"
+          }
+        }
+      }
+    },
+    "intent.param.instance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak"
+          }
+        }
+      }
+    },
+    "intent.param.mode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode"
+          }
+        }
+      }
+    },
+    "intent.param.repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "intent.param.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What should Yak work on?"
+          }
+        }
+      }
+    },
+    "intent.param.thread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
+          }
+        }
+      }
+    },
+    "intent.repository.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "intent.start.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starts a thread in one of your repositories."
+          }
+        }
+      }
+    },
+    "intent.start.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a thread"
+          }
+        }
+      }
+    },
+    "intent.thread.generic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread"
+          }
+        }
+      }
+    },
+    "intent.thread.new %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New thread in %@"
+          }
+        }
+      }
+    },
+    "intent.thread.task" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A task"
+          }
+        }
+      }
+    },
+    "intent.thread.type" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread"
+          }
+        }
+      }
+    },
+    "licenses.missing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This license text is missing from this build."
+          }
+        }
+      }
+    },
+    "licenses.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licenses"
           }
         }
       }
@@ -2636,6 +5246,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "lock.continue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "lock.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not confirm it is you."
+          }
+        }
+      }
+    },
+    "lock.passcodeRemoved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has no passcode now, so app lock is off."
+          }
+        }
+      }
+    },
+    "lock.reason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Yak"
+          }
+        }
+      }
+    },
+    "lock.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock to see your threads."
+          }
+        }
+      }
+    },
+    "lock.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is locked"
+          }
+        }
+      }
+    },
+    "lock.turnOnReason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on app lock for Yak"
+          }
+        }
+      }
+    },
+    "lock.unlock.device" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "lock.unlock.faceID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Face ID"
+          }
+        }
+      }
+    },
+    "lock.unlock.opticID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Optic ID"
+          }
+        }
+      }
+    },
+    "lock.unlock.passcode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with passcode"
+          }
+        }
+      }
+    },
+    "lock.unlock.touchID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock with Touch ID"
+          }
+        }
+      }
+    },
+    "lock.unlocking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocking"
           }
         }
       }
@@ -3450,6 +6190,196 @@
         }
       }
     },
+    "notify.continue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "notify.failed.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS did not turn on notifications. You can try again from Settings."
+          }
+        }
+      }
+    },
+    "notify.failed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are still off"
+          }
+        }
+      }
+    },
+    "notify.footnote" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private threads never show their text on the lock screen. You can change each kind later in Settings."
+          }
+        }
+      }
+    },
+    "notify.notNow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not now"
+          }
+        }
+      }
+    },
+    "notify.off.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can turn them on in iOS Settings at any time."
+          }
+        }
+      }
+    },
+    "notify.off.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are off"
+          }
+        }
+      }
+    },
+    "notify.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are on"
+          }
+        }
+      }
+    },
+    "notify.on.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak registers this device when the connection returns."
+          }
+        }
+      }
+    },
+    "notify.openSettings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open iOS Settings"
+          }
+        }
+      }
+    },
+    "notify.paired %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired with %@"
+          }
+        }
+      }
+    },
+    "notify.row.finished.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready for you to look at"
+          }
+        }
+      }
+    },
+    "notify.row.finished.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A turn finished"
+          }
+        }
+      }
+    },
+    "notify.row.needsYou.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak asked a question or is blocked"
+          }
+        }
+      }
+    },
+    "notify.row.needsYou.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread needs you"
+          }
+        }
+      }
+    },
+    "notify.row.pullRequest.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A PR opened or its checks changed"
+          }
+        }
+      }
+    },
+    "notify.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak works while you do other things. A notification brings you back at the right moment."
+          }
+        }
+      }
+    },
+    "notify.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Know when Yak needs you"
+          }
+        }
+      }
+    },
+    "notify.turnOn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on notifications"
+          }
+        }
+      }
+    },
     "observations.acted" : {
       "localizations" : {
         "en" : {
@@ -3566,6 +6496,1498 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Observations"
+          }
+        }
+      }
+    },
+    "overview.access.computer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runs on a computer"
+          }
+        }
+      }
+    },
+    "overview.access.sandbox" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runs on the Yak sandbox"
+          }
+        }
+      }
+    },
+    "overview.access.terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal from your computer"
+          }
+        }
+      }
+    },
+    "overview.action.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That did not work. Try again."
+          }
+        }
+      }
+    },
+    "overview.action.notSent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "overview.action.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Try again when the connection returns."
+          }
+        }
+      }
+    },
+    "overview.activity.blocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs you"
+          }
+        }
+      }
+    },
+    "overview.activity.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "overview.activity.idle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idle"
+          }
+        }
+      }
+    },
+    "overview.activity.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "overview.activity.working" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
+    "overview.add" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "overview.addSubThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "overview.age.days %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg day ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg days ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.age.hours %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg hour ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg hours ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.age.minutes %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minute ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minutes ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.age.now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "just now"
+          }
+        }
+      }
+    },
+    "overview.awake.counts %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld awake, %2$lld waiting"
+          }
+        }
+      }
+    },
+    "overview.awake.label %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Awake at once, %lld"
+          }
+        }
+      }
+    },
+    "overview.awake.less" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fewer"
+          }
+        }
+      }
+    },
+    "overview.awake.line %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Awake at once: %lld"
+          }
+        }
+      }
+    },
+    "overview.awake.more" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        }
+      }
+    },
+    "overview.awake.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Awake at once"
+          }
+        }
+      }
+    },
+    "overview.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "overview.child.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "overview.child.detailWithFiles %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "overview.child.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "overview.child.drop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop it"
+          }
+        }
+      }
+    },
+    "overview.child.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        }
+      }
+    },
+    "overview.child.files %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg file"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg files"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.child.menu %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions for %@"
+          }
+        }
+      }
+    },
+    "overview.child.open" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "overview.child.other %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "overview.child.paused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its messages are paused"
+          }
+        }
+      }
+    },
+    "overview.child.queued" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queued"
+          }
+        }
+      }
+    },
+    "overview.child.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "overview.child.split" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Split it up"
+          }
+        }
+      }
+    },
+    "overview.child.takeOver" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take over"
+          }
+        }
+      }
+    },
+    "overview.child.takeOver.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You drive it"
+          }
+        }
+      }
+    },
+    "overview.child.takenOver" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You drive it now"
+          }
+        }
+      }
+    },
+    "overview.child.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "overview.child.waitingSlot" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free slot"
+          }
+        }
+      }
+    },
+    "overview.child.working" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
+    "overview.collapsed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapsed"
+          }
+        }
+      }
+    },
+    "overview.copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
+    "overview.copyBranch.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy branch name"
+          }
+        }
+      }
+    },
+    "overview.copyPreview.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy preview address"
+          }
+        }
+      }
+    },
+    "overview.copySsh.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy terminal command"
+          }
+        }
+      }
+    },
+    "overview.couldNotOpen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The details could not be loaded."
+          }
+        }
+      }
+    },
+    "overview.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "overview.drop.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sub-thread closes and its work is not used."
+          }
+        }
+      }
+    },
+    "overview.drop.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drop %@?"
+          }
+        }
+      }
+    },
+    "overview.expanded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expanded"
+          }
+        }
+      }
+    },
+    "overview.group.access" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access"
+          }
+        }
+      }
+    },
+    "overview.group.links" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links"
+          }
+        }
+      }
+    },
+    "overview.group.people" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People"
+          }
+        }
+      }
+    },
+    "overview.group.status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        }
+      }
+    },
+    "overview.group.subThreads" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sub-threads"
+          }
+        }
+      }
+    },
+    "overview.links.branch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branch"
+          }
+        }
+      }
+    },
+    "overview.links.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links appear once Yak creates a branch."
+          }
+        }
+      }
+    },
+    "overview.links.preview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "overview.links.pullRequest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request"
+          }
+        }
+      }
+    },
+    "overview.links.pullRequestNumber %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "overview.message.fromTo %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "overview.message.kind.answer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answer"
+          }
+        }
+      }
+    },
+    "overview.message.kind.failure" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        }
+      }
+    },
+    "overview.message.kind.question" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question"
+          }
+        }
+      }
+    },
+    "overview.message.kind.result" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
+          }
+        }
+      }
+    },
+    "overview.messages.folded %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messages between sub-threads (%lld)"
+          }
+        }
+      }
+    },
+    "overview.notOffline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available offline"
+          }
+        }
+      }
+    },
+    "overview.offline.group" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The details load when the connection returns."
+          }
+        }
+      }
+    },
+    "overview.offline.top" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing what was loaded"
+          }
+        }
+      }
+    },
+    "overview.panel.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close the Overview"
+          }
+        }
+      }
+    },
+    "overview.parent %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Part of %@"
+          }
+        }
+      }
+    },
+    "overview.people.change" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        }
+      }
+    },
+    "overview.people.changeLabel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change who can read this thread"
+          }
+        }
+      }
+    },
+    "overview.people.runsOn %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Runs on %@"
+          }
+        }
+      }
+    },
+    "overview.people.yourAccount" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account"
+          }
+        }
+      }
+    },
+    "overview.pullRequest.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "overview.pullRequest.merged" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merged"
+          }
+        }
+      }
+    },
+    "overview.pullRequest.open" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "overview.repo.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "setup failed"
+          }
+        }
+      }
+    },
+    "overview.repo.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ready"
+          }
+        }
+      }
+    },
+    "overview.repo.settingUp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "setting up"
+          }
+        }
+      }
+    },
+    "overview.repo.showOutput" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the setup output"
+          }
+        }
+      }
+    },
+    "overview.retry.notStarted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The retry did not start. Try again."
+          }
+        }
+      }
+    },
+    "overview.role.changes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes"
+          }
+        }
+      }
+    },
+    "overview.role.context" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Context"
+          }
+        }
+      }
+    },
+    "overview.role.primary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary"
+          }
+        }
+      }
+    },
+    "overview.sandbox.destroyed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox removed"
+          }
+        }
+      }
+    },
+    "overview.sandbox.destroying" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox is being removed"
+          }
+        }
+      }
+    },
+    "overview.sandbox.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sandbox yet"
+          }
+        }
+      }
+    },
+    "overview.sandbox.other %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox: %@"
+          }
+        }
+      }
+    },
+    "overview.sandbox.paused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox paused"
+          }
+        }
+      }
+    },
+    "overview.sandbox.running" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox running"
+          }
+        }
+      }
+    },
+    "overview.sandbox.starting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox starting"
+          }
+        }
+      }
+    },
+    "overview.sandbox.stopped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox stopped"
+          }
+        }
+      }
+    },
+    "overview.setupOutput.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup output"
+          }
+        }
+      }
+    },
+    "overview.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "overview.stale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not refresh. Showing what was loaded."
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.date %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by %1$@ on %2$@"
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.days %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg day ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg days ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.hours %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg hour ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg hours ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.minutes %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg minute ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by %1$@, %arg minutes ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.now %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by %@, just now"
+          }
+        }
+      }
+    },
+    "overview.startedBy.person.unknown %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by %@"
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.date %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by you on %@"
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.days %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg day ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg days ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.hours %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg hour ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg hours ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.minutes %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg minute ago"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Started by you, %arg minutes ago"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by you, just now"
+          }
+        }
+      }
+    },
+    "overview.startedBy.you.unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started by you"
+          }
+        }
+      }
+    },
+    "overview.status.sleeps %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleeps after %lld idle minutes"
+          }
+        }
+      }
+    },
+    "overview.status.slots %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld slots in use"
+          }
+        }
+      }
+    },
+    "overview.stopAll" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop all sub-threads"
+          }
+        }
+      }
+    },
+    "overview.stopAll.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop all"
+          }
+        }
+      }
+    },
+    "overview.stopAll.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every sub-thread stops its turn. Queued sub-threads do not start."
+          }
+        }
+      }
+    },
+    "overview.stopAll.stopping" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopping all sub-threads"
+          }
+        }
+      }
+    },
+    "overview.stopAll.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop all sub-threads?"
+          }
+        }
+      }
+    },
+    "overview.title.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Overview"
+          }
+        }
+      }
+    },
+    "overview.title.label %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread overview. %@"
+          }
+        }
+      }
+    },
+    "overview.visibility.people %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@n@"
+          },
+          "substitutions" : {
+            "n" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Shared with %arg person"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "Shared with %arg people"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overview.visibility.private" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private"
+          }
+        }
+      }
+    },
+    "overview.visibility.team" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared with the team"
+          }
+        }
+      }
+    },
+    "overview.visibility.you" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared with you"
           }
         }
       }
@@ -3780,12 +8202,32 @@
         }
       }
     },
+    "pane.overview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
+          }
+        }
+      }
+    },
     "pane.preview" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preview"
+          }
+        }
+      }
+    },
+    "pane.terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal"
           }
         }
       }
@@ -3926,6 +8368,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Asking Yak"
+          }
+        }
+      }
+    },
+    "preview.action.editManifest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit .yak/preview.yml"
           }
         }
       }
@@ -4266,6 +8718,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Address copied"
+          }
+        }
+      }
+    },
+    "preview.line.filesDidNotOpen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files did not open. Try again."
           }
         }
       }
@@ -4960,6 +9422,186 @@
         }
       }
     },
+    "privacy.device.beforeMe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.noDate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired. Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.paired %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired %@. Remove it on the web."
+          }
+        }
+      }
+    },
+    "privacy.device.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device"
+          }
+        }
+      }
+    },
+    "privacy.lock.device" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require device unlock"
+          }
+        }
+      }
+    },
+    "privacy.lock.faceID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Face ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not confirm it is you. Try again."
+          }
+        }
+      }
+    },
+    "privacy.lock.noPasscode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set a device passcode in iOS Settings to use this."
+          }
+        }
+      }
+    },
+    "privacy.lock.opticID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Optic ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.passcode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require passcode"
+          }
+        }
+      }
+    },
+    "privacy.lock.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To open Yak"
+          }
+        }
+      }
+    },
+    "privacy.lock.touchID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require Touch ID"
+          }
+        }
+      }
+    },
+    "privacy.lock.turnedOff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock turned off because this device has no passcode."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight could not be updated. Yak tries again when it next closes."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.locked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off while app lock is on. Search shows the titles of other threads only."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search shows the titles of other threads only."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search also shows private thread titles."
+          }
+        }
+      }
+    },
+    "privacy.spotlight.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private threads in Spotlight"
+          }
+        }
+      }
+    },
     "problem.address %@" : {
       "localizations" : {
         "en" : {
@@ -5350,6 +9992,106 @@
         }
       }
     },
+    "pullRequest.order.changed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pull requests changed, so the list was reloaded."
+          }
+        }
+      }
+    },
+    "pullRequest.order.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit order"
+          }
+        }
+      }
+    },
+    "pullRequest.order.editOffline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Reordering needs a connection."
+          }
+        }
+      }
+    },
+    "pullRequest.order.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The order was not saved. Try again."
+          }
+        }
+      }
+    },
+    "pullRequest.order.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge order is a suggestion. Yak opens PRs; people merge them."
+          }
+        }
+      }
+    },
+    "pullRequest.order.moveDown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move down"
+          }
+        }
+      }
+    },
+    "pullRequest.order.moveUp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move up"
+          }
+        }
+      }
+    },
+    "pullRequest.order.moved %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to place %lld of %lld"
+          }
+        }
+      }
+    },
+    "pullRequest.order.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "pullRequest.order.place %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place %lld"
+          }
+        }
+      }
+    },
     "pullRequest.stale" : {
       "localizations" : {
         "en" : {
@@ -5400,6 +10142,26 @@
         }
       }
     },
+    "question.back" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "question.card.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question from Yak"
+          }
+        }
+      }
+    },
     "question.chip %lld" : {
       "localizations" : {
         "en" : {
@@ -5428,6 +10190,246 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yak has a question"
+          }
+        }
+      }
+    },
+    "question.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This question was closed."
+          }
+        }
+      }
+    },
+    "question.closed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your answers were not sent."
+          }
+        }
+      }
+    },
+    "question.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        }
+      }
+    },
+    "question.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Try again."
+          }
+        }
+      }
+    },
+    "question.failed.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "question.field" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your answer"
+          }
+        }
+      }
+    },
+    "question.multiHint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose all that apply"
+          }
+        }
+      }
+    },
+    "question.next" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "question.note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a note for Yak (optional)"
+          }
+        }
+      }
+    },
+    "question.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Your answers stay here until you send them."
+          }
+        }
+      }
+    },
+    "question.progress %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Question %lld of %lld"
+          }
+        }
+      }
+    },
+    "question.readOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people who can drive this thread can answer."
+          }
+        }
+      }
+    },
+    "question.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "question.review.edit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this answer"
+          }
+        }
+      }
+    },
+    "question.review.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your answers"
+          }
+        }
+      }
+    },
+    "question.send" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send answers"
+          }
+        }
+      }
+    },
+    "question.sending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending answers"
+          }
+        }
+      }
+    },
+    "question.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "question.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak needs an answer"
+          }
+        }
+      }
+    },
+    "question.typeAnswer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type a different answer"
+          }
+        }
+      }
+    },
+    "quickAction.newThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New thread"
+          }
+        }
+      }
+    },
+    "quickAction.open %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open %@"
+          }
+        }
+      }
+    },
+    "quickAction.openPrivate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a private thread"
+          }
+        }
+      }
+    },
+    "quickAction.waiting %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs you on %@"
           }
         }
       }
@@ -5478,6 +10480,666 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The camera is not available"
+          }
+        }
+      }
+    },
+    "settings.instances" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instances"
+          }
+        }
+      }
+    },
+    "settings.liveActivitiesOff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Activities are off for Yak in iOS Settings."
+          }
+        }
+      }
+    },
+    "settings.openSystemSettings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open iOS Settings"
+          }
+        }
+      }
+    },
+    "settings.permission.header" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications on this device"
+          }
+        }
+      }
+    },
+    "settings.permission.notAsked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are not turned on."
+          }
+        }
+      }
+    },
+    "settings.permission.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications are off for Yak in iOS Settings."
+          }
+        }
+      }
+    },
+    "settings.permission.turnOn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on notifications"
+          }
+        }
+      }
+    },
+    "settings.reason.environmentMismatch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak sends to other builds."
+          }
+        }
+      }
+    },
+    "settings.reason.generic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in a moment."
+          }
+        }
+      }
+    },
+    "settings.reason.needsPairing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair again to change this."
+          }
+        }
+      }
+    },
+    "settings.reason.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline."
+          }
+        }
+      }
+    },
+    "settings.reason.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is busy. Try again."
+          }
+        }
+      }
+    },
+    "settings.remove" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        }
+      }
+    },
+    "settings.removing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing"
+          }
+        }
+      }
+    },
+    "settings.saving" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving"
+          }
+        }
+      }
+    },
+    "settings.subtitle.needsPairing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair again to use it."
+          }
+        }
+      }
+    },
+    "settings.subtitle.noKey" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No push. This Yak has no notification key."
+          }
+        }
+      }
+    },
+    "settings.subtitle.otherBuild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No push. This build has no key for it."
+          }
+        }
+      }
+    },
+    "settings.subtitle.productionOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No push. This Yak sends to TestFlight builds only."
+          }
+        }
+      }
+    },
+    "settings.subtitle.refused %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push was refused. %@"
+          }
+        }
+      }
+    },
+    "settings.subtitle.registered %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, push on"
+          }
+        }
+      }
+    },
+    "settings.subtitle.registering %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, setting up push"
+          }
+        }
+      }
+    },
+    "settings.subtitle.retrying" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push is not set up yet. Yak keeps trying."
+          }
+        }
+      }
+    },
+    "settings.subtitle.sandboxOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No push. This Yak sends to development builds only."
+          }
+        }
+      }
+    },
+    "settings.subtitle.serverTooOld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Yak on the server."
+          }
+        }
+      }
+    },
+    "settings.subtitle.unknownEnvironment" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No push. This Yak names an unknown environment."
+          }
+        }
+      }
+    },
+    "settings.subtitle.waitingForNetwork" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push is set up when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.subtitle.waitingForToken %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, notifications are off on this device"
+          }
+        }
+      }
+    },
+    "settings.switch.needsYou" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A thread needs me"
+          }
+        }
+      }
+    },
+    "settings.switch.pullRequest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A PR opens or its checks change"
+          }
+        }
+      }
+    },
+    "settings.switch.stackUsage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A stack passes a usage mark"
+          }
+        }
+      }
+    },
+    "settings.switch.turnFinished" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A turn finishes"
+          }
+        }
+      }
+    },
+    "settings.switches.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These switches also apply to notifications in your browser."
+          }
+        }
+      }
+    },
+    "settings.switches.header %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify me on %@ when"
+          }
+        }
+      }
+    },
+    "settings.switches.loadFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your notification settings could not be loaded."
+          }
+        }
+      }
+    },
+    "settings.switches.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Your notification settings load when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.switches.saveFailed %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save \"%@\". %@"
+          }
+        }
+      }
+    },
+    "settings.switches.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "settings.switches.unavailable %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ cannot send notifications to this build."
+          }
+        }
+      }
+    },
+    "settings.test.noPushToken" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device has not registered for notifications yet. Turn them on first."
+          }
+        }
+      }
+    },
+    "settings.test.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Try again when the connection returns."
+          }
+        }
+      }
+    },
+    "settings.test.pushUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak cannot send notifications."
+          }
+        }
+      }
+    },
+    "settings.test.rateLimited" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many tests in a row. Wait a minute and try again."
+          }
+        }
+      }
+    },
+    "settings.test.send" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send a test notification"
+          }
+        }
+      }
+    },
+    "settings.test.sending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending"
+          }
+        }
+      }
+    },
+    "settings.test.sent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent. It arrives in a few seconds."
+          }
+        }
+      }
+    },
+    "settings.test.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple did not answer in time. Try again."
+          }
+        }
+      }
+    },
+    "settings.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "share.loadFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sharing settings could not be loaded."
+          }
+        }
+      }
+    },
+    "share.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading the sharing settings"
+          }
+        }
+      }
+    },
+    "share.mode.everyone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone on the team"
+          }
+        }
+      }
+    },
+    "share.mode.everyone.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anyone with a Yak account on this team can read it."
+          }
+        }
+      }
+    },
+    "share.mode.onlyMe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only me"
+          }
+        }
+      }
+    },
+    "share.mode.onlyMe.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody else can see this thread, its changes or its details."
+          }
+        }
+      }
+    },
+    "share.mode.people" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People I pick"
+          }
+        }
+      }
+    },
+    "share.mode.people.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "They can read the whole conversation, the changes and the details."
+          }
+        }
+      }
+    },
+    "share.never %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never shared: %@."
+          }
+        }
+      }
+    },
+    "share.nobody" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody else has an account on this Yak yet."
+          }
+        }
+      }
+    },
+    "share.notSaved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not shared. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "share.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Sharing loads when the connection returns."
+          }
+        }
+      }
+    },
+    "share.owner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Owner"
+          }
+        }
+      }
+    },
+    "share.pickSomeone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick at least one person."
+          }
+        }
+      }
+    },
+    "share.save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
+    "share.search" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search people"
+          }
+        }
+      }
+    },
+    "share.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
+    "share.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Who can read this thread"
           }
         }
       }
@@ -6584,16 +12246,6 @@
         }
       }
     },
-    "task.questions.edit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this answer"
-          }
-        }
-      }
-    },
     "task.questions.next" : {
       "localizations" : {
         "en" : {
@@ -6950,6 +12602,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Walkthrough video"
+          }
+        }
+      }
+    },
+    "task.walkthrough.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The walkthrough cannot be played here."
+          }
+        }
+      }
+    },
+    "task.walkthrough.web" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Watch the walkthrough on the web"
           }
         }
       }
@@ -7416,6 +13088,826 @@
         }
       }
     },
+    "terminal.banner.broken" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell connection failed."
+          }
+        }
+      }
+    },
+    "terminal.banner.couldNotReconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell could not reconnect."
+          }
+        }
+      }
+    },
+    "terminal.banner.denied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The link to the shell was refused."
+          }
+        }
+      }
+    },
+    "terminal.banner.droppedKeys" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys typed while offline were not sent."
+          }
+        }
+      }
+    },
+    "terminal.banner.ended" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell ended."
+          }
+        }
+      }
+    },
+    "terminal.banner.endedCode %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell ended with exit code %lld."
+          }
+        }
+      }
+    },
+    "terminal.banner.idle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This shell closed after 30 minutes without input."
+          }
+        }
+      }
+    },
+    "terminal.banner.lost %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection lost. Reconnecting in %1$lld s, try %2$lld of 5"
+          }
+        }
+      }
+    },
+    "terminal.banner.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. The shell reconnects when the connection returns."
+          }
+        }
+      }
+    },
+    "terminal.banner.reconnect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnect now"
+          }
+        }
+      }
+    },
+    "terminal.banner.reconnecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnecting the shell"
+          }
+        }
+      }
+    },
+    "terminal.banner.showShells" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show shells"
+          }
+        }
+      }
+    },
+    "terminal.banner.tooMany" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many shells are open on this thread. Close one here or on the web."
+          }
+        }
+      }
+    },
+    "terminal.closed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A closed thread has no shell."
+          }
+        }
+      }
+    },
+    "terminal.closed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread is closed"
+          }
+        }
+      }
+    },
+    "terminal.computer.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its shell is on that computer."
+          }
+        }
+      }
+    },
+    "terminal.computer.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread runs on a computer"
+          }
+        }
+      }
+    },
+    "terminal.divider %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New shell. The connection dropped at %@; anything running in the old shell stopped."
+          }
+        }
+      }
+    },
+    "terminal.error.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong. Try again."
+          }
+        }
+      }
+    },
+    "terminal.error.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell could not open"
+          }
+        }
+      }
+    },
+    "terminal.forbidden.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people who can drive it can open a shell."
+          }
+        }
+      }
+    },
+    "terminal.forbidden.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread"
+          }
+        }
+      }
+    },
+    "terminal.jump" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jump to the end"
+          }
+        }
+      }
+    },
+    "terminal.key.control.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control"
+          }
+        }
+      }
+    },
+    "terminal.key.down.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Down"
+          }
+        }
+      }
+    },
+    "terminal.key.escape.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escape"
+          }
+        }
+      }
+    },
+    "terminal.key.keyboard.hide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide keyboard"
+          }
+        }
+      }
+    },
+    "terminal.key.keyboard.show" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show keyboard"
+          }
+        }
+      }
+    },
+    "terminal.key.left.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left"
+          }
+        }
+      }
+    },
+    "terminal.key.off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "terminal.key.on" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
+    "terminal.key.right.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right"
+          }
+        }
+      }
+    },
+    "terminal.key.tab.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab"
+          }
+        }
+      }
+    },
+    "terminal.key.up.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up"
+          }
+        }
+      }
+    },
+    "terminal.noSandbox.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It gets one when Yak starts working on it."
+          }
+        }
+      }
+    },
+    "terminal.noSandbox.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread has no sandbox yet"
+          }
+        }
+      }
+    },
+    "terminal.none.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No shell is open"
+          }
+        }
+      }
+    },
+    "terminal.offline.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell opens when the connection returns."
+          }
+        }
+      }
+    },
+    "terminal.offline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline"
+          }
+        }
+      }
+    },
+    "terminal.opening.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a shell"
+          }
+        }
+      }
+    },
+    "terminal.origin.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The person who runs this Yak can add this app's address to its terminal settings."
+          }
+        }
+      }
+    },
+    "terminal.origin.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak does not accept the terminal from this app"
+          }
+        }
+      }
+    },
+    "terminal.output.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal output"
+          }
+        }
+      }
+    },
+    "terminal.removed.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore it to open a shell. Restoring rebuilds it from the branch and can take a few minutes."
+          }
+        }
+      }
+    },
+    "terminal.removed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox was removed"
+          }
+        }
+      }
+    },
+    "terminal.restore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore sandbox"
+          }
+        }
+      }
+    },
+    "terminal.restore.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox could not be restored. Try again."
+          }
+        }
+      }
+    },
+    "terminal.restoreFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The sandbox could not be restored"
+          }
+        }
+      }
+    },
+    "terminal.restoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can take a few minutes. You can leave this pane; the shell opens when it is ready."
+          }
+        }
+      }
+    },
+    "terminal.restoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "terminal.shell.new" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New shell"
+          }
+        }
+      }
+    },
+    "terminal.shells.close %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close %@"
+          }
+        }
+      }
+    },
+    "terminal.shells.closeShell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close shell"
+          }
+        }
+      }
+    },
+    "terminal.shells.confirm %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close %@? Anything running in it stops."
+          }
+        }
+      }
+    },
+    "terminal.shells.confirmDetail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anything running in it stops."
+          }
+        }
+      }
+    },
+    "terminal.shells.label %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shells, %lld open"
+          }
+        }
+      }
+    },
+    "terminal.shells.maximum" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Four shells is the most"
+          }
+        }
+      }
+    },
+    "terminal.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "terminal.starting.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was stopped. Starting it can take up to a minute."
+          }
+        }
+      }
+    },
+    "terminal.starting.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.step.link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Getting a link"
+          }
+        }
+      }
+    },
+    "terminal.step.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox ready"
+          }
+        }
+      }
+    },
+    "terminal.step.restoring" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.step.resumed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sandbox resumed"
+          }
+        }
+      }
+    },
+    "terminal.step.seconds %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld s"
+          }
+        }
+      }
+    },
+    "terminal.step.shell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening a shell"
+          }
+        }
+      }
+    },
+    "terminal.step.waking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
+          }
+        }
+      }
+    },
+    "terminal.stillRestoring.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring is taking longer than usual. It may still finish; Retry checks again."
+          }
+        }
+      }
+    },
+    "terminal.stillRestoring.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still restoring"
+          }
+        }
+      }
+    },
+    "terminal.tryAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "terminal.waited.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app stopped waiting after 2 minutes."
+          }
+        }
+      }
+    },
+    "terminal.waited.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still no free slot"
+          }
+        }
+      }
+    },
+    "terminal.waiting.elapsed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting %@"
+          }
+        }
+      }
+    },
+    "terminal.waiting.global" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak has no free sandbox slot right now. The shell opens when one frees up."
+          }
+        }
+      }
+    },
+    "terminal.waiting.memory" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server is short on memory right now. The shell opens when there is room."
+          }
+        }
+      }
+    },
+    "terminal.waiting.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shell opens when a slot frees up."
+          }
+        }
+      }
+    },
+    "terminal.waiting.person %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld sandboxes awake, the most this Yak allows per person. One frees up when another of your threads goes to sleep."
+          }
+        }
+      }
+    },
+    "terminal.waiting.personUnknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have the most sandboxes awake that this Yak allows per person. One frees up when another of your threads goes to sleep."
+          }
+        }
+      }
+    },
+    "terminal.waiting.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free sandbox slot"
+          }
+        }
+      }
+    },
+    "terminal.waking.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It was paused to save resources. This takes a few seconds."
+          }
+        }
+      }
+    },
+    "terminal.waking.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waking the sandbox"
+          }
+        }
+      }
+    },
     "thread.copyLink" : {
       "localizations" : {
         "en" : {
@@ -7442,6 +13934,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "More actions"
+          }
+        }
+      }
+    },
+    "thread.menu.addSubThread" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a sub-thread"
+          }
+        }
+      }
+    },
+    "thread.menu.share" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
           }
         }
       }
@@ -7504,6 +14016,126 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "tip.paneSlide.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold the pane button, slide to a pane and let go."
+          }
+        }
+      }
+    },
+    "tip.paneSlide.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press and slide"
+          }
+        }
+      }
+    },
+    "tip.sendAfterTurn.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold Send to send after this turn instead of steering now."
+          }
+        }
+      }
+    },
+    "tip.sendAfterTurn.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold to send later"
+          }
+        }
+      }
+    },
+    "walkthrough.expired" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The video link has expired."
+          }
+        }
+      }
+    },
+    "walkthrough.failed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The walkthrough could not be played."
+          }
+        }
+      }
+    },
+    "walkthrough.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. The video plays when the connection returns."
+          }
+        }
+      }
+    },
+    "walkthrough.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something stopped the video."
+          }
+        }
+      }
+    },
+    "walkthrough.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual."
+          }
+        }
+      }
+    },
+    "walkthrough.timedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The video did not answer."
+          }
+        }
+      }
+    },
+    "walkthrough.tryAgain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "walkthrough.unsupported" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This video format cannot be played on this device."
           }
         }
       }

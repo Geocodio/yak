@@ -270,6 +270,7 @@ struct PreviewCardView: View {
         case .openTerminal: return "preview.action.openTerminal"
         case .showConversation: return "preview.action.showConversation"
         case .openInBrowser: return "preview.action.openInSafari"
+        case .editManifest: return "preview.action.editManifest"
         }
     }
 
@@ -282,6 +283,7 @@ struct PreviewCardView: View {
         case .openTerminal: "preview.openTerminal"
         case .showConversation: "preview.showConversation"
         case .openInBrowser: "preview.openInSafari"
+        case .editManifest: "preview.editManifest"
         }
     }
 }
@@ -304,7 +306,7 @@ struct IndeterminateLine: View {
         .background(Color.primary.opacity(0.12), in: .capsule)
         .clipShape(.capsule)
         .onAppear {
-            guard !reduceMotion else { return }
+            guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { isAtEnd = true }
         }
         .accessibilityHidden(true)

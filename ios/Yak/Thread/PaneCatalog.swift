@@ -25,6 +25,8 @@ enum PaneCatalog {
         .chat,
         .preview,
         .files,
+        .terminal,
+        .overview,
     ]
 
     static func descriptor(for id: PaneID) -> PaneDescriptor? { all.first { $0.id == id } }

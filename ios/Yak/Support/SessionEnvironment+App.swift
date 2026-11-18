@@ -2,14 +2,16 @@ import Foundation
 import YakKit
 
 extension SessionEnvironment {
-    /// The real network, the given files, the system clock and random ids.
-    static func app(version: String, system: String, files: any FileStore, allowsInsecureRealtime: Bool)
-        -> SessionEnvironment
-    {
+    /// The real network (behind the debug fault switch when one is given), the given files, the system clock and random ids.
+    static func app(
+        version: String, system: String, files: any FileStore, allowsInsecureRealtime: Bool,
+        faults: DebugFaultSwitch? = nil, uploads: (@Sendable (UUID) -> UploadLink?)? = nil
+    ) -> SessionEnvironment {
         SessionEnvironment(
-            http: URLSessionTransport(), webSockets: URLSessionWebSocketConnector(), files: files,
+            http: faults.map { DebugFaultTransport(wrapping: URLSessionTransport(), faults: $0, clock: SystemClock()) }
+                ?? URLSessionTransport(), webSockets: URLSessionWebSocketConnector(), files: files,
             clock: SystemClock(), makeID: UUID.init, appVersion: version, systemDescription: system,
-            allowsInsecureRealtime: allowsInsecureRealtime)
+            allowsInsecureRealtime: allowsInsecureRealtime, uploads: uploads)
     }
 
     /// The files of a release build: the app group container named by the `YakAppGroup` Info.plist key, or the

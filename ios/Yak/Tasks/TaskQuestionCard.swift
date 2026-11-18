@@ -22,8 +22,7 @@ struct TaskQuestionCard: View {
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("task.questions.error")
             }
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 16))
+        .questionCardSurface()
         .accessibilityIdentifier("task.questions")
     }
 
@@ -34,29 +33,12 @@ struct TaskQuestionCard: View {
                 .foregroundStyle(Color.yakMuted)
             Text(verbatim: item.question).font(.body).fixedSize(horizontal: false, vertical: true)
             ForEach(item.options, id: \.label) { option in
-                Button {
+                QuestionOptionButton(
+                    label: option.label, detail: option.description,
+                    isSelected: flow.isSelected(option.label, question: index)
+                ) {
                     model.changeQuestions { $0.pick(option.label) }
-                } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Image(
-                            systemName: flow.isSelected(option.label, question: index)
-                                ? "checkmark.circle.fill" : "circle"
-                        )
-                        .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: option.label).font(.body).multilineTextAlignment(.leading)
-                            if !option.description.isEmpty {
-                                Text(verbatim: option.description).font(.footnote.weight(.medium))
-                                    .foregroundStyle(Color.yakMuted).multilineTextAlignment(.leading)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .background(Color(.systemBackground), in: .rect(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(flow.isSelected(option.label, question: index) ? .isSelected : [])
                 .accessibilityIdentifier("task.questions.option")
             }
             Button {
@@ -86,7 +68,7 @@ struct TaskQuestionCard: View {
             Text(verbatim: flow.questions[index].question).font(.body).fixedSize(horizontal: false, vertical: true)
             TextField("task.questions.typed", text: $typed, axis: .vertical).lineLimit(2...6)
                 .focused($isTyping).padding(12).textFieldStyle(.plain)
-                .background(Color(.systemBackground), in: .rect(cornerRadius: 12))
+                .questionFieldSurface()
                 .accessibilityIdentifier("task.questions.field")
             HStack(spacing: 12) {
                 Button("common.cancel") { model.changeQuestions { $0.cancelTyping() } }
@@ -101,20 +83,12 @@ struct TaskQuestionCard: View {
     private var review: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(flow.questions.enumerated()), id: \.offset) { index, item in
-                Button {
+                QuestionReviewRow(header: item.header, summary: flow.summary(for: item.id) ?? "") {
                     model.changeQuestions { $0.edit(index) }
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: item.header).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                        Text(verbatim: flow.summary(for: item.id) ?? "").font(.body).multilineTextAlignment(.leading)
-                    }
-                    .padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .background(Color(.systemBackground), in: .rect(cornerRadius: 12))
                 }
-                .buttonStyle(.plain).accessibilityHint("task.questions.edit")
             }
             TextField("task.questions.note", text: noteBinding, axis: .vertical).lineLimit(1...4)
-                .padding(12).background(Color(.systemBackground), in: .rect(cornerRadius: 12))
+                .padding(12).questionFieldSurface()
                 .accessibilityIdentifier("task.questions.note")
             Button {
                 Task { await model.sendAnswers() }
