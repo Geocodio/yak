@@ -130,6 +130,8 @@ final class AppLockController {
     func appEnteredBackground() {
         backgroundCount += 1
         apply(.enteredBackground(clock.now()))
+        // A lock that is on, or unknown, never lets playback or picture in picture run on while the app is away.
+        if policy.isOn || storeUnreadable { closePlayback() }
         authenticator.cancel()
     }
 

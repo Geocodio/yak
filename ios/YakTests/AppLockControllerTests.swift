@@ -200,6 +200,25 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         #expect(playback.closes == 1)
     }
 
+    @Test func enteringBackgroundClosesPlaybackOnlyWhenTheLockIsOnOrUnknown() {
+        var closes = 0
+        func controller(_ settings: PrivacySettings) -> AppLockController {
+            AppLockController(
+                settings: settings, authenticator: FakeAuthenticator(), clock: ManualClock(),
+                closePlayback: { closes += 1 })
+        }
+        let on = PrivacySettings(store: Store())
+        on.appLockOn = true
+        controller(on).appEnteredBackground()
+        #expect(closes == 1)
+        controller(PrivacySettings(store: Store())).appEnteredBackground()
+        #expect(closes == 1)
+        let store = Store()
+        store.isReadable = false
+        controller(PrivacySettings(store: store, protectedData: store)).appEnteredBackground()
+        #expect(closes == 2)
+    }
+
     @Test func fiveMinutesAwayAsksAgain() async {
         let fake = FakeAuthenticator([.success, .success])
         let clock = ManualClock()
