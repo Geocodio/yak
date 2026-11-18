@@ -94,12 +94,16 @@ it('refuses a viewer without drive rights and keeps the message', function () {
     expect($message->fresh())->not->toBeNull();
 });
 
-it('answers a queued message of another thread with 404', function () {
+it('answers a queued message of another thread like one that does not exist', function () {
     [$thread, $author] = queuedListThread();
     [, , $foreign] = queuedListThread('Someone else');
 
-    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $foreign->id]), ['mode' => 'queue'])->assertNotFound();
-    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $foreign->id]))->assertNotFound();
+    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $foreign->id]), ['mode' => 'queue'])
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
+    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $foreign->id]))
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
+    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, 99999999]))
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
 
     expect($foreign->fresh())->not->toBeNull();
 });
@@ -191,8 +195,12 @@ it('answers a channel message of another thread with 404', function () {
     [$other] = queuedListThread('other');
     $foreign = PendingSteeringMessage::queueFor($other->headTask(), 'from slack', 'slack');
 
-    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $foreign->id]), ['mode' => 'queue'])->assertNotFound();
-    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $foreign->id]))->assertNotFound();
+    $this->actingAs($author)->patch(route('threads.queued-messages.update', [$thread, $foreign->id]), ['mode' => 'queue'])
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
+    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, $foreign->id]))
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
+    $this->actingAs($author)->delete(route('threads.queued-messages.destroy', [$thread, 99999999]))
+        ->assertSessionHas('error', QueuedMessages::DELIVERED_SENTENCE);
 });
 
 it('keeps the web-only queued list out of the app API thread show', function () {

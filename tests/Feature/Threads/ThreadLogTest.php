@@ -114,6 +114,13 @@ test('filters by repo and searches titles case-insensitively with wildcards esca
         ->and(loggedTitles($viewer, ['search' => '_']))->toBe([]);
 });
 
+test('cuts the search string at 200 characters', function () {
+    $viewer = User::factory()->create();
+    Thread::factory()->create(['title' => str_repeat('a', 200)]);
+
+    expect(loggedTitles($viewer, ['search' => str_repeat('a', 200) . 'zzz']))->toHaveCount(1);
+});
+
 test('filters by status with the same answer the rows show', function () {
     $viewer = User::factory()->create();
     $working = Thread::factory()->create(['title' => 'Working one']);

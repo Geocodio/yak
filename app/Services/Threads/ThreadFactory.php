@@ -128,8 +128,7 @@ class ThreadFactory
                 'owner_user_id' => $lockedFrom->effectiveOwnerUserId(),
             ])->save();
 
-            ThreadShare::query()->where('thread_id', $lockedFrom->root_thread_id ?? $lockedFrom->id)->pluck('user_id')
-                ->each(fn (int $userId) => ThreadShare::query()->create(['thread_id' => $thread->id, 'user_id' => $userId]));
+            $this->copyShares($lockedFrom, $thread);
 
             YakTask::query()->withoutGlobalScopes()->where('thread_id', $lockedFrom->id)->whereIn('id', $root->conversation()->pluck('id'))->lockForUpdate()->get()
                 ->each(fn (YakTask $member) => $member->withoutTimestamps(fn () => $member->forceFill(['thread_id' => $thread->id])->save()));
@@ -151,6 +150,12 @@ class ThreadFactory
         return $thread;
     }
 
+    private function copyShares(Thread $from, Thread $to): void
+    {
+        ThreadShare::query()->where('thread_id', $from->root_thread_id ?? $from->id)->pluck('user_id')
+            ->each(fn (int $userId) => ThreadShare::query()->create(['thread_id' => $to->id, 'user_id' => $userId]));
+    }
+
     /**
      * The root's open thread, created when the root has none or its thread
      * is closed. The root row is locked while it is read, so two tasks of one
@@ -168,13 +173,17 @@ class ThreadFactory
 
             $continuesLegacy = $current?->is_legacy === true;
             $seedsFromRoot = $locked->thread_id === null || $continuesLegacy;
-            $thread = $this->create($locked->repo, $locked, $seedsFromRoot ? $locked->branch_name : null, $continuesLegacy ? $current->id : null);
+            $thread = $this->create($locked->repo, $locked, $seedsFromRoot ? $locked->branch_name : null, $current?->id);
 
-            if ($continuesLegacy) {
+            if ($current !== null) {
                 $thread->forceFill([
                     'visibility' => $current->effectiveVisibility(),
                     'owner_user_id' => $current->effectiveOwnerUserId(),
                 ])->save();
+                $this->copyShares($current, $thread);
+            }
+
+            if ($continuesLegacy) {
                 YakTask::query()->withoutGlobalScopes()->where('thread_id', $current->id)->whereIn('id', $locked->conversation()->pluck('id'))
                     ->toBase()->update(['thread_id' => $thread->id]);
             }

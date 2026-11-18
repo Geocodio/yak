@@ -7,7 +7,6 @@ use App\Exceptions\ThreadActionRefused;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Threads\Concerns\RespondsToThreadActions;
 use App\Http\Requests\Api\App\UpdateQueuedMessageRequest;
-use App\Models\PendingSteeringMessage;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\QueuedMessages;
@@ -51,14 +50,7 @@ class ThreadQueuedMessageController extends Controller
             throw ThreadActionRefused::because(ThreadActionRefused::MESSAGE_DELIVERED, QueuedMessages::DELIVERED_SENTENCE);
         }
 
-        $root = $thread->messagesRootTask();
-
-        abort_if(PendingSteeringMessage::query()
-            ->where(is_int($this->identifier($message)) ? 'id' : 'uuid', $this->identifier($message))
-            ->where('root_task_id', '!=', $root->id)
-            ->exists(), 404);
-
-        return $root;
+        return $thread->messagesRootTask();
     }
 
     private function identifier(string $message): int|string

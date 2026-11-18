@@ -33,7 +33,7 @@ class ThreadLogRequest extends FormRequest
             'repo' => $this->text('repo'),
             'pull_request' => $this->text('pull_request'),
             'needs_co_owner' => $this->boolean('needs_co_owner'),
-            'search' => trim($this->text('search')),
+            'search' => mb_substr(trim($this->text('search')), 0, 200),
             'sort' => $sort,
             'direction' => $direction,
         ];
