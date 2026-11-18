@@ -240,7 +240,7 @@ platform :ios do
   def xcodebuild_base(device)
     "-project Yak.xcodeproj -scheme #{BUILD_SCHEME} -destination #{"platform=#{BUILD_PLATFORM},name=#{device}".shellescape} " \
       "-derivedDataPath #{File.join(IOS_ROOT, "build/DerivedData").shellescape} " \
-      "CODE_SIGNING_ALLOWED=NO"
+      "-skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO"
   end
 
   # One `xcodebuild build-for-testing` that every test run after it reuses (test-without-building, same derived data)

@@ -25,6 +25,7 @@ enum PaneCatalog {
         .chat,
         .preview,
         .files,
+        .terminal,
         .overview,
     ]
 

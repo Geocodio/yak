@@ -65,7 +65,7 @@
                 defaults: defaults, tokens: lockable, now: { Date() }, build: Self.pushBuild())
             let seed = self
             let environment: @Sendable () -> SessionEnvironment = {
-                .app(version: version, system: system, files: InMemoryFileStore(), allowsInsecureRealtime: true)
+                .app(version: version, system: system, files: Self.testFiles(), allowsInsecureRealtime: true)
             }
             QuickActions.normalizeAddress = Self.normalize
             let sharedEnvironment = environment()
@@ -107,7 +107,7 @@
                         do {
                             let added = try await instances.add(
                                 url: seed.instance, name: seed.instance.host() ?? "Yak", userName: "Test Person",
-                                token: token)
+                                token: token, id: Self.keepsFiles() ? Self.keptInstanceID : nil)
                             await Self.deliverQuickAction(for: added)
                         } catch {
                             Logger(subsystem: "Yak", category: "TestMode").error(

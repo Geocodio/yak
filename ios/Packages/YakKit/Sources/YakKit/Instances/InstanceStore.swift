@@ -147,11 +147,11 @@ public actor InstanceStore {
 
     /// An entry with the same URL is replaced in place, so there is never a duplicate row.
     @discardableResult
-    public func add(url: URL, name: String, userName: String, token: String) throws -> Instance {
+    public func add(url: URL, name: String, userName: String, token: String, id: UUID? = nil) throws -> Instance {
         let existingIndex = instances.firstIndex { $0.url == url }
         var instance =
             existingIndex.map { instances[$0] }
-            ?? Instance(url: url, name: name, userName: userName, lastUsedAt: now())
+            ?? Instance(id: id ?? UUID(), url: url, name: name, userName: userName, lastUsedAt: now())
         instance.name = name
         instance.userName = userName
         instance.lastUsedAt = now()

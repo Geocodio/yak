@@ -72,6 +72,8 @@ enum StubFeatures {
         StubPreviewFeature(),
         StubWalkthroughVideo(),
         StubChanges(),
+        StubTerminalFeature.shared,
+        StubFilesControl(),
         StubOverview(),
     ]
 }
