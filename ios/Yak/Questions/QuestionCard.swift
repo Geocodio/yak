@@ -7,7 +7,7 @@ import YakKit
 struct QuestionCard: View {
     let model: QuestionModel
     /// A person who can only read the thread sees the questions and no controls.
-    let canAnswer: Bool
+    private var canAnswer: Bool { model.canAnswer }
     let isOffline: Bool
     /// The tallest the card gets; longer content scrolls inside it.
     let paneHeight: CGFloat
@@ -19,10 +19,11 @@ struct QuestionCard: View {
     @FocusState private var isNoteFocused: Bool
     @AccessibilityFocusState private var focusedStep: Int?
 
-    /// The card is at most this share of the pane, and while the person types it may use nearly all of it, because
+    /// A question step is at most 70 percent of the pane, the review 60, and while the person types it may use nearly all of it, because
     /// the card is the input then. It never gets less than room for the header, one option and the action row.
     private func cap(_ flow: QuestionFlow) -> CGFloat {
         if case .typing = flow.step { return max(paneHeight - 16, 260) }
+        if case .question = flow.step { return max(paneHeight * 0.7, 260) }
         return max(paneHeight * 0.6, 260)
     }
 
@@ -160,13 +161,9 @@ struct QuestionCard: View {
                 QuestionOptionButton(label: other, detail: nil, isSelected: true) { startTyping() }
                     .accessibilityIdentifier("question.other")
             }
-            Button {
-                startTyping()
-            } label: {
-                Text("question.typeAnswer").font(.body.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .foregroundStyle(.primary)
-            .accessibilityIdentifier("question.typeAnswer")
+            Button("question.typeAnswer") { startTyping() }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("question.typeAnswer")
             if let message = model.fieldErrors[item.id] { errorLine(message) }
         }
     }

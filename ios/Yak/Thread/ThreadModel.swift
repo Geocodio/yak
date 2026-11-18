@@ -22,7 +22,7 @@ final class ThreadModel {
     /// Lives as long as the model, so typed text survives a retry and a slow load.
     let composer: ComposerModel
     /// The open question round, answered in the card above the bar.
-    let question = QuestionModel()
+    let question = QuestionModel(canDrive: nil)
     /// The session had no engine to give, so there is nothing to wait for.
     private(set) var couldNotOpen = false
     /// The rows of the conversation, with the day dividers, from the newest snapshot.
@@ -182,6 +182,7 @@ final class ThreadModel {
                 guard !Task.isCancelled else { return }
                 self.onSnapshot(next)
                 self.composer.update(snapshot: next)
+                self.question.canDrive = next.show?.canDrive
                 if let show = next.show { await self.question.update(question: show.question) }
                 if !next.isOffline { self.question.connectionRestored() }
             }

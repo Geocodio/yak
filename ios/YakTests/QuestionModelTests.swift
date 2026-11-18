@@ -59,6 +59,22 @@ private func round(task: String = "k3m9p2qa") -> ThreadQuestion {
 }
 
 @MainActor @Suite struct QuestionModelTests {
+    @Test(arguments: [false, nil] as [Bool?])
+    func aPersonWhoCannotDriveOrIsNotKnownYetSeesNoControlsAndSendsNothing(canDrive: Bool?) async {
+        let backend = FakeQuestionBackend()
+        let model = QuestionModel(backend: backend, canDrive: canDrive)
+        await model.update(question: round())
+        #expect(model.flow != nil)
+        #expect(!model.canAnswer)
+        await model.pick("Mark the row as failed", question: 0)
+        #expect(model.flow?.answers.isEmpty == true)
+        await model.send()
+        #expect(await backend.sendCount == 0)
+        #expect(await backend.saved.isEmpty)
+        model.canDrive = true
+        #expect(model.canAnswer)
+    }
+
     @Test func everyActionSavesTheDraft() async {
         let backend = FakeQuestionBackend()
         let model = QuestionModel(backend: backend)

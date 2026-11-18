@@ -33,7 +33,7 @@ private struct ChatPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if case .conversation = thread.loadPresentation {
                 QuestionCard(
-                    model: thread.question, canAnswer: thread.snapshot?.show?.canDrive ?? false,
+                    model: thread.question,
                     isOffline: thread.isOffline, paneHeight: paneHeight
                 )
                 .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)

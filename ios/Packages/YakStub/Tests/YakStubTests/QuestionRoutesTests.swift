@@ -70,4 +70,9 @@ import Testing
         }
         #expect(String(decoding: body, as: UTF8.self).contains(#""canDrive":false"#))
     }
+
+    @Test func theQuestionFeatureAnswersTheShowBeforeTheChangesFeature() throws {
+        let all = StubFeatures.all.map { $0.name }
+        #expect(try #require(all.firstIndex(of: "question")) < #require(all.firstIndex(of: "changes")))
+    }
 }

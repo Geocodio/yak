@@ -61,7 +61,13 @@ final class QuestionModel {
     /// Changes and saves run one after another, so a later draft never lands before an earlier one.
     @ObservationIgnored private var saveChain: Task<Void, Never>?
 
-    init(backend: (any QuestionBackend)? = nil, slowAfter: Duration = .seconds(8)) {
+    /// Whether the person may answer: the thread's `canDrive`, nil until the thread has said. Anything but true
+    /// means the card shows the questions and no controls, and nothing is sent.
+    var canDrive: Bool?
+    var canAnswer: Bool { canDrive == true }
+
+    init(backend: (any QuestionBackend)? = nil, slowAfter: Duration = .seconds(8), canDrive: Bool? = true) {
+        self.canDrive = canDrive
         self.backend = backend
         self.slowAfter = slowAfter
     }
@@ -230,7 +236,7 @@ final class QuestionModel {
 
     // MARK: Private
 
-    private var canChange: Bool { flow != nil && !isClosed && !isSending }
+    private var canChange: Bool { canAnswer && flow != nil && !isClosed && !isSending }
 
     private func change(_ mutate: (inout QuestionFlow) -> Void) async {
         guard apply(mutate) else { return }
