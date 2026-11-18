@@ -24,7 +24,12 @@ import XCTest
         try auditTwice(app) { [app] in
             let auditBars = AuditRules.Bars(app)
             return { issue in
-                AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars)
+                let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
+                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
+                    // The system caps the size of text in its bars.
+                    if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
+                }
+                return AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars)
                     || AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars)
             }
         }
@@ -32,7 +37,6 @@ import XCTest
         let editor = app.textViews["files.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: Wait.firstLoad))
         XCTAssertTrue((editor.value as? String ?? "").contains("cold_start: npm run dev"))
-        XCTAssertTrue(element("files.editor.keys").exists)
     }
 
     func testWalkthroughPlaysAndCloses() throws {

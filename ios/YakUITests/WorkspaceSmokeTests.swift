@@ -97,7 +97,7 @@ extension XCUIApplication {
         XCTAssertTrue(output.waitForExistence(timeout: 60))
         app.typeKey("3", modifierFlags: .command)
         XCTAssertTrue(element("files").waitForExistence(timeout: 60))
-        XCTAssertFalse(output.isHittable)
+        XCTAssertTrue(element("files").isHittable)
     }
 
     func testTerminalIdleCloseDoesNotReconnect() throws {
