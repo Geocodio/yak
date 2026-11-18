@@ -337,7 +337,7 @@ export default function Runs({ header, runs, totalCount, selected, selectedUrl, 
                     </div>
                 </div>
             )}
-            <RunLogOverlay target={logTarget} onClose={() => setLogTarget(null)} />
+            <RunLogOverlay target={logTarget} isLive={selected !== null && selected.isLive && selected.logUrl === logTarget?.id} onClose={() => setLogTarget(null)} />
         </RepositorySettingsLayout>
     );
 }

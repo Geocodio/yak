@@ -14,8 +14,8 @@ const SEARCH_DELAY_MS = 250;
 /**
  * Reads the full log of one run in pages. A new `url` or a new search starts over, a failed request keeps what is
  * shown and offers a retry, and the next page is asked for only on request so a slow log never blocks the page.
- * While the run is live, a page that holds a tool call with no output yet is read again every few seconds, and only
- * that page, so the output of a running step shows up without reopening the log.
+ * While the run is live, the last page and any page that holds a tool call with no output yet are read again every
+ * few seconds, so new steps and the output of a running step show up without reopening the log.
  */
 export function useRunLog(url: string | null, isLive = false): {
     entries: TranscriptEntry[];
@@ -100,44 +100,62 @@ export function useRunLog(url: string | null, isLive = false): {
             .finally(() => setIsLoadingMore(false));
     }, [nextCursor, isLoadingMore, request]);
 
-    const pendingCursors = pages.filter(hasPendingOutput).map((page) => page.cursor);
-    const hasPending = pendingCursors.length > 0;
-    const pendingKey = JSON.stringify(pendingCursors);
+    const pagesRef = useRef(pages);
+    pagesRef.current = pages;
     const wasLive = useRef(isLive);
+    const isRefreshing = useRef(false);
 
-    // Reads each page with an unanswered tool call again and swaps it in place, so pages that are complete are
-    // never fetched and the entries before and after keep their identity, the selected step and the scroll position.
-    const refreshPending = useCallback(() => {
-        const current = generation.current;
-        const cursors: (number | null)[] = JSON.parse(pendingKey);
+    // Reads again each page with an unanswered tool call, and the last page while it can still grow, and swaps it in
+    // place, so complete pages are never fetched and the entries before and after keep their identity, the selected
+    // step and the scroll position. A refresh that is still running is not started twice.
+    const refreshPending = useCallback(
+        (includesLastPage: boolean) => {
+            if (isRefreshing.current) {
+                return;
+            }
+            const loaded = pagesRef.current;
+            const last = loaded[loaded.length - 1];
+            const cursors = new Set(loaded.filter(hasPendingOutput).map((page) => page.cursor));
+            if (includesLastPage && last !== undefined && last.nextCursor === null) {
+                cursors.add(last.cursor);
+            }
+            if (cursors.size === 0) {
+                return;
+            }
+            const current = generation.current;
+            isRefreshing.current = true;
 
-        cursors.forEach((cursor) => {
-            request(cursor)
-                .then((fresh) => {
-                    if (generation.current === current) {
-                        setPages((previous) => previous.map((page) => (page.cursor === cursor ? { ...fresh, cursor } : page)));
-                    }
-                })
-                .catch(() => undefined);
-        });
-    }, [pendingKey, request]);
+            Promise.allSettled(
+                [...cursors].map((cursor) =>
+                    request(cursor).then((fresh) => {
+                        if (generation.current === current) {
+                            setPages((previous) => previous.map((page) => (page.cursor === cursor ? { ...fresh, cursor } : page)));
+                        }
+                    }),
+                ),
+            ).finally(() => {
+                isRefreshing.current = false;
+            });
+        },
+        [request],
+    );
 
     useEffect(() => {
-        if (status !== 'ready' || !hasPending || !isLive) {
+        if (status !== 'ready' || !isLive) {
             return;
         }
-        const interval = window.setInterval(refreshPending, REFRESH_INTERVAL_MS);
+        const interval = window.setInterval(() => refreshPending(true), REFRESH_INTERVAL_MS);
 
         return () => window.clearInterval(interval);
-    }, [status, hasPending, isLive, refreshPending]);
+    }, [status, isLive, refreshPending]);
 
     // The run ended while the log was open: one last read fills in what the final steps answered.
     useEffect(() => {
-        if (wasLive.current && !isLive && hasPending) {
-            refreshPending();
+        if (wasLive.current && !isLive) {
+            refreshPending(true);
         }
         wasLive.current = isLive;
-    }, [isLive, hasPending, refreshPending]);
+    }, [isLive, refreshPending]);
 
     const search = useCallback((value: string) => {
         window.clearTimeout(timer.current);

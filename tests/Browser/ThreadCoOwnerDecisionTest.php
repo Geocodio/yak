@@ -157,6 +157,21 @@ it('sends feedback from the card with request changes', function () {
     expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::ChangesRequested);
 });
 
+it('keeps a typed request-changes reason when the phone gets taller', function () {
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->actingAs($viewer);
+
+    $page = visit("/threads/{$thread->public_id}");
+    $page->resize(375, 667)
+        ->click('[data-testid="co-owner-request-changes"]')
+        ->fill('[data-testid="co-owner-feedback-text"]', 'Split the headers into separate tasks');
+    $page->resize(375, 812)->assertVisible('[data-testid="co-owner-feedback-text"]');
+
+    expect($page->script('document.querySelector(\'[data-testid="co-owner-feedback-text"]\').value'))->toBe('Split the headers into separate tasks');
+});
+
 it('rejects after the confirm, and the requester can withdraw', function () {
     $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
     [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);

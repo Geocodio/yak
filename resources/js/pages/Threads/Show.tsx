@@ -59,8 +59,16 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const activeDock = dockPanels.find((panel) => panel.id === dock.activeId) ?? null;
     const isWide = useMediaQuery(WIDE_RAIL_QUERY);
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
-    // On a short phone the card scrolls with the conversation so the composer keeps its room.
-    const isShortPhone = useMediaQuery('(max-width: 639px) and (max-height: 740px)');
+    // On a short phone the card scrolls with the conversation so the composer keeps its room. The placement is decided
+    // when the thread or the card kind changes and then kept, so a rotation or the browser toolbar hiding does not
+    // remount the card and lose what was typed in it.
+    const isShortPhoneNow = useMediaQuery('(max-width: 639px) and (max-height: 740px)');
+    const placementKey = `${thread.id}:${card ?? ''}`;
+    const [placement, setPlacement] = useState({ key: placementKey, isShortPhone: isShortPhoneNow });
+    if (placement.key !== placementKey) {
+        setPlacement({ key: placementKey, isShortPhone: isShortPhoneNow });
+    }
+    const isShortPhone = placement.key === placementKey ? placement.isShortPhone : isShortPhoneNow;
     const [isRailOpen, setIsRailOpen] = useState(() => activeDock === null || (activeDock.id !== 'files' && isWide));
     const [phoneTab, setPhoneTab] = useState<PhoneTabId>(() => phoneTabIdFor(activeDock?.id ?? null));
     const [filesMode, setFilesMode] = useState<FilesMode | null>(null);

@@ -327,7 +327,7 @@ export default function ForPr({ pr, runs, pullRequest, description, modelLabels 
                     <SidePanel panel={pullRequest} />
                 </div>
             </div>
-            <RunLogOverlay target={logTarget} onClose={() => setLogTarget(null)} />
+            <RunLogOverlay target={logTarget} isLive={runs.some((run) => run.isLive && run.logUrl === logTarget?.id)} onClose={() => setLogTarget(null)} />
         </>
     );
 }
