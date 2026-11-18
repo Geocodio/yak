@@ -201,12 +201,13 @@ struct AttachmentImageLoaderTests {
 
     @Test func aConsumerThatStopsEarlyCancelsTheTask() async throws {
         let cancels = Cancels()
-        var delegate: AttachmentChunkDelegate? = AttachmentChunkDelegate(limit: 1000, cancel: { cancels.hit() })
-        #expect(delegate?.receive(response: response()) == true)
-        delegate?.receive(data: Data(count: 10))
-        let chunks = try #require(delegate?.chunks)
-        for try await _ in chunks { break }
-        delegate = nil
-        #expect(cancels.count >= 1)
+        func readOneChunkThenStop() async throws {
+            let delegate = AttachmentChunkDelegate(limit: 1000, cancel: { cancels.hit() })
+            #expect(delegate.receive(response: response()))
+            delegate.receive(data: Data(count: 10))
+            for try await _ in delegate.chunks { break }
+        }
+        try await readOneChunkThenStop()
+        #expect(cancels.count == 1)
     }
 }
