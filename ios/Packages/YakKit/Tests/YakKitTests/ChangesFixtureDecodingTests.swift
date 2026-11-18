@@ -25,6 +25,23 @@ import Testing
         }
     }
 
+    @Test func aFileInAScratchRepositoryIsNotInThePullRequest() {
+        let diff = ThreadDiff(
+            baseSha: "a", headSha: "b", capturedAt: "2026-11-18T09:00:00Z", filesCount: 2, additions: 2, deletions: 0,
+            repositories: [
+                DiffRepository(repo: "example/web", role: .primary, filesCount: 1, additions: 1, deletions: 0),
+                DiffRepository(
+                    repo: "example/scratch", role: .changes, isThrowaway: true, filesCount: 1, additions: 1,
+                    deletions: 0),
+            ])
+        let tracked = DiffFileSummary(id: 1, repo: "example/web", path: "a.txt", status: .added)
+        let scratch = DiffFileSummary(id: 2, repo: "example/scratch", path: "b.txt", status: .added)
+        let unlisted = DiffFileSummary(id: 3, repo: "example/other", path: "c.txt", status: .added)
+        #expect(!diff.isThrowaway(tracked))
+        #expect(diff.isThrowaway(scratch))
+        #expect(!diff.isThrowaway(unlisted))
+    }
+
     @Test(arguments: ["diff-file", "diff-file-binary", "diff-file-too-large"])
     func decodesTheDiffFileFixtures(name: String) throws {
         guard Self.isPresent(name) else { return }

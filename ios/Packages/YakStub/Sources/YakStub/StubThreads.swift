@@ -105,6 +105,9 @@ private func json(_ object: Any, status: Int = 200) -> StubAnswer {
 private let noContent = StubAnswer.reply(status: 204, contentType: "application/json", body: Data())
 
 extension Scenario {
+    /// The thread a `/clear` in any thread starts.
+    static let clearedThreadID = "n3w7hr3d"
+
     var playsLive: Bool { self == .oneThreadWorking || self == .longTurn || self == .oneThreadHeld }
 
     /// The events of the history that come before the live turn of `long-turn`.
@@ -340,7 +343,15 @@ extension Scenario {
         guard path.first == "threads" || path == ["broadcasting", "auth"] else { return nil }
         let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] ?? [:]
         let listed = rows(in: list(filter: "everyone", fixtures, baseURL))
-        func row(_ id: String) -> [String: Any]? { listed.first { $0["id"] as? String == id } }
+        func row(_ id: String) -> [String: Any]? {
+            // The thread a `/clear` starts: the first listed thread under the new id and a title of its own.
+            if id == Self.clearedThreadID, var started = listed.first {
+                started["id"] = id
+                started["title"] = "A fresh start"
+                return started
+            }
+            return listed.first { $0["id"] as? String == id }
+        }
         func notFound() -> StubAnswer { Self.error(404, "not_found", "This thread does not exist.") }
         func answer() -> StubAnswer {
             switch (method, path.count, path.dropFirst().first ?? "", path.last ?? "") {
@@ -408,7 +419,7 @@ extension Scenario {
                 let text = (body["message"] ?? body["text"]) as? String ?? ""
                 if text.trimmingCharacters(in: .whitespacesAndNewlines) == "/clear" {
                     var cleared = data("scenario-message-clear", fixtures, baseURL)
-                    cleared["threadId"] = "n3w7hr3d"
+                    cleared["threadId"] = Self.clearedThreadID
                     return json(cleared)
                 }
                 let queued = String(decoding: request.body, as: UTF8.self).contains("after_turn")

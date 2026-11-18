@@ -135,7 +135,9 @@ struct ChangedFilesView: FilesModeView {
             LazyHStack(spacing: 0) {
                 ForEach(snapshot.pager.files, id: \.key) { file in
                     FilePageView(
-                        file: file, state: snapshot.pages[file.key], isViewed: snapshot.marks.isViewed(file),
+                        file: file, state: snapshot.pages[file.key],
+                        isThrowaway: snapshot.diff?.isThrowaway(file) == true,
+                        isViewed: snapshot.marks.isViewed(file),
                         toggleViewed: { Task { await model.toggleViewed() } },
                         retry: { Task { await model.retry() } }, openWeb: { isShowingWeb = true },
                         edit: canEdit(file, state: snapshot.pages[file.key])

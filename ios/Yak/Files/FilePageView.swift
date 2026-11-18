@@ -5,6 +5,8 @@ import YakKit
 struct FilePageView: View {
     let file: DiffFileSummary
     let state: FilePageState?
+    /// The file is in a scratch repository, so it never goes into the pull request.
+    var isThrowaway = false
     let isViewed: Bool
     let toggleViewed: () -> Void
     let retry: () -> Void
@@ -60,6 +62,10 @@ struct FilePageView: View {
             if let old = file.oldPath, file.status == .renamed {
                 Text("files.renamedFrom \(old)").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if isThrowaway {
+                Text("files.notInPullRequest").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("files.notInPullRequest")
             }
             // Two actions that must not clip stack at accessibility text sizes, as the bar below does.
             if dynamicTypeSize.isAccessibilitySize {

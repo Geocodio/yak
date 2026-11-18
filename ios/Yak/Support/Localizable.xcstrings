@@ -641,6 +641,16 @@
         }
       }
     },
+    "chat.action.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is taking longer than usual"
+          }
+        }
+      }
+    },
     "chat.announce.finished" : {
       "localizations" : {
         "en" : {
@@ -3276,6 +3286,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This thread is not here anymore"
+          }
+        }
+      }
+    },
+    "files.notInPullRequest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in the pull request"
           }
         }
       }

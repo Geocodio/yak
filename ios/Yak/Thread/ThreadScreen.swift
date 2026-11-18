@@ -91,7 +91,9 @@ struct ThreadScreen: View {
         .onChange(of: isVisible) { Task { await model?.setVisible(isVisible) } }
         // A `/clear` starts a new thread; the window follows it.
         .onChange(of: model?.replacementThreadID) { _, replacement in
-            if let replacement { scene.open(thread: replacement, isCompactWidth: isCompactWidth) }
+            if let replacement, let sentFrom = model?.threadID {
+                scene.openReplacement(replacement, sentFrom: sentFrom, isCompactWidth: isCompactWidth)
+            }
         }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
     }
