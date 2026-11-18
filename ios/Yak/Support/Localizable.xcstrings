@@ -671,12 +671,72 @@
         }
       }
     },
+    "chat.attachment.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file could not be loaded. Try again."
+          }
+        }
+      }
+    },
+    "chat.attachment.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the file"
+          }
+        }
+      }
+    },
     "chat.attachment.image %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Image %@"
+          }
+        }
+      }
+    },
+    "chat.attachment.image.speech %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, image"
+          }
+        }
+      }
+    },
+    "chat.attachment.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        }
+      }
+    },
+    "chat.attachment.webOnly" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open this thread on the web to see this file."
+          }
+        }
+      }
+    },
+    "chat.attachments.more %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more files"
           }
         }
       }
@@ -1225,6 +1285,56 @@
         }
       }
     },
+    "chat.upload.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Tap Retry, or it tries again later."
+          }
+        }
+      }
+    },
+    "chat.upload.progress %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld %%"
+          }
+        }
+      }
+    },
+    "chat.upload.progress.speech %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld percent"
+          }
+        }
+      }
+    },
+    "chat.upload.slow %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %lld %%. The connection is slow."
+          }
+        }
+      }
+    },
+    "chat.upload.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a connection. It sends by itself."
+          }
+        }
+      }
+    },
     "chat.waiting.active" : {
       "localizations" : {
         "en" : {
@@ -1411,6 +1521,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New"
+          }
+        }
+      }
+    },
+    "composer.paste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste image"
           }
         }
       }

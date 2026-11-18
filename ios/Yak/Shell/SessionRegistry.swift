@@ -39,7 +39,10 @@ final class SessionRegistry {
     }
 
     func enterForeground() async {
-        for session in Array(sessions.values) { await session.enterForeground() }
+        for session in Array(sessions.values) {
+            await session.enterForeground()
+            await session.retryFailedUploads()
+        }
     }
 
     func networkChanged(isOnline: Bool) async {

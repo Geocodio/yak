@@ -1,0 +1,396 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "share.cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "share.cannotSend %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot send to %@."
+          }
+        }
+      }
+    },
+    "share.cannotSendPrivate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot send to a private thread."
+          }
+        }
+      }
+    },
+    "share.instance.menu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to"
+          }
+        }
+      }
+    },
+    "share.minText %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write at least %lld characters."
+          }
+        }
+      }
+    },
+    "share.mode.fix" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fix"
+          }
+        }
+      }
+    },
+    "share.mode.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "share.model.default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default model"
+          }
+        }
+      }
+    },
+    "share.noContext" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Yak once while online to load your repositories."
+          }
+        }
+      }
+    },
+    "share.noInstance.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Yak and scan the code on your Yak's Settings page."
+          }
+        }
+      }
+    },
+    "share.noInstance.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair this phone with a Yak first"
+          }
+        }
+      }
+    },
+    "share.noLast" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a thread in Yak first."
+          }
+        }
+      }
+    },
+    "share.noRepository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a repository."
+          }
+        }
+      }
+    },
+    "share.notReady %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is still being set up: %2$@"
+          }
+        }
+      }
+    },
+    "share.notice.links" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only web links are sent. Some links are left out."
+          }
+        }
+      }
+    },
+    "share.notice.textCut %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The text is cut to %lld characters."
+          }
+        }
+      }
+    },
+    "share.notice.tooLarge %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is larger than the file limit and is left out."
+          }
+        }
+      }
+    },
+    "share.notice.tooMany %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak takes up to %1$lld files. The first %2$lld are attached."
+          }
+        }
+      }
+    },
+    "share.notice.unreadable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One item could not be read and is left out."
+          }
+        }
+      }
+    },
+    "share.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. It sends when you are back online."
+          }
+        }
+      }
+    },
+    "share.preparing %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "share.preview.images %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld photos"
+          }
+        }
+      }
+    },
+    "share.preview.links %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld links"
+          }
+        }
+      }
+    },
+    "share.preview.nothing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to send yet"
+          }
+        }
+      }
+    },
+    "share.preview.text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        }
+      }
+    },
+    "share.repository.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "share.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "share.saveFailed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This could not be saved for sending. Try again."
+          }
+        }
+      }
+    },
+    "share.send" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        }
+      }
+    },
+    "share.signedOut.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Yak and pair again. Nothing was saved."
+          }
+        }
+      }
+    },
+    "share.signedOut.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak is signed out of %@"
+          }
+        }
+      }
+    },
+    "share.slow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slow connection. Still loading your repositories."
+          }
+        }
+      }
+    },
+    "share.stillPreparing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still preparing. Large photos can take a moment."
+          }
+        }
+      }
+    },
+    "share.target" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where to send"
+          }
+        }
+      }
+    },
+    "share.target.last" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to last thread"
+          }
+        }
+      }
+    },
+    "share.target.new" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New thread"
+          }
+        }
+      }
+    },
+    "share.text.placeholder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a message"
+          }
+        }
+      }
+    },
+    "share.unreadable.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not read your sign-in from the device. Try again in a moment."
+          }
+        }
+      }
+    },
+    "share.unreadable.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open your sign-in"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

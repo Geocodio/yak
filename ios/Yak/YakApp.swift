@@ -19,6 +19,7 @@ struct YakApp: App {
                 GestureTips.configure(TestSystemOptions.current().tips == .show ? .shown : .hidden)
                 let made = testMode.make(version: version, system: system)
                 self.parts = made.parts
+                Self.attachLaunchWork(made.parts)
                 _model = State(initialValue: made.model)
                 return
             }
@@ -48,15 +49,24 @@ struct YakApp: App {
             }
         }
         let files: any FileStore = storage?.files ?? SessionEnvironment.releaseFiles()
+        let uploads = storage.map {
+            UploadSessions(
+                appBundleID: $0.appBundleID, appGroup: $0.appGroup, files: $0.files, clock: SystemClock(),
+                instances: instances, tokens: tokens, appVersion: version, systemDescription: system)
+        }
         let faults = DebugFaultSwitch()
         let environment: @Sendable () -> SessionEnvironment = {
-            .app(version: version, system: system, files: files, allowsInsecureRealtime: false, faults: faults)
+            .app(
+                version: version, system: system, files: files, allowsInsecureRealtime: false, faults: faults,
+                uploads: uploads.map { sessions in { @Sendable (instance: UUID) in sessions.link(for: instance) } })
         }
         let parts = AppParts.make(
             storage: storage, isTestMode: false,
             context: AppPartsContext(
-                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults, faults: faults))
+                instances: instances, tokens: tokens, makeEnvironment: environment, defaults: defaults,
+                uploads: uploads, faults: faults))
         self.parts = parts
+        Self.attachLaunchWork(parts)
         BackgroundRefresh.register(identifier: BackgroundRefresh.identifier) { parts.backgroundRefreshSteps }
         let model = AppModel(
             instances: instances, tokens: tokens,
@@ -70,12 +80,21 @@ struct YakApp: App {
         _model = State(initialValue: model)
     }
 
+    /// Runs for every launch, with or without a scene, so a background relaunch for an upload session reaches the
+    /// sessions.
+    private static func attachLaunchWork(_ parts: AppParts) {
+        PushAppDelegate.register(launchUploads: parts.uploads)
+        parts.uploads?.removeExpiredStaging()
+    }
+
     var body: some Scene {
         WindowGroup {
             #if DEBUG
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "working")
+                } else if let shareCase = TestMode.value("yakTestShare") {
+                    ShareTestHost(caseName: shareCase).preferredColorScheme(TestMode.colorScheme())
                 } else if TestMode.value("yakTestScreen") == "widget-gallery" {
                     WidgetGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "needs-you")
@@ -100,6 +119,7 @@ struct YakApp: App {
             .appRoot(parts, model: model)
             .task {
                 delegate.attach(parts.push)
+                delegate.attach(uploads: parts.uploads)
                 await parts.push.start()
             }
     }
