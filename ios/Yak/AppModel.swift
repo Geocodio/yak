@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import YakKit
 
 #if canImport(os)
@@ -49,20 +50,105 @@ final class AppModel {
     /// still connected, else the last one that connected. They never open a window of their own.
     var routingScene: SceneModel? { lastActiveScene ?? scenes.last { $0.scene != nil }?.scene }
 
-    func sceneBecameActive(_ scene: SceneModel) { lastActiveScene = scene }
+    /// A window that is in front becomes the routing one. A window that is missing from the list (it was removed
+    /// and is back in front) is registered again.
+    func sceneBecameActive(_ scene: SceneModel) {
+        if !scenes.contains(where: { $0.scene === scene }) { scenes.append(WeakScene(scene: scene)) }
+        lastActiveScene = scene
+    }
 
+    /// Called when the window itself goes away, never when one of its screens does.
     func sceneDisconnected(_ scene: SceneModel) {
         scenes.removeAll { $0.scene == nil || $0.scene === scene }
+        phases[ObjectIdentifier(scene)] = nil
         if lastActiveScene === scene { lastActiveScene = nil }
+        if presentingScene === scene { presentingScene = nil }
     }
+
+    /// What a window's phase did to the app as a whole.
+    enum AppPhaseChange: Equatable { case none, enteredBackground, enteredForeground }
+
+    @ObservationIgnored private var phases: [ObjectIdentifier: ScenePhase] = [:]
+    /// Whether every window is in the background; the live updates stop only then.
+    private(set) var isInBackground = false
+
+    /// A window's phase changed. The app goes to the background when every window is there, and live updates and the
+    /// feed pause only then; one window leaving never pauses another that is still in front.
+    @discardableResult
+    func scenePhaseChanged(_ scene: SceneModel, to phase: ScenePhase) async -> AppPhaseChange {
+        phases[ObjectIdentifier(scene)] = phase
+        switch phase {
+        case .active:
+            sceneBecameActive(scene)
+            let wasInBackground = isInBackground
+            isInBackground = false
+            await sessions.enterForeground()
+            return wasInBackground ? .enteredForeground : .none
+        case .background:
+            let isEveryWindowInBackground = scenes.compactMap(\.scene).allSatisfy {
+                phases[ObjectIdentifier($0)] == .background
+            }
+            guard isEveryWindowInBackground, !isInBackground else { return .none }
+            isInBackground = true
+            await sessions.enterBackground()
+            BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
+            await widgets?.enteredBackground()
+            return .enteredBackground
+        default:
+            return .none
+        }
+    }
+
+    @ObservationIgnored private var quickActionsTask: Task<Void, Never>?
+
+    /// Turns the Home Screen quick actions into links, once for the app. Every window calls it; only the first starts
+    /// the loop, and closing a window never ends it.
+    func followQuickActions() {
+        guard quickActionsTask == nil else { return }
+        quickActionsTask = Task { [weak self] in
+            for await link in QuickActions.links() { await self?.handle(url: link) }
+        }
+    }
+
+    /// How many windows are registered.
+    var connectedSceneCount: Int { scenes.compactMap(\.scene).count }
+
     /// A link that arrived before the window chose its first screen; the cold start reads it once.
     private(set) var launchLink: DeepLink?
     /// The task page to show in the in-app browser.
-    var browserURL: URL?
+    var browserURL: URL? { didSet { claimPresenter() } }
     /// A task link or push waiting for the shell to open its native screen.
     var taskToOpen: String?
     /// An instance a link named that this phone is not paired with; the shell shows the connect flow for it.
-    var addressToConnect: URL?
+    var addressToConnect: URL? { didSet { claimPresenter() } }
+    /// The window that shows the browser and the connect sheet: the routing one when they opened. They are app-wide
+    /// values and show in one window only.
+    @ObservationIgnored private weak var presentingScene: SceneModel?
+
+    private func claimPresenter() {
+        if browserURL == nil, addressToConnect == nil {
+            presentingScene = nil
+        } else if presentingScene == nil {
+            presentingScene = routingScene
+        }
+    }
+
+    /// Whether the app-wide sheets (the browser and the connect sheet) show in this window.
+    func presentsSheets(in scene: SceneModel) -> Bool { (presentingScene ?? routingScene) === scene }
+
+    /// The task id a link or push waits to open, taken by the routing window only.
+    func takeTaskToOpen(for scene: SceneModel) -> String? {
+        guard routingScene === scene, let id = taskToOpen else { return nil }
+        taskToOpen = nil
+        return id
+    }
+
+    /// What a push tap asks a screen to show, taken by the routing window only.
+    func takePendingPush(for scene: SceneModel) -> PushPending? {
+        guard routingScene === scene, let pending = push?.pending else { return nil }
+        push?.clearPending()
+        return pending
+    }
     /// Set by the shell from the window's size class, for links that open a thread.
     var isCompactWidth = true
     /// The instance whose session is running, so leaving it stops the session.

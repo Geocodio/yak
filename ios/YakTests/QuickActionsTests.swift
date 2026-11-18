@@ -95,4 +95,26 @@ import YakKit
         secondReader.cancel()
         #expect(received.count == 1, "a delivered action is not delivered again")
     }
+
+    @Test func aQuickActionReachesTheAppAfterAWindowCloses() async throws {
+        QuickActions.reset()
+        let (model, _) = makeLinkModel()
+        let window = model.makeSceneModel(restored: nil)
+        // Every window asks; one loop runs for the app, and closing a window never ends it.
+        model.followQuickActions()
+        model.followQuickActions()
+        model.sceneBecameActive(window)
+        model.sceneDisconnected(window)
+        let link = "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=a1b2c3d4"
+        let item = UIApplicationShortcutItem(
+            type: "open", localizedTitle: "x", localizedSubtitle: nil, icon: nil, userInfo: ["link": link as NSString])
+        #expect(QuickActions.deliver(item))
+        for _ in 0..<200 where model.launchLink == nil { try await Task.sleep(for: .milliseconds(10)) }
+        guard case .thread(_, let id)? = model.launchLink else {
+            Issue.record("the link did not reach the app")
+            return
+        }
+        #expect(id == "a1b2c3d4")
+        QuickActions.reset()
+    }
 }

@@ -80,7 +80,7 @@ extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
         onOpenURL { url in Task { await model.handle(url: url) } }
-            .modifier(PushRoot(push: parts.push, widgets: parts.widgets, model: model))
+            .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
@@ -91,11 +91,10 @@ extension View {
     }
 }
 
-/// Push's scene-root work: it becomes active with the app, follows the network and asks for the next refresh when
-/// the app goes to the background.
+/// Push's scene-root work: it becomes active with the app and follows the network. The next refresh is asked for when
+/// the app as a whole goes to the background, which `AppModel` decides.
 private struct PushRoot: ViewModifier {
     let push: PushController
-    let widgets: WidgetReloadScheduler
     let model: AppModel
     @Environment(\.scenePhase) private var scenePhase
 
@@ -104,9 +103,6 @@ private struct PushRoot: ViewModifier {
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active: Task { await push.appBecameActive() }
-                case .background:
-                    BackgroundRefresh.schedule(identifier: BackgroundRefresh.identifier)
-                    Task { await widgets.enteredBackground() }
                 default: break
                 }
             }

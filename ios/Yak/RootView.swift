@@ -37,19 +37,18 @@ struct RootView: View {
         .animation(.spring, value: model.linkPairing?.state)
         .task {
             if scene == nil { scene = model.makeSceneModel(restored: restoredScene, request: request) }
+            if let scene, scenePhase == .active { model.sceneBecameActive(scene) }
             await model.reloadRoute()
         }
         .onChange(of: scene?.state) { restoredScene = scene?.encodedState }
         .onChange(of: scene?.windowValue) { if request != scene?.windowValue { request = scene?.windowValue } }
+        // The window registers when it is made and leaves when it goes away; a route change rebuilds only the screen
+        // inside it. The app pauses its live updates when every window is in the background, not when one is.
         .onChange(of: scenePhase) { _, phase in
-            Task {
-                switch phase {
-                case .background: await model.sessions.enterBackground()
-                case .active: await model.sessions.enterForeground()
-                default: break
-                }
-            }
+            guard let scene else { return }
+            Task { await model.scenePhaseChanged(scene, to: phase) }
         }
+        .onDisappear { if let scene { model.sceneDisconnected(scene) } }
         .onChange(of: model.network.isOnline) { _, isOnline in
             Task { await model.sessions.networkChanged(isOnline: isOnline) }
         }
@@ -60,7 +59,7 @@ extension RootView {
     /// The explanation screen after a pairing, shown over whatever the route shows.
     fileprivate var explanationBinding: Binding<NotificationExplanationRequest?> {
         Binding(
-            get: { model.push?.explanation },
+            get: { scene.flatMap { model.routingScene === $0 } == true ? model.push?.explanation : nil },
             set: { if $0 == nil { model.push?.explanation = nil } })
     }
 }

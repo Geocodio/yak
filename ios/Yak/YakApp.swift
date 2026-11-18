@@ -78,17 +78,15 @@ struct YakApp: App {
                 rootView($request)
             #endif
         }
-        // A link, push or activity goes to the last active window and never opens a new one.
-        .handlesExternalEvents(matching: ["*"])
         .commands { YakCommands() }
     }
 
     private func rootView(_ request: Binding<WindowRequest?>) -> some View {
         RootView(model: model, request: request)
+            // An open window takes a link, a widget tap or an activity; none of them opens another window.
+            .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
             .appRoot(parts, model: model)
-            .task {
-                for await link in QuickActions.links() { await model.handle(url: link) }
-            }
+            .task { model.followQuickActions() }
             .task {
                 delegate.attach(parts.push)
                 await parts.push.start()
