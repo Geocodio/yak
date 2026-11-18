@@ -423,3 +423,31 @@ private final class SleeperCount: @unchecked Sendable {
     #expect(model.taskToOpen == "k3m9p2qa")
     #expect(model.browserURL == nil)
 }
+
+@MainActor @Test func aLinkGoesToTheLastActiveScene() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let first = model.makeSceneModel(restored: nil)
+    let second = model.makeSceneModel(restored: nil)
+    first.applyColdStart(.drawer(.mine))
+    second.applyColdStart(.drawer(.mine))
+    model.sceneBecameActive(first)
+    model.sceneBecameActive(second)
+    let address = URL(string: "https://first.example.com")!
+    await model.handle(link: .thread(instance: address, id: "a1b2c3d4"))
+    #expect(second.state.threadID == "a1b2c3d4" && first.state.threadID == nil)
+    model.sceneDisconnected(second)
+    await model.handle(link: .thread(instance: address, id: "e5f6g7h8"))
+    #expect(first.state.threadID == "e5f6g7h8")
+}
+
+@MainActor @Test func aLinkWithNoSceneConnectedWaitsForTheColdStart() async {
+    let (model, _) = makeLinkModel()
+    await model.handle(url: URL(string: "yak://pair?url=https%3A%2F%2Ffirst.example.com&code=a")!)
+    await model.confirmLinkPairing()
+    let link = DeepLink.thread(instance: URL(string: "https://first.example.com")!, id: "a1b2c3d4")
+    await model.handle(link: link)
+    #expect(model.takeLaunchLink() == link)
+    #expect(model.routingScene == nil)
+}

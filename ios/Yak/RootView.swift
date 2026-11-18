@@ -3,6 +3,8 @@ import YakKit
 
 struct RootView: View {
     let model: AppModel
+    /// What this window was asked to show; the window keeps it equal to the thread it shows.
+    @Binding var request: WindowRequest?
 
     @SceneStorage("yak.scene") private var restoredScene: Data?
     @State private var scene: SceneModel?
@@ -34,10 +36,11 @@ struct RootView: View {
         .animation(.spring, value: model.route)
         .animation(.spring, value: model.linkPairing?.state)
         .task {
-            if scene == nil { scene = model.makeSceneModel(restored: restoredScene) }
+            if scene == nil { scene = model.makeSceneModel(restored: restoredScene, request: request) }
             await model.reloadRoute()
         }
         .onChange(of: scene?.state) { restoredScene = scene?.encodedState }
+        .onChange(of: scene?.windowValue) { if request != scene?.windowValue { request = scene?.windowValue } }
         .onChange(of: scenePhase) { _, phase in
             Task {
                 switch phase {

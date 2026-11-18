@@ -41,8 +41,20 @@ final class AppModel {
     private let normalizeAddress: @Sendable (String) -> URL?
     private let parseLink: @Sendable (URL) -> PairingLink?
     private let normalizeLinkAddress: @Sendable (String) -> URL?
-    /// The window the app shows; links that are not pairing links go to it.
-    private weak var scene: SceneModel?
+    /// A window the app shows, held weakly.
+    private struct WeakScene { weak var scene: SceneModel? }
+    private var scenes: [WeakScene] = []
+    private weak var lastActiveScene: SceneModel?
+    /// The window links, pushes, quick actions and continued activities go to: the most recently active one that is
+    /// still connected, else the last one that connected. They never open a window of their own.
+    var routingScene: SceneModel? { lastActiveScene ?? scenes.last { $0.scene != nil }?.scene }
+
+    func sceneBecameActive(_ scene: SceneModel) { lastActiveScene = scene }
+
+    func sceneDisconnected(_ scene: SceneModel) {
+        scenes.removeAll { $0.scene == nil || $0.scene === scene }
+        if lastActiveScene === scene { lastActiveScene = nil }
+    }
     /// A link that arrived before the window chose its first screen; the cold start reads it once.
     private(set) var launchLink: DeepLink?
     /// The task page to show in the in-app browser.
@@ -113,7 +125,7 @@ final class AppModel {
         PairingModel(
             pairing: pairing, device: { DeviceDescription.current() },
             onPaired: { [weak self] instance in
-                self?.scene?.justPairedUserName = instance.userName
+                self?.routingScene?.justPairedUserName = instance.userName
                 await self?.reloadRoute()
                 await self?.observers.paired(instance)
             },
@@ -122,9 +134,16 @@ final class AppModel {
     }
 
     /// The model of a window; `restored` is what the window saved last time.
-    func makeSceneModel(restored: Data?) -> SceneModel {
-        let model = SceneModel(state: SceneModel.restoredState(from: restored))
-        scene = model
+    func makeSceneModel(restored: Data?, request: WindowRequest? = nil) -> SceneModel {
+        let state = SceneModel.restoredState(from: restored)
+        let model: SceneModel
+        if case .signedIn(let active) = route {
+            model = SceneModel(state: state, request: request, activeInstance: active.id)
+        } else {
+            model = SceneModel(state: state)
+        }
+        scenes.removeAll { $0.scene == nil }
+        scenes.append(WeakScene(scene: model))
         return model
     }
 
@@ -145,7 +164,7 @@ final class AppModel {
     }
 
     func handle(link: DeepLink) async {
-        guard let scene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
+        guard let scene = routingScene, scene.hasAppliedColdStart, case .signedIn(let active) = route else {
             if case .pair = link { return }
             if hasLoaded, case .connect = route {
                 switch link {
@@ -248,7 +267,13 @@ final class AppModel {
             } else {
                 runningInstance = active.id
                 // A window that belongs to another instance starts over; a link switch already claimed it.
-                if let scene, scene.state.instanceID != active.id { scene.reset(instanceID: active.id) }
+                for scene in scenes.compactMap(\.scene) {
+                    if scene.state.instanceID != active.id {
+                        scene.reset(instanceID: active.id)
+                    } else {
+                        scene.instanceChanged(to: active.id)
+                    }
+                }
                 activeSession = sessions.session(for: active)
                 route = .signedIn(active)
             }

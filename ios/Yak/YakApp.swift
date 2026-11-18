@@ -56,7 +56,7 @@ struct YakApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(for: WindowRequest.self) { $request in
             #if DEBUG
                 if TestMode.value("yakTestScreen") == "live-activity-gallery" {
                     LiveActivityGallery(
@@ -66,16 +66,19 @@ struct YakApp: App {
                 } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
                     ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
-                    rootView.preferredColorScheme(TestMode.colorScheme())
+                    rootView($request).preferredColorScheme(TestMode.colorScheme())
                 }
             #else
-                rootView
+                rootView($request)
             #endif
         }
+        // A link, push or activity goes to the last active window and never opens a new one.
+        .handlesExternalEvents(matching: ["*"])
+        .commands { YakCommands() }
     }
 
-    private var rootView: some View {
-        RootView(model: model)
+    private func rootView(_ request: Binding<WindowRequest?>) -> some View {
+        RootView(model: model, request: request)
             .appRoot(parts, model: model)
             .task {
                 delegate.attach(parts.push)

@@ -85,6 +85,10 @@ final class SceneModel {
     private(set) var plan: SlotPlan?
     /// Whether Settings is presented in this window. Not restored.
     var isSettingsOpen = false
+    /// A requested thread belonged to another instance: the window says so until the notice is dismissed.
+    private(set) var showsOtherInstanceNotice = false
+
+    func dismissOtherInstanceNotice() { showsOtherInstanceNotice = false }
 
     init(state: SceneState) {
         self.state = state
@@ -105,6 +109,7 @@ final class SceneModel {
             self.state.secondPane = nil
             self.state.behindPane = nil
             self.state.isDrawerOpen = id == nil
+            if case .thread = request, id == nil { showsOtherInstanceNotice = true }
         } else {
             applyInstanceRule(to: activeInstance)
         }
@@ -178,6 +183,22 @@ final class SceneModel {
         apply(PaneLayoutRules.focus(position, state: paneState, plan: plan))
     }
 
+    /// The pane the Overview returns to when it leaves the pane slot.
+    private var paneBeforeOverview: PaneID = .chat
+
+    /// The title, Command I and Command 5: where the Overview is a side panel the rules toggle the panel; elsewhere it
+    /// is a pane that the same command leaves again for the pane before it.
+    func toggleOverview() {
+        if plan?.overviewIsPanel == true {
+            select(.overview)
+        } else if state.focusedPane == .overview {
+            select(paneBeforeOverview)
+        } else {
+            paneBeforeOverview = state.focusedPane
+            select(.overview)
+        }
+    }
+
     func updatePlan(_ plan: SlotPlan?) {
         if self.plan != plan { self.plan = plan }
     }
@@ -213,6 +234,7 @@ final class SceneModel {
     /// A fresh window for `instanceID`: the cold start runs again. The banner after a pairing stays.
     func reset(instanceID: UUID) {
         state = SceneState(instanceID: instanceID)
+        activeInstance = instanceID
         hasAppliedColdStart = false
         newThreadPrefill = nil
         newThreadItem = nil
@@ -294,8 +316,8 @@ final class SceneModel {
             }
             // The shell of the other instance starts on this thread.
             hasAppliedColdStart = true
-            state.instanceID = target.id
             open(thread: id, isCompactWidth: true)
+            state.instanceID = target.id
             return .switchInstance(target)
         case .newThread(let address, let repo, let text):
             guard let target = Self.instance(at: address, active: active, instances: instances) else {
