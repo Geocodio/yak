@@ -15,7 +15,7 @@ struct NoThreadView: View {
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
                 Text("window.noThread.title").font(.title3.weight(.semibold))
-                Text("window.noThread.body").font(.body).foregroundStyle(.secondary)
+                Text("window.noThread.body").font(.body.weight(.medium)).foregroundStyle(Color.yakMuted)
             }
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .combine)

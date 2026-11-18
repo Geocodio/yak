@@ -22,27 +22,30 @@ struct PaneHost: View {
         isSingle ? id == focused : placed
     }
 
+    /// A pane moves to its slot at once: a text size change re-plans the slots, and the screen must be still for
+    /// the accessibility audit that drives the size.
     var body: some View {
         ZStack(alignment: isSingle ? .center : .topLeading) {
             ForEach(slots.alive, id: \.self) { id in
                 if let descriptor = PaneCatalog.descriptor(for: id) {
                     let isShown = Self.isShown(id, focused: focused, isSingle: isSingle, placed: slots.isShown(id))
                     let frame = slots.frame(for: id)
+                    // A pane that waits for its slot's frame is neither drawn nor reachable.
+                    let isVisible = isShown && (isSingle || frame != nil)
                     descriptor.content(thread)
                         .frame(width: frame?.width, height: frame?.height)
                         .background(isSingle ? Color.clear : Color(.systemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: cornerRadius).inset(by: isSingle ? -4000 : 0))
                         .offset(x: (frame?.minX ?? 0) + slide(of: id, isShown: isShown), y: frame?.minY ?? 0)
-                        .opacity(isShown && (isSingle || frame != nil) ? 1 : 0)
+                        .opacity(isVisible ? 1 : 0)
                         .environment(\.paneID, id)
                         .environment(\.isPaneShown, isShown)
-                        .allowsHitTesting(isShown)
-                        .accessibilityHidden(!isShown)
+                        .allowsHitTesting(isVisible)
+                        .accessibilityHidden(!isVisible)
                 }
             }
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28), value: focused)
-        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28), value: slots.frames)
     }
 
     private func slide(of id: PaneID, isShown: Bool) -> CGFloat {

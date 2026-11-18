@@ -25,7 +25,7 @@ struct DiffRowView: View {
             Text(verbatim: row.newLine.map(String.init) ?? "").font(.caption.monospacedDigit().weight(.medium))
                 .foregroundStyle(Color.yakMuted).frame(width: 36, alignment: .trailing)
             Text(verbatim: marker).font(.footnote.monospaced().weight(.semibold))
-            Text(verbatim: row.text).font(.footnote.monospaced()).fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: row.text).font(.footnote.monospaced().weight(.medium)).fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 8).padding(.vertical, 2)
