@@ -66,6 +66,7 @@ struct FilesPane: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files")
+        .accessibilityHidden(!isPaneShown)
         .onAppear { open(current) }
         .onChange(of: current) { open(current) }
     }
