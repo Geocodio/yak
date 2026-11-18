@@ -67,7 +67,7 @@ class CiFailureIntake
 
     public function recordGreen(Repository $repository, Request $request): void
     {
-        $repo = (string) $request->input('repository.full_name');
+        $repo = $repository->slug;
         $branch = (string) $request->input('workflow_job.head_branch');
         $workflowName = (string) $request->input('workflow_job.workflow_name');
         $jobName = (string) $request->input('workflow_job.name');

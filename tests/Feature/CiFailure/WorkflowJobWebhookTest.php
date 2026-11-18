@@ -13,6 +13,7 @@ beforeEach(function () {
     (new ChannelServiceProvider(app()))->boot();
 
     $this->repository = Repository::factory()->create([
+        'slug' => 'widgets-slug',
         'github_full_name' => 'acme/widgets',
         'ci_system' => 'github_actions',
         'default_branch' => 'main',
@@ -102,9 +103,9 @@ it('ignores repos that are inactive or not on github_actions', function (array $
 ]);
 
 it('resolves the branch failures on a green run and records a default-branch green', function () {
-    $matching = CiJobFailure::factory()->create(['branch' => 'main']);
-    $otherBranch = CiJobFailure::factory()->create(['branch' => 'feature/y']);
-    $otherJob = CiJobFailure::factory()->create(['branch' => 'main', 'job_name' => 'Lint']);
+    $matching = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main']);
+    $otherBranch = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/y']);
+    $otherJob = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'main', 'job_name' => 'Lint']);
 
     postWebhook('workflow_job', workflowJobPayload(['conclusion' => 'success', 'head_branch' => 'main']));
 
@@ -112,7 +113,8 @@ it('resolves the branch failures on a green run and records a default-branch gre
         ->and($matching->fresh()->resolved_at)->not->toBeNull()
         ->and($otherBranch->fresh()->resolved_at)->toBeNull()
         ->and($otherJob->fresh()->resolved_at)->toBeNull()
-        ->and(CiDefaultBranchGreen::latestFor('acme/widgets', 'CI', 'Test (Main)')?->toIso8601String())
+        ->and(CiDefaultBranchGreen::where('repo', 'acme/widgets')->count())->toBe(0)
+        ->and(CiDefaultBranchGreen::latestFor('widgets-slug', 'CI', 'Test (Main)')?->toIso8601String())
         ->toBe('2026-11-18T10:00:00+00:00');
     Queue::assertNothingPushed();
 });
@@ -124,8 +126,8 @@ it('does not record a green for a non-default branch', function () {
 });
 
 it('resolves a branch failures when the branch is deleted or its PR closes', function (string $event, array $payload, string $resolution) {
-    $failure = CiJobFailure::factory()->create(['branch' => 'feature/x']);
-    $other = CiJobFailure::factory()->create(['branch' => 'feature/y']);
+    $failure = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/x']);
+    $other = CiJobFailure::factory()->create(['repo' => 'widgets-slug', 'branch' => 'feature/y']);
 
     postWebhook($event, $payload);
 

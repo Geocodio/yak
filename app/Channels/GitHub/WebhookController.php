@@ -482,11 +482,15 @@ class WebhookController extends Controller
 
     private function handleClosed(Request $request): JsonResponse
     {
-        app(CiFailureIntake::class)->resolveBranch(
-            (string) $request->input('repository.full_name'),
-            (string) $request->input('pull_request.head.ref'),
-            'pr_closed',
-        );
+        $closedRepository = $this->resolveRepositoryFromPayload($request);
+
+        if ($closedRepository !== null) {
+            app(CiFailureIntake::class)->resolveBranch(
+                $closedRepository->slug,
+                (string) $request->input('pull_request.head.ref'),
+                'pr_closed',
+            );
+        }
 
         /** @var string $prUrl */
         $prUrl = $request->input('pull_request.html_url', '');
@@ -648,7 +652,7 @@ class WebhookController extends Controller
 
         if ($repo !== null && $repo->is_active) {
             app(CiFailureIntake::class)->resolveBranch(
-                (string) $request->input('repository.full_name'),
+                $repo->slug,
                 (string) $request->input('ref'),
                 'branch_deleted',
             );
