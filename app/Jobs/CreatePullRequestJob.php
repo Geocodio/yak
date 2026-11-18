@@ -428,6 +428,12 @@ class CreatePullRequestJob implements ShouldQueue
                 $trigger['lines'],
             ));
             $parts[] = '**Flaky tests:** ' . $tests . ($trigger['url'] !== null ? " ([CI build]({$trigger['url']}))" : '');
+        } elseif ($this->task->source === 'ci-failure' && $trigger !== null) {
+            $branches = implode(', ', array_map(
+                fn (array $line): string => $line['url'] !== null ? '[' . self::codeSpan($line['text']) . "]({$line['url']})" : self::codeSpan($line['text']),
+                $trigger['lines'],
+            ));
+            $parts[] = '**Failing CI job:** ' . self::codeSpan($trigger['label']) . ($branches !== '' ? " on {$branches}" : '');
         } elseif ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }

@@ -148,6 +148,36 @@ class PromptFixtures
                     ],
                 ],
             ],
+            'tasks-ci-failure' => [
+                [
+                    'label' => 'Vulnerable dependency on two branches',
+                    'data' => [
+                        'jobName' => 'audit',
+                        'workflowName' => 'CI',
+                        'workflowPath' => '.github/workflows/ci.yml',
+                        'failures' => [
+                            [
+                                'branch' => 'main',
+                                'head_sha' => '9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4',
+                                'job_url' => 'https://github.com/acme/site/actions/runs/1/job/10',
+                                'failed_step' => 'composer audit',
+                                'log_excerpt' => 'Found 1 security vulnerability advisory affecting 1 package: acme/lib (GHSA-abcd-efgh-jkmn-pqrs)',
+                            ],
+                            [
+                                'branch' => 'feature/pricing',
+                                'head_sha' => '4cd838f1e9e414d09ac1452aefabcc86d5cce58c',
+                                'job_url' => 'https://github.com/acme/site/actions/runs/2/job/20',
+                                'failed_step' => 'composer audit',
+                                'log_excerpt' => 'Found 1 security vulnerability advisory affecting 1 package: acme/lib (GHSA-abcd-efgh-jkmn-pqrs)',
+                            ],
+                        ],
+                        'defaultBranchLastGreenAt' => '2026-11-10T09:30:00+00:00',
+                        'testNames' => [],
+                        'advisoryIds' => ['GHSA-abcd-efgh-jkmn-pqrs'],
+                        'openPullRequests' => [],
+                    ],
+                ],
+            ],
             'tasks-preview-repair' => [
                 [
                     'label' => 'Recipe builds a removed Dockerfile',

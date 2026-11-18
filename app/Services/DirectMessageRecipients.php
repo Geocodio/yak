@@ -20,7 +20,7 @@ class DirectMessageRecipients
 {
     private const array STARTER_SOURCES = ['linear', 'dashboard', 'email'];
 
-    private const array RESPONSIBLE_SOURCES = ['linear', 'dashboard', 'sentry', 'flaky-test'];
+    private const array RESPONSIBLE_SOURCES = ['linear', 'dashboard', 'sentry', 'flaky-test', 'ci-failure'];
 
     private const array PUSHING_TYPES = [
         NotificationType::Clarification,

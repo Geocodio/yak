@@ -68,7 +68,7 @@ final class ObservationData
             'repo' => $observation->repo,
             'source' => $observation->source,
             'sourceLabel' => match ($observation->source) {
-                'flaky-test' => 'CI',
+                'flaky-test', 'ci-failure' => 'CI',
                 'sentry' => 'Sentry',
                 default => $observation->source,
             },

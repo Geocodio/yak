@@ -74,6 +74,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['testClass', 'testMethod', 'failureOutput', 'buildUrl'],
             ],
+            'tasks-ci-failure' => [
+                'view' => 'prompts.tasks.ci-failure',
+                'label' => 'CI Failure',
+                'description' => 'Sent when the same CI job fails on several branches and Yak opens one task for the shared cause. Gives Claude every failing branch, job URL and log excerpt, and asks it to fix the root cause or report an outcome without committing.',
+                'category' => 'high_touch',
+                'type' => 'task',
+                'variables' => ['jobName', 'workflowName', 'workflowPath', 'failures', 'defaultBranchLastGreenAt', 'testNames', 'advisoryIds', 'openPullRequests'],
+            ],
             'tasks-preview-repair' => [
                 'view' => 'prompts.tasks.preview-repair',
                 'label' => 'Preview Repair',
