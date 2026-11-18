@@ -17,21 +17,31 @@ struct QuestionCard: View {
     @AccessibilityFocusState private var focusedStep: Int?
 
     /// With the keyboard up the pane can be short; the card keeps room for its field and Done.
-    private var cap: CGFloat { max(maximumHeight, 200) }
+    private var cap: CGFloat { max(maximumHeight, 260) }
 
     var body: some View {
         if let flow = model.flow {
-            ScrollView {
-                content(flow)
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.height
-                    } action: {
-                        contentHeight = $0
+            ScrollViewReader { proxy in
+                ScrollView {
+                    content(flow)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.height
+                        } action: {
+                            contentHeight = $0
+                        }
+                }
+                // A new step starts at its top; the field and Done are brought into view when typing starts.
+                .onChange(of: stepKey(flow)) {
+                    if case .typing = flow.step {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    } else {
+                        proxy.scrollTo("top", anchor: .top)
                     }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollDismissesKeyboard(.interactively)
+                .frame(maxHeight: contentHeight > 0 ? min(contentHeight, cap) : cap)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollDismissesKeyboard(.interactively)
-            .frame(maxHeight: contentHeight > 0 ? min(contentHeight, cap) : cap)
             .padding(.horizontal, 8).padding(.bottom, 4)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityElement(children: .contain)
@@ -48,7 +58,7 @@ struct QuestionCard: View {
 
     private func content(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            header(flow)
+            header(flow).id("top")
             if model.isClosed {
                 closed(flow)
             } else if !canAnswer {
@@ -60,6 +70,7 @@ struct QuestionCard: View {
                 case .review: review(flow)
                 }
             }
+            Color.clear.frame(height: 0).id("bottom")
         }
         .questionCardSurface()
     }
