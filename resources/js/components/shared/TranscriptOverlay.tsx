@@ -316,14 +316,14 @@ export function TranscriptOverlay({
                     </div>
                     <div className="flex min-h-0 flex-col">
                         <div className="flex h-10 shrink-0 items-center gap-3 border-b border-hair px-4">
-                            <button type="button" onClick={() => step(-1)} className="rounded-control p-1 text-muted hover:bg-panel-2" data-testid="log-prev">
+                            <button type="button" onClick={() => step(-1)} disabled={sel <= 0} className="rounded-control p-1 text-muted hover:bg-panel-2 disabled:opacity-40 disabled:hover:bg-transparent" data-testid="log-prev">
                                 <ChevronRight size={13} className="rotate-180" />
                             </button>
                             <span className="tnum text-[12px] text-muted" data-testid="transcript-step">
                                 Step {sel + 1} of {rows.length}
                                 {paging?.hasMore ? '+' : ''}
                             </span>
-                            <button type="button" onClick={() => step(1)} className="rounded-control p-1 text-muted hover:bg-panel-2" data-testid="log-next">
+                            <button type="button" onClick={() => step(1)} disabled={sel >= rows.length - 1} className="rounded-control p-1 text-muted hover:bg-panel-2 disabled:opacity-40 disabled:hover:bg-transparent" data-testid="log-next">
                                 <ChevronRight size={13} />
                             </button>
                             <span className="ml-auto flex items-center gap-1.5 text-[11px] text-faint">
