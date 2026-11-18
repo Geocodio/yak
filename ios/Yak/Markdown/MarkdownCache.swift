@@ -3,13 +3,15 @@ import YakKit
 
 /// Keeps parsed documents by item key. Finished items parse once; a streaming item parses at most ten times a
 /// second with one trailing parse, so the last text always shows and a partial block never makes the view jump.
+/// It keeps a document for every text item of the latest list, however long, and beyond `capacity` drops items that
+/// are no longer listed. The model keeps the same documents, which share their storage with these, so a long thread
+/// costs the cache little more than its dictionary.
 actor MarkdownCache<Renderer: MarkdownRendering> {
     static var capacity: Int { 400 }
 
     private struct Entry {
         var text: String
         var document: Renderer.Document
-        var lastUsed: Int
     }
 
     private let renderer: Renderer
@@ -31,13 +33,11 @@ actor MarkdownCache<Renderer: MarkdownRendering> {
     /// The last parsed document of the item, nil until its first parse is done. While a streaming item waits for
     /// its next parse this is the previous document.
     func document(for item: ConversationItem) -> Renderer.Document? {
-        guard var entry = entries[item.key] else { return nil }
-        tick += 1
-        entry.lastUsed = tick
-        entries[item.key] = entry
-        return entry.document
+        entries[item.key]?.document
     }
 
+    /// Parses the items whose text changed since their last parse. A snapshot that briefly lists fewer items, as
+    /// while reconnecting, drops nothing below the capacity, so the next full list does not parse again.
     func update(with items: [ConversationItem]) async {
         for item in items {
             guard let text = item.text, !text.isEmpty else { continue }
@@ -51,6 +51,15 @@ actor MarkdownCache<Renderer: MarkdownRendering> {
                 cancelTrailing(for: item.key)
                 await parse(key: item.key, text: text)
             }
+        }
+        guard latestRequest.count > Self.capacity else { return }
+        let listed = Set(items.map(\.key))
+        // Every key that was ever parsed has a request, also one whose first parse is still running.
+        for key in latestRequest.keys where !listed.contains(key) {
+            guard latestRequest.count > Self.capacity else { break }
+            entries[key] = nil
+            latestRequest[key] = nil
+            cancelTrailing(for: key)
         }
     }
 
@@ -100,18 +109,13 @@ actor MarkdownCache<Renderer: MarkdownRendering> {
         let request = tick
         latestRequest[key] = request
         let document = await renderer.parse(text)
-        // A newer parse of the same item started while this one ran; it stores its own result.
+        // A newer parse of the same item started while this one ran, or the item was dropped; either way this
+        // result is not stored.
         guard latestRequest[key] == request else { return }
-        tick += 1
-        entries[key] = Entry(text: text, document: document, lastUsed: tick)
+        entries[key] = Entry(text: text, document: document)
         var throttle = throttles[key] ?? ParseThrottle()
         throttle.parsed(at: clock.now())
         throttles[key] = throttle
-        if entries.count > Self.capacity, let oldest = entries.min(by: { $0.value.lastUsed < $1.value.lastUsed })?.key {
-            entries[oldest] = nil
-            latestRequest[oldest] = nil
-            cancelTrailing(for: oldest)
-        }
         await onUpdate(key)
     }
 }
