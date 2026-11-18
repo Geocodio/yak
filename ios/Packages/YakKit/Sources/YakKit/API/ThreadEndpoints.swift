@@ -278,12 +278,14 @@ extension Endpoint where Response == ThreadActionAnswer {
         case .setUpAndContinue: return Endpoint(method: .post, path: "\(base)/setup-and-continue")
         case .cancel: return Endpoint(method: .post, path: "\(base)/cancel")
         case .move(let repo):
-            return Endpoint(method: .post, path: "\(base)/move", body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
+            return Endpoint(
+                method: .post, path: "\(base)/move", body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
         case .requestReview: return Endpoint(method: .post, path: "\(base)/request-review")
         case .retryRender: return Endpoint(method: .post, path: "\(base)/retry-render")
         case .answerRepository(let repo):
             return Endpoint(
-                method: .post, path: "\(base)/repository-answer", body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
+                method: .post, path: "\(base)/repository-answer",
+                body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
         case .approve:
             // Approve opens the pull request before it answers, which can take longer than 15 seconds.
             return Endpoint(method: .post, path: "\(base)/co-owner/approve", timeout: .seconds(60))

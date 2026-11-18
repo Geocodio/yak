@@ -34,7 +34,9 @@ import Testing
             var thread: [String: Any] { body["thread"] as? [String: Any] ?? [:] }
             var threadID: String? { thread["id"] as? String }
             var card: String? { body["card"] as? String }
-            var requestStatus: String? { (body["request"] as? [String: Any]).flatMap { ($0["status"] as? [String: Any])?["key"] as? String } }
+            var requestStatus: String? {
+                (body["request"] as? [String: Any]).flatMap { ($0["status"] as? [String: Any])?["key"] as? String }
+            }
         }
 
         func send(_ route: String, body: String = "{}") throws -> Answer {
@@ -104,14 +106,17 @@ import Testing
         #expect(before.card == "co_owner")
         let approved = try play.post("co-owner/approve")
         #expect(approved.body["status"] as? String == "approved" && approved.delay == .seconds(3))
-        #expect(approved.card == nil && (approved.body["coOwner"] as? [String: Any])?["status"] as? String == "approved")
+        #expect(
+            approved.card == nil && (approved.body["coOwner"] as? [String: Any])?["status"] as? String == "approved")
         #expect(try play.show().card == nil)
         for (verb, word) in [
             ("co-owner/request-changes", "changes_requested"), ("co-owner/reject", "rejected"),
             ("co-owner/withdraw", "withdrawn"),
         ] {
             let answer = try Play("work-co-owner-decide").post(verb, body: #"{"feedback":"x"}"#)
-            #expect(answer.body["status"] as? String == word && (answer.body["coOwner"] as? [String: Any])?["status"] as? String == word)
+            #expect(
+                answer.body["status"] as? String == word
+                    && (answer.body["coOwner"] as? [String: Any])?["status"] as? String == word)
         }
     }
 
@@ -126,7 +131,9 @@ import Testing
         #expect(viewer["isLinked"] as? Bool == false && viewer["access"] as? String == "unlinked")
         let refused = try play.post("co-owner/approve")
         #expect(refused.status == 409 && refused.code == "not_linked")
-        #expect((refused.body["details"] as? [String: Any])?["connectUrl"] as? String == "https://yak.example.com/connect/github")
+        #expect(
+            (refused.body["details"] as? [String: Any])?["connectUrl"] as? String
+                == "https://yak.example.com/connect/github")
         #expect(try play.post("co-owner/check-access").body["status"] as? String == "checked")
     }
 
@@ -185,7 +192,10 @@ import Testing
     @Test func theMilestoneThreadHasMilestonesAndARetryRow() throws {
         let show = try Play("work-milestones").show()
         let milestones = try #require(show.body["milestones"] as? [[String: Any]])
-        #expect(milestones.map { $0["key"] as? String } == ["pushed", "ci_failed", "pushed", "ci_passed", "pull_request_opened", "walkthrough_ready"])
+        #expect(
+            milestones.map { $0["key"] as? String } == [
+                "pushed", "ci_failed", "pushed", "ci_passed", "pull_request_opened", "walkthrough_ready",
+            ])
         #expect((show.body["messages"] as? [[String: Any]])?.contains { $0["isRetry"] as? Bool == true } == true)
     }
 
@@ -218,7 +228,9 @@ import Testing
         #expect(published.get().count == 1 && published.get()[0].contains("\"showKey\":\"drained00001\""))
         let after = try play.show()
         let last = try #require((after.body["messages"] as? [[String: Any]])?.last)
-        #expect(last["id"] as? String == "turn-message-7" && last["uuid"] as? String == "00000000-0000-4000-8000-0000000000aa")
+        #expect(
+            last["id"] as? String == "turn-message-7"
+                && last["uuid"] as? String == "00000000-0000-4000-8000-0000000000aa")
         #expect(after.body["latestSequence"] as? Int == 15)
     }
 

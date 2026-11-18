@@ -97,7 +97,10 @@ public enum ConversationMerge {
             }
             // Equal sequences keep the server's order.
             let placed = milestones.compactMap { shown.removeValue(forKey: $0.id) }.enumerated()
-                .sorted { $0.element.afterSequence < $1.element.afterSequence || ($0.element.afterSequence == $1.element.afterSequence && $0.offset < $1.offset) }
+                .sorted {
+                    $0.element.afterSequence < $1.element.afterSequence
+                        || ($0.element.afterSequence == $1.element.afterSequence && $0.offset < $1.offset)
+                }
                 .map(\.element)
 
             let history = visible.filter { $0.state == .read && anchor($0) == nil }
@@ -191,7 +194,10 @@ public enum ConversationMerge {
             return left < right
         }
         let timeline = (messages.map(Item.message) + answers.map(Item.answer)).enumerated()
-            .sorted { before($0.element.time, $1.element.time) || (!before($1.element.time, $0.element.time) && $0.offset < $1.offset) }
+            .sorted {
+                before($0.element.time, $1.element.time)
+                    || (!before($1.element.time, $0.element.time) && $0.offset < $1.offset)
+            }
             .map(\.element)
         var entries: [ConversationEntry] = []
         var placed: Set<String> = []
@@ -201,7 +207,8 @@ public enum ConversationMerge {
                 entries.append(message.isRetry ? .retry(message) : .person(message, isPending: !isRead(message)))
             case .answer(let answer):
                 entries.append(.legacyAnswer(answer))
-                for milestone in milestones where milestone.runId == answer.runTaskId && placed.insert(milestone.id).inserted {
+                for milestone in milestones
+                where milestone.runId == answer.runTaskId && placed.insert(milestone.id).inserted {
                     entries.append(.milestone(milestone))
                 }
             }

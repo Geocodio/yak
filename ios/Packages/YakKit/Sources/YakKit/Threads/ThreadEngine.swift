@@ -630,6 +630,7 @@ public actor ThreadEngine {
                 isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
                 didOlderFail: didOlderFail,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
-                lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty, lastSendNotice: sendNotices.last))
+                lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty,
+                lastSendNotice: sendNotices.last))
     }
 }

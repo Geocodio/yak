@@ -68,7 +68,8 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "work-stopped-reply": "scenario-work-needs-you-stopped", "work-expired-co-owner": "scenario-work-expired",
         "work-co-owner-decide": "scenario-work-co-owner", "work-co-owner-link": "scenario-work-co-owner",
         "work-co-owner-requester": "scenario-work-co-owner", "work-co-owner-reader": "scenario-work-co-owner",
-        "work-early-warning": "scenario-work-early-warning", "work-repository-question": "scenario-work-repository-question",
+        "work-early-warning": "scenario-work-early-warning",
+        "work-repository-question": "scenario-work-repository-question",
         "work-repository-taken": "scenario-work-repository-question", "work-move": "scenario-work-finished",
         "work-milestones": "scenario-work-milestones", "work-via": "scenario-work-via",
         "work-legacy": "scenario-work-legacy", "work-drained": "scenario-work-drained-queued",
@@ -136,7 +137,8 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         }
     }
 
-    private func reply(file: String, status: String? = nil, delay: Duration = .zero, context: StubContext) -> StubReply {
+    private func reply(file: String, status: String? = nil, delay: Duration = .zero, context: StubContext) -> StubReply
+    {
         var body = Self.variant(context.fixtures.scenario(file), for: context.scenario)
         if let status { body["status"] = status }
         var reply = Self.json(body)
@@ -180,7 +182,8 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         return Self.json(body)
     }
 
-    private func advance(_ status: String, to file: String, context: StubContext, delay: Duration = .zero) -> StubReply {
+    private func advance(_ status: String, to file: String, context: StubContext, delay: Duration = .zero) -> StubReply
+    {
         state.mutate { $0.current = file }
         return reply(file: file, status: status, delay: delay, context: context)
     }

@@ -41,7 +41,9 @@ private func merge(
     let entries = merge(
         messages: [message(uuid: "u1", id: "m1", readAfter: 1), message(uuid: "u2", id: "m2", readAfter: 5)],
         items: [event("a", 2), event("b", 3), event("c", 6)],
-        milestones: [milestone(.pushed, after: 3), milestone(.ciPassed, after: 3), milestone(.pullRequestOpened, after: 6)])
+        milestones: [
+            milestone(.pushed, after: 3), milestone(.ciPassed, after: 3), milestone(.pullRequestOpened, after: 6),
+        ])
     #expect(
         entries.map(\.id) == [
             "u1", "a", "b", "milestone:1:pushed:3", "milestone:1:ci_passed:3", "u2", "c",
@@ -59,7 +61,10 @@ private func merge(
 @Test func aMilestoneBeforeTheLoadedHistoryIsHidden() {
     let milestones = [milestone(.pushed, after: 10), milestone(.ciPassed, after: 25)]
     let items = [event("a", 21), event("b", 30)]
-    #expect(merge(items: items, milestones: milestones, firstLoadedAfter: 20).map(\.id) == ["a", "milestone:1:ci_passed:25", "b"])
+    #expect(
+        merge(items: items, milestones: milestones, firstLoadedAfter: 20).map(\.id) == [
+            "a", "milestone:1:ci_passed:25", "b",
+        ])
     #expect(merge(items: items, milestones: milestones, firstLoadedAfter: 0).map(\.id).first == "milestone:1:pushed:10")
     // Loading the older page brings it back, in place.
     #expect(merge(items: [event("z", 5)] + items, milestones: milestones, firstLoadedAfter: 0).count == 5)
@@ -71,7 +76,8 @@ private func merge(
 }
 
 @Test func aRepeatedMilestoneShowsOnce() {
-    let entries = merge(items: [event("a", 3)], milestones: [milestone(.pushed, after: 3), milestone(.pushed, after: 3)])
+    let entries = merge(
+        items: [event("a", 3)], milestones: [milestone(.pushed, after: 3), milestone(.pushed, after: 3)])
     #expect(entries.count == 2)
 }
 
@@ -137,5 +143,8 @@ private func merge(
     let answers = [LegacyAnswer(runTaskId: "old-1", html: "", at: "2026-11-10T09:30:00Z")]
     let messages = [message(uuid: nil, id: "legacy-message-1", sentAt: "2026-11-10T10:00:00+02:00")]
     // 10:00 at +02:00 is 08:00 UTC, before the answer at 09:30 UTC, though the text sorts after it.
-    #expect(merge(messages: messages, isLegacy: true, answers: answers).map(\.id) == ["legacy-message-1", "legacy-answer:old-1"])
+    #expect(
+        merge(messages: messages, isLegacy: true, answers: answers).map(\.id) == [
+            "legacy-message-1", "legacy-answer:old-1",
+        ])
 }

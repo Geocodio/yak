@@ -448,7 +448,10 @@ private func advancePastTheRefreshWait(_ rig: Rig) async {
 func theTurnAndThreadEventsInEitherOrderRefreshOnce(turnFirst: Bool) async throws {
     let (rig, recorder) = try await cardRig()
     let before = await rig.transport.requests(on: "GET threads/\(threadID)").count
-    let events = turnFirst ? [turnEvent(15), threadEvent(16, showKey: "abcdef123456")] : [threadEvent(15, showKey: "abcdef123456"), turnEvent(16)]
+    let events =
+        turnFirst
+        ? [turnEvent(15), threadEvent(16, showKey: "abcdef123456")]
+        : [threadEvent(15, showKey: "abcdef123456"), turnEvent(16)]
     for event in events { await rig.engine.receive(.event(event)) }
     await advancePastTheRefreshWait(rig)
     _ = try await recorder.next { $0.show?.card == .stopped }

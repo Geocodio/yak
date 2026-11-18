@@ -99,15 +99,17 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
     @Test func theEarlyWarningFollowsTheServersCanPick() throws {
         let tagged = try show([
             "card": #""early_warning""#,
-            "earlyWarning": #"{"areas":[],"state":"tagged","taggedName":"Second person","fallbackName":null,"repoName":"example/api","canPick":false}"#,
+            "earlyWarning":
+                #"{"areas":[],"state":"tagged","taggedName":"Second person","fallbackName":null,"repoName":"example/api","canPick":false}"#,
         ])
         guard case .earlyWarning(let row, _) = ThreadCardState.make(show: tagged, isForbidden: false) else {
             Issue.record("not the early warning")
             return
         }
         #expect(row == .asked(name: "Second person"))
-        guard case .earlyWarning(let pick, let notice) = ThreadCardState.make(
-            show: try show(["card": #""early_warning""#]), isForbidden: false)
+        guard
+            case .earlyWarning(let pick, let notice) = ThreadCardState.make(
+                show: try show(["card": #""early_warning""#]), isForbidden: false)
         else {
             Issue.record("not the early warning")
             return
@@ -123,7 +125,8 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
         }
         #expect(decision == .decide && panel.viewerIsAsked == true)
         let cannotDecide = try show([
-            "card": #""co_owner""#, "coOwner": panelJSON.replacingOccurrences(of: #""canDecide":true"#, with: #""canDecide":false"#),
+            "card": #""co_owner""#,
+            "coOwner": panelJSON.replacingOccurrences(of: #""canDecide":true"#, with: #""canDecide":false"#),
         ])
         guard case .coOwner(let blocked, _) = ThreadCardState.make(show: cannotDecide, isForbidden: false) else {
             Issue.record("not the co-owner card")
@@ -149,9 +152,12 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
         #expect(stop.summary == "Tests kept failing." && canRetry && !canSetUp && targets == ["example/web"])
         let waiting = try show([
             "card": #""stopped""#,
-            "stopped": stoppedJSON.replacingOccurrences(of: #""isWaitingForSetup":false"#, with: #""isWaitingForSetup":true"#),
+            "stopped": stoppedJSON.replacingOccurrences(
+                of: #""isWaitingForSetup":false"#, with: #""isWaitingForSetup":true"#),
         ])
-        guard case .stopped(_, let retryWhileWaiting, let setUp, _) = ThreadCardState.make(show: waiting, isForbidden: false)
+        guard
+            case .stopped(_, let retryWhileWaiting, let setUp, _) = ThreadCardState.make(
+                show: waiting, isForbidden: false)
         else {
             Issue.record("not the stopped card")
             return
@@ -162,10 +168,14 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
     @Test func theExpiredCoOwnerStopOffersNoRetry() throws {
         let expired = try show([
             "card": #""stopped""#,
-            "stopped": #"{"kind":"needs_you","summary":"Nobody decided within 7 days, so Yak did not open the pull request.","detail":null,"nextStep":"Send a message to continue this work.","isWaitingForSetup":false}"#,
-            "actions": #"{"canStop":false,"canRetry":false,"canCancel":false,"canMove":false,"moveTargets":[],"canRequestReview":false,"canRetryRender":false}"#,
+            "stopped":
+                #"{"kind":"needs_you","summary":"Nobody decided within 7 days, so Yak did not open the pull request.","detail":null,"nextStep":"Send a message to continue this work.","isWaitingForSetup":false}"#,
+            "actions":
+                #"{"canStop":false,"canRetry":false,"canCancel":false,"canMove":false,"moveTargets":[],"canRequestReview":false,"canRetryRender":false}"#,
         ])
-        guard case .stopped(let stop, let canRetry, let canSetUp, let targets) = ThreadCardState.make(show: expired, isForbidden: false)
+        guard
+            case .stopped(let stop, let canRetry, let canSetUp, let targets) = ThreadCardState.make(
+                show: expired, isForbidden: false)
         else {
             Issue.record("not the stopped card")
             return
@@ -176,7 +186,8 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
     @Test func moveNeedsBothTheFlagAndATarget() throws {
         let noTargets = try show([
             "card": #""stopped""#,
-            "actions": actionsJSON.replacingOccurrences(of: #""moveTargets":["example/web"]"#, with: #""moveTargets":[]"#),
+            "actions": actionsJSON.replacingOccurrences(
+                of: #""moveTargets":["example/web"]"#, with: #""moveTargets":[]"#),
         ])
         guard case .stopped(_, _, _, let targets) = ThreadCardState.make(show: noTargets, isForbidden: false) else {
             Issue.record("not the stopped card")

@@ -502,7 +502,8 @@ private func shows(_ rig: Rig) async -> Int { await rig.transport.requests(on: s
 @Test func forbiddenDropsDriveRights() async throws {
     let rig = try await makeRig(question: false)
     await rig.transport.on(
-        "POST threads/\(threadID)/cancel", .json(403, #"{"error":"forbidden","message":"Only the owner can do that."}"#))
+        "POST threads/\(threadID)/cancel", .json(403, #"{"error":"forbidden","message":"Only the owner can do that."}"#)
+    )
     await rig.transport.on(showRoute, try .scenario(200, "scenario-thread-show"))
     guard case .refused("forbidden", _, _, _) = await rig.engine.perform(.cancel) else {
         Issue.record("not refused")
@@ -539,7 +540,8 @@ private func shows(_ rig: Rig) async -> Int { await rig.transport.requests(on: s
     let route = "GET threads/\(threadID)/co-owner/candidates"
     await rig.transport.on(
         route, .json(200, #"{"candidates":[{"id":4,"name":"Test person"}],"isComplete":false}"#),
-        .json(200, #"{"candidates":[{"id":4,"name":"Test person"},{"id":5,"name":"Second person"}],"isComplete":true}"#))
+        .json(200, #"{"candidates":[{"id":4,"name":"Test person"},{"id":5,"name":"Second person"}],"isComplete":true}"#)
+    )
     guard case .success(let first) = await rig.engine.coOwnerCandidates() else {
         Issue.record("failed")
         return

@@ -53,7 +53,8 @@ import Testing
 
 /// The hand-written thread show with top-level keys replaced; values are JSON text.
 func workShowData(_ keys: [String: String] = [:], messages: String? = nil) throws -> Data {
-    var object = try #require(JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
     for (key, json) in keys {
         object[key] = try JSONSerialization.jsonObject(with: Data(json.utf8), options: .fragmentsAllowed)
     }
@@ -92,7 +93,9 @@ func workShow(_ keys: [String: String] = [:], messages: String? = nil) throws ->
         }
         return #"{"steps":[\#(rows.joined(separator: ","))]}"#
     }
-    let seven = try workShow(["progress": steps(["received", "picked_up", "working", "pushed", "ci", "pull_request", "done"])])
+    let seven = try workShow([
+        "progress": steps(["received", "picked_up", "working", "pushed", "ci", "pull_request", "done"])
+    ])
     let eight = try workShow([
         "progress": steps(["received", "picked_up", "working", "pushed", "ci", "co_owner", "pull_request", "done"])
     ])
@@ -105,14 +108,16 @@ func workShow(_ keys: [String: String] = [:], messages: String? = nil) throws ->
 
 @Test func aFailedStepWinsOverTheCurrentOne() throws {
     let show = try workShow([
-        "progress": #"{"steps":[{"key":"working","label":"Working","tooltip":"","state":"current"},{"key":"ci","label":"CI failed","tooltip":"","state":"failed"}]}"#
+        "progress":
+            #"{"steps":[{"key":"working","label":"Working","tooltip":"","state":"current"},{"key":"ci","label":"CI failed","tooltip":"","state":"failed"}]}"#
     ])
     #expect(show.progress?.attentionStep?.label == "CI failed")
 }
 
 @Test func milestonesDecodeWithAStringRunID() throws {
     let show = try workShow([
-        "milestones": #"[{"key":"pushed","label":"Pushed","tone":"ok","url":null,"runId":"42","afterSequence":7},{"key":"pull_request_opened","label":"Pull request opened","tone":"ok","url":"https://example.com/pull/1","runId":"legacy-task-id","afterSequence":0},{"key":"new_kind","label":"New","tone":"sparkly","url":null,"runId":"1","afterSequence":1}]"#
+        "milestones":
+            #"[{"key":"pushed","label":"Pushed","tone":"ok","url":null,"runId":"42","afterSequence":7},{"key":"pull_request_opened","label":"Pull request opened","tone":"ok","url":"https://example.com/pull/1","runId":"legacy-task-id","afterSequence":0},{"key":"new_kind","label":"New","tone":"sparkly","url":null,"runId":"1","afterSequence":1}]"#
     ])
     #expect(show.milestones.map(\.runId) == ["42", "legacy-task-id", "1"])
     #expect(show.milestones[0].key == .pushed && show.milestones[0].afterSequence == 7)
@@ -126,7 +131,10 @@ func workShow(_ keys: [String: String] = [:], messages: String? = nil) throws ->
         "legacyAnswers": #"[{"runTaskId":"old-1","html":"<p>Done</p>","at":"2026-11-10T09:00:00Z"}]"#,
         "composer": try composerJSON(state: "legacy"),
     ])
-    #expect(show.isLegacy && show.legacyAnswers == [LegacyAnswer(runTaskId: "old-1", html: "<p>Done</p>", at: "2026-11-10T09:00:00Z")])
+    #expect(
+        show.isLegacy
+            && show.legacyAnswers == [LegacyAnswer(runTaskId: "old-1", html: "<p>Done</p>", at: "2026-11-10T09:00:00Z")]
+    )
     #expect(show.composer.state == .legacy)
 }
 
@@ -141,25 +149,33 @@ private func composerJSON(state: String) throws -> String {
 
 @Test func aMovedNoticeCarriesTheNextThread() throws {
     let show = try workShow([
-        "notice": #"{"kind":"moved","title":"Moved to example/web","body":"This request continues in a new thread.","canContinue":false,"repo":"example/web","threadId":"abc123","threadTitle":"Next"}"#
+        "notice":
+            #"{"kind":"moved","title":"Moved to example/web","body":"This request continues in a new thread.","canContinue":false,"repo":"example/web","threadId":"abc123","threadTitle":"Next"}"#
     ])
     let notice = try #require(show.notice)
     #expect(notice.kind == "moved" && notice.repo == "example/web" && notice.threadId == "abc123")
     #expect(notice.threadTitle == "Next" && !notice.canContinue)
     let hidden = try workShow([
-        "notice": #"{"kind":"moved","title":"Moved","body":"B","canContinue":false,"repo":null,"threadId":null,"threadTitle":null}"#
+        "notice":
+            #"{"kind":"moved","title":"Moved","body":"B","canContinue":false,"repo":null,"threadId":null,"threadTitle":null}"#
     ])
     #expect(hidden.notice?.threadId == nil)
 }
 
 @Test func aRetryMessageHasNoText() throws {
-    let show = try workShow(messages: #"[{"id":"turn-message-9","uuid":null,"text":"","authorName":"Yak","authorInitials":"Y","state":"read","sentAt":"2026-11-15T09:00:00Z","readAfterSequence":null,"bodyHtml":"","attachments":[],"isRetry":true,"retryNumber":2,"canEditText":false}]"#)
+    let show = try workShow(
+        messages:
+            #"[{"id":"turn-message-9","uuid":null,"text":"","authorName":"Yak","authorInitials":"Y","state":"read","sentAt":"2026-11-15T09:00:00Z","readAfterSequence":null,"bodyHtml":"","attachments":[],"isRetry":true,"retryNumber":2,"canEditText":false}]"#
+    )
     let message = try #require(show.messages.first)
     #expect(message.isRetry && message.retryNumber == 2 && message.text.isEmpty && !message.canEditText)
 }
 
 @Test func aChannelMessageCarriesVia() throws {
-    let show = try workShow(messages: ##"[{"id":"m1","uuid":"u1","text":"Hi","authorName":"Test person","authorInitials":"TP","state":"read","sentAt":"2026-11-15T09:00:00Z","readAfterSequence":1,"bodyHtml":"<p>Hi</p>","via":{"key":"slack","label":"Slack","reference":"#general","url":"https://example.com/archives/1"},"isReply":true}]"##)
+    let show = try workShow(
+        messages:
+            ##"[{"id":"m1","uuid":"u1","text":"Hi","authorName":"Test person","authorInitials":"TP","state":"read","sentAt":"2026-11-15T09:00:00Z","readAfterSequence":1,"bodyHtml":"<p>Hi</p>","via":{"key":"slack","label":"Slack","reference":"#general","url":"https://example.com/archives/1"},"isReply":true}]"##
+    )
     let message = try #require(show.messages.first)
     #expect(message.via?.key == .slack && message.via?.reference == "#general" && message.isReply)
 }
@@ -169,16 +185,23 @@ private func composerJSON(state: String) throws -> String {
         "card": #""stopped""#,
         "stopped": #"{"kind":"on_fire","summary":"S","detail":null,"nextStep":"N","isWaitingForSetup":true}"#,
     ])
-    #expect(show.stopped?.kind.rawValue == "on_fire" && show.stopped?.detail == nil && show.stopped?.isWaitingForSetup == true)
+    #expect(
+        show.stopped?.kind.rawValue == "on_fire" && show.stopped?.detail == nil
+            && show.stopped?.isWaitingForSetup == true)
 }
 
 @Test func theRequestAndTheOtherCardsDecode() throws {
     let show = try workShow([
-        "request": #"{"source":{"key":"linear","label":"Linear","reference":"ENG-1","url":null},"starter":{"key":"yak","name":"Yak","avatarUrl":null},"responsibleName":null,"status":{"key":"working","label":"Working","tone":"info"}}"#,
-        "repositoryQuestion": #"{"prompt":"Which repository?","options":["example/api","example/web"],"selected":null,"canAnswer":true}"#,
-        "earlyWarning": #"{"areas":[{"name":"Middleware","risk":"high"}],"state":"shown","taggedName":null,"fallbackName":"Test person","repoName":"example/api","canPick":true}"#,
-        "coOwner": #"{"id":3,"status":"pending","decidedBy":null,"feedback":null,"prUrl":null,"holdReasons":[],"asked":["Test person"],"stat":null,"viewer":{"isRequester":false,"isLinked":true,"login":null,"access":"write"},"connectUrl":"https://yak.example.com/connect","requesterName":"Test person","canDecide":true,"viewerIsAsked":true}"#,
-        "actions": #"{"canStop":true,"canRetry":false,"canCancel":true,"canMove":true,"moveTargets":["example/web"],"canRequestReview":false,"canRetryRender":false}"#,
+        "request":
+            #"{"source":{"key":"linear","label":"Linear","reference":"ENG-1","url":null},"starter":{"key":"yak","name":"Yak","avatarUrl":null},"responsibleName":null,"status":{"key":"working","label":"Working","tone":"info"}}"#,
+        "repositoryQuestion":
+            #"{"prompt":"Which repository?","options":["example/api","example/web"],"selected":null,"canAnswer":true}"#,
+        "earlyWarning":
+            #"{"areas":[{"name":"Middleware","risk":"high"}],"state":"shown","taggedName":null,"fallbackName":"Test person","repoName":"example/api","canPick":true}"#,
+        "coOwner":
+            #"{"id":3,"status":"pending","decidedBy":null,"feedback":null,"prUrl":null,"holdReasons":[],"asked":["Test person"],"stat":null,"viewer":{"isRequester":false,"isLinked":true,"login":null,"access":"write"},"connectUrl":"https://yak.example.com/connect","requesterName":"Test person","canDecide":true,"viewerIsAsked":true}"#,
+        "actions":
+            #"{"canStop":true,"canRetry":false,"canCancel":true,"canMove":true,"moveTargets":["example/web"],"canRequestReview":false,"canRetryRender":false}"#,
     ])
     #expect(show.request?.source.key == .linear && show.request?.status.tone == .info)
     #expect(show.request?.starter.name == "Yak" && show.request?.responsibleName == nil)
