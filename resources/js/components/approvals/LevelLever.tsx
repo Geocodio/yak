@@ -1,17 +1,18 @@
-import { Ban, Check, UserRound } from 'lucide-react';
+import { Ban, Check } from 'lucide-react';
 import type { ApprovalLevel } from '@/types/approvals';
 import { LEVELS, NO_GO, levelColor } from './levels';
 
+/** Screen-reader summary of what the selected level does with this row's kind of change. */
 function verdict(n: ApprovalLevel, draftLevel: ApprovalLevel, isArmed: boolean): { text: string; approves: boolean } {
     if (n === 1) {
-        return { text: draftLevel === 1 ? 'Everything waits for a human' : 'Always on: Yak reviews', approves: false };
+        return { text: 'Yak always reviews', approves: false };
     }
 
     if (n <= draftLevel) {
-        return { text: isArmed ? 'Yak approves' : 'Shadow: would approve', approves: true };
+        return { text: isArmed ? `Included at DEFCON ${draftLevel}, Yak approves these` : `Included at DEFCON ${draftLevel}, shadow only`, approves: true };
     }
 
-    return { text: 'A human reviews', approves: false };
+    return { text: `Not included at DEFCON ${draftLevel}, a human reviews these`, approves: false };
 }
 
 export function LevelLever({ liveLevel, draftLevel, isArmed, openCounts, onPick }: { liveLevel: ApprovalLevel; draftLevel: ApprovalLevel; isArmed: boolean; openCounts?: { byLevel: number[]; total: number }; onPick: (level: ApprovalLevel) => void }) {
@@ -59,10 +60,11 @@ export function LevelLever({ liveLevel, draftLevel, isArmed, openCounts, onPick 
                                     </span>
                                 )}
                             </span>
-                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-semibold ${result.approves ? 'border-hair bg-ok-soft text-ok' : 'border-hair bg-panel text-muted'}`}>
-                                {result.approves ? <Check size={14} aria-hidden="true" /> : level.n > 1 ? <UserRound size={14} aria-hidden="true" /> : null}
-                                {result.text}
-                            </span>
+                            {result.approves && (
+                                <span data-testid={`approvals-level-included-${level.n}`} aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok">
+                                    <Check size={18} />
+                                </span>
+                            )}
                         </label>
                     );
                 })}
