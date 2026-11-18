@@ -32,6 +32,28 @@ it('starts a thread and redirects to it', function () {
     expect($thread->claude_account_id)->toBe($account->id)->and($thread->model)->toBe('haiku');
 });
 
+it('stores the files of a new thread against its first task', function () {
+    Storage::fake('artifacts');
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);
+
+    $this->actingAs($this->user)->post(route('threads.store'), [
+        'repo' => 'acme/widgets', 'mode' => 'fix', 'description' => 'Fix the bug [Image #1]', 'claude_account_id' => $account->id,
+        'attachments' => [UploadedFile::fake()->image('my shot?.png')],
+        'attachment_refs' => ['Image #1'],
+    ])->assertRedirect();
+
+    $attachment = TaskAttachment::query()->sole();
+    $task = Thread::query()->latest('id')->firstOrFail()->tasks()->firstOrFail();
+
+    expect($attachment->yak_task_id)->toBe($task->id)
+        ->and($attachment->original_name)->toBe(TaskAttachment::safeFilename('my shot?.png'))
+        ->and($attachment->original_name)->not->toContain('?')
+        ->and($attachment->mime_type)->toBe('image/png')
+        ->and($attachment->uploaded_by_user_id)->toBe($this->user->id)
+        ->and($attachment->reference)->toBe('Image #1');
+    Storage::disk('artifacts')->assertExists($attachment->disk_path);
+});
+
 it('rejects an inactive repo and a short description', function () {
     $this->actingAs($this->user)->post(route('threads.store'), ['repo' => 'acme/old', 'mode' => 'fix', 'description' => 'x'])
         ->assertSessionHasErrors(['repo', 'description']);

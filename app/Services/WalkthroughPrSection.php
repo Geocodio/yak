@@ -70,7 +70,7 @@ final class WalkthroughPrSection
 
     /**
      * Read the task's `chapters` artifact and turn it into the PR body's
-     * chapter line entries, each deep-linking the task page's player.
+     * chapter line entries, each deep-linking the thread page's player.
      *
      * @return array<int, array{title: string, startSeconds: float, url: string}>
      */

@@ -150,7 +150,7 @@ final class ThreadCardsData
     }
 
     /**
-     * The same flags the task page computes for the head task, plus the thread's own: stopping a turn,
+     * The same flags the thread page computes for the head task, plus the thread's own: stopping a turn,
      * and the pull request actions, which belong to the task that owns the pull request.
      *
      * @return array{canStop: bool, canRetry: bool, canCancel: bool, canMove: bool, moveTargets: list<string>, canRequestReview: bool, canRetryRender: bool}

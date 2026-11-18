@@ -291,7 +291,7 @@ class TaskAttachment extends Model
     }
 
     /**
-     * The expiry is pinned to the hour so the polled task page hands out
+     * The expiry is pinned to the hour so the polled thread page hands out
      * the same URL for an hour and the browser cache keeps working, while
      * every link still stays valid for at least a day.
      *

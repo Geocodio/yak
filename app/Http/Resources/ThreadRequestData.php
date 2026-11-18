@@ -30,7 +30,7 @@ final class ThreadRequestData
 {
     private const int ERROR_LOG_LIMIT_BYTES = 16384;
 
-    /** The fixed key of each step slot, in order. The co-owner slot exists only when the task page shows it. */
+    /** The fixed key of each step slot, in order. The co-owner slot exists only when the thread page shows it. */
     private const array STEP_KEYS = ['received', 'picked_up', 'working', 'pushed', 'ci', 'co_owner', 'pull_request', 'done'];
 
     /**

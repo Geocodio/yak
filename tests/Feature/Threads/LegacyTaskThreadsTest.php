@@ -6,6 +6,7 @@ use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Jobs\RunFollowUpJob;
 use App\Models\ClaudeAccount;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\ThreadShare;
@@ -18,7 +19,9 @@ use App\Services\Threads\LegacyTaskThreads;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadList;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 function oldConversation(?User $user = null): YakTask
 {
@@ -177,6 +180,40 @@ it('lets a driver send to a legacy thread and lands on a new thread', function (
     $response->assertRedirect(route('threads.show', $new));
     Queue::assertPushed(RunFollowUpJob::class);
     expect($new->isOpen())->toBeTrue();
+});
+
+it('attaches the files of a message to a legacy thread to the new run', function () {
+    Queue::fake();
+    Storage::fake('artifacts');
+    $this->mock(SessionSync::class)->shouldReceive('seedFromLegacyTranscript')->andReturn(false);
+    $user = User::factory()->create();
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($user));
+
+    $this->actingAs($user)->post(route('threads.messages.store', $legacy), [
+        'message' => 'Also fix this one',
+        'attachments' => [UploadedFile::fake()->image('second-bug.jpg')],
+    ])->assertRedirect();
+
+    $child = YakTask::query()->where('description', 'Also fix this one')->sole();
+
+    expect($child->attachments)->toHaveCount(1)
+        ->and($child->attachments->first()->mime_type)->toBe('image/jpeg');
+});
+
+it('keeps no files sent to a legacy thread whose pull request is closed', function () {
+    Queue::fake();
+    Storage::fake('artifacts');
+    $user = User::factory()->create();
+    $legacy = app(LegacyTaskThreads::class)->convert(oldConversation($user));
+    YakTask::query()->where('thread_id', $legacy->id)->update(['pr_merged_at' => now()]);
+
+    $this->actingAs($user)->post(route('threads.messages.store', $legacy), [
+        'message' => 'too late',
+        'attachments' => [UploadedFile::fake()->image('late.png')],
+    ])->assertSessionHas('error');
+
+    expect(TaskAttachment::count())->toBe(0)
+        ->and(Storage::disk('artifacts')->allFiles())->toBe([]);
 });
 
 it('refuses a viewer without drive rights and a closed thread that is not legacy', function () {

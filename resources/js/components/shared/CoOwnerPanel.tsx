@@ -103,13 +103,13 @@ type PanelProps = {
     /** The link the requester copies to share the request. */
     shareUrl: string;
     repoUrl: string | null;
-    /** `card` is the compact card above the thread composer; `panel` is the task page panel. */
+    /** `card` is the compact card above the thread composer; `panel` is the thread page panel. */
     variant?: 'panel' | 'card';
     /** Opens the changed files; the card links to it when the change has more files than it lists. */
     onOpenChanges?: () => void;
 };
 
-/** The held-change panel, in the clarification slot of the task page and as the card above the thread composer. */
+/** The held-change panel, in the clarification slot of the thread page and as the card above the thread composer. */
 export function CoOwnerPanel({ variant = 'panel', ...props }: PanelProps) {
     const { coOwner } = props;
 

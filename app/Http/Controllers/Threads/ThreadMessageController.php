@@ -14,6 +14,7 @@ use App\Models\ThreadTurnMessage;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadTurns;
+use App\Support\AttachmentNumbering;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class ThreadMessageController extends Controller
 
         $taskId = $thread->headTask()?->id;
         $input = new ThreadMessageInput(
-            (string) $request->validated('message'),
+            AttachmentNumbering::claimForThread($thread, $request, (string) $request->validated('message')),
             $request->validated('model'),
             $request->validated('intent'),
             $request->validated('send_key'),

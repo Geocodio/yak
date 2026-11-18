@@ -22,7 +22,7 @@ type NoticeProps = {
     warning: EarlyWarningData;
     routes: EarlyWarningRoutes;
     renderCandidates: RenderCandidates;
-    /** `card` is the card above the thread composer; `notice` is the bubble the task page shows after the request. */
+    /** `card` is the card above the thread composer; `notice` is the bubble the thread page shows after the request. */
     variant?: 'notice' | 'card';
 };
 
