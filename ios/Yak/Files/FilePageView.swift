@@ -14,8 +14,13 @@ struct FilePageView: View {
 
     /// Editing starts from a diff only for a file that still exists, is text and fits the diff: a deleted, binary or
     /// too large file stays a diff, and so does a page whose file is gone.
-    static func canEdit(file: DiffFileSummary, state: FilePageState?, canDrive: Bool, filesAvailable: Bool) -> Bool {
-        guard canDrive, filesAvailable, file.status != .deleted, !file.isBinary, !file.isTooLarge else { return false }
+    static func canEdit(
+        file: DiffFileSummary, state: FilePageState?, canDrive: Bool, filesAvailable: Bool, primaryRepo: String?
+    ) -> Bool {
+        // The editor's `.repo` scope shows the thread's primary repository only.
+        guard canDrive, filesAvailable, file.repo == primaryRepo, file.status != .deleted, !file.isBinary,
+            !file.isTooLarge
+        else { return false }
         switch state {
         case .binary, .tooLarge, .gone: return false
         default: return true

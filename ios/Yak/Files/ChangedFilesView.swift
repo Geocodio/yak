@@ -120,7 +120,8 @@ struct ChangedFilesView: FilesModeView {
     private func canEdit(_ file: DiffFileSummary, state: FilePageState?) -> Bool {
         FilePageView.canEdit(
             file: file, state: state, canDrive: thread.snapshot?.show?.canDrive ?? false,
-            filesAvailable: FilesMode.built.contains(.everything) && thread.panes.contains(.files))
+            filesAvailable: FilesMode.built.contains(.everything) && thread.panes.contains(.files),
+            primaryRepo: thread.snapshot?.show?.thread.repo)
     }
 
     private func pages(_ snapshot: ChangesSnapshot) -> some View {

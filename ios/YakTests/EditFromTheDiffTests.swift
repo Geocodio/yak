@@ -15,9 +15,10 @@ import YakKit
 
     private func can(
         _ file: DiffFileSummary, state: FilePageState? = .noContentChanges, canDrive: Bool = true,
-        filesAvailable: Bool = true
+        filesAvailable: Bool = true, primaryRepo: String? = "example/api"
     ) -> Bool {
-        FilePageView.canEdit(file: file, state: state, canDrive: canDrive, filesAvailable: filesAvailable)
+        FilePageView.canEdit(
+            file: file, state: state, canDrive: canDrive, filesAvailable: filesAvailable, primaryRepo: primaryRepo)
     }
 
     @Test func aDriverCanEditAModifiedOrAddedTextFile() {
@@ -33,6 +34,13 @@ import YakKit
         #expect(!can(file(), state: .binary))
         #expect(!can(file(), state: .tooLarge))
         #expect(!can(file(), state: .gone))
+    }
+
+    @Test func onlyTheThreadsPrimaryRepositoryOffersEdit() {
+        let other = DiffFileSummary(id: 2, repo: "example/web", path: "src/a.ts", status: .modified)
+        #expect(can(file()))
+        #expect(!can(other))
+        #expect(!can(file(), primaryRepo: nil))
     }
 
     @Test func aReaderOrAThreadWithoutFilesGetsNoButton() {
