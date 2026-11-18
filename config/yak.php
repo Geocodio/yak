@@ -393,7 +393,7 @@ return [
             trim(...),
             explode(',', (string) env(
                 'YAK_CI_FAILURE_JOB_EXCLUDE_PATTERNS',
-                'notify,deploy,publish,release,announce,upload,audit',
+                'notify,deploy,publish,release,announce,upload',
             )),
         ))),
 

@@ -1118,3 +1118,49 @@ test('it skips a flaky test while a ci-failure claim covers it', function () {
     expect(YakTask::where('repo', 'ci-repo')->where('source', 'flaky-test')->count())->toBe(0);
     expect(Observation::where('kind', 'flaky_test.ci_failure_in_flight')->count())->toBe(1);
 });
+
+function runFlakyScanWithCiFailureClaim(array $claimAttributes): void
+{
+    Repository::factory()->create(['slug' => 'claim-repo', 'ci_system' => 'github_actions']);
+
+    $task = YakTask::factory()->create([
+        'repo' => 'claim-repo',
+        'source' => 'ci-failure',
+        'status' => $claimAttributes['task_status'] ?? TaskStatus::Pending,
+    ]);
+    unset($claimAttributes['task_status']);
+
+    CiFailureClaim::factory()->create(array_merge([
+        'repo' => 'claim-repo',
+        'job_name' => null,
+        'test_class' => 'Tests\\Feature\\LoginTest',
+        'yak_task_id' => $task->id,
+    ], $claimAttributes));
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'Error detail',
+            buildUrl: 'https://github.com/org/repo/actions/runs/456',
+            buildId: '456',
+            branch: 'main',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    test()->artisan('yak:scan-ci', ['--repo' => 'claim-repo'])->assertSuccessful();
+}
+
+test('a ci-failure claim live only by fix merge sha does not suppress the flaky scan', function () {
+    runFlakyScanWithCiFailureClaim(['fix_merge_sha' => 'abc123', 'task_status' => TaskStatus::Failed]);
+
+    expect(YakTask::where('repo', 'claim-repo')->where('source', 'flaky-test')->count())->toBe(1);
+    expect(Observation::where('kind', 'flaky_test.ci_failure_in_flight')->count())->toBe(0);
+});
+
+test('a ci-failure claim for a different test class does not suppress the flaky scan', function () {
+    runFlakyScanWithCiFailureClaim(['test_class' => 'Tests\\Feature\\OtherTest']);
+
+    expect(YakTask::where('repo', 'claim-repo')->where('source', 'flaky-test')->count())->toBe(1);
+    expect(Observation::where('kind', 'flaky_test.ci_failure_in_flight')->count())->toBe(0);
+});

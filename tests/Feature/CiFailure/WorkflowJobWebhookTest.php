@@ -93,6 +93,12 @@ it('ignores excluded jobs', function (string $name) {
     Queue::assertNothingPushed();
 })->with(['Deploy staging', 'Notify Slack (tests)']);
 
+it('does not exclude audit jobs from ci-failure intake', function () {
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['name' => 'Security Audit']));
+
+    Queue::assertPushed(HandleCiJobFailureJob::class);
+});
+
 it('ignores repos that are inactive or not on github_actions', function (array $state) {
     $this->repository->update($state);
 
