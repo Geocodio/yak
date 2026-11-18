@@ -40,14 +40,15 @@ struct RetryDivider: View {
             Group {
                 if let number = message.retryNumber { Text("chat.retry.number \(number)") } else { Text("chat.retry") }
             }
-            .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted).fixedSize()
+            .font(.caption.weight(.semibold)).foregroundStyle(.primary).fixedSize()
+            .accessibilityIdentifier("chat.retry")
             line
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("chat.retry")
     }
 
-    private var line: some View { Rectangle().fill(Color.primary.opacity(0.18)).frame(height: 1) }
+    private var line: some View {
+        Rectangle().fill(Color.primary.opacity(0.18)).frame(height: 1).accessibilityHidden(true)
+    }
 }
 
 /// One answer of a thread made from an old task, rendered by the server.

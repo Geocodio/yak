@@ -19,9 +19,6 @@ private struct ChatPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if case .conversation = thread.loadPresentation, let request = thread.snapshot?.show?.request {
-                ThreadRequestRow(request: request, open: { browserURL = BrowserLink(url: $0) })
-            }
             ZStack {
                 if case .conversation = thread.loadPresentation {
                     ChatView(thread: thread, openThread: openThread)
@@ -36,6 +33,14 @@ private struct ChatPane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if case .conversation = thread.loadPresentation {
+                if thread.composer.bar.line != nil {
+                    Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                        .padding(.horizontal, 8).padding(.bottom, 8)
+                        .accessibilityIdentifier("composer.legacyLine")
+                }
                 ThreadCardHost(thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) })
             }
         }

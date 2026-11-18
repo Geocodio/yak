@@ -77,6 +77,7 @@ struct ChatView: View {
                         .onAppear { isHistoryVisible = true }
                         .onDisappear { isHistoryVisible = false }
                 }
+                if let request = thread.snapshot?.show?.request { ThreadRequestRow(request: request, stepLine: thread.stepLine) }
                 ForEach(thread.rows) { row in
                     ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
                         .onGeometryChange(for: CGRect.self) {

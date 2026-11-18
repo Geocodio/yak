@@ -31,11 +31,6 @@ struct ComposerBar: View {
                 .background(Color.yakDanger.opacity(0.1), in: .rect(cornerRadius: 12))
                 .accessibilityElement(children: .combine).accessibilityIdentifier("composer.problem")
             }
-            if composer.bar.line != nil {
-                Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                    .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12)
-                    .accessibilityIdentifier("composer.legacyLine")
-            }
             AttachmentStrip(composer: composer)
             PasteImageButton(composer: composer)
             if let reason = composer.bar.unavailable {

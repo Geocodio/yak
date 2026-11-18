@@ -10,8 +10,6 @@ struct ThreadTitle: View {
     let connectionLine: ConnectionLine?
     /// The request's status tone; it colors the dot when the server sends one.
     var tone: Tone?
-    /// The current or failed step of the request, such as "Step 5 of 7: CI failed", when there is no connection line.
-    var stepLine: String?
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
 
@@ -38,9 +36,6 @@ struct ThreadTitle: View {
             if let connectionLine {
                 Text(connectionLine.text).font(.caption).foregroundStyle(connectionLine.color).lineLimit(1)
                     .accessibilityIdentifier("thread.connection")
-            } else if let stepLine {
-                Text(verbatim: stepLine).font(.caption.weight(.medium)).foregroundStyle(Color.yakMuted).lineLimit(1)
-                    .accessibilityIdentifier("thread.step")
             }
         }
         .frame(minHeight: 44).contentShape(.rect)

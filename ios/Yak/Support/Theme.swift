@@ -84,10 +84,10 @@ struct FilledButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(isEnabled ? Color(.systemBackground) : Color.primary.opacity(0.72))
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
-            .background(Color.primary, in: .rect(cornerRadius: 14))
-            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
+            .background(isEnabled ? Color.primary : Color(.systemGray5), in: .rect(cornerRadius: 14))
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

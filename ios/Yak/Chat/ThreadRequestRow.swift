@@ -10,21 +10,35 @@ struct BrowserLink: Identifiable {
 /// Under the title: where the request came from, as a chip that opens its page, and the request's status as a pill.
 struct ThreadRequestRow: View {
     let request: ThreadRequest
-    let open: (URL) -> Void
+    /// The current or failed step, such as "Step 5 of 7: CI failed".
+    var stepLine: String?
+    @State private var browserURL: BrowserLink?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                chip
-                pill
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    chip
+                    pill
+                    Spacer(minLength: 0)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    chip
+                    pill
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                chip
-                pill
-            }.frame(maxWidth: .infinity, alignment: .leading)
+            if let stepLine {
+                Text(verbatim: stepLine).font(.footnote.weight(.medium)).foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.step")
+            }
         }
-        .padding(.horizontal, 16).padding(.top, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .id(dynamicTypeSize)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("thread.request")
+        .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.request")
     }
@@ -39,7 +53,7 @@ struct ThreadRequestRow: View {
             .background(Color(.tertiarySystemFill), in: .capsule).fixedSize(horizontal: false, vertical: true)
         if let url = WebLinkRule.safeURL(request.source.url) {
             Button {
-                open(url)
+                browserURL = BrowserLink(url: url)
             } label: {
                 label.frame(minHeight: 44).contentShape(.rect)
             }.buttonStyle(.plain).accessibilityIdentifier("thread.source")

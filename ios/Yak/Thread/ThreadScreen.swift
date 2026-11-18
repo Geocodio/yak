@@ -142,7 +142,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(
                             title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
-                            tone: thread.statusTone, stepLine: thread.stepLine,
+                            tone: thread.statusTone,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
                     }
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }

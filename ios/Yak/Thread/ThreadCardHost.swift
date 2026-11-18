@@ -263,6 +263,7 @@ struct ThreadCardHost: View {
                 .frame(maxWidth: .infinity, minHeight: 44).padding(.vertical, 6)
                 .background(Color(.systemGray5), in: .rect(cornerRadius: 14))
         }
+        .tint(.primary)
         .accessibilityIdentifier("thread.card.stopped.move")
     }
 
@@ -308,25 +309,27 @@ struct ThreadCardHost: View {
     }
 }
 
-/// The surface of a card: the question card's, with a tint over the whole surface for a warning or a failure. It grows
-/// with its content up to a share of the pane and scrolls inside after that.
+/// The surface of a card: the question card's, with a tint over the whole surface for a warning or a failure. It is as
+/// tall as its content and scrolls inside when the pane has less room.
 private struct CardContainer<Content: View>: View {
     let kind: String
     let tone: Tone
     let paneHeight: CGFloat
     @ViewBuilder let content: Content
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var inner: some View {
         VStack(alignment: .leading, spacing: 10) { content }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     var body: some View {
         ViewThatFits(in: .vertical) {
             inner
-            ScrollView { inner }.scrollBounceBehavior(.basedOnSize)
+            ScrollView { inner }
         }
-        .frame(maxHeight: max(paneHeight * 0.7, 260))
+        .id(dynamicTypeSize)
         .questionCardSurface()
         .background(tone.surfaceTint ?? .clear, in: .rect(cornerRadius: 16))
         .padding(.horizontal, 8).padding(.bottom, 8)
