@@ -43,6 +43,9 @@ final class PushController: InstanceLifecycleObserver {
         didSet { Task { await deliverBufferedLinks() } }
     }
 
+    /// Runs the open part of a tap now, or after the unlock while the app lock blocks input. Nil runs it at once.
+    @ObservationIgnored var gate: (@MainActor (@escaping @MainActor () async -> Void) -> Void)?
+
     init(
         instances: InstanceStore, registrar: PushRegistrar, permission: any NotificationPermission,
         center: any NotificationCenterClient, activityHost: any ActivityHost = SystemActivityHost(),
@@ -215,6 +218,14 @@ final class PushController: InstanceLifecycleObserver {
             return
         }
         guard let destination = PushDestination.make(payload, instances: paired, normalize: normalize) else { return }
+        guard let gate else {
+            await open(destination)
+            return
+        }
+        gate { [self] in await open(destination) }
+    }
+
+    private func open(_ destination: PushDestination) async {
         switch destination {
         case .thread, .task:
             if let link = destination.linkURL { await deliver(link) }
