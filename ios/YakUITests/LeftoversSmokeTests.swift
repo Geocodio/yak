@@ -12,6 +12,29 @@ import XCTest
 
     private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
 
+    /// The failing card's "Edit .yak/preview.yml" opens the manifest in the Files editor.
+    func testEditManifestFromTheFailingCard() throws {
+        try stub.play("preview-failing-files")
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.launchRetryingOnce()
+        PreviewScreen(app: app).open()
+        XCTAssertTrue(element("preview.card.failing").waitForExistence(timeout: Wait.appear))
+        let edit = app.buttons["preview.editManifest"]
+        XCTAssertTrue(edit.waitForExistence(timeout: Wait.appear))
+        try auditTwice(app) { [app] in
+            let auditBars = AuditRules.Bars(app)
+            return { issue in
+                AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars)
+                    || AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars)
+            }
+        }
+        edit.tap()
+        let editor = app.textViews["files.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue((editor.value as? String ?? "").contains("cold_start: npm run dev"))
+        XCTAssertTrue(element("files.editor.keys").exists)
+    }
+
     func testWalkthroughPlaysAndCloses() throws {
         try stub.play("task-walkthrough")
         app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]

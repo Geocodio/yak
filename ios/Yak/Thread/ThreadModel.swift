@@ -53,6 +53,8 @@ final class ThreadModel {
     @ObservationIgnored private var actionLineSerial = 0
     /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
     @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
+    /// A file another pane wants open in Files; the Files pane takes it and clears it.
+    var fileOpenRequest: FileOpenRequest?
     /// The drawer row's title, shown until the thread's own arrives.
     private var initialTitle: String?
     private var isStarted = false

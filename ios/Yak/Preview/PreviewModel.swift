@@ -56,6 +56,8 @@ final class PreviewModel {
     static let slowAfter: Duration = .seconds(8)
     static let actionLineLifetime: Duration = .seconds(6)
     static let crashWindow: TimeInterval = 60
+    /// How long the Files pane has to take the manifest request before the card says it did not open.
+    static let fileOpenTimeout: Duration = .seconds(5)
 
     let threadID: String
     let instanceHost: String
@@ -77,6 +79,10 @@ final class PreviewModel {
     @ObservationIgnored private let backend: any PreviewBackend
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private let terminalAvailable: Bool
+    @ObservationIgnored private let canOpenFiles: Bool
+    @ObservationIgnored private let fileOpenRequest: @MainActor () -> FileOpenRequest?
+    @ObservationIgnored private let setFileOpenRequest: @MainActor (FileOpenRequest?) -> Void
+    @ObservationIgnored private var fileOpenTask: Task<Void, Never>?
     @ObservationIgnored private let openURL: @MainActor (URL) -> Void
     @ObservationIgnored private let focus: @MainActor (PaneID) -> Void
     @ObservationIgnored private weak var driver: (any PreviewPageDriver)?
@@ -94,9 +100,15 @@ final class PreviewModel {
 
     init(
         threadID: String, instanceHost: String, backend: any PreviewBackend, clock: any YakClock,
-        terminalAvailable: Bool, openURL: @escaping @MainActor (URL) -> Void = PreviewModel.openInSystem,
-        focus: @escaping @MainActor (PaneID) -> Void = { _ in }
+        terminalAvailable: Bool, canOpenFiles: Bool = false,
+        openURL: @escaping @MainActor (URL) -> Void = PreviewModel.openInSystem,
+        focus: @escaping @MainActor (PaneID) -> Void = { _ in },
+        fileOpenRequest: @escaping @MainActor () -> FileOpenRequest? = { nil },
+        setFileOpenRequest: @escaping @MainActor (FileOpenRequest?) -> Void = { _ in }
     ) {
+        self.canOpenFiles = canOpenFiles
+        self.fileOpenRequest = fileOpenRequest
+        self.setFileOpenRequest = setFileOpenRequest
         self.threadID = threadID
         self.instanceHost = instanceHost
         self.backend = backend
@@ -148,6 +160,7 @@ final class PreviewModel {
         readingTasks = []
         lineTask?.cancel()
         slowTask?.cancel()
+        fileOpenTask?.cancel()
         signInTask?.cancel()
         driver?.stopLoading()
         await backend.close()
@@ -184,7 +197,7 @@ final class PreviewModel {
             status: status, canDrive: next.canDrive, blockedReason: next.blockedReason, isRestoring: next.isRestoring,
             sandboxState: next.sandboxState, hasKnownPreviewURL: next.lastPreviewURL != nil,
             restoreTookTooLong: next.restoreTookTooLong, pendingIntent: intents.pending.first,
-            terminalAvailable: terminalAvailable)
+            terminalAvailable: terminalAvailable, canOpenFiles: canOpenFiles)
         card = made
         let isPage = made.kind == .page
         if isPage, !lastCardWasPage, case .refused = page { page = .idle }
@@ -331,13 +344,38 @@ final class PreviewModel {
             report(await backend.retryRestore())
             isPerforming = nil
         case .openTerminal: focus(.terminal)
-        case .editManifest: break  // the card offers it only once Files can open the manifest
+        case .editManifest: requestManifestOpen()
         case .showConversation: focus(.chat)
         case .openInBrowser:
             isPerforming = action
             if let url = await openInBrowserURL() { openURL(url) }
             isPerforming = nil
         }
+    }
+
+    /// Hands the manifest to the Files pane and waits for it to take the request: the card shows progress until
+    /// `fileOpenRequestChanged` sees it taken, or says it did not open after `fileOpenTimeout`.
+    private func requestManifestOpen() {
+        let request = FileOpenRequest(path: PreviewCard.manifestPath, edit: true)
+        isPerforming = .editManifest
+        actionLine = nil
+        setFileOpenRequest(request)
+        focus(.files)
+        fileOpenTask?.cancel()
+        fileOpenTask = Task { [weak self, clock] in
+            do { try await clock.sleep(for: Self.fileOpenTimeout) } catch { return }
+            guard let self, self.fileOpenRequest()?.id == request.id else { return }
+            self.setFileOpenRequest(nil)
+            self.isPerforming = nil
+            self.setLine(String(localized: "preview.line.filesDidNotOpen"), retry: .editManifest)
+        }
+    }
+
+    /// The Files pane cleared the request: it took it, so the card is done waiting.
+    func fileOpenRequestChanged() {
+        guard fileOpenRequest() == nil, isPerforming == .editManifest else { return }
+        fileOpenTask?.cancel()
+        isPerforming = nil
     }
 
     private func report(_ outcome: ThreadActionOutcome) {

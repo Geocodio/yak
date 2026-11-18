@@ -8,12 +8,15 @@ struct FilesEverythingView: FilesModeView {
 
     let thread: ThreadModel
     @State private var model: FilesEverythingModel
+    @State private var openHandler: FileOpenHandler
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.isNetworkOnline) private var isOnline
 
     init(thread: ThreadModel, scene: SceneModel) {
         self.thread = thread
-        _model = State(initialValue: FilesEverythingModel(thread: thread, timings: .forThisRun))
+        let model = FilesEverythingModel(thread: thread, timings: .forThisRun)
+        _model = State(initialValue: model)
+        _openHandler = State(initialValue: FileOpenHandler { path, edit in await model.open(path: path, edit: edit) })
     }
 
     var body: some View {
@@ -22,6 +25,11 @@ struct FilesEverythingView: FilesModeView {
             .background(Color(.systemBackground))
             .paneBarRow(key: barKey) { barRow }
             .task { await model.start() }
+            .task(id: thread.fileOpenRequest) {
+                await openHandler.take(
+                    thread.fileOpenRequest, current: { thread.fileOpenRequest }, clear: { thread.fileOpenRequest = nil }
+                )
+            }
             .onChange(of: thread.snapshot?.turn?.state) { _, state in
                 if let state, !state.isActive { Task { await model.turnFinished() } }
             }
