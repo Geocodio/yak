@@ -4,6 +4,7 @@ import YakKit
 /// The Debug menu of Debug and TestFlight builds.
 struct DebugMenuScreen: View {
     let model: DebugMenuModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         List {
@@ -28,7 +29,7 @@ struct DebugMenuScreen: View {
                     .accessibilityIdentifier("debug.liveActivities")
                 #endif
             } header: {
-                Text("debug.states.header")
+                Text("debug.states.header").foregroundStyle(Color.yakMuted)
             }
             Section {
                 ForEach(DebugFault.allCases, id: \.self) { fault in
@@ -50,9 +51,12 @@ struct DebugMenuScreen: View {
                     .accessibilityIdentifier("debug.fault.\(fault.rawValue)")
                 }
             } header: {
-                Text("debug.requests.header")
+                Text("debug.requests.header").foregroundStyle(Color.yakMuted)
             } footer: {
-                Text("debug.requests.footer")
+                Text("debug.requests.footer").foregroundStyle(Color.yakMuted).fixedSize(
+                    horizontal: false, vertical: true
+                )
+                .id(dynamicTypeSize)
             }
             Section {
                 NavigationLink {
@@ -62,7 +66,7 @@ struct DebugMenuScreen: View {
                 }
                 .accessibilityIdentifier("debug.log")
             } header: {
-                Text("debug.log.header")
+                Text("debug.log.header").foregroundStyle(Color.yakMuted)
             }
             Section {
                 Button {
@@ -74,13 +78,15 @@ struct DebugMenuScreen: View {
                 .disabled(model.tipsWillShowAgain)
                 .accessibilityIdentifier("debug.tips")
             } header: {
-                Text("debug.tips.header")
+                Text("debug.tips.header").foregroundStyle(Color.yakMuted)
             } footer: {
-                Text("debug.tips.footer")
+                Text("debug.tips.footer").foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
+                    .id(dynamicTypeSize)
             }
             Section {
             } footer: {
                 Text(LocalizedStringKey(model.kind == .testFlight ? "debug.build.testFlight" : "debug.build.debug"))
+                    .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
             }
         }
         .navigationTitle("about.debug")

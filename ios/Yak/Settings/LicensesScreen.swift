@@ -23,14 +23,17 @@ struct LicensesScreen: View {
 
 private struct LicenseTextScreen: View {
     let entry: LicenseEntry
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
             if let text = LicenseList.text(for: entry, bundle: .main) {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(paragraphs(text).enumerated()), id: \.offset) { _, paragraph in
                         Text(verbatim: paragraph).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .id(dynamicTypeSize)
                     }
                 }
                 .padding(16)

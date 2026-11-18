@@ -38,6 +38,7 @@ struct SettingsScreen: View {
                 SettingsPrivacySection(app: app, active: model.active)
                 SettingsAboutSection()
             }
+            .id(dynamicTypeSize)
             .tint(Color.yakAction)
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)

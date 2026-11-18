@@ -15,15 +15,23 @@ struct LogScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Button(showsCopied ? "debug.log.copied" : "debug.log.copy") {
+                    Button {
                         UIPasteboard.general.string = model.copyLog()
                         copiedCount += 1
+                    } label: {
+                        Label(
+                            showsCopied ? "debug.log.copied" : "debug.log.copy",
+                            systemImage: showsCopied ? "checkmark" : "doc.on.doc")
                     }
                     .disabled(!hasLines)
                     .accessibilityIdentifier("debug.log.copy")
-                    Button("debug.log.refresh") { Task { await model.loadLog() } }
-                        .disabled(model.log == .loading)
-                        .accessibilityIdentifier("debug.log.refresh")
+                    Button {
+                        Task { await model.loadLog() }
+                    } label: {
+                        Label("debug.log.refresh", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(model.log == .loading)
+                    .accessibilityIdentifier("debug.log.refresh")
                 }
             }
             .sensoryFeedback(.success, trigger: copiedCount)
