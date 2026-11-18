@@ -63,10 +63,15 @@ struct WorkspaceStateContent {
         }
     }
 
-    static func problem(_ problem: ThreadProblem, retry: @escaping () -> Void) -> WorkspaceStateContent {
+    /// `isFile` words the offline sentence for one open file instead of the tree.
+    static func problem(
+        _ problem: ThreadProblem, isFile: Bool = false, retry: @escaping () -> Void
+    ) -> WorkspaceStateContent {
         switch problem {
         case .offline:
-            return WorkspaceStateContent(title: "files.offline.title", detail: Text("files.offline.detail"))
+            return WorkspaceStateContent(
+                title: "files.offline.title",
+                detail: Text(isFile ? "files.offline.file.detail" : "files.offline.detail"))
         case .notFound:
             return WorkspaceStateContent(title: "files.notHere.title")
         case .server(_, let message):

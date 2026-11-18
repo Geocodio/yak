@@ -411,6 +411,19 @@ private final class Counter: @unchecked Sendable {
     #expect(!String(decoding: sent, as: UTF8.self).contains("]52;"))
 }
 
+/// Escape, Tab, the arrows and Control combinations reach the emulator through its own key presses, so nothing around
+/// the surface may claim them as a key command, and the surface must be able to take the hardware keyboard.
+@MainActor @Test func theSurfaceTakesEscapeTabAndArrowsBeforeAnyKeyCommand() {
+    let surface = SwiftTermSurface()
+    #expect(surface.view.canBecomeFirstResponder)
+    let claimed: Set<String> = [
+        UIKeyCommand.inputEscape, "\t", UIKeyCommand.inputUpArrow, UIKeyCommand.inputDownArrow,
+        UIKeyCommand.inputLeftArrow, UIKeyCommand.inputRightArrow,
+    ]
+    let commands = surface.view.keyCommands ?? []
+    #expect(!commands.contains { claimed.contains($0.input ?? "") && $0.modifierFlags.isEmpty })
+}
+
 /// Holds a `makeConnection` until the test releases it.
 private actor ConnectionGate {
     private var continuation: CheckedContinuation<Void, Never>?

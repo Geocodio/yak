@@ -294,12 +294,19 @@ struct ThreadScreen: View {
         }
     }
 
-    /// Command 1 focuses Chat, Command 2 Preview when the thread has one; Command I and Command 5 open the Overview.
+    /// Command 1 focuses Chat, Command 2 Preview, Command 3 Files and Command 4 Terminal when the thread has them;
+    /// Command I and Command 5 open the Overview.
     private func shortcuts(_ focused: Binding<PaneID>, panes: [PaneID]) -> some View {
         ZStack {
             Button("pane.chat") { focused.wrappedValue = .chat }.yakShortcut(.focusChat)
             if panes.contains(.preview) {
                 Button("pane.preview") { focused.wrappedValue = .preview }.yakShortcut(.focusPreview)
+            }
+            if panes.contains(.files) {
+                Button(AppShortcut.focusFiles.title) { focused.wrappedValue = .files }.yakShortcut(.focusFiles)
+            }
+            if panes.contains(.terminal) {
+                Button(AppShortcut.focusTerminal.title) { focused.wrappedValue = .terminal }.yakShortcut(.focusTerminal)
             }
             if panes.contains(.overview) {
                 Button("pane.overview") { toggleOverview(focused) }.yakShortcut(.overview)

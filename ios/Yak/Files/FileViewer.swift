@@ -74,7 +74,7 @@ struct FileViewer: View {
                     restore: { Task { await model.restore() } }),
                 isBusy: model.isRestoring, message: model.restoreMessage)
         case .failed(let problem):
-            WorkspaceStateView(content: .problem(problem, retry: { Task { await document.reload() } }))
+            WorkspaceStateView(content: .problem(problem, isFile: true, retry: { Task { await document.reload() } }))
         }
     }
 }
