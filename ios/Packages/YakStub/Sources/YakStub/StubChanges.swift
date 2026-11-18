@@ -7,7 +7,8 @@ final class StubChanges: StubFeature, @unchecked Sendable {
     let scenarios = [
         "changes", "tasks-empty", "tasks-nulls", "tasks-slow", "task-slow-approve", "task-refused", "task-not-linked",
         "tasks-error", "task-access-error", "task-early-warning", "task-early-warning-tagged", "observations-declined",
-        "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working", "changes-slow",
+        "changes-files", "changes-none", "changes-private", "changes-replaced", "changes-gone", "changes-working",
+        "changes-slow",
         "pull-request-open", "pull-request-slow", "pull-request-held", "pull-request-failed", "pull-request-refused",
     ]
     let fixturePairs = [

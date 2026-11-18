@@ -9,6 +9,18 @@ struct FilePageView: View {
     let toggleViewed: () -> Void
     let retry: () -> Void
     let openWeb: () -> Void
+    /// Opens this file in the Files editor; nil when the person cannot edit it from here.
+    var edit: (() -> Void)?
+
+    /// Editing starts from a diff only for a file that still exists, is text and fits the diff: a deleted, binary or
+    /// too large file stays a diff, and so does a page whose file is gone.
+    static func canEdit(file: DiffFileSummary, state: FilePageState?, canDrive: Bool, filesAvailable: Bool) -> Bool {
+        guard canDrive, filesAvailable, file.status != .deleted, !file.isBinary, !file.isTooLarge else { return false }
+        switch state {
+        case .binary, .tooLarge, .gone: return false
+        default: return true
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -43,18 +55,35 @@ struct FilePageView: View {
                 Text("files.renamedFrom \(old)").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button(action: toggleViewed) {
-                Label {
-                    Text(isViewed ? "files.viewed.on" : "files.viewed.off")
-                } icon: {
-                    Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+            HStack(spacing: 16) {
+                viewedButton
+                if let edit {
+                    Button(action: edit) {
+                        Label {
+                            Text("files.page.edit")
+                        } icon: {
+                            Image(systemName: "pencil").accessibilityHidden(true)
+                        }
+                        .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+                    }
+                    .foregroundStyle(.primary).accessibilityIdentifier("files.page.edit")
                 }
-                .font(.footnote.weight(.semibold)).frame(minHeight: 44)
             }
-            .foregroundStyle(.primary)
-            .accessibilityLabel(Text(isViewed ? "files.viewed.label.on" : "files.viewed.label.off"))
-            .accessibilityIdentifier("files.viewed")
         }
+    }
+
+    private var viewedButton: some View {
+        Button(action: toggleViewed) {
+            Label {
+                Text(isViewed ? "files.viewed.on" : "files.viewed.off")
+            } icon: {
+                Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+            }
+            .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel(Text(isViewed ? "files.viewed.label.on" : "files.viewed.label.off"))
+        .accessibilityIdentifier("files.viewed")
     }
 
     @ViewBuilder private var counts: some View {
