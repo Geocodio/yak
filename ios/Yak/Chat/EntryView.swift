@@ -64,6 +64,8 @@ struct EntryView: View {
             UnsentView(item: item, isOffline: thread.isOffline, thread: thread)
         case .delivered(let delivery):
             DeliveredView(delivery: delivery)
+        case .milestone, .retry, .legacyAnswer:
+            EmptyView()
         }
     }
 }

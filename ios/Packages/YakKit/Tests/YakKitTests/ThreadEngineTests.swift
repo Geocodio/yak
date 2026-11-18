@@ -456,3 +456,16 @@ func theTurnAndThreadEventsInEitherOrderRefreshOnce(turnFirst: Bool) async throw
     await rig.clock.advance(by: ThreadEngine.refreshSettle)
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == before + 1)
 }
+
+@Test func theSnapshotCarriesTheShowsMilestonesInPlace() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    await server.publish(through: 14)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    object["milestones"] = [
+        ["key": "pushed", "label": "Pushed", "tone": "ok", "url": NSNull(), "runId": "9", "afterSequence": 14]
+    ]
+    let rig = try await openedEngine(server: server, show: JSONSerialization.data(withJSONObject: object))
+    let snapshot = try await settled(rig.engine)
+    #expect(snapshot.entries.contains { $0.id == "milestone:9:pushed:14" })
+}

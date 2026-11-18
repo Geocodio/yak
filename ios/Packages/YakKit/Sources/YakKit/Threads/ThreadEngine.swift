@@ -611,7 +611,8 @@ public actor ThreadEngine {
         let entries = ConversationMerge.merge(
             messages: messages, readUUIDs: read, items: projection.items,
             readSequences: projection.readSequences, messageStates: state.messageStates, unsent: outboxItems,
-            delivered: deliveries)
+            delivered: deliveries, milestones: show?.milestones ?? [], firstLoadedAfter: firstLoadedAfter,
+            isLegacy: show?.isLegacy ?? false, legacyAnswers: show?.legacyAnswers ?? [])
         broadcast.send(
             ConversationSnapshot(
                 load: load, show: visibleShow, entries: entries,
