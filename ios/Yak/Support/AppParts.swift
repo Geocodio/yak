@@ -114,6 +114,21 @@ final class AppParts {
         return (SpotlightInstance(id: active.id, name: active.name), lists)
     }
 
+    /// The one place an incoming link passes: links, widget and Live Activity taps, App Intents that open the app and
+    /// Home Screen quick actions all arrive here, and none opens anything while the lock is up.
+    static func open(
+        _ url: URL, through appLock: AppLockController, handle: @escaping @MainActor (URL) async -> Void
+    ) {
+        appLock.whenOpen { await handle(url) }
+    }
+
+    /// Quick actions arrive as a stream of links, not through `onOpenURL`; each goes through `open`.
+    static func route(
+        _ links: AsyncStream<URL>, through appLock: AppLockController, handle: @escaping @MainActor (URL) async -> Void
+    ) async {
+        for await url in links { open(url, through: appLock, handle: handle) }
+    }
+
     /// The type of every part this build made, so a test can compare test mode with a release build.
     var partTypeNames: [String] {
         let parts = Mirror(reflecting: self).children.filter { $0.label != "storage" && $0.label != "isTestMode" }
@@ -124,7 +139,8 @@ final class AppParts {
 extension View {
     /// Every scene-root modifier, one line per feature, in one place.
     func appRoot(_ parts: AppParts, model: AppModel) -> some View {
-        onOpenURL { url in parts.system.appLock.whenOpen { await model.handle(url: url) } }
+        onOpenURL { url in AppParts.open(url, through: parts.system.appLock) { await model.handle(url: $0) } }
+            .task { await AppParts.route(QuickActions.links(), through: parts.system.appLock) { await model.handle(url: $0) } }
             .environment(parts.system)
             .appLockWindow(parts.system.appLock)
             .modifier(ShortcutGate(controller: parts.system.appLock))

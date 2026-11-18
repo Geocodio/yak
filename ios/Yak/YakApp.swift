@@ -90,9 +90,6 @@ struct YakApp: App {
         RootView(model: model)
             .appRoot(parts, model: model)
             .task {
-                for await link in QuickActions.links() { await model.handle(url: link) }
-            }
-            .task {
                 delegate.attach(parts.push)
                 await parts.push.start()
             }
