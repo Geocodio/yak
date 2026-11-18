@@ -11,10 +11,12 @@ type Props = {
     onMove: () => void;
     /** Opens the log of the latest run; null when the thread has no run. */
     onShowLog: (() => void) | null;
+    /** Inside the conversation's scroll area: the page lends it the scroller's padding. */
+    isInline?: boolean;
 };
 
 /** The one card above the composer: the repository question, the early warning, the co-owner decision or the stop. The question form lives in the conversation. */
-export function ThreadCards({ page, onOpenChanges, onMove, onShowLog }: Props) {
+export function ThreadCards({ page, onOpenChanges, onMove, onShowLog, isInline = false }: Props) {
     const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop } = page;
     let content = null;
     let anchor = '';
@@ -38,7 +40,7 @@ export function ThreadCards({ page, onOpenChanges, onMove, onShowLog }: Props) {
     }
 
     return (
-        <div className="max-h-[35dvh] min-h-0 overflow-y-auto bg-app px-4 pt-3 sm:px-8" data-testid="thread-cards">
+        <div className={isInline ? 'pt-4' : 'shrink-0 bg-app px-4 pt-3 sm:px-8'} data-testid="thread-cards">
             <div id={anchor} className="mx-auto max-w-[820px]">{content}</div>
         </div>
     );

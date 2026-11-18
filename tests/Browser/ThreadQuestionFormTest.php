@@ -83,6 +83,7 @@ it('shows the question form at phone width without sideways scroll', function ()
 });
 
 it('keeps the composer and its Send button on screen at 375 x 667 with the question form open', function () {
+    Queue::fake();
     $user = User::factory()->create();
     $this->actingAs($user);
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
@@ -100,4 +101,6 @@ it('keeps the composer and its Send button on screen at 375 x 667 with the quest
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
         ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
+
+    $page->click('[data-testid="questions-form"] [role="radio"] >> nth=0')->click('[data-testid="questions-submit"]')->assertMissing('[data-testid="questions-form"]');
 });

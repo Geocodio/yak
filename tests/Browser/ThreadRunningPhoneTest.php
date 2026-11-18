@@ -105,6 +105,7 @@ it('keeps the composer and its Send button on screen at 375 px with a card above
 });
 
 it('keeps the composer and its Send button on screen at 375 x 667 with a stop card above it', function () {
+    Queue::fake();
     $this->actingAs(User::factory()->create());
     $thread = seedStopCardThread();
 
@@ -120,4 +121,6 @@ it('keeps the composer and its Send button on screen at 375 x 667 with a stop ca
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
         ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
+
+    $page->assertVisible('[data-testid="stop-retry"]')->click('[data-testid="stop-retry"]')->assertNoJavaScriptErrors();
 });

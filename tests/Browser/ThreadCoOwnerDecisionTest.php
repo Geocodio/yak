@@ -241,8 +241,11 @@ it('loads the candidates, picks one and the early warning card goes away', funct
 });
 
 it('keeps the composer and its Send button on screen at 375 x 667 with the co-owner card above it', function () {
-    $this->actingAs(User::factory()->create());
-    [$thread] = heldThreadForCoOwner();
+    $viewer = User::factory()->withGitHub(4242, 'mhansen')->create();
+    [$thread, $request] = heldThreadForCoOwner(User::factory()->create(), [$viewer->id]);
+    grantThreadWriteAccess($request, $viewer);
+    $this->mock(CoOwnerDecisions::class, fn ($mock) => $mock->shouldReceive('approve')->once());
+    $this->actingAs($viewer);
 
     $page = visit("/threads/{$thread->public_id}");
     $page->resize(375, 667)->assertVisible('[data-testid="thread-cards"]')->assertVisible('[data-testid="thread-send"]');
@@ -256,4 +259,6 @@ it('keeps the composer and its Send button on screen at 375 x 667 with the co-ow
 
     expect($fits)->toBe([['thread-composer', true], ['thread-composer-input', true], ['thread-send', true]])
         ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
+
+    $page->assertVisible('[data-testid="co-owner-approve"]')->click('[data-testid="co-owner-approve"]')->assertNoJavaScriptErrors();
 });
