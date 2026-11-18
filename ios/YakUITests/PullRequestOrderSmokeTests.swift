@@ -54,11 +54,18 @@ import XCTest
         wait(for: [XCTNSPredicateExpectation(predicate: saved, object: nil)], timeout: Wait.appear)
         XCTAssertLessThan(
             element("pullRequest.order.row.78").frame.minY, element("pullRequest.order.row.77").frame.minY)
-        try audit()
         app.navigationBars.buttons["Done"].tap()
         XCTAssertTrue(element("pullRequest.row.78").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(element("pullRequest.order.list").exists)
         XCTAssertLessThan(element("pullRequest.row.78").frame.minY, element("pullRequest.row.77").frame.minY)
+        try audit()
+    }
+
+    /// The edit screen passes the accessibility audit. The audit can close the sheet, so it is the last step here.
+    func testTheEditScreenPassesTheAudit() throws {
+        try openCard()
+        element("pullRequest.order.edit").tap()
+        XCTAssertTrue(element("pullRequest.order.row.77").waitForExistence(timeout: Wait.appear))
         try audit()
     }
 

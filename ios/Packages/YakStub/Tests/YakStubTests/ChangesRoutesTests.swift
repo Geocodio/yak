@@ -103,7 +103,7 @@ import Testing
     @Test func aRefusedOpenAnswersItsMessage() throws {
         let refused = call(
             StubChanges(), "POST threads/d0e515ef/pull-request", try context("pull-request-refused"), body: "{}")
-        #expect(refused.status == 422)
+        #expect(refused.status == 409)
     }
 
     @Test func fixAnswersOnlyForTheFailingRow() throws {
