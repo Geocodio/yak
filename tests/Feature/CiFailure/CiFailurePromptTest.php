@@ -50,7 +50,9 @@ it('renders the ci-failure prompt with every failing branch, excerpt and advisor
         ->toContain('https://github.com/acme/site/actions/runs/1/job/10')
         ->toContain('Found advisory GHSA-abcd-efgh-jkmn-pqrs in acme/lib')
         ->toContain('GHSA-abcd-efgh-jkmn-pqrs')
-        ->toContain('untrusted');
+        ->toContain('untrusted')
+        ->toContain('test names')
+        ->toContain('every value parsed from the logs');
 });
 
 it('lists open ci-failure PRs in the prompt', function (): void {
