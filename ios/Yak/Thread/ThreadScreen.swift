@@ -123,7 +123,9 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
-                    PaneStripToolbar(panes: thread.panes, focused: focused, thread: thread)
+                    PaneStripToolbar(
+                        panes: thread.panes, focused: focused, thread: thread, marks: stripMarks,
+                        priorities: stripPriorities(thread))
                 }
             }
             .sheet(isPresented: $isAddSubThreadOpen) {
@@ -139,6 +141,17 @@ struct ThreadScreen: View {
         }
         .environment(scene)
         .sensoryFeedback(.success, trigger: copiedLink)
+    }
+
+    /// The strip's marks while two panes show.
+    private var stripMarks: [PaneID: PaneMark] {
+        guard let plan = scene.plan, plan.slots.count == 2 else { return [:] }
+        return PaneLayoutRules.marks(state: scene.paneState, plan: plan)
+    }
+
+    private func stripPriorities(_ thread: ThreadModel) -> [PaneID: Int] {
+        guard let plan = scene.plan else { return [:] }
+        return PaneLayoutRules.stripPriorities(available: thread.panes, state: scene.paneState, plan: plan)
     }
 
     /// The title and Command I open the Overview; from the Overview they return to the pane before it. Where the
