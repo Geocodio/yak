@@ -23,5 +23,13 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<key>YakAppBundleID</key>
+	<string>$(YAK_BUNDLE_ID)</string>
+	<key>YakAppGroup</key>
+	<string>$(YAK_APP_GROUP)</string>
+	<key>YakPushBundleID</key>
+	<string>$(YAK_BUNDLE_ID)</string>
+	<key>YakPushEnvironment</key>
+	<string>$(YAK_PUSH_ENVIRONMENT)</string>
 </dict>
 </plist>

@@ -229,6 +229,12 @@ struct InstanceShell: View {
         for await state in await feed.states() {
             listState = state
             await model.push?.refreshBadge()
+            if state.filter == .mine, state.search == nil, let list = state.list {
+                model.widgets?.listLoaded(instance: instance, list: list)
+                QuickActions.update(
+                    instance: instance,
+                    snapshot: WidgetSnapshot.make(from: list, instanceName: instance.name, now: Date()))
+            }
             await applyColdStartIfNeeded(state)
         }
         await drawer.setVisible(false)
