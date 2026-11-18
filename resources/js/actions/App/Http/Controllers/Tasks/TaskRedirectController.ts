@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::index
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:81
 * @route '/tasks'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::index
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:81
 * @route '/tasks'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::index
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:81
 * @route '/tasks'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::index
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:30
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:81
 * @route '/tasks'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -87,7 +87,7 @@ show.url = (args: { task: string | number } | [task: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -97,7 +97,7 @@ show.get = (args: { task: string | number } | [task: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

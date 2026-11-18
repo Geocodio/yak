@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 import prImages from './pr-images'
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { task: string | number } | [task: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.get = (args: { task: string | number } | [task: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskRedirectController::show
-* @see app/Http/Controllers/Tasks/TaskRedirectController.php:19
+* @see app/Http/Controllers/Tasks/TaskRedirectController.php:27
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
