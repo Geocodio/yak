@@ -215,23 +215,15 @@ private final class Counter: @unchecked Sendable {
                     thread: "d0e515ef", sandboxState: state, connector: socketConnector, timings: .shortWaits)
             },
             makeSurface: { FakeSurface() })
-        for _ in 0..<600 where thread.snapshot?.show == nil { try? await Task.sleep(for: .milliseconds(5)) }
+        _ = await TestTimeScale.poll { thread.snapshot?.show != nil }
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 
     func eventuallyAsync(_ condition: () async -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if await condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return await condition()
+        await TestTimeScale.poll(condition)
     }
 
     func finish() async {
@@ -442,7 +434,7 @@ private actor ConnectionGate {
         },
         makeSurface: { FakeSurface() })
     let starting = Task { await model.start() }
-    for _ in 0..<600 where !(await gate.isWaiting) { try? await Task.sleep(for: .milliseconds(5)) }
+    _ = await TestTimeScale.poll { await gate.isWaiting }
     await model.stop()
     await gate.release()
     await starting.value

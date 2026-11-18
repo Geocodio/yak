@@ -16,17 +16,6 @@ private func makeClient(_ transport: ScriptedTransport) -> APIClient {
         appVersion: "1.0", systemDescription: "Test phone")
 }
 
-private func waitUntil(
-    sourceLocation: SourceLocation = #_sourceLocation, _ condition: @Sendable () async -> Bool
-) async {
-    let deadline = ContinuousClock.now + .seconds(10)
-    while ContinuousClock.now < deadline {
-        if await condition() { return }
-        await Task.yield()
-    }
-    Issue.record("waitUntil gave up: the condition was not met", sourceLocation: sourceLocation)
-}
-
 /// An outbox on a background upload link, with the files, the clock and the fake session it runs on.
 private final class UploadWorld: @unchecked Sendable {
     let instance = UUID()

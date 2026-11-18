@@ -92,11 +92,7 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<600 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 
     /// Shows the list and waits for the stack of the expanded root.

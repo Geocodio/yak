@@ -12,6 +12,24 @@ enum TestTimeScale {
     }
 }
 
+extension TestTimeScale {
+    /// How long a test waits for something that must happen: 30 s on a quiet Mac, times the factor on a loaded or hosted one.
+    /// A passing wait returns at once; only a failing one spends the whole bound.
+    nonisolated static var waitBound: Duration { .seconds(30 * factor) }
+
+    /// Polls `condition` every 5 ms until it holds or `waitBound` passes; returns the last answer.
+    static func poll(
+        isolation: isolated (any Actor)? = #isolation, _ condition: () async -> Bool
+    ) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: waitBound)
+        while ContinuousClock.now < deadline {
+            if await condition() { return true }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return await condition()
+    }
+}
+
 @Test func theTimeScaleReadsTheEnvironment() {
     #expect(TestTimeScale.factor(in: [:]) == 1)
     #expect(TestTimeScale.factor(in: ["CI": "true"]) == 6)

@@ -100,6 +100,12 @@ Each company builds and signs its own app. You do these steps once, in this orde
 10. Run the "iOS release" workflow by hand (Actions, "iOS release", Run workflow, lane `beta`). The job summary shows the version, build number, tester group and tag.
 11. Open TestFlight on your iPhone, install the build and open it.
 
+## Attachments and the share sheet
+
+A message with files is written as an outbox item, then as an upload record and a multipart body file in the app group. A background `URLSession` sends the body: one session per paired instance in the app, and one per share in the `<bundle id>.share` extension. A failed upload is tried again on the next launch, when the app returns to the foreground, from background refresh, and when the person taps Retry. The extension shares the instance list through the app group's defaults and the token through the Keychain group that both targets list first in their entitlements.
+
+Stub scenarios: `chat-attachments` (files on a message), `upload-fails` (the first upload of each send key is dropped), `upload-slow` and `expired-link`. Launch arguments: `-yakTestKeepFiles <run id>` keeps the test files and the paired instance across a relaunch, and `-yakTestShare <case>` shows the share sheet inside the app with fake items (`ready`, `last-thread`, `private-last-thread`, `no-instance`, `signed-out`, `too-many`, `preparing-slow`, `no-context-offline`, `repository-not-ready`, `saving`, `failed`).
+
 ## Releases
 
 - The version lives in `VERSION` and changes by pull request.

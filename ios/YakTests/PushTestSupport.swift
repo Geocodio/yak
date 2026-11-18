@@ -243,9 +243,5 @@ let meJSON = """
 /// Waits, a yield at a time, until `condition` holds or a bound of yields passes.
 @MainActor
 func eventually(_ condition: @MainActor () async -> Bool) async -> Bool {
-    for _ in 0..<2000 {
-        if await condition() { return true }
-        try? await Task.sleep(for: .milliseconds(5))
-    }
-    return false
+    await TestTimeScale.poll(condition)
 }
