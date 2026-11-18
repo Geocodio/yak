@@ -109,11 +109,7 @@ private final class ListTransport: HTTPTransport, @unchecked Sendable {
 
     /// Waits until `condition` holds; the tasks it waits for run on this actor or on the feed.
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<400 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 }
 

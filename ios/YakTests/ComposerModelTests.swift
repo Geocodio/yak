@@ -46,7 +46,10 @@ private final class StepClock: YakClock, @unchecked Sendable {
 
     /// Waits until a sleeper is registered, so the advance cannot run ahead of the task that sleeps.
     func advance(by duration: Duration) async {
-        for _ in 0..<2000 where lock.withLock({ sleepers.isEmpty }) { await Task.yield() }
+        let deadline = ContinuousClock.now.advanced(by: TestTimeScale.waitBound)
+        while lock.withLock({ sleepers.isEmpty }), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
         let target = lock.withLock { elapsed + duration }
         let due: [Sleeper] = lock.withLock {
             elapsed = target
@@ -255,11 +258,12 @@ private final class OutboxBackedComposerBackend: ComposerBackend, @unchecked Sen
 
     /// Waits until the outbox has answered the item with a refusal.
     func waitForRefusal() async -> OutboxItem? {
-        for _ in 0..<500 {
-            if let item = await outbox.items().first, case .refused = item.state { return item }
-            try? await Task.sleep(for: .milliseconds(10))
+        var refused: OutboxItem?
+        _ = await TestTimeScale.poll {
+            if let item = await outbox.items().first, case .refused = item.state { refused = item }
+            return refused != nil
         }
-        return nil
+        return refused
     }
 }
 

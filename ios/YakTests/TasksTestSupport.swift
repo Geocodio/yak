@@ -105,11 +105,7 @@ final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
     }
 
     func eventually(_ condition: () -> Bool) async -> Bool {
-        for _ in 0..<800 {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(5))
-        }
-        return condition()
+        await TestTimeScale.poll(condition)
     }
 }
 
