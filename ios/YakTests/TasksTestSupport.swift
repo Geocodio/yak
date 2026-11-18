@@ -38,6 +38,12 @@ final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var requests: [String] = []
     private let answer: Answer
+    private var hook: (@Sendable (String) async -> Void)?
+
+    /// Runs before a request is answered, so a test can hold it with an async gate.
+    func beforeAnswer(_ hook: @escaping @Sendable (_ route: String) async -> Void) {
+        lock.withLock { self.hook = hook }
+    }
 
     init(answer: @escaping Answer) { self.answer = answer }
 
@@ -61,6 +67,7 @@ final class ScriptedTransport: HTTPTransport, @unchecked Sendable {
         let query = url.query ?? ""
         let method = request.httpMethod ?? "GET"
         lock.withLock { requests.append("\(method) \(path)\(query.isEmpty ? "" : "?\(query)")") }
+        if let hook = lock.withLock({ hook }) { await hook("\(method) \(path)") }
         var status = 200
         var body = Data()
         if path == "me" {
