@@ -26,7 +26,7 @@ struct BottomBar: View {
     private var showsPaneButton: Bool { placement?.showsPaneButtonInBar == true }
 
     var body: some View {
-        if !isInStrip { bar }
+        if !isInStrip, !thread.question.isEditing { bar }
     }
 
     private var bar: some View {

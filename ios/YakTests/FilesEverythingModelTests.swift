@@ -106,11 +106,21 @@ import YakKit
 
 @MainActor @Test func aHandOffDuringAnOpenWaitsForIt() async throws {
     let fixture = try await FilesFixture()
-    async let first = fixture.model.open(path: "src/Importer.php", edit: false)
-    async let second = fixture.model.open(path: "README.md", edit: false)
-    let results = await (first, second)
+    // The two calls may enter in either order; the one that entered last is the file that stays open.
+    @MainActor final class Entered { var paths: [String] = [] }
+    let entered = Entered()
+    let model = fixture.model
+    let first = Task { @MainActor in
+        entered.paths.append("src/Importer.php")
+        return await model.open(path: "src/Importer.php", edit: false)
+    }
+    let second = Task { @MainActor in
+        entered.paths.append("README.md")
+        return await model.open(path: "README.md", edit: false)
+    }
+    let results = await (first.value, second.value)
     #expect(results.0 && results.1)
-    #expect(fixture.model.openPath == "README.md")
+    #expect(fixture.model.openPath == entered.paths.last)
     await fixture.finish()
 }
 
