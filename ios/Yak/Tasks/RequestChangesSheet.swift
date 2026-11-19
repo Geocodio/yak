@@ -17,7 +17,7 @@ struct RequestChangesSheet<Model: CoOwnerDecisionHost>: View {
                     TextEditor(text: Binding(get: { model.feedback }, set: { model.feedback = $0 }))
                         .focused($isFocused).frame(minHeight: 160)
                         .padding(8).scrollContentBackground(.hidden)
-                        .background(Color.yakCard, in: .rect(cornerRadius: 12))
+                        .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.card))
                         .accessibilityLabel("task.requestChanges.field")
                         .accessibilityIdentifier("task.requestChanges.field")
                     HStack(alignment: .top) {
@@ -27,7 +27,7 @@ struct RequestChangesSheet<Model: CoOwnerDecisionHost>: View {
                                 .accessibilityIdentifier("task.requestChanges.error")
                         }
                         Spacer(minLength: 8)
-                        Text("task.requestChanges.count \(model.feedback.count) \(requestChangesLimit)")
+                        Text("task.requestChanges.count \(model.feedback.count) \(String(requestChangesLimit))")
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(isTooLong ? Color.yakDanger : Color.yakMuted)
                     }

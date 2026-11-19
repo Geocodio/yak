@@ -7,6 +7,8 @@ struct ThreadCardHost: View {
     let thread: ThreadModel
     let paneHeight: CGFloat
     let openWeb: (URL) -> Void
+    /// Shows the Files pane; nil when the thread has none.
+    var openFiles: (() -> Void)?
 
     @State private var isRequestingChanges = false
     @State private var isTagging = false
@@ -40,6 +42,7 @@ struct ThreadCardHost: View {
         CardContainer(kind: "repository_question", tone: .neutral, paneHeight: paneHeight) {
             Text(verbatim: question.prompt).font(.headline).accessibilityAddTraits(.isHeader)
             Text("thread.card.repository.body").font(.subheadline)
+        } pinned: {
             VStack(spacing: Design.Space.compact) {
                 ForEach(question.options, id: \.self) { option in
                     Button {
@@ -81,6 +84,7 @@ struct ThreadCardHost: View {
                 }
                 .workBox().accessibilityElement(children: .combine)
             }
+        } pinned: {
             switch row {
             case .pick:
                 VStack(spacing: Design.Space.compact) {
@@ -140,10 +144,11 @@ struct ThreadCardHost: View {
             } else {
                 CardContainer(kind: "co_owner", tone: .warn, paneHeight: paneHeight) {
                     coOwnerWords(decision, panel, repo: repo)
+                } pinned: {
                     TaskDecisionBar(
                         model: cards, isInCard: true,
                         checkAgain: { Task { await cards.checkAccess() } },
-                        openWeb: openWeb, requestChanges: { isRequestingChanges = true })
+                        openFiles: openFiles, openWeb: openWeb, requestChanges: { isRequestingChanges = true })
                     if cards.isOffline, !decision.isNothingToDecide {
                         Text("thread.card.offline.decide").font(.footnote.weight(.medium)).foregroundStyle(
                             Color.yakCardSecondaryText
@@ -206,8 +211,7 @@ struct ThreadCardHost: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         if more > 0 {
-                            Text("thread.card.coOwner.moreFiles \(more)").font(.subheadline.weight(.medium))
-                                .fixedSize(horizontal: false, vertical: true)
+                            moreFilesLink(more)
                         }
                     }
                     .workBox().accessibilityElement(children: .combine)
@@ -225,6 +229,18 @@ struct ThreadCardHost: View {
                     .workBox(fill: Tone.bad.surface)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private func moreFilesLink(_ more: Int) -> some View {
+        let label = Text("thread.card.coOwner.moreFiles \(more)").font(.subheadline.weight(.medium))
+            .fixedSize(horizontal: false, vertical: true)
+        if let openFiles {
+            Button(action: openFiles) { label.frame(minHeight: Design.Size.control, alignment: .leading) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("thread.card.coOwner.moreFiles")
+        } else {
+            label
         }
     }
 
@@ -259,6 +275,7 @@ struct ThreadCardHost: View {
             }
             Text(verbatim: stop.nextStep).font(.subheadline.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
+        } pinned: {
             if hasButtons {
                 VStack(spacing: Design.Space.compact) {
                     if canRetry || canSetUp {
@@ -359,23 +376,24 @@ private struct HeightCap: Layout {
     }
 }
 
-/// The surface of a card: the tone's whole surface. It is as tall as its content and scrolls inside when the pane has
-/// less room.
-private struct CardContainer<Content: View>: View {
+/// The surface of a card: the tone's whole surface. The text is as tall as it is and scrolls when the pane has less
+/// room; the buttons under it stay in view.
+private struct CardContainer<Content: View, Pinned: View>: View {
     let kind: String
     let tone: Tone
     let paneHeight: CGFloat
     @ViewBuilder let content: Content
+    @ViewBuilder let pinned: Pinned
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// As the question card: a share of the pane, never less than this, and the card scrolls inside beyond it.
-    private static var heightShare: CGFloat { 0.6 }
-    /// At the accessibility sizes the card leaves more of the pane to the chat.
-    private static var largeShare: CGFloat { 0.5 }
-    private static var leastHeight: CGFloat { 260 }
-
-    private var inner: some View {
+    private func text() -> some View {
         VStack(alignment: .leading, spacing: Design.Space.snug) { content }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var buttons: some View {
+        VStack(alignment: .leading, spacing: Design.Space.snug) { pinned }
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -383,12 +401,19 @@ private struct CardContainer<Content: View>: View {
     var body: some View {
         HeightCap(
             limit: max(
-                paneHeight * (dynamicTypeSize.isAccessibilitySize ? Self.largeShare : Self.heightShare),
-                Self.leastHeight)
+                paneHeight
+                    * (dynamicTypeSize.isAccessibilitySize ? Design.Card.largeShare : Design.Card.heightShare),
+                Design.Card.leastHeight)
         ) {
             ViewThatFits(in: .vertical) {
-                inner
-                ScrollView { inner }
+                VStack(alignment: .leading, spacing: Design.Space.snug) {
+                    text()
+                    buttons
+                }
+                VStack(alignment: .leading, spacing: Design.Space.snug) {
+                    ScrollView { text() }
+                    buttons
+                }
             }
         }
         .id(dynamicTypeSize)

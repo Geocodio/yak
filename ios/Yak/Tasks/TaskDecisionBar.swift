@@ -9,6 +9,8 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
     var isInCard = false
     /// The card's way to ask GitHub for the access again; the task screen has none.
     var checkAgain: (() -> Void)?
+    /// The card's way to show the change in the Files pane.
+    var openFiles: (() -> Void)?
     let openWeb: (URL) -> Void
     let requestChanges: () -> Void
 
@@ -94,6 +96,9 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
                     button(
                         "thread.card.checkAgain", identifier: "task.decision.checkAgain", kind: .primary,
                         action: checkAgain)
+                }
+                if let openFiles {
+                    button("thread.card.openChangeInFiles", identifier: "task.decision.openFiles", action: openFiles)
                 }
             }
         case .accessCheckFailed:
@@ -186,11 +191,12 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         .buttonStyle(WorkButtonStyle(kind: .danger)).accessibilityIdentifier("task.decision.reject")
         let others = model.isSending || model.isOffline
         if horizontalSizeClass == .regular {
-            HStack(spacing: Design.Space.compact) {
+            WeightedRow(weights: [2, 1, 1], spacing: Design.Space.compact) {
                 approve
                 changes.disabled(others)
                 reject.disabled(others)
             }
+            .lineLimit(1).minimumScaleFactor(0.75)
         } else {
             VStack(spacing: Design.Space.compact) {
                 approve
@@ -230,6 +236,38 @@ extension View {
             buttonStyle(WorkButtonStyle(kind: kind))
         } else {
             buttonStyle(SecondaryButtonStyle())
+        }
+    }
+}
+
+/// Lays its children in one row, each as wide as its share of the weights, so a row can give one button two shares.
+private struct WeightedRow: Layout {
+    let weights: [CGFloat]
+    let spacing: CGFloat
+
+    private func widths(in total: CGFloat, count: Int) -> [CGFloat] {
+        let used = weights.prefix(count)
+        let room = total - spacing * CGFloat(max(count - 1, 0))
+        let sum = used.reduce(0, +)
+        return used.map { room * $0 / max(sum, 1) }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let total = proposal.width ?? 0
+        let columns = widths(in: total, count: subviews.count)
+        let height = zip(subviews, columns).map {
+            $0.sizeThatFits(ProposedViewSize(width: $1, height: nil)).height
+        }.max()
+        return CGSize(width: total, height: height ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        for (subview, width) in zip(subviews, widths(in: bounds.width, count: subviews.count)) {
+            subview.place(
+                at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading,
+                proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
         }
     }
 }

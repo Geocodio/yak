@@ -12796,12 +12796,12 @@
         }
       }
     },
-    "task.requestChanges.count %lld %lld" : {
+    "task.requestChanges.count %lld %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld/%lld"
+            "value" : "%lld of %@ characters"
           }
         }
       }
@@ -14636,6 +14636,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You can do this when the connection is back. Nothing is queued."
+          }
+        }
+      }
+    },
+    "thread.card.openChangeInFiles" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the change in Files"
           }
         }
       }

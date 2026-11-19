@@ -24,11 +24,16 @@ struct ThreadRequestRow: View {
                     pill
                     Spacer(minLength: 0)
                 }
-                VStack(alignment: .leading, spacing: Design.Space.compact) {
-                    chip
-                    pill
+                // Beside the chip when they fit; at the accessibility sizes the status pill alone says enough.
+                if dynamicTypeSize.isAccessibilitySize {
+                    pill.frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(alignment: .leading, spacing: Design.Space.compact) {
+                        chip
+                        pill
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             // At the accessibility sizes the line would take the room of the chat; the status pill says the same.
             if let stepLine, !dynamicTypeSize.isAccessibilitySize {
@@ -67,11 +72,17 @@ struct ThreadRequestRow: View {
                 label.frame(minHeight: Design.Size.control).contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .padding(.vertical, -(Design.Size.control - Design.Size.sourceChip) / 2)
+            .padding(.vertical, -hitInset)
             .accessibilityIdentifier("thread.source")
         } else {
             label.accessibilityIdentifier("thread.source")
         }
+    }
+
+    /// How far the 44 point hit area reaches beyond the drawn chip. Above the default text size the chip is as tall as
+    /// the hit area, so nothing is taken from the row.
+    private var hitInset: CGFloat {
+        dynamicTypeSize > .large ? 0 : (Design.Size.control - Design.Size.sourceChip) / 2
     }
 
     private var pill: some View {

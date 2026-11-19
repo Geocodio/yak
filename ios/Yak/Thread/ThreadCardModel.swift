@@ -42,7 +42,7 @@ final class ThreadCardModel: CoOwnerDecisionHost {
     var isSending: Bool { sending != nil }
     var isApproving: Bool { sending == .approve }
     var holdReasons: [String] { [] }
-var repositoryName: String {
+    var repositoryName: String {
         thread?.snapshot?.show?.thread.shownRepo ?? String(localized: "thread.card.coOwner.thisRepository")
     }
 

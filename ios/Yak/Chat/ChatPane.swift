@@ -43,7 +43,9 @@ private struct ChatPane: View {
                         .padding(.horizontal, Design.Space.compact).padding(.bottom, Design.Space.compact)
                         .accessibilityIdentifier("composer.legacyLine")
                 }
-                ThreadCardHost(thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) })
+                ThreadCardHost(
+                    thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) },
+                    openFiles: thread.panes.contains(.files) ? { scene.select(.files) } : nil)
             }
         }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)

@@ -157,7 +157,8 @@ struct ChatView: View {
         .onChange(of: thread.announcementSerial) {
             if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
         }
-        .sensoryFeedback(.warning, trigger: thread.actionLine) { _, new in new != nil && !thread.isActionLineInformation }
+        .sensoryFeedback(.warning, trigger: thread.actionLine) { _, new in new != nil && !thread.isActionLineInformation
+        }
     }
 
     // MARK: Scrolling
