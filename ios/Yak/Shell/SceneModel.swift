@@ -226,9 +226,25 @@ final class SceneModel {
     /// The thread whose layout set `plan`.
     private var planOwner: String?
 
-    func updatePlan(_ plan: SlotPlan?, ownedBy owner: String) {
+    func updatePlan(_ plan: SlotPlan?, inputs: LayoutInputs? = nil, ownedBy owner: String) {
         planOwner = owner
         if self.plan != plan { self.plan = plan }
+        if layoutInputs != inputs { layoutInputs = inputs }
+    }
+
+    /// The inputs `plan` was made from.
+    private(set) var layoutInputs: LayoutInputs?
+
+    /// What the pane menus' "Second pane" section shows; nil while no layout has reported.
+    var secondChoices: SecondPaneChoices? {
+        guard let plan, let layoutInputs else { return nil }
+        return PaneLayoutRules.secondChoices(state: paneState, plan: plan, inputs: layoutInputs)
+    }
+
+    /// The person's pick in a "Second pane" section: a pane opens it, nil closes it.
+    func setSecond(_ pane: PaneID?) {
+        guard let plan else { return }
+        apply(PaneLayoutRules.setSecond(pane, state: paneState, plan: plan))
     }
 
     /// Clears the plan when a layout goes away, unless a newer thread's layout has already set its own.
@@ -236,6 +252,7 @@ final class SceneModel {
         guard planOwner == owner else { return }
         planOwner = nil
         plan = nil
+        layoutInputs = nil
     }
 
     /// The pane in the focused slot, or the focused pane when no layout has reported yet.

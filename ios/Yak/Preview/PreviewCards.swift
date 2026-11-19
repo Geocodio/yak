@@ -140,7 +140,7 @@ struct PreviewCardView: View {
             step("preview.step.start", nil, steps[safe: 1])
             step(
                 "preview.step.wait",
-                status?.port.map { (port: Int) -> LocalizedStringKey in "preview.step.port \(port)" },
+                status?.port.map { (port: Int) -> LocalizedStringKey in "preview.step.port \(String(port))" },
                 steps[safe: 2])
         }
         .accessibilityElement(children: .contain)

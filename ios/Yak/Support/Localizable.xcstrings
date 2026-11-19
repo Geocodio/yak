@@ -8322,6 +8322,46 @@
         }
       }
     },
+    "pane.second.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close second pane"
+          }
+        }
+      }
+    },
+    "pane.second.heading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Second pane"
+          }
+        }
+      }
+    },
+    "pane.second.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
+    "pane.second.open" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open as second pane"
+          }
+        }
+      }
+    },
     "pane.slot.shown" : {
       "localizations" : {
         "en" : {
@@ -9362,12 +9402,12 @@
         }
       }
     },
-    "preview.step.port %lld" : {
+    "preview.step.port %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Port %lld"
+            "value" : "Port %@"
           }
         }
       }

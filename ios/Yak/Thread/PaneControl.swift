@@ -29,6 +29,7 @@ struct PaneMenuButton: View {
             } else {
                 picker
             }
+            SecondPaneMenuSection()
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: PaneCatalog.descriptor(for: current)?.symbol ?? "bubble.left")
@@ -203,6 +204,7 @@ private struct PaneRowButton: View {
             .hoverEffect(.highlight)
         }
         .buttonStyle(.plain)
+        .secondPaneContextMenu(for: descriptor.id)
         .accessibilityLabel(Text(descriptor.name))
         .accessibilityValue(valueText)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -333,6 +335,7 @@ struct PaneStripToolbar: ToolbarContent {
             }
         }
         .modifier(PaneMarkLabel(mark: marks[id]))
+        .secondPaneContextMenu(for: id)
         .accessibilityLabel(Text(descriptor.name))
         .accessibilityValue(paneAccessibilityValue(mark: marks[id], badge: PaneBadge.make(descriptor, thread)))
         .accessibilityAddTraits(id == focused ? .isSelected : [])
