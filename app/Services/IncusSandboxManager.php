@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskStatus;
+use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\BranchDeployment;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -881,6 +884,12 @@ class IncusSandboxManager implements SandboxShell
         }
     }
 
+    /**
+     * Push the host MCP config into the sandbox. When Linear is connected,
+     * a `linear` server is added that authenticates with the Yak app's
+     * actor=app token, so agents act in Linear as Yak and only see the
+     * teams the app can see. The token is valid for 24 hours from push.
+     */
     public function pushMcpConfig(string $containerName): void
     {
         $mcpConfigPath = config('yak.mcp_config_path');
@@ -889,11 +898,59 @@ class IncusSandboxManager implements SandboxShell
             return;
         }
 
+        $config = json_decode((string) file_get_contents($mcpConfigPath), true);
+        $linearServer = is_array($config) && ! isset($config['mcpServers']['linear']) ? $this->linearMcpServer() : null;
+
+        if ($linearServer === null) {
+            $this->pushMcpConfigFile($containerName, $mcpConfigPath);
+
+            return;
+        }
+
+        $config['mcpServers']['linear'] = $linearServer;
+        $temporaryPath = (string) tempnam(sys_get_temp_dir(), 'yak-mcp-');
+
+        try {
+            file_put_contents($temporaryPath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->pushMcpConfigFile($containerName, $temporaryPath);
+        } finally {
+            @unlink($temporaryPath);
+        }
+    }
+
+    private function pushMcpConfigFile(string $containerName, string $path): void
+    {
         Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
             'incus file push %s %s/home/yak/mcp-config.json',
-            escapeshellarg($mcpConfigPath),
+            escapeshellarg($path),
             escapeshellarg($containerName),
         ));
+    }
+
+    /**
+     * @return array{type: string, url: string, headers: array{Authorization: string}}|null
+     */
+    private function linearMcpServer(): ?array
+    {
+        $connection = LinearOauthConnection::active();
+
+        if ($connection === null) {
+            return null;
+        }
+
+        try {
+            $token = $connection->freshAccessToken(app(LinearOAuthService::class));
+        } catch (LinearOAuthRefreshFailedException $exception) {
+            Log::channel('yak')->warning('Linear MCP skipped: token refresh failed', ['error' => $exception->getMessage()]);
+
+            return null;
+        }
+
+        return [
+            'type' => 'http',
+            'url' => 'https://mcp.linear.app/mcp',
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ];
     }
 
     /**

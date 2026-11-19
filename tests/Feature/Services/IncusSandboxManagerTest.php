@@ -2,9 +2,11 @@
 
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
@@ -781,4 +783,57 @@ it('cleanupStale leaves active deploy-* containers alone', function () {
 
     expect($deleted)->toBe(0);
     Process::assertDidntRun(fn ($p) => str_contains($p->command, 'incus delete deploy-'));
+});
+
+/**
+ * Push the MCP config with a fake Process and return the JSON that would
+ * land in the sandbox, read while the pushed file still exists.
+ *
+ * @return array<string, mixed>
+ */
+function pushedMcpConfig(array $hostConfig): array
+{
+    $hostPath = (string) tempnam(sys_get_temp_dir(), 'host-mcp-');
+    file_put_contents($hostPath, json_encode($hostConfig));
+    config()->set('yak.mcp_config_path', $hostPath);
+
+    $pushed = null;
+    Process::fake(function (PendingProcess $process) use (&$pushed) {
+        preg_match("/incus file push '([^']+)'/", (string) $process->command, $matches);
+        $pushed = json_decode((string) file_get_contents($matches[1]), true);
+
+        return Process::result();
+    });
+
+    app(IncusSandboxManager::class)->pushMcpConfig('yak-task-1');
+    unlink($hostPath);
+
+    return $pushed;
+}
+
+it('adds a linear MCP server that authenticates as the Yak app', function () {
+    LinearOauthConnection::factory()->create(['access_token' => 'lin_app_token']);
+
+    $config = pushedMcpConfig(['mcpServers' => ['context7' => ['command' => 'npx']]]);
+
+    expect($config['mcpServers']['context7'])->toBe(['command' => 'npx'])
+        ->and($config['mcpServers']['linear'])->toBe([
+            'type' => 'http',
+            'url' => 'https://mcp.linear.app/mcp',
+            'headers' => ['Authorization' => 'Bearer lin_app_token'],
+        ]);
+});
+
+it('pushes the host MCP config unchanged when Linear is not connected', function () {
+    $config = pushedMcpConfig(['mcpServers' => ['context7' => ['command' => 'npx']]]);
+
+    expect($config)->toBe(['mcpServers' => ['context7' => ['command' => 'npx']]]);
+});
+
+it('keeps a linear server already defined in the host MCP config', function () {
+    LinearOauthConnection::factory()->create();
+
+    $config = pushedMcpConfig(['mcpServers' => ['linear' => ['type' => 'http', 'url' => 'https://example.test']]]);
+
+    expect($config['mcpServers']['linear'])->toBe(['type' => 'http', 'url' => 'https://example.test']);
 });
