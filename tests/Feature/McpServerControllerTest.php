@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\McpLoginJob;
+use App\Models\LinearOauthConnection;
 use App\Models\User;
 use App\Support\McpLoginSession;
 use Illuminate\Support\Facades\File;
@@ -251,4 +252,20 @@ it('requires authentication', function () {
     auth()->logout();
 
     $this->get(route('mcp'))->assertRedirect(route('login'));
+});
+
+it('removes a user linear server while the managed Linear server is listed', function () {
+    $tmp = sys_get_temp_dir() . '/yak-mcp-controller-' . uniqid();
+    File::makeDirectory($tmp, recursive: true);
+    File::put($tmp . '/mcp.json', json_encode(['mcpServers' => ['context7' => ['command' => 'npx']]]));
+    config()->set('yak.mcp_config_path', $tmp . '/mcp.json');
+    LinearOauthConnection::factory()->create();
+
+    $this->delete(route('mcp.destroy', ['name' => 'linear']))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    Process::assertRan(fn ($process) => str_contains($process->command, "mcp remove --scope user 'linear'"));
+
+    File::deleteDirectory($tmp);
 });

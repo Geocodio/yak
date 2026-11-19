@@ -80,7 +80,7 @@ class McpServerController extends Controller
     public function destroy(string $name): RedirectResponse
     {
         return $this->runSafely(function () use ($name) {
-            $server = $this->reader->all()->first(fn (McpServer $s) => $s->name === $name);
+            $server = $this->reader->all()->first(fn (McpServer $s) => $s->name === $name && $s->source !== 'linear');
 
             if ($server === null) {
                 throw new ClaudeCliException("{$name} was not found.");

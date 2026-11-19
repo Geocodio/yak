@@ -2,6 +2,7 @@
 
 use App\DataTransferObjects\McpServer;
 use App\Exceptions\ClaudeCliException;
+use App\Models\LinearOauthConnection;
 use App\Services\McpServerReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
@@ -136,4 +137,30 @@ it('returns an empty collection when the deploy config file is invalid JSON', fu
     config()->set('yak.mcp_config_path', $path);
 
     expect(app(McpServerReader::class)->deployServers())->toHaveCount(0);
+});
+
+it('lists the Linear server agents get while Linear is connected', function () {
+    $path = $this->tmp . '/mcp.json';
+    File::put($path, json_encode(['mcpServers' => ['context7' => ['command' => 'npx']]]));
+    config()->set('yak.mcp_config_path', $path);
+
+    expect(app(McpServerReader::class)->deployServers()->pluck('name')->all())->toBe(['context7']);
+
+    LinearOauthConnection::factory()->create();
+
+    /** @var McpServer $linear */
+    $linear = app(McpServerReader::class)->deployServers()->last();
+    expect($linear->name)->toBe('linear')
+        ->and($linear->source)->toBe('linear')
+        ->and($linear->target)->toBe('https://mcp.linear.app/mcp')
+        ->and($linear->canRemove)->toBeFalse();
+});
+
+it('does not list the managed Linear server when the deploy config defines linear', function () {
+    $path = $this->tmp . '/mcp.json';
+    File::put($path, json_encode(['mcpServers' => ['linear' => ['type' => 'http', 'url' => 'https://example.test']]]));
+    config()->set('yak.mcp_config_path', $path);
+    LinearOauthConnection::factory()->create();
+
+    expect(app(McpServerReader::class)->deployServers()->pluck('source')->all())->toBe(['deploy']);
 });
