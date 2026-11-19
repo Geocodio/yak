@@ -347,3 +347,11 @@ private func compactInputs() -> LayoutInputs {
     let stored = Data(#"{"threadID":"e5f6g7h8","focusedPane":"chat","secondPane":"preview"}"#.utf8)
     #expect(SceneModel.restoredState(from: stored).secondPane == nil)
 }
+
+@MainActor @Test func aRelaunchedWindowOfTheSameInstanceKeepsTheSecondPane() {
+    let instance = UUID()
+    let scene = SceneModel(state: SceneState(instanceID: instance, threadID: "d0e515ef", secondPane: .terminal))
+    let relaunched = SceneModel(
+        state: SceneModel.restoredState(from: scene.encodedState), request: nil, activeInstance: instance)
+    #expect(relaunched.state.threadID == "d0e515ef" && relaunched.state.secondPane == .terminal)
+}

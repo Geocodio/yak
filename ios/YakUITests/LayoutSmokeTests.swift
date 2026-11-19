@@ -133,21 +133,6 @@ import XCTest
         XCTAssertTrue(slotLabels().isEmpty)
     }
 
-    func testTheSecondPaneSurvivesARelaunch() throws {
-        try launch(scenario: "preview-ready")
-        openThread()
-        try XCTSkipIf(isNarrowWindow, "a narrow window has one slot and offers no second pane")
-        openSecondPaneIfWide()
-        let before = Set(slotLabels().values)
-        XCTAssertEqual(before.count, 2)
-        app.terminate()
-        app.launchRetryingOnce()
-        XCTAssertTrue(detail.waitForExistence(timeout: Wait.firstLoad))
-        let reopened = NSPredicate { [self] _, _ in Set(slotLabels().values) == before }
-        wait(for: [XCTNSPredicateExpectation(predicate: reopened, object: nil)], timeout: Wait.appear)
-        XCTAssertEqual(Set(slotLabels().values), before)
-    }
-
     func testTheLayoutFollowsTheWidth() throws {
         try launch(scenario: "preview-ready")
         openThread()
@@ -255,6 +240,7 @@ import XCTest
         try launch(scenario: "preview-ready", extraArguments: ["-yakTestPosture", "book"])
         openThread()
         try XCTSkipIf(isNarrowWindow, "the book pose needs a wide window")
+        openSecondPaneIfWide()
         let book = NSPredicate { [self] _, _ in arrangement == "book" }
         wait(for: [XCTNSPredicateExpectation(predicate: book, object: nil)], timeout: Wait.appear)
         XCTAssertEqual(arrangement, "book")
@@ -268,6 +254,7 @@ import XCTest
         try launch(scenario: "preview-ready", extraArguments: ["-yakTestPosture", "laptop"])
         openThread()
         try XCTSkipIf(isNarrowWindow, "the laptop pose needs a wide window")
+        openSecondPaneIfWide()
         let laptop = NSPredicate { [self] _, _ in arrangement == "laptop" }
         wait(for: [XCTNSPredicateExpectation(predicate: laptop, object: nil)], timeout: Wait.appear)
         XCTAssertEqual(arrangement, "laptop")
