@@ -127,13 +127,12 @@ struct ThreadScreen: View {
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(.yakPage)
-            .environment(\.hasSystemStrip, hasStrip)
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-            .toolbarBackground(Color.yakBackground, for: .navigationBar)
+            .toolbarBackground(.yakPage, for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
@@ -163,6 +162,7 @@ struct ThreadScreen: View {
             .overlay(alignment: .top) { copiedToast }
         }
         .environment(scene)
+        .environment(\.hasSystemStrip, hasStrip)
         .sensoryFeedback(.success, trigger: copiedLink)
     }
 
