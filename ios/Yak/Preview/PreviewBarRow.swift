@@ -58,7 +58,7 @@ struct PreviewBarRow: View {
                 reloadButton
             }
             .padding(.horizontal, 12)
-            .background(Color.yakCard, in: .capsule)
+            .background(Color.yakBarFill, in: .capsule)
             progress
         }
         .background { reloadShortcut }

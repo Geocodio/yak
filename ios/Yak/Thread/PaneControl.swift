@@ -39,7 +39,7 @@ struct PaneMenuButton: View {
             .foregroundStyle(.primary)
             .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.compact + 2)
             .frame(minWidth: Design.Size.control, minHeight: Design.Size.control)
-            .background(Color.yakFillStrong, in: .capsule)
+            .background(Color.yakBarFillStrong, in: .capsule)
             .contentShape(.capsule)
             .hoverEffect(.highlight)
         }
@@ -196,7 +196,7 @@ private struct PaneRowButton: View {
             .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
             .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
             .background(
-                mark == nil && isSelected ? Color.yakFillStrong : .clear,
+                mark == nil && isSelected ? Color.yakBarFillStrong : .clear,
                 in: .rect(cornerRadius: Design.Radius.row)
             )
             .modifier(PaneMarkLabel(mark: mark))

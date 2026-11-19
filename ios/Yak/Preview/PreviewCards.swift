@@ -212,7 +212,7 @@ struct PreviewCardView: View {
                 .textSelection(.enabled)
                 .padding(12)
             }
-            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
+            .yakCardSurface(in: .rect(cornerRadius: Design.Radius.row))
             .accessibilityIdentifier("preview.log")
         }
     }
@@ -220,7 +220,7 @@ struct PreviewCardView: View {
     private var sample: some View {
         Text("preview.sample").font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
-            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
+            .yakCardSurface(in: .rect(cornerRadius: Design.Radius.row))
     }
 
     // MARK: Actions

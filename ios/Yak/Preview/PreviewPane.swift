@@ -338,7 +338,7 @@ private struct PreviewLines: View {
             accessory().font(.subheadline.weight(.semibold)).tint(.primary).frame(minHeight: 44)
         }
         .padding(.horizontal, 14).padding(.vertical, 6)
-        .background(Color.yakCard, in: .rect(cornerRadius: 14))
+        .yakCardSurface(in: .rect(cornerRadius: Design.Radius.card))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }

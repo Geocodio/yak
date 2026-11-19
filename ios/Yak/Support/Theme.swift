@@ -9,7 +9,8 @@ extension Color {
     static let yakDanger = Color("Danger")
     /// Secondary text: the boards' `--tx2` a step stronger, so it keeps the contrast audit's bar on a card, a bubble,
     /// a field and a disabled control.
-    static let yakMuted = board(dark: 0xB0B4BB, light: 0x50545B)
+    static let yakMuted = board(
+        dark: 0xB0B4BB, light: 0x50545B, highContrast: BoardContrast(dark: 0xF1F2F4, light: 0x1C1D21))
     /// A count badge: the primary label color with the page color on top, so the pair keeps its contrast in light and dark.
     static let yakBadge = Color.primary
     static let yakOnBadge = Color.yakBackground

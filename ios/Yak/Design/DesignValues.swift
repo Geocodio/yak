@@ -38,6 +38,7 @@ enum Design {
         static let small: CGFloat = 8
         static let code: CGFloat = 6
         static let key: CGFloat = 14
+        static let card: CGFloat = 14
         static let row: CGFloat = 18
         static let group: CGFloat = 20
         static let question: CGFloat = 26
@@ -70,16 +71,33 @@ enum Design {
     }
 }
 
+/// What a board color becomes under Increase Contrast; a field left nil keeps the normal value.
+struct BoardContrast {
+    var dark: UInt32?
+    var light: UInt32?
+    var darkAlpha: Double?
+    var lightAlpha: Double?
+}
+
 extension Color {
-    /// A color that follows the appearance, from the boards' two token sets.
-    static func board(dark: UInt32, light: UInt32, darkAlpha: Double = 1, lightAlpha: Double = 1) -> Color {
+    /// A color that follows the appearance, from the boards' two token sets. Under Increase Contrast it takes
+    /// `highContrast` when given: the same fields, each falling back to the normal value.
+    static func board(
+        dark: UInt32, light: UInt32, darkAlpha: Double = 1, lightAlpha: Double = 1, highContrast: BoardContrast? = nil
+    ) -> Color {
         Color(
             uiColor: UIColor { traits in
                 let isDark = traits.userInterfaceStyle == .dark
-                let value = isDark ? dark : light
+                let isHigh = traits.accessibilityContrast == .high
+                let value =
+                    isDark ? (isHigh ? highContrast?.dark : nil) ?? dark : (isHigh ? highContrast?.light : nil) ?? light
+                let alpha =
+                    isDark
+                    ? (isHigh ? highContrast?.darkAlpha : nil) ?? darkAlpha
+                    : (isHigh ? highContrast?.lightAlpha : nil) ?? lightAlpha
                 return UIColor(
                     red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
-                    blue: CGFloat(value & 0xFF) / 255, alpha: isDark ? darkAlpha : lightAlpha)
+                    blue: CGFloat(value & 0xFF) / 255, alpha: alpha)
             })
     }
 
@@ -92,13 +110,25 @@ extension Color {
     /// The bars and the question card, opaque: `--gl` laid over the page.
     static let yakBar = board(dark: 0x1F2024, light: 0xFFFFFF)
     /// The hairline around a bar: `--gb`.
-    static let yakBarBorder = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.14, lightAlpha: 0.08)
+    static let yakBarBorder = board(
+        dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.14, lightAlpha: 0.08,
+        highContrast: BoardContrast(darkAlpha: 0.45, lightAlpha: 0.4))
     /// A quiet control's fill, opaque: `--fill` laid over the page, so text on it keeps its contrast.
-    static let yakFill = board(dark: 0x262729, light: 0xEBEBEC)
+    static let yakFill = board(
+        dark: 0x262729, light: 0xEBEBEC, highContrast: BoardContrast(dark: 0x3A3B3E, light: 0xDCDCDE))
     /// A pressed or selected control's fill, opaque: `--fill2` laid over the page.
-    static let yakFillStrong = board(dark: 0x2D2E30, light: 0xE2E2E3)
+    static let yakFillStrong = board(
+        dark: 0x2D2E30, light: 0xE2E2E3, highContrast: BoardContrast(dark: 0x4A4B4E, light: 0xCBCBCD))
+    /// `--fill` laid over a bar, for a control inside the bar (the bar is lighter than the page in dark).
+    static let yakBarFill = board(
+        dark: 0x35363A, light: 0xF0F0F0, highContrast: BoardContrast(dark: 0x45464A, light: 0xDCDCDE))
+    /// `--fill2` laid over a bar, for a selected or pressed control inside the bar.
+    static let yakBarFillStrong = board(
+        dark: 0x3E3F43, light: 0xE6E6E6, highContrast: BoardContrast(dark: 0x55565A, light: 0xCBCBCD))
     /// The line between rows: `--line`.
-    static let yakLine = board(dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.09, lightAlpha: 0.08)
+    static let yakLine = board(
+        dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.09, lightAlpha: 0.08,
+        highContrast: BoardContrast(darkAlpha: 0.35, lightAlpha: 0.35))
     /// The terminal's page: `--term`.
     static let yakTerminal = Color(red: 8 / 255, green: 9 / 255, blue: 10 / 255)
     /// Text on the page: `--tx`.
@@ -149,4 +179,18 @@ struct PageStyle: ShapeStyle {
 
 extension ShapeStyle where Self == PageStyle {
     static var yakPage: PageStyle { PageStyle() }
+}
+
+extension View {
+    /// A card's background with a hairline around it, so a card on a page of its own color keeps its edge.
+    func yakCardSurface<S: InsettableShape>(in shape: S) -> some View {
+        background(Color.yakCard, in: shape).overlay(
+            shape.strokeBorder(Color.yakLine, lineWidth: Design.Space.hairline))
+    }
+
+    /// A bar's surface and hairline on a chip that floats above the bar.
+    func yakBarSurface<S: InsettableShape>(in shape: S) -> some View {
+        background(Color.yakBar, in: shape).overlay(
+            shape.strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+    }
 }
