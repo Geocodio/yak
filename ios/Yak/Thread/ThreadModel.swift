@@ -44,8 +44,10 @@ final class ThreadModel {
     private(set) var ownName: String?
     /// The send notice already shown as the action line, so one is said once.
     @ObservationIgnored private var shownNoticeID: UUID?
-    /// The show a send notice came with. The notice stays on screen until the show differs or the next send starts.
+    /// The show a send notice came with. The notice stays on screen until the show changes again after the refresh
+    /// that every delivery triggers, or until the next send starts.
     @ObservationIgnored private var noticeShow: ThreadShow?
+    @ObservationIgnored private var hasNoticeSeenItsRefresh = false
     @ObservationIgnored private var isNoticeShown = false
 
     let session: InstanceSession
@@ -269,11 +271,19 @@ extension ThreadModel {
         let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
         rows = builtRows
-        if isNoticeShown, next.show != noticeShow { clearActionLine() }
+        if isNoticeShown, next.show != noticeShow {
+            if hasNoticeSeenItsRefresh {
+                clearActionLine()
+            } else {
+                hasNoticeSeenItsRefresh = true
+                noticeShow = next.show
+            }
+        }
         if let notice = next.lastSendNotice, notice.id != shownNoticeID {
             shownNoticeID = notice.id
             setActionLine(notice.text, persists: true)
             noticeShow = next.show
+            hasNoticeSeenItsRefresh = false
         }
         if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         requestMarkdown(for: next.entries)

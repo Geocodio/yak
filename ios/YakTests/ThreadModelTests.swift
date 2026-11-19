@@ -252,6 +252,10 @@ private func chatSnapshot(
     changed.show = try JSONDecoder().decode(
         ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "15}").utf8))
     await model.apply(changed)
+    #expect(model.actionLine == notice.text)
+    changed.show = try JSONDecoder().decode(
+        ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "16}").utf8))
+    await model.apply(changed)
     #expect(model.actionLine == nil)
     let second = SendNotice(id: UUID(), text: "Two.")
     changed.lastSendNotice = second
