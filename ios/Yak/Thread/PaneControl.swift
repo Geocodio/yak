@@ -37,7 +37,7 @@ struct PaneMenuButton: View {
             }
             .font(.body)
             .foregroundStyle(.primary)
-            .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.compact + 2)
+            .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.snug)
             .frame(minWidth: Design.Size.control, minHeight: Design.Size.control)
             .background(Color.yakBarFillStrong, in: .capsule)
             .contentShape(.capsule)
@@ -186,7 +186,7 @@ private struct PaneRowButton: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(spacing: Design.Space.hairline * 2) {
+            VStack(spacing: Design.Space.line) {
                 Image(systemName: descriptor.symbol).font(.body)
                     .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
                 Text(descriptor.name).font(.caption2.weight(.semibold)).lineLimit(1).fixedSize(

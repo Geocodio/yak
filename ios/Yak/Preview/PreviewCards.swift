@@ -162,7 +162,7 @@ struct PreviewCardView: View {
                 case .pending: Image(systemName: "circle").foregroundStyle(Color.yakMuted)
                 }
             }
-            .frame(width: Design.Size.statusColumn + 4, height: lineHeight)
+            .frame(width: Design.Size.stepColumn, height: lineHeight)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).fontWeight(status == .active ? .semibold : .regular)

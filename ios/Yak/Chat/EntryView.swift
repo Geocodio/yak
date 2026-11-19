@@ -77,7 +77,7 @@ struct MessageBubble<Content: View>: View {
 
     var body: some View {
         content
-            .padding(.horizontal, Design.Space.large - 1).padding(.vertical, Design.Space.compact + 2)
+            .padding(.horizontal, Design.Space.bubbleInset).padding(.vertical, Design.Space.snug)
             .background(
                 Color.yakBubble,
                 in: UnevenRoundedRectangle(

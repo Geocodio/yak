@@ -7,14 +7,19 @@ enum Design {
     /// Gaps and insets, in points.
     enum Space {
         static let hairline: CGFloat = 0.5
+        static let line: CGFloat = 1
         static let tight: CGFloat = 4
         static let small: CGFloat = 6
         static let compact: CGFloat = 8
+        /// Between compact and medium: a bubble's vertical padding and a menu button's trailing padding.
+        static let snug: CGFloat = 10
         static let medium: CGFloat = 12
         static let large: CGFloat = 16
         static let section: CGFloat = 24
         /// Left and right of text, bubbles and the cards of every pane, so all panes line up.
         static let pageInset: CGFloat = 16
+        /// Left and right inside a message bubble.
+        static let bubbleInset: CGFloat = 15
         /// Left and right of a list of grouped rows (the boards' 14 point inset around a group).
         static let groupInset: CGFloat = 14
         /// Left and right inside a group's row.
@@ -39,6 +44,8 @@ enum Design {
         static let code: CGFloat = 6
         static let key: CGFloat = 14
         static let card: CGFloat = 14
+        /// A code block and a table in the chat.
+        static let block: CGFloat = 10
         static let row: CGFloat = 18
         static let group: CGFloat = 20
         static let question: CGFloat = 26
@@ -58,6 +65,12 @@ enum Design {
         static let bar: CGFloat = 52
         static let key: CGFloat = 44
         static let chip: CGFloat = 36
+        /// The drawer's filter chip when it shows its name.
+        static let filterChip: CGFloat = 40
+        /// The status column of a step list.
+        static let stepColumn: CGFloat = 24
+        static let uploadBarWidth: CGFloat = 160
+        static let uploadBarHeight: CGFloat = 3
         /// One item of the pane row on a wide screen.
         static let paneItemWidth: CGFloat = 62
         static let paneItemHeight: CGFloat = 50

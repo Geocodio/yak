@@ -620,7 +620,9 @@ struct DrawerView: View {
                 Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
             }
             .foregroundStyle(.primary)
-            .padding(.horizontal, 12).frame(minHeight: showsName ? Design.Size.chip + 4 : 44)
+            .padding(.horizontal, Design.Space.medium).frame(
+                minHeight: showsName ? Design.Size.filterChip : Design.Size.control
+            )
             .background(Color.yakFill, in: .capsule)
             .contentShape(.capsule)
         }

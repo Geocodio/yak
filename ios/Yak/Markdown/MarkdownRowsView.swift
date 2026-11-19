@@ -216,7 +216,7 @@ private struct CodeBlock: View {
             Text(verbatim: text)
                 .font(.system(.footnote, design: .monospaced))
                 .fixedSize()
-                .padding(12)
+                .padding(Design.Space.medium)
         }
         .scrollIndicatorsFlash(onAppear: true)
         .onScrollGeometryChange(for: Bool.self) { geometry in
@@ -224,14 +224,14 @@ private struct CodeBlock: View {
         } action: { _, new in
             hasMoreToTheRight = new
         }
-        .background(Color.yakBubble, in: .rect(cornerRadius: 10))
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.block))
         .overlay(alignment: .trailing) {
             if hasMoreToTheRight {
                 LinearGradient(
                     colors: [Color.yakBubble.opacity(0), Color.yakBubble],
                     startPoint: .leading, endPoint: .trailing
                 )
-                .frame(width: 28).clipShape(.rect(cornerRadius: 10))
+                .frame(width: 28).clipShape(.rect(cornerRadius: Design.Radius.block))
                 .allowsHitTesting(false).accessibilityHidden(true)
             }
         }
@@ -272,9 +272,9 @@ private struct TableBlock: View {
                     }
                 }
             }
-            .padding(12)
+            .padding(Design.Space.medium)
         }
-        .background(Color.yakBubble, in: .rect(cornerRadius: 10))
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.block))
     }
 }
 
