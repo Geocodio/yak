@@ -40,7 +40,7 @@ struct RequestGroupView: View {
             Button {
                 open(url)
             } label: {
-                Text(verbatim: text).frame(minHeight: 44).contentShape(.rect)
+                Text(verbatim: text).frame(minHeight: Design.Size.control).contentShape(.rect)
             }
             .buttonStyle(.plain).foregroundStyle(Color.yakAction).accessibilityIdentifier("overview.request.sourceLink")
         } else {

@@ -63,7 +63,7 @@ struct MilestoneGroupRow: View {
                 Button {
                     browserURL = BrowserLink(url: url)
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Design.Space.tight) {
                         pill
                         Image(systemName: "arrow.up.right").font(.caption2.weight(.semibold))
                             .foregroundStyle(milestone.tone.pillText).accessibilityHidden(true)
@@ -85,7 +85,7 @@ struct RetryDivider: View {
     let message: ThreadMessage
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Design.Space.snug) {
             line
             Group {
                 if let number = message.retryNumber { Text("chat.retry.number \(number)") } else { Text("chat.retry") }
@@ -97,7 +97,7 @@ struct RetryDivider: View {
     }
 
     private var line: some View {
-        Rectangle().fill(Color.yakCardSeparator).frame(height: 1).accessibilityHidden(true)
+        Rectangle().fill(Color.yakCardSeparator).frame(height: Design.Space.line).accessibilityHidden(true)
     }
 }
 
@@ -137,7 +137,7 @@ struct ViaCaption: View {
                     text.frame(minHeight: Design.Size.control).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, -(Design.Size.control - 16) / 2)
+                .padding(.vertical, -(Design.Size.control - Design.Space.large) / 2)
             } else {
                 text
             }

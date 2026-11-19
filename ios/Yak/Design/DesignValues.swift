@@ -8,6 +8,8 @@ enum Design {
     enum Space {
         static let hairline: CGFloat = 0.5
         static let line: CGFloat = 1
+        /// Between the lines of a two line label.
+        static let nudge: CGFloat = 2
         static let tight: CGFloat = 4
         static let small: CGFloat = 6
         static let compact: CGFloat = 8
@@ -87,6 +89,8 @@ enum Design {
         static let sectionDot: CGFloat = 10
         /// A card's button.
         static let cardButton: CGFloat = 50
+        /// The widest the request row and the chat's text grow on a wide screen.
+        static let chatMaximumWidth: CGFloat = 720
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
         /// The source chip's drawn height.

@@ -45,7 +45,7 @@ struct ThreadCardHost: View {
                     Button {
                         Task { await cards.send(.answerRepository(repo: option)) }
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: Design.Space.compact) {
                             Text(verbatim: option).font(.body.weight(.medium)).multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
                             if cards.sending == .answerRepository(repo: option) { ProgressView() }
@@ -69,7 +69,7 @@ struct ThreadCardHost: View {
             Text("thread.card.early.title").font(.headline).accessibilityAddTraits(.isHeader)
             Text("thread.card.early.body").font(.subheadline)
             if let first = notice.areas.first {
-                VStack(alignment: .leading, spacing: Design.Space.hairline * 4) {
+                VStack(alignment: .leading, spacing: Design.Space.nudge) {
                     HStack(spacing: Design.Space.small) {
                         Text(verbatim: first.name).font(.body)
                         TonePill(text: Self.riskText(first.risk), tone: Self.riskTone(first.risk))
@@ -144,7 +144,7 @@ struct ThreadCardHost: View {
                         model: cards, isInCard: true,
                         checkAgain: { Task { await cards.checkAccess() } },
                         openWeb: openWeb, requestChanges: { isRequestingChanges = true })
-                    if cards.isOffline, !decision.hasNoButtons {
+                    if cards.isOffline, !decision.isNothingToDecide {
                         Text("thread.card.offline.decide").font(.footnote.weight(.medium)).foregroundStyle(
                             Color.yakCardSecondaryText
                         )
@@ -156,7 +156,7 @@ struct ThreadCardHost: View {
                         )
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.slow")
                     }
-                    footer(hasButtons: !decision.hasNoButtons)
+                    footer(hasButtons: !decision.isNothingToDecide)
                 }
                 .sheet(isPresented: $isRequestingChanges) {
                     RequestChangesSheet(model: cards, close: { isRequestingChanges = false })
@@ -182,7 +182,7 @@ struct ThreadCardHost: View {
             switch decision {
             case .noWriteAccess:
                 Text("thread.card.coOwner.noAccess \(repo)").font(.subheadline)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Design.Space.nudge) {
                     if let login = panel.viewer.login {
                         Text("thread.card.coOwner.linkedAs \(login)").font(.body)
                     }
@@ -200,7 +200,7 @@ struct ThreadCardHost: View {
                     let more = max(
                         (panel.stat?.files ?? panel.filePaths.count) - min(Self.shownFileCount, panel.filePaths.count),
                         0)
-                    VStack(alignment: .leading, spacing: Design.Space.hairline * 4) {
+                    VStack(alignment: .leading, spacing: Design.Space.nudge) {
                         ForEach(panel.filePaths.prefix(Self.shownFileCount), id: \.self) { path in
                             Text(verbatim: path).font(.footnote.monospaced())
                                 .fixedSize(horizontal: false, vertical: true)
@@ -217,7 +217,7 @@ struct ThreadCardHost: View {
                         .workBox()
                 }
                 if case .accessCheckFailed = decision {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Design.Space.nudge) {
                         Text("thread.card.coOwner.checkFailed").font(.subheadline.weight(.semibold))
                         Text("thread.card.coOwner.checkFailedBody").font(.footnote.weight(.medium))
                             .foregroundStyle(Color.yakCardSecondaryText)
@@ -307,7 +307,7 @@ struct ThreadCardHost: View {
     // MARK: Parts
 
     private func buttonLabel(_ title: LocalizedStringKey, isRunning: Bool, isOnFill: Bool = false) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Design.Space.compact) {
             if isRunning { ProgressView().tint(isOnFill ? Color(.systemBackground) : nil) }
             Text(title)
         }
@@ -409,5 +409,5 @@ extension ThreadCardState {
 
 extension TaskDecisionState {
     /// Nothing is offered because the viewer cannot drive.
-    fileprivate var hasNoButtons: Bool { self == .none }
+    fileprivate var isNothingToDecide: Bool { self == .none }
 }

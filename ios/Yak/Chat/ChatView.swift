@@ -67,7 +67,7 @@ struct ChatView: View {
             if let request = thread.snapshot?.show?.request {
                 ThreadRequestRow(request: request, stepLine: thread.stepLine)
                     .padding(.horizontal, Design.Space.pageInset).padding(.top, Design.Space.compact)
-                    .frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+                    .frame(maxWidth: Design.Size.chatMaximumWidth, alignment: .leading).frame(maxWidth: .infinity)
             }
             list
             floatingControls
@@ -75,7 +75,6 @@ struct ChatView: View {
     }
 
     private var list: some View {
-
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Design.Space.chatGap) {
                 if thread.historyState != .hidden {
@@ -110,7 +109,7 @@ struct ChatView: View {
             // No `scrollTargetLayout()`: with one, a change of the list's height re-anchors the position to a row's
             // leading edge, which sits inside the side padding and moves the list sideways by that padding.
             .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.medium)
-            .frame(maxWidth: 720).frame(maxWidth: .infinity)
+            .frame(maxWidth: Design.Size.chatMaximumWidth).frame(maxWidth: .infinity)
         }
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
