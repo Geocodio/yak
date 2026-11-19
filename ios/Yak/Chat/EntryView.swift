@@ -19,6 +19,7 @@ struct ChatRowView: View {
 
 private struct DayDivider: View {
     let label: DayLabel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -29,6 +30,7 @@ private struct DayDivider: View {
             }
         }
         .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+        .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
         .frame(maxWidth: .infinity).padding(.top, 6)
         .accessibilityAddTraits(.isHeader)
     }
