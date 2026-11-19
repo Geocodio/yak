@@ -223,7 +223,7 @@ test('the phone shows five tabs and never scrolls sideways', function () {
 
     expect($page->script('window.innerWidth'))->toBe(390);
     expect($page->script('[...document.querySelectorAll(\'[data-testid^="thread-phone-tab-"]\')].map((tab) => tab.textContent.trim()).filter((text) => text !== "").join(",")'))
-        ->toBe('Chat,Preview,Files1,Terminal,Overview');
+        ->toBe('Chat,Overview,Preview,Files1,Terminal');
 
     foreach (['files', 'terminal', 'overview', 'preview', 'chat'] as $tab) {
         $page->click("[data-testid=\"thread-phone-tab-{$tab}\"]")->wait(0.5);

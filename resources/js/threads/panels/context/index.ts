@@ -1,4 +1,4 @@
 import { registerOverviewSection } from '@/threads/panels';
 import { ContextGroup } from './ContextGroup';
 
-registerOverviewSection({ id: 'context', order: 15, component: ContextGroup, visible: () => true });
+registerOverviewSection({ id: 'context', order: 15, component: ContextGroup, visible: (thread) => thread.hasRepository });

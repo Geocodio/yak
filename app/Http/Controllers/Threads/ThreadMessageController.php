@@ -45,6 +45,7 @@ class ThreadMessageController extends Controller
                 : TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
             $request->acknowledgedPrivatePublish(),
             $request->validated('effort'),
+            queueWithoutRepository: true,
         );
 
         try {

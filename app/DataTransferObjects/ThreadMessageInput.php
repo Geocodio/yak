@@ -21,5 +21,6 @@ final readonly class ThreadMessageInput
         public ?Closure $storeAttachments,
         public bool $acknowledgedPrivatePublish = false,
         public ?string $effort = null,
+        public bool $queueWithoutRepository = false,
     ) {}
 }

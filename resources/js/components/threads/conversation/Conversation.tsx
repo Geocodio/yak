@@ -86,12 +86,12 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges, footer = null }: { footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
-    const { scroller, content, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
+    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
     // The person's own message always comes into view, also after they scrolled up.
@@ -130,9 +130,10 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const firstPerson = entries.find((entry) => entry.type === 'person');
     let previousDay = '';
     const runningRun = working ? runs.find((run) => run.isActive) : undefined;
-    const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null);
+    const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null || isWaitingForRepository);
     // Each move gets its divider before the first message of the new side; the computer stretch that began at a
     // move follows its divider, and the stretch the thread began with opens the conversation.
     const switchBlocks = new Map<number, React.ReactNode[]>();
@@ -190,7 +191,8 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                             {showDay && <DayDivider iso={entry.message.sentAt} />}
                             <PersonMessage
                                 message={entry.message}
-                                pending={entry.pending}
+                                pending={entry.pending && !isWaitingForRepository}
+                                isRequest={entry === firstPerson}
                                 modelLabels={modelLabels}
                                 onOpenMedia={(media, index) => {
                                     setLightboxMedia(media);
@@ -230,7 +232,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 />
                 {notice && <ThreadNotice notice={notice} threadId={threadId} repo={repo} branch={branch} readonly={readonly} />}
             </div>
-            {footer}
+            <div ref={footerRef}>{footer}</div>
             {hasNew && (
                 <button type="button" onClick={jumpToNewest} data-testid="thread-jump-to-newest" className="sticky bottom-1 mx-auto mt-3 flex w-fit cursor-pointer items-center gap-1.5 rounded-pill border border-hair bg-panel px-3 py-1.5 text-[12px] font-medium text-body shadow-card">
                     <ArrowDown size={13} aria-hidden />

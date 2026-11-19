@@ -98,7 +98,7 @@ final class ThreadCardsData
      */
     private static function repositoryQuestion(Thread $thread, YakTask $head, bool $canDrive): ?array
     {
-        if ($thread->hasRepository()) {
+        if ($thread->hasRepository() || $head->status === TaskStatus::Cancelled) {
             return null;
         }
 
@@ -115,6 +115,50 @@ final class ThreadCardsData
             'options' => $options,
             'selected' => is_string($requested) && in_array($requested, $options, true) ? $requested : null,
             'canAnswer' => $canDrive,
+        ];
+    }
+
+    /**
+     * The repository question of the web page, a wider one than the app API's: it keeps the card when every offered
+     * repository went inactive, and lists the other active repositories for "Another repository". Null when the page shows no such card.
+     *
+     * @return array{prompt: string, options: list<string>, otherOptions: list<string>, selected: ?string, canAnswer: bool}|null
+     */
+    public static function webRepositoryQuestion(Thread $thread, User $viewer): ?array
+    {
+        if ($thread->hasRepository() || ! $thread->isOpen() || $thread->is_legacy) {
+            return null;
+        }
+
+        $head = ThreadTasks::head($thread);
+
+        if ($head === null || $head->status === TaskStatus::Cancelled) {
+            return null;
+        }
+
+        $offered = array_values(array_filter((array) ($head->clarification_options ?? []), 'is_string'));
+
+        if ($offered === [] && ! RepoClarificationResolver::awaitingRepoChoice($head)) {
+            return null;
+        }
+
+        /** @var list<string> $active */
+        $active = Repository::where('is_active', true)->orderBy('slug')->pluck('slug')->map(fn (mixed $slug): string => (string) $slug)->all();
+
+        if ($active === []) {
+            return null;
+        }
+
+        $options = RepoClarificationResolver::offeredOptions($head);
+        $otherOptions = array_values(array_diff($active, $options));
+        $requested = request()->query('repo');
+
+        return [
+            'prompt' => 'Which repository is this for?',
+            'options' => $options,
+            'otherOptions' => $otherOptions,
+            'selected' => is_string($requested) && in_array($requested, $options, true) ? $requested : null,
+            'canAnswer' => app(ThreadAccess::class)->canDrive($viewer, $thread),
         ];
     }
 
@@ -216,7 +260,7 @@ final class ThreadCardsData
         $tasksByThread = YakTask::query()->withoutGlobalScopes()
             ->whereIn('thread_id', $threadIds)
             ->orderBy('id')
-            ->get(['id', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id', 'repo', 'session_id', 'clarification_options'])
+            ->get(['id', 'status', 'thread_id', 'parent_task_id', 'started_by_user_id', 'slack_user_id', 'early_warning', 'tagged_co_owner_user_id', 'repo', 'session_id', 'clarification_options'])
             ->groupBy('thread_id');
 
         $activeSlugs = null;
@@ -298,7 +342,7 @@ final class ThreadCardsData
 
         $head = $tasks->last();
 
-        if ($head === null) {
+        if ($head === null || $head->status === TaskStatus::Cancelled) {
             return false;
         }
 

@@ -64,7 +64,7 @@ export function LogEntrySheet({
     entry: TranscriptEntry | null | undefined;
     onSelectLog: (logId: number) => void;
     runKey: string;
-    paging?: Omit<TranscriptPaging, 'onSearch'>;
+    paging?: Omit<TranscriptPaging, 'onSearch' | 'query'>;
 }) {
     const idx = rows.findIndex((row) => row.id === selectedLogId);
     const sel = idx >= 0 ? idx : 0;

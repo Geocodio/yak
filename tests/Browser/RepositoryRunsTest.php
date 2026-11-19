@@ -106,3 +106,16 @@ it('keeps the result line of a run row inside its column and shows it in full on
         ->assertPresent("[data-testid=\"run-row-{$failed->public_id}\"] span.truncate[title]")
         ->assertNoJavaScriptErrors();
 });
+
+it('opens the full log of a repository run without run buttons', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    seedRepositoryRuns();
+
+    visit('/repos/acme/site/runs')
+        ->click('[data-testid="run-full-log"]')
+        ->assertVisible('[data-testid="transcript-overlay"]')
+        ->assertMissing('[data-testid="run-previous"]')
+        ->assertMissing('[data-testid="run-next"]')
+        ->assertSee('Search this run');
+});

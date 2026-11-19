@@ -8,6 +8,8 @@ use App\Models\ThreadEvent;
 use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => $this->withoutVite());
@@ -79,7 +81,7 @@ it('searches the steps of a run, including tool output and wildcard characters',
     $ids = fn (string $search): array => array_column($this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=" . urlencode($search))->json('entries'), 'id');
 
     expect($ids('config'))->toBe([2, 3])
-        ->and($ids('needle'))->toBe([4])
+        ->and($ids('needle'))->toBe([3])
         ->and($ids('100%_done'))->toBe([3])
         ->and($ids('/app/config'))->toBe([3])
         ->and($ids('no such text'))->toBe([]);
@@ -232,4 +234,153 @@ it('shows a viewer without drive rights the active run as active', function () {
 
     $this->actingAs($reader)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('canDrive', false)->where('runs.0.isActive', true));
+});
+
+it('numbers the steps of a run, names the subject and times a tool call', function () {
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+    $run->forceFill(['started_at' => now()->subHour()])->save();
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'First']]]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 3, 'type' => 'entry', 'created_at' => now()->subSeconds(41), 'payload' => ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'Bash', 'input' => ['command' => 'vendor/bin/pest']]]]]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => 4, 'type' => 'entry', 'created_at' => now(), 'payload' => ['role' => 'tool_result', 'toolUseId' => 'toolu_1', 'isError' => false, 'text' => 'ok']]);
+    logEntry($thread, 5, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'Last']]]);
+    $user = User::factory()->create();
+
+    $entries = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->json('entries');
+    $searched = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=Last")->json('entries');
+
+    expect(array_column($entries, 'number'))->toBe([1, 2, 3])
+        ->and($entries[1]['subject'])->toBe('vendor/bin/pest')
+        ->and($entries[1]['durationSeconds'])->toBe(41)
+        ->and($searched[0]['number'])->toBe(3);
+
+    $this->actingAs($user)->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('runs.0.startedAt', $run->started_at->toIso8601String()));
+});
+
+it('answers 404 to a search on the log of a thread the viewer cannot see', function () {
+    $hidden = Thread::factory()->private()->create();
+    $run = logRun($hidden, 1);
+    logEntry($hidden, 2, ['role' => 'assistant', 'blocks' => [['type' => 'text', 'text' => 'needle']]]);
+
+    $this->actingAs(User::factory()->create())->getJson("/threads/{$hidden->public_id}/runs/{$run->id}/log?search=needle&cursor=0")->assertNotFound();
+});
+
+function seededSearchRun(int $steps): array
+{
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+
+    foreach (range(0, $steps - 1) as $index) {
+        logEntry($thread, 2 + $index * 2, ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => "toolu_{$index}", 'name' => 'Bash', 'input' => ['command' => "echo {$index}"]]]]);
+        logEntry($thread, 3 + $index * 2, ['role' => 'tool_result', 'toolUseId' => "toolu_{$index}", 'isError' => false, 'text' => 'needle ' . $index]);
+    }
+
+    return [$thread, $run];
+}
+
+it('pages every step whose output matches, past 200 matches, with an exact running position', function () {
+    [$thread, $run] = seededSearchRun(260);
+    $user = User::factory()->create();
+    $seen = [];
+    $cursor = 0;
+    $pages = 0;
+
+    do {
+        $page = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle&cursor={$cursor}")->assertOk();
+        $seen = [...$seen, ...array_column($page->json('entries'), 'id')];
+        $cursor = $page->json('nextCursor');
+        $pages++;
+    } while ($cursor !== null);
+
+    expect($seen)->toHaveCount(260)->and(array_unique($seen))->toHaveCount(260)->and($pages)->toBe(6);
+    $last = $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle&cursor=" . $seen[254])->json('entries.4');
+    expect($last['number'])->toBe(260);
+});
+
+it('reads a page of a long run with the same number of queries as a page of a short one', function () {
+    $count = function (int $steps, string $query): int {
+        [$thread, $run] = seededSearchRun($steps);
+        $user = User::factory()->create();
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log{$query}");
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log{$query}")->assertOk();
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
+    };
+
+    foreach (['', '?search=needle'] as $query) {
+        expect($count(500, $query))->toBe($count(60, $query));
+    }
+});
+
+it('stops a search after a page and one more matches however long the run is', function () {
+    $queriesFor = function (int $steps): int {
+        [$thread, $run] = seededSearchRun($steps);
+        $user = User::factory()->create();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle")->assertOk()->assertJsonCount(50, 'entries');
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
+    };
+
+    expect($queriesFor(1000))->toBe($queriesFor(120));
+});
+
+it('limits searches of a run log per viewer and lets a plain page through', function () {
+    [$thread, $run] = seededSearchRun(3);
+    $user = User::factory()->create();
+
+    foreach (range(1, 120) as $unused) {
+        RateLimiter::hit("run-log-search:{$user->id}", 60);
+    }
+
+    $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle")->assertStatus(429);
+    $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->assertOk();
+    $this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle")->assertOk();
+});
+
+it('reads a bounded number of events for a search on a run with many assistant events', function () {
+    $rowsRead = function (int $steps): int {
+        [$thread, $run] = seededSearchRun($steps);
+        $user = User::factory()->create();
+        $read = 0;
+        Event::listen('eloquent.retrieved: ' . ThreadEvent::class, function () use (&$read): void {
+            $read++;
+        });
+        $this->actingAs($user)->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log?search=needle")->assertOk()->assertJsonCount(50, 'entries');
+
+        return $read;
+    };
+
+    $long = $rowsRead(1500);
+
+    expect($long)->toBeLessThan(400)->and($long)->toBe($rowsRead(300));
+});
+
+it('opens the page with the log of a run named by `run` and ignores a run of another thread', function () {
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+    $foreign = logRun(Thread::factory()->create(), 1);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get("/threads/{$thread->public_id}?run={$run->id}")->assertInertia(fn (Assert $page) => $page->where('openLog', ['runId' => (string) $run->id, 'entryId' => null]));
+    $this->actingAs($user)->get("/threads/{$thread->public_id}?run={$foreign->id}")->assertInertia(fn (Assert $page) => $page->where('openLog', null));
+});
+
+it('marks a single shell command so the log can show a prompt', function () {
+    $thread = Thread::factory()->create();
+    $run = logRun($thread, 1);
+    logEntry($thread, 2, ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'Bash', 'input' => ['command' => 'ls']]]]);
+    logEntry($thread, 3, ['role' => 'assistant', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_2', 'name' => 'Read', 'input' => ['file_path' => '/a']]]]);
+
+    $entries = $this->actingAs(User::factory()->create())->getJson("/threads/{$thread->public_id}/runs/{$run->id}/log")->json('entries');
+
+    expect($entries[0]['isShellCommand'])->toBeTrue()->and($entries[1]['isShellCommand'])->toBeFalse();
 });

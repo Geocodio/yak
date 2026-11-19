@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::show
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 export const show = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::show
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 show.url = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ show.url = (args: { thread: string | { public_id: string }, run: string | number
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::show
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 show.get = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ show.get = (args: { thread: string | { public_id: string }, run: string | number
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::show
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 show.head = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -66,7 +66,7 @@ show.head = (args: { thread: string | { public_id: string }, run: string | numbe
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::showTask
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 export const showTask = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -81,7 +81,7 @@ showTask.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::showTask
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 showTask.url = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
@@ -111,7 +111,7 @@ showTask.url = (args: { thread: string | { public_id: string }, task: string | {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::showTask
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 showTask.get = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -121,7 +121,7 @@ showTask.get = (args: { thread: string | { public_id: string }, task: string | {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::showTask
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:27
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:30
 * @route '/threads/{thread}/tasks/{task}/log'
 */
 showTask.head = (args: { thread: string | { public_id: string }, task: string | { public_id: string } } | [thread: string | { public_id: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

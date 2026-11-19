@@ -102,6 +102,7 @@
         "state": "stopped"
     },
     "diffTotals": null,
+    "earlierWalkthroughs": [],
     "earlyWarning": null,
     "isLegacy": false,
     "latestSequence": 12,

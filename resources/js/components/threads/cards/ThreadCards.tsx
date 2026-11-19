@@ -6,7 +6,7 @@ import { edit as editRepository } from '@/routes/repos';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'card' | 'repositoryQuestion' | 'earlyWarning' | 'coOwner' | 'stopped' | 'actions' | 'isExpiredCoOwnerStop'>;
+    page: Pick<ThreadPageData, 'thread' | 'card' | 'repositoryQuestion' | 'earlyWarning' | 'coOwner' | 'stopped' | 'actions' | 'isExpiredCoOwnerStop'> & { request?: ThreadPageData['request'] };
     onOpenChanges: () => void;
     onMove: () => void;
     /** Opens the log of the latest run; null when the thread has no run. */
@@ -17,13 +17,13 @@ type Props = {
 
 /** The one card above the composer: the repository question, the early warning, the co-owner decision or the stop. The question form lives in the conversation. */
 export function ThreadCards({ page, onOpenChanges, onMove, onShowLog, isInline = false }: Props) {
-    const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop } = page;
+    const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request } = page;
     let content = null;
     let anchor = '';
 
     if (card === 'repository_question' && repositoryQuestion !== null) {
         anchor = 'card-repository-question';
-        content = <RepositoryQuestionCard threadId={thread.id} question={repositoryQuestion} />;
+        content = <RepositoryQuestionCard threadId={thread.id} question={repositoryQuestion} sourceKey={request?.source.key} canCancel={actions.canCancel} />;
     } else if (card === 'early_warning' && earlyWarning !== null) {
         anchor = 'card-early-warning';
         content = <EarlyWarningCard threadId={thread.id} warning={earlyWarning} />;

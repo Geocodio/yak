@@ -4,6 +4,7 @@ use App\Enums\ThreadListFilter;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Exceptions\ThreadActionRefused;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Teleport;
@@ -241,12 +242,17 @@ test('a teleport down from the command line is refused and creates no teleport',
     Queue::assertNothingPushed();
 });
 
-test('a composer message is refused with a designed answer', function () {
-    $this->actingAs($this->user)->postJson("{$this->path}/messages", ['message' => 'hello'])
-        ->assertStatus(422)->assertJsonPath('message', 'Pick a repository first.');
+test('a composer message is kept for when work starts, without a run or a sandbox', function () {
+    $this->actingAs($this->user)->postJson("{$this->path}/messages", ['message' => 'hello'])->assertOk();
 
-    expect($this->thread->runs()->count())->toBe(0);
+    expect($this->thread->runs()->count())->toBe(0)
+        ->and(PendingSteeringMessage::query()->where('text', 'hello')->exists())->toBeTrue();
     expectNoSandbox($this->thread);
+});
+
+test('a message with an intent is still refused on a thread without a repository', function () {
+    $this->actingAs($this->user)->postJson("{$this->path}/messages", ['message' => 'hello', 'intent' => 'fix_preview'])
+        ->assertStatus(422)->assertJsonPath('message', 'Pick a repository first.');
 });
 
 test('the sandbox lifecycle command leaves it alone', function () {
