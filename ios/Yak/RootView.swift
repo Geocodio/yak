@@ -15,7 +15,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if !model.hasLoaded || scene == nil {
-                Color(.systemBackground).ignoresSafeArea()
+                Color.yakBackground.ignoresSafeArea()
             } else {
                 switch model.route {
                 case .connect:
@@ -84,7 +84,7 @@ private struct NotificationExplanationCover: View {
             if let explanationModel {
                 NotificationExplanationView(model: explanationModel)
             } else {
-                Color(.systemBackground)
+                Color.yakBackground
             }
         }
         .onAppear {

@@ -103,7 +103,7 @@ private struct UnsentAttachment: View {
                     if let thumbnail {
                         Image(uiImage: thumbnail).resizable().scaledToFill()
                     } else {
-                        Color(.tertiarySystemFill)
+                        Color.yakFill
                     }
                 }
                 .frame(width: 88, height: 88).clipShape(.rect(cornerRadius: 12))

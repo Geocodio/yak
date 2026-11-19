@@ -24,10 +24,10 @@ struct NotificationExplanationView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
-                    .background(Color(.systemBackground))
+                    .background(Color.yakBackground)
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .sensoryFeedback(.success, trigger: model.phase == .on)
         .sensoryFeedback(.warning, trigger: model.phase == .off(failed: false) || model.phase == .off(failed: true))
         .accessibilityElement(children: .contain)
@@ -55,7 +55,7 @@ struct NotificationExplanationView: View {
                 row(color: Color(.systemGreen), title: "notify.row.pullRequest.title", detail: nil)
             }
             .padding(.horizontal, 16)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+            .background(Color.yakCard, in: .rect(cornerRadius: 14))
             Text("notify.footnote").font(.footnote).foregroundStyle(Color.yakMuted)
             result
         }

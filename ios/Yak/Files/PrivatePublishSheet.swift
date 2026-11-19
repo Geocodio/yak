@@ -22,7 +22,7 @@ struct PrivatePublishSheet: View {
         }
         .padding(24)
         .presentationDetents([.large])
-        .presentationBackground(Color(.systemBackground))
+        .presentationBackground(Color.yakBackground)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.private")
     }

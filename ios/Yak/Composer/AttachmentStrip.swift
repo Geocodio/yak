@@ -38,7 +38,7 @@ private struct AttachmentTile: View {
                 content.frame(width: side, height: side).clipShape(.rect(cornerRadius: 12))
                 Button(action: remove) {
                     Image(systemName: "xmark.circle.fill").font(.system(size: 20)).symbolRenderingMode(.palette)
-                        .foregroundStyle(Color(.systemBackground), Color.primary)
+                        .foregroundStyle(Color.yakBackground, Color.primary)
                         .frame(width: 44, height: 44, alignment: .topTrailing).contentShape(.rect)
                 }
                 .buttonStyle(.plain).offset(x: 12, y: -12)

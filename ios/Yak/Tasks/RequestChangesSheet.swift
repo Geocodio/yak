@@ -17,7 +17,7 @@ struct RequestChangesSheet: View {
                     TextEditor(text: Bindable(model).feedback)
                         .focused($isFocused).frame(minHeight: 160)
                         .padding(8).scrollContentBackground(.hidden)
-                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+                        .background(Color.yakCard, in: .rect(cornerRadius: 12))
                         .accessibilityLabel("task.requestChanges.field")
                         .accessibilityIdentifier("task.requestChanges.field")
                     HStack(alignment: .top) {

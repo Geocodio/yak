@@ -34,7 +34,7 @@ struct TaskDecisionBar: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemBackground))
+            .background(Color.yakBackground)
             .overlay(alignment: .top) { Divider() }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("task.decision")

@@ -35,7 +35,7 @@ struct FileListSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationBackground(Color(.systemBackground))
+        .presentationBackground(Color.yakBackground)
         .accessibilityIdentifier("files.list.sheet")
     }
 

@@ -157,7 +157,7 @@ private struct ComposerDropTarget: ViewModifier {
                 if isTargeted && model.acceptsDrops {
                     RoundedRectangle(cornerRadius: 22).strokeBorder(Color.primary.opacity(0.6), lineWidth: 2)
                         .overlay { Text("drop.placeholder").font(.body.weight(.medium)).foregroundStyle(.primary) }
-                        .background(Color(.systemBackground).opacity(0.85), in: .rect(cornerRadius: 22))
+                        .background(Color.yakBackground.opacity(0.85), in: .rect(cornerRadius: 22))
                         .allowsHitTesting(false)
                 }
             }

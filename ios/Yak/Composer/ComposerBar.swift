@@ -78,7 +78,7 @@ struct ComposerBar: View {
             .textInputAutocapitalization(.sentences)
             .padding(.horizontal, 14).padding(.vertical, 11)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 22))
+            .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.bubble))
             .accessibilityLabel("composer.field.label")
             .accessibilityIdentifier("composer.field")
     }
@@ -123,10 +123,10 @@ struct ComposerBar: View {
             ZStack {
                 Circle().fill(Color.primary)
                 if composer.isStopping {
-                    ProgressView().tint(Color(.systemBackground))
+                    ProgressView().tint(Color.yakBackground)
                 } else {
                     Image(systemName: "stop.fill").font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color(.systemBackground))
+                        .foregroundStyle(Color.yakBackground)
                 }
             }
             .frame(width: 44, height: 44).contentShape(.circle)
@@ -159,10 +159,10 @@ private struct SendGlyph: View {
         ZStack {
             Circle().fill(Color.primary)
             if isBusy {
-                ProgressView().tint(Color(.systemBackground))
+                ProgressView().tint(Color.yakBackground)
             } else {
                 Image(systemName: "arrow.up").font(.system(size: 18, weight: .bold)).foregroundStyle(
-                    Color(.systemBackground))
+                    Color.yakBackground)
             }
         }
         .frame(width: 44, height: 44).contentShape(.circle)

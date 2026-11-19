@@ -36,7 +36,7 @@ struct PreviewPane: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground).accessibilityElement().accessibilityLabel("pane.preview")
+            Color.yakBackground.accessibilityElement().accessibilityLabel("pane.preview")
                 .accessibilityIdentifier("preview.pane")
             if let model {
                 if hasShownPage, let dataStore {
@@ -187,7 +187,7 @@ struct PreviewPane: View {
                     ProgressView()
                     Text("preview.signingIn").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(.systemBackground))
+                .frame(maxWidth: .infinity, maxHeight: .infinity).background(.yakPage)
                 .accessibilityElement(children: .combine).accessibilityIdentifier("preview.signingIn")
             }
         case .problem(let problem): problemCard(problem, model)
@@ -338,7 +338,7 @@ private struct PreviewLines: View {
             accessory().font(.subheadline.weight(.semibold)).tint(.primary).frame(minHeight: 44)
         }
         .padding(.horizontal, 14).padding(.vertical, 6)
-        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+        .yakCardSurface(in: .rect(cornerRadius: Design.Radius.card))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }

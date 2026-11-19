@@ -71,7 +71,7 @@ struct ChatView: View {
 
     private var list: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: Design.Space.chatGap) {
                 if thread.historyState != .hidden {
                     HistoryRow(state: thread.historyState, retry: { Task { await thread.loadOlder() } })
                         .onAppear { isHistoryVisible = true }
@@ -98,7 +98,7 @@ struct ChatView: View {
             }
             // No `scrollTargetLayout()`: with one, a change of the list's height re-anchors the position to a row's
             // leading edge, which sits inside the side padding and moves the list sideways by that padding.
-            .padding(.horizontal, 16).padding(.vertical, 12)
+            .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.medium)
             .frame(maxWidth: 720).frame(maxWidth: .infinity)
         }
         .accessibilityIdentifier("chat.list")
@@ -249,7 +249,7 @@ struct ChatView: View {
                 Text(line)
                     .font(.subheadline).multilineTextAlignment(.center)
                     .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                    .background(Color.yakCard, in: .rect(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
                     .transition(.opacity)
                     .accessibilityIdentifier("chat.actionLine")
@@ -262,7 +262,7 @@ struct ChatView: View {
                     Label("chat.jumpToLatest", systemImage: "arrow.down")
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16).frame(minHeight: 44)
-                        .background(Color(.secondarySystemBackground), in: .capsule)
+                        .background(Color.yakCard, in: .capsule)
                         .overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
                         .foregroundStyle(.primary)
                 }

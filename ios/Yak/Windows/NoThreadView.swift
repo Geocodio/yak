@@ -29,7 +29,7 @@ struct NoThreadView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .accessibilityIdentifier("window.noThread")
     }
 }

@@ -18,8 +18,10 @@ struct PreviewWebView: UIViewRepresentable {
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = true
-        view.isOpaque = false
-        view.backgroundColor = .systemBackground
+        // Opaque, so a page without a background of its own is drawn the way a browser draws it: black text on white.
+        // Until the first navigation commits the view shows the page color, so a dark pane does not flash white.
+        view.isOpaque = true
+        PreviewWebCoordinator.paint(view, color: UIColor(Color.yakBackground))
         view.accessibilityIdentifier = "preview.page"
         context.coordinator.adopt(view)
         model.attach(context.coordinator)
@@ -38,6 +40,13 @@ final class PreviewWebCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
     private var progressObservation: NSKeyValueObservation?
 
     init(model: PreviewModel) { self.model = model }
+
+    /// The web view's background, its scroll view's and the color shown past the page's edge in an overscroll.
+    static func paint(_ view: WKWebView, color: UIColor) {
+        view.backgroundColor = color
+        view.scrollView.backgroundColor = color
+        view.underPageBackgroundColor = color
+    }
 
     func adopt(_ view: WKWebView) {
         self.view = view
@@ -84,6 +93,10 @@ final class PreviewWebCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         model.pageStarted()
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        Self.paint(webView, color: .white)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

@@ -7,12 +7,13 @@ extension Color {
     /// Links and plain actions: the rust as text color, which passes the contrast bar where the fill color does not.
     static let yakAction = Color("Action")
     static let yakDanger = Color("Danger")
-    /// Secondary text. The system's secondary label is too faint for the contrast audit, so this is the primary
-    /// label color at 72 percent, which adapts to light and dark.
-    static let yakMuted = Color.primary.opacity(0.72)
+    /// Secondary text: the boards' `--tx2` a step stronger, so it keeps the contrast audit's bar on a card, a bubble,
+    /// a field and a disabled control.
+    static let yakMuted = board(
+        dark: 0xB0B4BB, light: 0x50545B, highContrast: BoardContrast(dark: 0xF1F2F4, light: 0x1C1D21))
     /// A count badge: the primary label color with the page color on top, so the pair keeps its contrast in light and dark.
     static let yakBadge = Color.primary
-    static let yakOnBadge = Color(.systemBackground)
+    static let yakOnBadge = Color.yakBackground
 }
 
 /// The one filled control on a screen.
@@ -25,7 +26,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(Color.yakOnRust)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
-            .background(Color.yakRust, in: .rect(cornerRadius: 14))
+            .background(Color.yakRust, in: .rect(cornerRadius: Design.Radius.key))
             .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
     }
 }
@@ -40,7 +41,10 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
-            .background(Color(.systemGray5).opacity(configuration.isPressed ? 0.6 : 1), in: .rect(cornerRadius: 14))
+            .background(
+                Color.yakFillStrong.opacity(configuration.isPressed ? 0.6 : 1),
+                in: .rect(cornerRadius: Design.Radius.key)
+            )
             .opacity(isEnabled ? 1 : 0.5)
     }
 }

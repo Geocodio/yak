@@ -34,7 +34,7 @@ struct ModelPicker: View {
             }
         }
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
-        .presentationBackground(Color(.systemGroupedBackground))
+        .presentationBackground(Color.yakBackground)
         .accessibilityIdentifier("model.picker")
     }
 

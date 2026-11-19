@@ -125,7 +125,7 @@ private let bookInputs = LayoutInputs(
         plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
         let closed = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
         #expect(!closed.isOverviewInPair)
-        #expect(PaneLayoutRules.plan(closed, available: all, inputs: wide).slots.count == 2)
+        #expect(PaneLayoutRules.plan(closed, available: all, inputs: wide).slots.count == 1)
         #expect(!PaneLayoutRules.plan(closed, available: all, inputs: wide).shownPanes.contains(.overview))
     }
 
@@ -153,11 +153,11 @@ private let bookInputs = LayoutInputs(
         let state = PaneState(focused: .chat, second: .preview)
         let withoutPreview: [PaneID] = [.chat, .files, .terminal, .overview]
         let next = PaneLayoutRules.availableChanged(state: state, available: withoutPreview, inputs: wide)
-        #expect(next.second == .files)
+        #expect(next.second == nil)
         let gone = PaneLayoutRules.availableChanged(
             state: PaneState(focused: .terminal, second: .chat), available: [.chat, .preview],
             inputs: wide)
-        #expect(gone.focused == .chat && gone.second == .preview)
+        #expect(gone.focused == .chat && gone.second == nil)
     }
 
     @Test(arguments: [wide, upright, outer, laptopInputs])
@@ -320,16 +320,6 @@ private let bookInputs = LayoutInputs(
         plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
         state = PaneLayoutRules.select(.overview, from: nil, state: state, plan: plan)
         #expect(state.focused == .overview && state.second == .chat)
-    }
-
-    @Test func defaultSecondOrder() {
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .terminal, candidates: all) == .terminal)
-        #expect(PaneLayoutRules.defaultSecond(focused: .files, lastSecond: nil, candidates: all) == .chat)
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: nil, candidates: all) == .preview)
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .chat, candidates: [.chat]) == nil)
-        #expect(
-            PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .files, candidates: [.chat, .preview]) == .preview
-        )
     }
 
     @Test func marksFollowTheSlots() {
@@ -561,5 +551,159 @@ private let bookInputs = LayoutInputs(
         #expect(
             PaneLayoutRules.plan(rotated, available: all, inputs: upright).slots
                 == PaneLayoutRules.plan(expected, available: all, inputs: upright).slots)
+    }
+}
+
+@Suite struct OnePaneByDefaultTests {
+    private let sizes: [(String, LayoutInputs)] = [
+        ("sideBySide", wide), ("stacked", upright), ("single", outer), ("ipad", ipad), ("laptop", laptopInputs),
+        ("book", bookInputs),
+    ]
+
+    @Test func aThreadOpensWithOnePaneAtEverySize() {
+        for (name, inputs) in sizes {
+            for focused in PaneID.allCases {
+                // A focused Overview is one the person chose; where it is the panel it opens beside Chat.
+                if focused == .overview,
+                    PaneLayoutRules.overviewIsPanel(
+                        arrangement: ThreadLayout.arrangement(inputs, slotPaneCount: all.count), inputs: inputs)
+                {
+                    continue
+                }
+                let state = PaneState(focused: focused)
+                let plan = PaneLayoutRules.plan(state, available: all, inputs: inputs)
+                #expect(plan.arrangement == .single, "\(name) \(focused)")
+                #expect(plan.slots.count == 1, "\(name) \(focused)")
+                let size = ThreadLayout.arrangement(inputs, slotPaneCount: all.count)
+                let resolved = PaneLayoutRules.arrangementChanged(
+                    from: .single, to: size, state: state, available: all, inputs: inputs, oldInputs: outer)
+                #expect(resolved.second == nil, "\(name) \(focused)")
+                #expect(PaneLayoutRules.availableChanged(state: state, available: all, inputs: inputs).second == nil)
+            }
+        }
+    }
+
+    @Test func aChosenSecondPaneShowsAndIsKept() {
+        let plan = PaneLayoutRules.plan(PaneState(), available: all, inputs: wide)
+        let state = PaneLayoutRules.setSecond(.preview, state: PaneState(), plan: plan)
+        #expect(state.focused == .chat && state.second == .preview)
+        let two = PaneLayoutRules.plan(state, available: all, inputs: wide)
+        #expect(two.shownPanes == [.chat, .preview])
+        #expect(PaneLayoutRules.secondChoices(plan: two).current == .preview)
+        let kept = PaneLayoutRules.availableChanged(state: state, available: all, inputs: wide)
+        #expect(kept == state)
+        #expect(PaneLayoutRules.setSecond(.preview, state: state, plan: two) == state)
+    }
+
+    @Test func aPickInAnotherSlotKeepsTheFocusedPane() {
+        let plan = PaneLayoutRules.plan(PaneState(focused: .files), available: all, inputs: upright)
+        let state = PaneLayoutRules.setSecond(.chat, state: PaneState(focused: .files), plan: plan)
+        #expect(state.focused == .files && state.second == .chat)
+        let two = PaneLayoutRules.plan(state, available: all, inputs: upright)
+        let swapped = PaneLayoutRules.setSecond(.terminal, state: state, plan: two)
+        #expect(swapped.focused == .files && swapped.second == .terminal)
+    }
+
+    @Test func noneClosesTheSecondPane() {
+        let state = PaneState(focused: .chat, second: .preview)
+        for inputs in [wide, upright, laptopInputs, bookInputs] {
+            let plan = PaneLayoutRules.plan(state, available: all, inputs: inputs)
+            let closed = PaneLayoutRules.setSecond(nil, state: state, plan: plan)
+            #expect(closed.focused == .chat && closed.second == nil)
+            #expect(PaneLayoutRules.plan(closed, available: all, inputs: inputs).slots.count == 1)
+        }
+    }
+
+    @Test func noneClosesTheOverviewPanel() {
+        let plan = PaneLayoutRules.plan(PaneState(focused: .files), available: all, inputs: wide)
+        let open = PaneLayoutRules.setSecond(.overview, state: PaneState(focused: .files), plan: plan)
+        let panelPlan = PaneLayoutRules.plan(open, available: all, inputs: wide)
+        #expect(panelPlan.slots.contains { $0.content == .overviewPanel })
+        #expect(PaneLayoutRules.secondChoices(plan: panelPlan).current == .overview)
+        let closed = PaneLayoutRules.setSecond(nil, state: open, plan: panelPlan)
+        #expect(closed.focused == .files && closed.second == nil && closed.behind == nil)
+        let after = PaneLayoutRules.plan(closed, available: all, inputs: wide)
+        #expect(after.slots == [PaneSlot(position: .single, content: .pane(.files))])
+        // A focused Overview with a pane beside the panel closes to that pane.
+        let focusedOverview = PaneState(focused: .overview, second: .preview)
+        let beside = PaneLayoutRules.plan(focusedOverview, available: all, inputs: wide)
+        let closedBeside = PaneLayoutRules.setSecond(nil, state: focusedOverview, plan: beside)
+        #expect(closedBeside.focused == .preview && closedBeside.second == nil)
+    }
+
+    @Test func choosingAPaneWhileThePanelIsOpenReplacesThePanel() {
+        let state = PaneState(focused: .chat, second: .overview)
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+        let next = PaneLayoutRules.setSecond(.terminal, state: state, plan: plan)
+        #expect(next.focused == .chat && next.second == .terminal && next.behind == nil)
+    }
+
+    @Test func choosingTheFocusedPaneChangesNothing() {
+        for inputs in [wide, upright, laptopInputs] {
+            let state = PaneState(focused: .files, second: .chat)
+            let plan = PaneLayoutRules.plan(state, available: all, inputs: inputs)
+            #expect(PaneLayoutRules.setSecond(.files, state: state, plan: plan) == state)
+            let lone = PaneState(focused: .files)
+            let single = PaneLayoutRules.plan(lone, available: all, inputs: inputs)
+            #expect(PaneLayoutRules.setSecond(.files, state: lone, plan: single) == lone)
+        }
+        let panel = PaneState(focused: .chat, second: .overview)
+        let panelPlan = PaneLayoutRules.plan(panel, available: all, inputs: wide)
+        #expect(PaneLayoutRules.setSecond(.chat, state: panel, plan: panelPlan) == panel)
+    }
+
+    @Test func secondChoicesAreNotOfferedInOneSlotSizes() {
+        let state = PaneState(focused: .chat, second: .preview)
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
+        let choices = PaneLayoutRules.secondChoices(plan: plan)
+        #expect(!choices.isOffered && choices.panes.isEmpty && choices.current == nil)
+        #expect(PaneLayoutRules.setSecond(.files, state: state, plan: plan) == state)
+        let onlyChat = PaneLayoutRules.plan(PaneState(), available: [.chat], inputs: wide)
+        #expect(!PaneLayoutRules.secondChoices(plan: onlyChat).isOffered)
+    }
+
+    @Test func secondChoicesListTheOtherPanesInOrder() {
+        let state = PaneState(focused: .files)
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: upright)
+        let choices = PaneLayoutRules.secondChoices(plan: plan)
+        #expect(choices.isOffered && choices.current == nil)
+        #expect(choices.panes == all.filter { $0 != .files })
+    }
+
+    @Test func aGoneSecondPaneLeavesOnePane() {
+        let state = PaneState(focused: .chat, second: .preview)
+        let next = PaneLayoutRules.availableChanged(
+            state: state, available: [.chat, .files, .overview], inputs: wide)
+        #expect(next.second == nil)
+        #expect(PaneLayoutRules.plan(next, available: [.chat, .files, .overview], inputs: wide).slots.count == 1)
+    }
+
+    @Test func rotationKeepsTheChoice() {
+        var state = PaneState(focused: .chat, second: .preview)
+        state = PaneLayoutRules.arrangementChanged(
+            from: .sideBySide, to: .single, state: state, available: all, inputs: outer, oldInputs: wide)
+        #expect(state.second == .preview)
+        #expect(PaneLayoutRules.plan(state, available: all, inputs: outer).slots.count == 1)
+        state = PaneLayoutRules.arrangementChanged(
+            from: .single, to: .stacked, state: state, available: all, inputs: upright, oldInputs: outer)
+        #expect(PaneLayoutRules.plan(state, available: all, inputs: upright).shownPanes.count == 2)
+        state = PaneLayoutRules.arrangementChanged(
+            from: .stacked, to: .sideBySide, state: state, available: all, inputs: wide, oldInputs: upright)
+        #expect(state.focused == .chat && state.second == .preview)
+    }
+
+    @Test func anOverviewFocusedAtAPanelSizeWithNothingBesideItOpensAsThePanelBesideChat() {
+        let state = PaneLayoutRules.availableChanged(
+            state: PaneState(focused: .overview), available: all, inputs: wide)
+        #expect(state.focused == .chat && state.second == .overview)
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+        #expect(plan.slots.contains { $0.content == .overviewPanel })
+    }
+
+    @Test func anOlderStoredStateDropsItsSecondPane() {
+        #expect(!PaneLayoutRules.keepsStoredSecondPane(formatVersion: nil))
+        #expect(!PaneLayoutRules.keepsStoredSecondPane(formatVersion: 0))
+        #expect(PaneLayoutRules.keepsStoredSecondPane(formatVersion: PaneLayoutRules.storedFormatVersion))
+        #expect(PaneLayoutRules.keepsStoredSecondPane(formatVersion: PaneLayoutRules.storedFormatVersion + 1))
     }
 }

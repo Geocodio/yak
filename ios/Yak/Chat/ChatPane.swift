@@ -47,7 +47,7 @@ private struct ChatPane: View {
             paneHeight = $0
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
     }

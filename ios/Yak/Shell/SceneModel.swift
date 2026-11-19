@@ -21,12 +21,14 @@ struct SceneState: Codable, Equatable {
     var behindPane: PaneID?
     /// The upper slot's share of the height in the stacked layout.
     var stackedFraction: Double = 0.5
+    /// Which rules chose `secondPane`; see `PaneLayoutRules.keepsStoredSecondPane`.
+    var formatVersion = PaneLayoutRules.storedFormatVersion
 }
 
 extension SceneState {
     private enum CodingKeys: String, CodingKey {
         case instanceID, threadID, focusedPane, isDrawerOpen, isNewThreadOpen, filter, isOverviewPanelOpen
-        case secondPane, secondPaneLeads, behindPane, stackedFraction
+        case secondPane, secondPaneLeads, behindPane, stackedFraction, formatVersion
     }
 
     /// A stored state from an earlier version has no panel field and reads as closed.
@@ -39,9 +41,13 @@ extension SceneState {
             (try? container.decodeIfPresent(String.self, forKey: key)).flatMap { $0 }.flatMap(PaneID.init(rawValue:))
         }
         focusedPane = pane(.focusedPane) ?? .chat
-        secondPane = pane(.secondPane)
-        behindPane = pane(.behindPane)
-        secondPaneLeads = try container.decodeIfPresent(Bool.self, forKey: .secondPaneLeads) ?? false
+        // A state stored before the person chose the second pane holds a pane the app chose: it is dropped once.
+        let storedVersion = try? container.decodeIfPresent(Int.self, forKey: .formatVersion)
+        if PaneLayoutRules.keepsStoredSecondPane(formatVersion: storedVersion ?? nil) {
+            secondPane = pane(.secondPane)
+            behindPane = pane(.behindPane)
+            secondPaneLeads = try container.decodeIfPresent(Bool.self, forKey: .secondPaneLeads) ?? false
+        }
         stackedFraction = try container.decodeIfPresent(Double.self, forKey: .stackedFraction) ?? 0.5
         isDrawerOpen = try container.decodeIfPresent(Bool.self, forKey: .isDrawerOpen) ?? false
         isNewThreadOpen = try container.decodeIfPresent(Bool.self, forKey: .isNewThreadOpen) ?? false
@@ -223,6 +229,18 @@ final class SceneModel {
     func updatePlan(_ plan: SlotPlan?, ownedBy owner: String) {
         planOwner = owner
         if self.plan != plan { self.plan = plan }
+    }
+
+    /// What the pane menus' "Second pane" section shows; nil while no layout has reported.
+    var secondChoices: SecondPaneChoices? {
+        guard let plan else { return nil }
+        return PaneLayoutRules.secondChoices(plan: plan)
+    }
+
+    /// The person's pick in a "Second pane" section: a pane opens it, nil closes it.
+    func setSecond(_ pane: PaneID?) {
+        guard let plan else { return }
+        apply(PaneLayoutRules.setSecond(pane, state: paneState, plan: plan))
     }
 
     /// Clears the plan when a layout goes away, unless a newer thread's layout has already set its own.

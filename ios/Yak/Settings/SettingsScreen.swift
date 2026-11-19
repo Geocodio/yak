@@ -42,7 +42,7 @@ struct SettingsScreen: View {
             .tint(Color.yakAction)
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemGroupedBackground))
+            .background(Color.yakBackground)
             .navigationTitle("settings.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

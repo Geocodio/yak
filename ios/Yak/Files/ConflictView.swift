@@ -19,7 +19,7 @@ struct ConflictView: View {
             if theirs != nil { compare }
             actions
         }
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.conflict")
         .confirmationDialog("files.conflict.theirsConfirm", isPresented: $confirmsTheirs, titleVisibility: .visible) {

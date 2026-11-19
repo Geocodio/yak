@@ -35,7 +35,7 @@ struct AppLockScreen: View {
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityIdentifier("lock.screen")
@@ -47,7 +47,7 @@ struct AppLockScreen: View {
         } label: {
             if controller.unlock == .authenticating {
                 HStack(spacing: 8) {
-                    ProgressView().tint(Color(.systemBackground))
+                    ProgressView().tint(Color.yakBackground)
                     Text("lock.unlocking")
                 }
             } else {
@@ -77,7 +77,7 @@ private struct LockButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(Color(.systemBackground))
+            .foregroundStyle(Color.yakBackground)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
             .background(Color.primary.opacity(configuration.isPressed ? 0.85 : 1), in: .rect(cornerRadius: 14))
@@ -91,7 +91,7 @@ struct AppSwitcherCover: View {
 
     var body: some View {
         ZStack {
-            Color(.systemBackground)
+            Color.yakBackground
             Image(systemName: "lock.fill").font(.system(size: iconSize)).foregroundStyle(Color.yakMuted)
         }
         .ignoresSafeArea()

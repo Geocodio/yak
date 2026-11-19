@@ -27,10 +27,14 @@ struct DrawerRowView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         if isTask {
-                            Label("drawer.taskLabel", systemImage: "checklist").font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.yakMuted).accessibilityIdentifier("drawer.taskLabel")
+                            HStack(spacing: Design.Space.tight) {
+                                Image(systemName: "checklist")
+                                Text("drawer.taskLabel")
+                            }
+                            .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                            .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
                         }
-                        Text(row.title).font(.body).foregroundStyle(.primary)
+                        Text(row.title).font(.yakRowTitle).foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
@@ -46,10 +50,10 @@ struct DrawerRowView: View {
                     if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
-                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? 12 : 20))
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.medium : 8))
+                .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
                 .padding(.vertical, 8)
-                .frame(minHeight: 44)
+                .frame(minHeight: isLarge ? 44 : Design.Size.row)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -69,13 +73,15 @@ struct DrawerRowView: View {
                 .accessibilityIdentifier("drawer.toggle.\(row.id)")
             }
         }
-        .background(row.indicator == .needsYou ? Color.yakAction.opacity(0.10) : Color.clear)
+        .background(
+            row.indicator == .needsYou ? Color.yakAction.opacity(0.14) : Color.clear,
+            in: .rect(cornerRadius: Design.Radius.row))
     }
 
     /// A neutral hairline that shows the nesting.
     private var nesting: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: (isLarge ? 12 : 20) + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
+            Color.clear.frame(width: 12 + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
             Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1)
         }
     }
@@ -87,7 +93,7 @@ struct DrawerRowView: View {
         let layout =
             isInline ? AnyLayout(HStackLayout(spacing: 8)) : AnyLayout(VStackLayout(alignment: .trailing, spacing: 4))
         layout {
-            if let age { Text(age).font(.footnote.weight(.medium)).foregroundStyle(.primary) }
+            if let age { Text(age).font(.footnote).foregroundStyle(Color.yakMuted) }
             if row.isPrivate {
                 Image(systemName: "lock.fill").font(.caption).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
