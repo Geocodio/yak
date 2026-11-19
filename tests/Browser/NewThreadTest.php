@@ -99,7 +99,27 @@ it('opens a repository picker when @ is typed and applies the pick', function ()
         ->click('[data-testid="at-repo-option"]')
         ->assertMissing('[data-testid="at-repo-menu"]')
         ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
-        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart ');
+        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart gadgets ');
+});
+
+it('makes the first @ pick the primary repository and adds later picks next to it', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    Repository::factory()->create(['slug' => 'acme/gadgets']);
+    Repository::factory()->create(['slug' => 'acme/docs']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('home'))
+        ->type('[data-testid="start-thread-description"]', 'Move @gad')
+        ->click('[data-testid="at-repo-option"]')
+        ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
+        ->append('[data-testid="start-thread-description"]', 'into @doc')
+        ->click('[data-testid="at-repo-option"]')
+        ->assertValue('[data-testid="start-thread-description"]', 'Move gadgets into docs ')
+        ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
+        ->assertCount('[data-testid="repo-chip"]', 2)
+        ->assertSee('acme/docs');
 });
 
 it('falls back to the shared account when the user has none of their own', function () {

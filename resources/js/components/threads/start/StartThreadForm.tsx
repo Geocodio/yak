@@ -11,7 +11,7 @@ import { RunsOnStrip } from './RunsOnStrip';
 import { AtRepositoryMenu, filterRepositories, findAtMention } from './AtRepositoryMenu';
 import { StartErrorBanner } from './StartErrorBanner';
 import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
-import { RepositoryPicker, type PickerRepository } from './RepositoryPicker';
+import { MAX_REPOSITORIES, RepositoryPicker, checkRepositoryAccess, type PickerRepository } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { CONTOUR } from '@/lib/contour';
 import { show, store } from '@/routes/threads';
@@ -123,20 +123,39 @@ export function StartThreadForm({
     const [activeIndex, setActiveIndex] = useState(0);
     const mentionSlugs = mention ? filterRepositories(repos.map((repo) => repo.slug), mention.query) : [];
 
-    /** Makes the slug the primary repository and removes the `@query` that asked for it. */
+    /** Repositories picked through `@` in this draft; the first one becomes the primary, later ones are added next to it. */
+    const mentionedSlugs = useRef(new Set<string>());
+
+    /** Swaps the `@query` for the repository's name and attaches the repository to the thread. */
     const pickMention = (slug: string) => {
         if (!mention) {
             return;
         }
-        const before = form.data.description.slice(0, mention.start);
-        const after = form.data.description.slice(mention.start + 1 + mention.query.length);
-        const next = before.endsWith(' ') && after.startsWith(' ') ? before + after.slice(1) : before + after;
-        form.setData((data) => ({ ...data, repo: slug, description: next, repositories: data.repositories.filter((extra) => extra.repo !== slug) }));
+        const name = slug.split('/').pop() ?? slug;
+        const before = form.data.description.slice(0, mention.start) + name;
+        const rest = form.data.description.slice(mention.start + 1 + mention.query.length);
+        const after = rest.startsWith(' ') ? rest : ' ' + rest;
+        const next = before + after;
+        const caret = before.length + 1;
+        const isAttached = form.data.repo === slug || form.data.repositories.some((extra) => extra.repo === slug);
+        const isAddingExtra = !isAttached && mentionedSlugs.current.has(form.data.repo);
+        mentionedSlugs.current.add(slug);
+
+        if (isAttached || isAddingExtra) {
+            form.setData('description', next);
+        } else {
+            form.setData((data) => ({ ...data, repo: slug, description: next, repositories: data.repositories.filter((extra) => extra.repo !== slug) }));
+        }
+        if (isAddingExtra && form.data.repositories.length + 1 < MAX_REPOSITORIES) {
+            void checkRepositoryAccess(slug)
+                .then((extra) => form.setData((data) => (data.repositories.some((existing) => existing.repo === slug) ? data : { ...data, repositories: [...data.repositories, extra] })))
+                .catch(() => undefined);
+        }
         lastLength.current = next.length;
         setMention(null);
         requestAnimationFrame(() => {
             textareaRef.current?.focus();
-            textareaRef.current?.setSelectionRange(before.length, before.length);
+            textareaRef.current?.setSelectionRange(caret, caret);
         });
     };
 
