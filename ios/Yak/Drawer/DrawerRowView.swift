@@ -36,10 +36,8 @@ struct DrawerRowView: View {
                         }
                         Text(row.title).font(.yakRowTitle).foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
-                        Text(subtitle).font(.footnote).foregroundStyle(
-                            row.indicator == .needsYou ? Color.yakAction : Color.yakMuted
-                        )
-                        .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
+                        Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
+                            .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
