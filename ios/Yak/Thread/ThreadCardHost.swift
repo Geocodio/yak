@@ -220,7 +220,7 @@ struct ThreadCardHost: View {
                         Text("thread.card.coOwner.checkFailedBody").font(.footnote.weight(.medium))
                             .foregroundStyle(Color.yakCardSecondaryText)
                     }
-                    .workBox()
+                    .workBox(fill: Tone.bad.surface)
                 }
             }
         }

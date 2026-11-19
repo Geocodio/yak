@@ -70,17 +70,19 @@ private struct WorkCardSurface: ViewModifier {
 
 /// A white row inside a card.
 private struct WorkBox: ViewModifier {
+    let fill: Color
+
     func body(content: Content) -> some View {
         content
             .padding(.vertical, Design.Space.snug).padding(.horizontal, Design.Space.groupInset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.yakCardRow, in: .rect(cornerRadius: Design.Radius.card))
+            .background(fill, in: .rect(cornerRadius: Design.Radius.card))
     }
 }
 
 extension View {
     func workCardSurface(tone: Tone) -> some View { modifier(WorkCardSurface(tone: tone)) }
-    func workBox() -> some View { modifier(WorkBox()) }
+    func workBox(fill: Color = .yakCardRow) -> some View { modifier(WorkBox(fill: fill)) }
 }
 
 /// The buttons of a card: 50 points high with the board's radius. Primary is the ink fill, secondary a gray fill and
