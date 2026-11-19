@@ -70,7 +70,7 @@ enum Design {
         static let shortPane: CGFloat = 500
         static let shortShare: CGFloat = 0.45
         /// At the accessibility sizes the card leaves more of the pane to the chat.
-        static let largeShare: CGFloat = 0.65
+        static let largeShare: CGFloat = 0.5
         /// The least height the card is offered: its title and buttons.
         static let leastHeight: CGFloat = 160
     }

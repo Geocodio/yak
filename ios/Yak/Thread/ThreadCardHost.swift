@@ -376,6 +376,25 @@ private struct HeightCap: Layout {
     }
 }
 
+/// A scrolling area as tall as its content, or as tall as it is offered when that is less. Its first child is an
+/// invisible copy of the content, which only tells the content's own height; its second is the scroll view.
+private struct CappedScroll: Layout {
+    private func contentHeight(_ subviews: Subviews, width: CGFloat) -> CGFloat {
+        subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        let natural = contentHeight(subviews, width: width)
+        return CGSize(width: width, height: min(natural, proposal.height ?? natural))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+        subviews[1].place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
 /// The surface of a card: the tone's whole surface. The text is as tall as it is and scrolls when the pane has less
 /// room; the buttons under it stay in view.
 private struct CardContainer<Content: View, Pinned: View>: View {
@@ -385,6 +404,7 @@ private struct CardContainer<Content: View, Pinned: View>: View {
     @ViewBuilder let content: Content
     @ViewBuilder let pinned: Pinned
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var limit: CGFloat { max(paneHeight * share, Design.Card.leastHeight) }
 
     private var share: CGFloat {
         if dynamicTypeSize.isAccessibilitySize { return Design.Card.largeShare }
@@ -404,20 +424,13 @@ private struct CardContainer<Content: View, Pinned: View>: View {
     }
 
     var body: some View {
-        HeightCap(
-            limit: max(
-                paneHeight * share,
-                Design.Card.leastHeight)
-        ) {
-            ViewThatFits(in: .vertical) {
-                VStack(alignment: .leading, spacing: Design.Space.snug) {
-                    text()
-                    buttons
+        HeightCap(limit: limit) {
+            VStack(alignment: .leading, spacing: Design.Space.snug) {
+                CappedScroll {
+                    text().opacity(0).accessibilityHidden(true).allowsHitTesting(false)
+                    ScrollView { text() }.scrollBounceBehavior(.basedOnSize)
                 }
-                VStack(alignment: .leading, spacing: Design.Space.snug) {
-                    ScrollView { text() }
-                    buttons
-                }
+                buttons
             }
         }
         .id(dynamicTypeSize)
