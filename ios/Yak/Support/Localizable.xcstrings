@@ -1435,6 +1435,46 @@
         }
       }
     },
+    "chat.work.renderRetried" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rendering again."
+          }
+        }
+      }
+    },
+    "chat.work.retried" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trying again."
+          }
+        }
+      }
+    },
+    "chat.work.reviewNotRequested" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No review is needed right now."
+          }
+        }
+      }
+    },
+    "chat.work.reviewRequested" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review requested."
+          }
+        }
+      }
+    },
     "common.cancel" : {
       "localizations" : {
         "en" : {

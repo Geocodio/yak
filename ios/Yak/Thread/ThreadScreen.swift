@@ -237,6 +237,7 @@ struct ThreadScreen: View {
                 } label: {
                     Text(Self.title(of: item))
                 }
+                .disabled(thread.isOffline)
                 .accessibilityIdentifier("thread.menu.work.\(item.id)")
             }
             if thread.snapshot?.show?.canDrive == true {
@@ -273,6 +274,7 @@ struct ThreadScreen: View {
                 } label: {
                     Text("thread.menu.cancelRequest")
                 }
+                .disabled(thread.isOffline)
                 .accessibilityIdentifier("thread.menu.work.cancel")
             }
         } label: {

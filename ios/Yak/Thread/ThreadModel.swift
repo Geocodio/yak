@@ -33,6 +33,8 @@ final class ThreadModel {
     private(set) var documents: [String: AppMarkdownRenderer.Document] = [:]
     /// A short message about a refused or failed action, cleared after six seconds or on the next action.
     private var reportedActionLine: String?
+    /// The action line says how things stand and is no failure: no warning haptic goes with it.
+    private(set) var isActionLineInformation = false
     /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
     private(set) var announcement: String?
     private(set) var announcementSerial = 0
@@ -358,7 +360,17 @@ extension ThreadModel {
     func performWork(_ action: ThreadWorkAction) async {
         guard let engine else { return show(.failed(.offline)) }
         clearActionLine()
-        show(await engine.perform(action))
+        let outcome = await engine.perform(action)
+        switch (outcome, action) {
+        case (.refused("review_not_requested", let message, _, _), _):
+            setActionLine(
+                message.isEmpty ? String(localized: "chat.work.reviewNotRequested") : message, isInformation: true)
+        case (.done, .requestReview): setActionLine(String(localized: "chat.work.reviewRequested"), isInformation: true)
+        case (.done, .retry), (.done, .setUpAndContinue):
+            setActionLine(String(localized: "chat.work.retried"), isInformation: true)
+        case (.done, .retryRender): setActionLine(String(localized: "chat.work.renderRetried"), isInformation: true)
+        default: show(outcome)
+        }
     }
 
     func loadOlder() async {
@@ -442,10 +454,11 @@ extension ThreadModel {
         if isNoticeShown { clearActionLine() }
     }
 
-    private func setActionLine(_ text: String, persists: Bool = false) {
+    private func setActionLine(_ text: String, persists: Bool = false, isInformation: Bool = false) {
         actionLineSerial += 1
         let mine = actionLineSerial
         reportedActionLine = text
+        isActionLineInformation = isInformation
         isNoticeShown = persists
         actionLineTask?.cancel()
         actionLineTask = nil
@@ -459,6 +472,7 @@ extension ThreadModel {
 
     private func clearActionLine() {
         isNoticeShown = false
+        isActionLineInformation = false
         actionLineSerial += 1
         actionLineTask?.cancel()
         reportedActionLine = nil

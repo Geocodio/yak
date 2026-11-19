@@ -74,6 +74,10 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
             } else {
                 return Self.refusal(url, status: 409, code: "thread_closed", message: "This thread is closed.")
             }
+        } else if path.hasSuffix("threads/d0e515ef/request-review") {
+            return Self.refusal(url, status: 409, code: "review_not_requested", message: "")
+        } else if path.hasSuffix("threads/d0e515ef/retry-render") {
+            body = String(Self.show.dropLast()) + #","status":"rendering"}"#
         } else if path.hasSuffix("queued-messages/q1") {
             return Self.refusal(url, status: 409, code: "message_delivered", message: "")
         } else {
@@ -255,6 +259,22 @@ private func chatSnapshot(
     #expect(model.actionLine == "Two.")
     model.sendStarted()
     #expect(model.actionLine == nil)
+    await fixture.session.stop()
+}
+
+@MainActor @Test func menuWorkActionsSayHowTheyEndInTheActionLine() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    #expect(await fixture.eventually { model.snapshot?.load == .ready })
+    await model.performWork(.requestReview)
+    #expect(model.actionLine == String(localized: "chat.work.reviewNotRequested"))
+    #expect(model.isActionLineInformation)
+    await model.performWork(.retryRender)
+    #expect(model.actionLine == String(localized: "chat.work.renderRetried"))
+    await model.continueTurn()
+    #expect(model.actionLine == "m" && !model.isActionLineInformation)
+    await model.stop()
     await fixture.session.stop()
 }
 
