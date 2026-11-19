@@ -292,9 +292,10 @@ public enum PaneLayoutRules {
     }
 
     /// The panes the "Second pane" menu offers and the one that is the second pane now.
-    public static func secondChoices(state: PaneState, plan: SlotPlan, inputs: LayoutInputs) -> SecondPaneChoices {
-        let size = ThreadLayout.arrangement(inputs, slotPaneCount: plan.available.count)
-        guard size.slotCount == 2 else { return SecondPaneChoices(isOffered: false, panes: [], current: nil) }
+    public static func secondChoices(plan: SlotPlan) -> SecondPaneChoices {
+        guard plan.sizeArrangement.slotCount == 2 else {
+            return SecondPaneChoices(isOffered: false, panes: [], current: nil)
+        }
         let shownFocus = plan.slots.first { $0.position == plan.focusedPosition }?.content.paneID
         let other = plan.slots.first { $0.position != plan.focusedPosition }?.content
         let current: PaneID?

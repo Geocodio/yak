@@ -574,8 +574,9 @@ private let bookInputs = LayoutInputs(
         for (name, inputs) in sizes {
             for focused in PaneID.allCases {
                 // A focused Overview is one the person chose; where it is the panel it opens beside Chat.
-                if focused == .overview, PaneLayoutRules.overviewIsPanel(
-                    arrangement: ThreadLayout.arrangement(inputs, slotPaneCount: all.count), inputs: inputs)
+                if focused == .overview,
+                    PaneLayoutRules.overviewIsPanel(
+                        arrangement: ThreadLayout.arrangement(inputs, slotPaneCount: all.count), inputs: inputs)
                 {
                     continue
                 }
@@ -598,7 +599,7 @@ private let bookInputs = LayoutInputs(
         #expect(state.focused == .chat && state.second == .preview)
         let two = PaneLayoutRules.plan(state, available: all, inputs: wide)
         #expect(two.shownPanes == [.chat, .preview])
-        #expect(PaneLayoutRules.secondChoices(state: state, plan: two, inputs: wide).current == .preview)
+        #expect(PaneLayoutRules.secondChoices(plan: two).current == .preview)
         let kept = PaneLayoutRules.availableChanged(state: state, available: all, inputs: wide)
         #expect(kept == state)
         #expect(PaneLayoutRules.setSecond(.preview, state: state, plan: two) == state)
@@ -628,7 +629,7 @@ private let bookInputs = LayoutInputs(
         let open = PaneLayoutRules.setSecond(.overview, state: PaneState(focused: .files), plan: plan)
         let panelPlan = PaneLayoutRules.plan(open, available: all, inputs: wide)
         #expect(panelPlan.slots.contains { $0.content == .overviewPanel })
-        #expect(PaneLayoutRules.secondChoices(state: open, plan: panelPlan, inputs: wide).current == .overview)
+        #expect(PaneLayoutRules.secondChoices(plan: panelPlan).current == .overview)
         let closed = PaneLayoutRules.setSecond(nil, state: open, plan: panelPlan)
         #expect(closed.focused == .files && closed.second == nil && closed.behind == nil)
         let after = PaneLayoutRules.plan(closed, available: all, inputs: wide)
@@ -664,17 +665,17 @@ private let bookInputs = LayoutInputs(
     @Test func secondChoicesAreNotOfferedInOneSlotSizes() {
         let state = PaneState(focused: .chat, second: .preview)
         let plan = PaneLayoutRules.plan(state, available: all, inputs: outer)
-        let choices = PaneLayoutRules.secondChoices(state: state, plan: plan, inputs: outer)
+        let choices = PaneLayoutRules.secondChoices(plan: plan)
         #expect(!choices.isOffered && choices.panes.isEmpty && choices.current == nil)
         #expect(PaneLayoutRules.setSecond(.files, state: state, plan: plan) == state)
         let onlyChat = PaneLayoutRules.plan(PaneState(), available: [.chat], inputs: wide)
-        #expect(!PaneLayoutRules.secondChoices(state: PaneState(), plan: onlyChat, inputs: wide).isOffered)
+        #expect(!PaneLayoutRules.secondChoices(plan: onlyChat).isOffered)
     }
 
     @Test func secondChoicesListTheOtherPanesInOrder() {
         let state = PaneState(focused: .files)
         let plan = PaneLayoutRules.plan(state, available: all, inputs: upright)
-        let choices = PaneLayoutRules.secondChoices(state: state, plan: plan, inputs: upright)
+        let choices = PaneLayoutRules.secondChoices(plan: plan)
         #expect(choices.isOffered && choices.current == nil)
         #expect(choices.panes == all.filter { $0 != .files })
     }

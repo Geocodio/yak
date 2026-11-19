@@ -42,8 +42,8 @@ struct ThreadLayoutView: View {
             layout(plan)
                 .onChange(of: inputs, initial: true) { old, new in inputsChanged(from: old, to: new) }
                 .onChange(of: thread.panes) { availableChanged(inputs) }
-                .onChange(of: plan, initial: true) { place(plan, inputs: inputs) }
-                .onChange(of: inputs.isKeyboardOnLowerHalf) { place(plan, inputs: inputs) }
+                .onChange(of: plan, initial: true) { place(plan) }
+                .onChange(of: inputs.isKeyboardOnLowerHalf) { place(plan) }
         }
         .readsHinge(into: hinge)
         .onDisappear { scene.clearPlan(ownedBy: thread.threadID) }
@@ -51,8 +51,8 @@ struct ThreadLayoutView: View {
 
     /// Hands the plan to the scene and the host. In the laptop pose with the keyboard on the lower half, the pane that
     /// is not focused is hidden (alive, no frame) until the keyboard closes.
-    private func place(_ plan: SlotPlan, inputs: LayoutInputs) {
-        scene.updatePlan(plan, inputs: inputs, ownedBy: thread.threadID)
+    private func place(_ plan: SlotPlan) {
+        scene.updatePlan(plan, ownedBy: thread.threadID)
         model.show(plan)
         if plan.arrangement == .laptop, hinge.isKeyboardOnLowerHalf {
             for slot in plan.slots where slot.position != plan.focusedPosition { model.clear(slot.position) }

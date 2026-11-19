@@ -307,7 +307,7 @@ private func compactInputs() -> LayoutInputs {
     let inputs = sideBySideInputs()
     scene.updatePlan(
         PaneLayoutRules.plan(state, available: [.chat, .preview, .terminal, .overview], inputs: inputs),
-        inputs: inputs, ownedBy: "t")
+        ownedBy: "t")
     return scene
 }
 
@@ -323,7 +323,7 @@ private func compactInputs() -> LayoutInputs {
     let scene = SceneModel(state: SceneState())
     let inputs = compactInputs()
     scene.updatePlan(
-        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview], inputs: inputs), inputs: inputs,
+        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview], inputs: inputs),
         ownedBy: "t")
     #expect(scene.secondChoices?.isOffered == false)
 }
