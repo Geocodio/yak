@@ -60,7 +60,7 @@ export type McpServerRow = {
     displayName: string; // "linear"; for plugin servers the last segment ("figma")
     target: string; // command + args joined for stdio; URL for http/sse
     transport: 'stdio' | 'http' | 'sse' | 'unknown';
-    source: 'deploy' | 'user' | 'plugin';
+    source: 'deploy' | 'linear' | 'user' | 'plugin';
     pluginName: string | null; // for source 'plugin': the middle segment of plugin:<plugin>:<server>
     status: 'connected' | 'needs_auth' | 'failed' | 'pending_approval' | 'token' | 'unknown';
     // 'token' = deploy-config server (not health-checked). 'pending_approval' = CLI "⏸ Pending approval".

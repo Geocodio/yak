@@ -5,6 +5,7 @@ namespace App\Services;
 use App\ClaudeCli;
 use App\DataTransferObjects\McpServer;
 use App\Exceptions\ClaudeCliException;
+use App\Models\LinearOauthConnection;
 use Illuminate\Support\Collection;
 
 /**
@@ -65,7 +66,30 @@ class McpServerReader
                     loginCommand: $this->loginCommand($name),
                 );
             })
-            ->values();
+            ->values()
+            ->when(! isset($servers['linear']) && LinearOauthConnection::active() !== null, fn (Collection $rows) => $rows->push($this->linearServer()));
+    }
+
+    /**
+     * The Linear server IncusSandboxManager::pushMcpConfig adds to every
+     * sandbox while Linear is connected, signed in as the Yak app.
+     */
+    private function linearServer(): McpServer
+    {
+        return new McpServer(
+            name: 'linear',
+            displayName: 'Linear',
+            target: 'https://mcp.linear.app/mcp',
+            transport: 'http',
+            source: 'linear',
+            pluginName: null,
+            status: 'token',
+            detail: null,
+            canConnect: false,
+            canLogout: false,
+            canRemove: false,
+            loginCommand: $this->loginCommand('linear'),
+        );
     }
 
     /**

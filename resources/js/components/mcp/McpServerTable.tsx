@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { Badge, Button, cn } from '@geocodio/console-ui';
 import { useState } from 'react';
 import { skills } from '@/routes';
+import { linear } from '@/routes/settings';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { McpLoginPanel } from '@/components/mcp/McpLoginPanel';
 import mcp from '@/routes/mcp';
@@ -152,6 +153,17 @@ function SourceCell({ server }: { server: McpServerRow }) {
             <div className="text-[12.5px]">
                 <div>Deploy config</div>
                 <div className="text-[11px] text-faint">managed by Ansible</div>
+            </div>
+        );
+    }
+
+    if (server.source === 'linear') {
+        return (
+            <div className="text-[12.5px]">
+                <Link href={linear.url()} className="text-accent-text underline">
+                    Linear connection
+                </Link>
+                <div className="text-[11px] text-faint">signs in as the Yak app</div>
             </div>
         );
     }
