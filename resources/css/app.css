@@ -209,6 +209,16 @@ html #nprogress .bar {
     box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
+/* An @-mentioned repository in the start composer: Yak's slate, so it reads apart from the rust attachment tokens. */
+.repo-mention {
+    border-radius: 4px;
+    background-color: var(--brand-soft);
+    color: var(--brand);
+    box-shadow: 0 0 0 1.5px var(--brand-soft);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
 .prose .attachment-ref {
     cursor: pointer;
 }

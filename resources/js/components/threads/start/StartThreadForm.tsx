@@ -8,7 +8,7 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { RunsOnStrip } from './RunsOnStrip';
-import { AtRepositoryMenu, filterRepositories, findAtMention } from './AtRepositoryMenu';
+import { AtRepositoryMenu, filterRepositories, findAtMention, findRepositoryMentions } from './AtRepositoryMenu';
 import { StartErrorBanner } from './StartErrorBanner';
 import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
 import { MAX_REPOSITORIES, RepositoryPicker, checkRepositoryAccess, type PickerRepository } from './RepositoryPicker';
@@ -126,13 +126,14 @@ export function StartThreadForm({
     /** Repositories picked through `@` in this draft; the first one becomes the primary, later ones are added next to it. */
     const mentionedSlugs = useRef(new Set<string>());
 
-    /** Swaps the `@query` for the repository's name and attaches the repository to the thread. */
+    const repositoryMentions = findRepositoryMentions(form.data.description, [form.data.repo, ...extras.map((extra) => extra.repo)]);
+
+    /** Completes the `@query` to `@owner/name`, which shows as a pill, and attaches the repository to the thread. */
     const pickMention = (slug: string) => {
         if (!mention) {
             return;
         }
-        const name = slug.split('/').pop() ?? slug;
-        const before = form.data.description.slice(0, mention.start) + name;
+        const before = form.data.description.slice(0, mention.start) + '@' + slug;
         const rest = form.data.description.slice(mention.start + 1 + mention.query.length);
         const after = rest.startsWith(' ') ? rest : ' ' + rest;
         const next = before + after;
@@ -240,6 +241,7 @@ export function StartThreadForm({
                         ref={editorRef}
                         inputRef={textareaRef}
                         draft={draft}
+                        mentions={repositoryMentions}
                         rows={3}
                         autoFocus={autoFocus}
                         placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."

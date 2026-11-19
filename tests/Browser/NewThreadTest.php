@@ -99,7 +99,11 @@ it('opens a repository picker when @ is typed and applies the pick', function ()
         ->click('[data-testid="at-repo-option"]')
         ->assertMissing('[data-testid="at-repo-menu"]')
         ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
-        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart gadgets ');
+        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart @acme/gadgets ')
+        ->assertSeeIn('[data-testid="repo-mention"]', '@acme/gadgets')
+        ->keys('[data-testid="start-thread-description"]', ['Backspace', 'Backspace'])
+        ->assertValue('[data-testid="start-thread-description"]', 'Fix the cart ')
+        ->assertMissing('[data-testid="repo-mention"]');
 });
 
 it('makes the first @ pick the primary repository and adds later picks next to it', function () {
@@ -116,7 +120,8 @@ it('makes the first @ pick the primary repository and adds later picks next to i
         ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
         ->append('[data-testid="start-thread-description"]', 'into @doc')
         ->click('[data-testid="at-repo-option"]')
-        ->assertValue('[data-testid="start-thread-description"]', 'Move gadgets into docs ')
+        ->assertValue('[data-testid="start-thread-description"]', 'Move @acme/gadgets into @acme/docs ')
+        ->assertCount('[data-testid="repo-mention"]', 2)
         ->assertSeeIn('[data-testid="start-thread-repo"]', 'gadgets')
         ->assertCount('[data-testid="repo-chip"]', 2)
         ->assertSee('acme/docs');
