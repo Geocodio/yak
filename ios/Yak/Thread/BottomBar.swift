@@ -35,13 +35,6 @@ struct BottomBar: View {
             .padding(Design.Space.barPadding)
             .background { BarSurface() }
             .padding(.horizontal, Design.Space.barInset).padding(.bottom, Design.Space.barEdgeGap)
-            // The gap under the floating bar belongs to the bar: scroll content that continues past the pane's foot is
-            // covered there, so the bar's frame reaches the screen's edge.
-            .background(alignment: .bottom) {
-                Color.clear.frame(height: Design.Space.barEdgeGap).accessibilityHidden(true)
-                    .accessibilityIdentifier("thread.bar.edge")
-            }
-
             .simultaneousGesture(swipe)
             .accessibilityElement(children: .contain)
             .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
