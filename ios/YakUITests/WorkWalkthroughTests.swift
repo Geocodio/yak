@@ -52,6 +52,44 @@ import XCTest
         try shoot("work-repository-taken", audits: false)
     }
 
+    func testWaitingForSetup() throws { try card("stopped", "work-setup", name: "work-waiting-for-setup") }
+    func testCancelled() throws { try card("stopped", "work-cancelled", name: "work-cancelled") }
+    func testCoOwnerNoAccess() throws {
+        try card("co_owner", "work-co-owner-no-access", name: "work-co-owner-no-access")
+    }
+    func testCoOwnerCheckFailed() throws {
+        try card("co_owner", "work-co-owner-check-failed", name: "work-co-owner-check-failed")
+    }
+
+    func testRequestChangesSheet() throws {
+        try card("co_owner", "work-co-owner-decide", name: "work-request-changes-before")
+        app.buttons["task.decision.requestChanges"].tap()
+        XCTAssertTrue(element("task.requestChanges.field").waitForExistence(timeout: 30))
+        try shoot("work-request-changes", audits: false)
+    }
+
+    func testTagSheet() throws {
+        try card("early_warning", "work-early-warning", name: "work-tag-before")
+        element("thread.card.early.pick").tap()
+        XCTAssertTrue(element("task.tag.person.4").waitForExistence(timeout: 30))
+        try shoot("work-tag-sheet", audits: false)
+    }
+
+    /// Moving the thread opens the new one; the old one then offers it in a notice.
+    func testMoved() throws {
+        try open("work-move")
+        app.buttons["thread.menu"].tap()
+        XCTAssertTrue(app.buttons["thread.menu.work.move:example/web"].waitForExistence(timeout: 30))
+        app.buttons["thread.menu.work.move:example/web"].tap()
+        Thread.sleep(forTimeInterval: 4)
+        try shoot("work-moved-new", audits: false)
+        if app.buttons["threads.button"].exists { app.buttons["threads.button"].tap() }
+        let old = element("drawer.row.thread:d0e515ef")
+        if old.waitForExistence(timeout: 30) { old.tap() }
+        XCTAssertTrue(element("notice.moved.open").waitForExistence(timeout: 30))
+        try shoot("work-moved", audits: false)
+    }
+
     func testStoppedRetryRefused() throws {
         try card("stopped", "work-stopped-retry-fails", name: "work-stopped-retry-fails-before")
         element("thread.card.stopped.retry").tap()

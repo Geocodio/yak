@@ -125,6 +125,19 @@ import Testing
         #expect(answer.delay == .seconds(20) && answer.body["status"] as? String == "approved")
     }
 
+    @Test func theBoardStatesHaveTheirOwnShows() throws {
+        let noAccess = try Play("work-co-owner-no-access").show().body
+        let checkFailed = try Play("work-co-owner-check-failed").show().body
+        func access(_ body: [String: Any]) -> String? {
+            ((body["coOwner"] as? [String: Any])?["viewer"] as? [String: Any])?["access"] as? String
+        }
+        #expect(access(noAccess) == "read" && access(checkFailed) == "unknown")
+        let setup = try Play("work-setup").show().body["stopped"] as? [String: Any]
+        #expect(setup?["isWaitingForSetup"] as? Bool == true)
+        let cancelled = try Play("work-cancelled").show().body["stopped"] as? [String: Any]
+        #expect(cancelled?["kind"] as? String == "cancelled")
+    }
+
     @Test func anUnlinkedViewerIsToldToLinkGitHub() throws {
         let play = try Play("work-co-owner-link")
         let viewer = try #require((try play.show().body["coOwner"] as? [String: Any])?["viewer"] as? [String: Any])

@@ -10,7 +10,8 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "work-stopped", "work-stopped-retry-fails", "work-stopped-reply", "work-expired-co-owner",
         "work-co-owner-decide", "work-co-owner-link", "work-co-owner-requester", "work-co-owner-reader",
         "work-early-warning", "work-repository-question", "work-repository-taken", "work-move", "work-milestones",
-        "work-via", "work-legacy", "work-drained", "work-offline", "work-slow-approve",
+        "work-via", "work-legacy", "work-drained", "work-offline", "work-slow-approve", "work-setup", "work-cancelled",
+        "work-co-owner-no-access", "work-co-owner-check-failed",
     ]
     let scenarioDataNames = [
         "scenario-work-stopped", "scenario-work-working", "scenario-work-expired", "scenario-work-needs-you-stopped",
@@ -19,6 +20,8 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "scenario-work-repository-answered", "scenario-work-finished", "scenario-work-moved",
         "scenario-work-moved-new", "scenario-work-milestones", "scenario-work-via", "scenario-work-legacy",
         "scenario-work-legacy-continued", "scenario-work-drained-queued", "scenario-work-drained-taken",
+        "scenario-work-setup", "scenario-work-cancelled", "scenario-work-co-owner-no-access",
+        "scenario-work-co-owner-check-failed",
     ]
 
     static let threadID = "d0e515ef"
@@ -74,6 +77,9 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "work-milestones": "scenario-work-milestones", "work-via": "scenario-work-via",
         "work-legacy": "scenario-work-legacy", "work-drained": "scenario-work-drained-queued",
         "work-offline": "scenario-work-stopped", "work-slow-approve": "scenario-work-co-owner",
+        "work-setup": "scenario-work-setup", "work-cancelled": "scenario-work-cancelled",
+        "work-co-owner-no-access": "scenario-work-co-owner-no-access",
+        "work-co-owner-check-failed": "scenario-work-co-owner-check-failed",
     ]
 
     func control(_ request: StubRequest) -> StubReply? {
