@@ -50,10 +50,10 @@ struct DrawerRowView: View {
                     if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? 20 : 8))
-                .padding(.trailing, row.childCount > 0 ? 0 : (isLarge ? 12 : 20))
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.medium : 8))
+                .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
                 .padding(.vertical, 8)
-                .frame(minHeight: 44)
+                .frame(minHeight: isLarge ? 44 : Design.Size.row)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -81,7 +81,7 @@ struct DrawerRowView: View {
     /// A neutral hairline that shows the nesting.
     private var nesting: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: (isLarge ? 12 : 20) + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
+            Color.clear.frame(width: 12 + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
             Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1)
         }
     }

@@ -241,7 +241,11 @@ struct DrawerView: View {
                     Section {
                         ForEach(section.rows) { row in
                             rowView(row, now: context.date, drawer: drawer)
-                                .listRowInsets(.init())
+                                .listRowInsets(
+                                    .init(
+                                        top: 0, leading: Design.Space.compact, bottom: 0, trailing: Design.Space.compact
+                                    )
+                                )
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                                 .transition(.opacity)
@@ -569,27 +573,29 @@ struct DrawerView: View {
                     .accessibilityLabel("drawer.clearSearch")
                     .accessibilityIdentifier("drawer.clearSearch")
                 }
+                if !isOneRow { filterMenu(showsName: true) }
             }
-            .padding(.leading, 12)
-            .frame(minHeight: 44)
-            .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
+            .padding(.leading, Design.Space.rowInset).padding(.trailing, Design.Space.small)
+            .frame(minHeight: Design.Size.bar)
+            .background(Color.yakBar, in: .capsule)
+            .overlay(Capsule().stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
             HStack(spacing: 8) {
-                filterMenu(showsName: !isOneRow)
+                if isOneRow { filterMenu(showsName: false) }
                 Button {
                     scene.openNewThread(repo: nil, text: nil)
                 } label: {
                     Image(systemName: "square.and.pencil").font(.body.weight(.semibold))
                         .foregroundStyle(Color.yakOnRust)
-                        .frame(minWidth: 44, minHeight: 44).background(Color.yakRust, in: .rect(cornerRadius: 12))
-                        .contentShape(.rect)
+                        .frame(minWidth: Design.Size.bar, minHeight: Design.Size.bar)
+                        .background(Color.yakRust, in: .circle)
+                        .contentShape(.circle)
                 }
                 .accessibilityLabel("shell.startThread")
                 .accessibilityIdentifier("drawer.newThread")
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, Design.Space.barInset).padding(.vertical, Design.Space.compact)
         .background(Color.yakBackground)
-        .overlay(alignment: .top) { Divider() }
     }
 
     private var searchBinding: Binding<String> {
@@ -614,9 +620,9 @@ struct DrawerView: View {
                 Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
             }
             .foregroundStyle(.primary)
-            .padding(.horizontal, 12).frame(minHeight: 44)
-            .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: 12))
-            .contentShape(.rect)
+            .padding(.horizontal, 12).frame(minHeight: showsName ? Design.Size.chip + 4 : 44)
+            .background(Color.yakFill, in: .capsule)
+            .contentShape(.capsule)
         }
         .tint(.primary)
         .accessibilityLabel(label(of: filter))
