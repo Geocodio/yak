@@ -194,11 +194,10 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         // A short window (a phone on its side) keeps the three in one row so the chat keeps its height.
         if horizontalSizeClass == .regular || verticalSizeClass == .compact {
             WeightedRow(weights: [2, 1, 1], spacing: Design.Space.compact) {
-                approve
+                approve.lineLimit(1).minimumScaleFactor(0.75)
                 changes.disabled(others)
                 reject.disabled(others)
             }
-            .lineLimit(1).minimumScaleFactor(0.75)
         } else {
             VStack(spacing: Design.Space.compact) {
                 approve
