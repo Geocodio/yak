@@ -50,17 +50,24 @@ private struct SecondPaneContextMenu: ViewModifier {
     let pane: PaneID
     @Environment(SceneModel.self) private var scene
 
-    func body(content: Content) -> some View {
-        content.contextMenu {
-            if let choices = scene.secondChoices, choices.isOffered {
-                if choices.current == pane {
+    /// The menu has an item only at a size with room for two panes; elsewhere it is not attached at all, so a
+    /// long press does not lift the item for an empty menu.
+    private var hasItem: Bool {
+        guard let choices = scene.secondChoices, choices.isOffered else { return false }
+        return choices.current == pane || choices.panes.contains(pane)
+    }
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if hasItem {
+            content.contextMenu {
+                if scene.secondChoices?.current == pane {
                     Button {
                         scene.setSecond(nil)
                     } label: {
                         Label("pane.second.close", systemImage: "rectangle.split.1x2.slash")
                     }
                     .accessibilityIdentifier("pane.second.close")
-                } else if choices.panes.contains(pane) {
+                } else {
                     Button {
                         scene.setSecond(pane)
                     } label: {
@@ -69,6 +76,8 @@ private struct SecondPaneContextMenu: ViewModifier {
                     .accessibilityIdentifier("pane.second.open")
                 }
             }
+        } else {
+            content
         }
     }
 }
