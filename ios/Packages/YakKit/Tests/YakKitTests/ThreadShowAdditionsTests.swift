@@ -221,6 +221,10 @@ private func composerJSON(state: String) throws -> String {
     object["thread"] = thread
     let show = try JSONDecoder().decode(ThreadShow.self, from: JSONSerialization.data(withJSONObject: object))
     #expect(!show.thread.hasRepository)
+    #expect(show.thread.shownRepo == nil)
+    let withRepository = try JSONDecoder().decode(
+        ThreadShow.self, from: Scenarios.data("scenario-thread-show"))
+    #expect(withRepository.thread.shownRepo == withRepository.thread.repo)
 }
 
 @Test func aThreadEventCarriesAShowKeyOnlySometimes() throws {

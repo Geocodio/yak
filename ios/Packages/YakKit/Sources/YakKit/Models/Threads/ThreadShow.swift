@@ -155,6 +155,9 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
     /// False means `repo` is the placeholder `unknown`, which is never shown.
     public let hasRepository: Bool
 
+    /// The repository to show a person: nil while `repo` is the placeholder.
+    public var shownRepo: String? { hasRepository ? repo : nil }
+
     public init(
         id: String,
         name: String,

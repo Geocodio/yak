@@ -124,7 +124,7 @@ struct ChangedFilesView: FilesModeView {
         FilePageView.canEdit(
             file: file, state: state, canDrive: thread.snapshot?.show?.canDrive ?? false,
             filesAvailable: FilesMode.built.contains(.everything) && thread.panes.contains(.files),
-            primaryRepo: thread.snapshot?.show?.thread.repo)
+            primaryRepo: thread.snapshot?.show?.thread.shownRepo)
     }
 
     private func pages(_ snapshot: ChangesSnapshot) -> some View {

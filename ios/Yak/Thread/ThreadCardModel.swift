@@ -42,7 +42,9 @@ final class ThreadCardModel: CoOwnerDecisionHost {
     var isSending: Bool { sending != nil }
     var isApproving: Bool { sending == .approve }
     var holdReasons: [String] { [] }
-var repositoryName: String { thread?.snapshot?.show?.thread.repo ?? "" }
+var repositoryName: String {
+        thread?.snapshot?.show?.thread.shownRepo ?? String(localized: "thread.card.coOwner.thisRepository")
+    }
 
     var decision: TaskDecisionState {
         guard case .coOwner(let decision, _) = state else { return .none }

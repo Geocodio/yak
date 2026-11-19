@@ -14460,6 +14460,16 @@
         }
       }
     },
+    "thread.card.coOwner.thisRepository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this repository"
+          }
+        }
+      }
+    },
     "thread.card.coOwner.title" : {
       "localizations" : {
         "en" : {

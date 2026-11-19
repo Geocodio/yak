@@ -133,7 +133,7 @@ struct ThreadCardHost: View {
     // MARK: Co-owner
 
     private func coOwner(_ decision: TaskDecisionState, _ panel: CoOwnerPanel) -> some View {
-        let repo = thread.snapshot?.show?.thread.repo ?? ""
+        let repo = cards.repositoryName
         return Group {
             if case .decided = decision {
                 EmptyView()

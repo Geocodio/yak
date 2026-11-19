@@ -216,6 +216,22 @@ private func chatSnapshot(
     await fixture.session.stop()
 }
 
+@MainActor @Test func aThreadWithoutARepositoryNeverNamesThePlaceholder() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let cards = ThreadCardModel(thread: model)
+    let withoutRepository = ThreadTransport.show.replacingOccurrences(
+        of: #""repo":"example/api""#, with: #""repo":"unknown","hasRepository":false"#)
+    await model.apply(
+        try chatSnapshot(
+            .completed, show: JSONDecoder().decode(ThreadShow.self, from: Data(withoutRepository.utf8))))
+    #expect(model.snapshot?.show?.thread.shownRepo == nil)
+    #expect(cards.repositoryName == String(localized: "thread.card.coOwner.thisRepository"))
+    await model.apply(try chatSnapshot(.completed))
+    #expect(cards.repositoryName == "example/api")
+    await fixture.session.stop()
+}
+
 @MainActor @Test func refusedActionShowsAMessage() async throws {
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
