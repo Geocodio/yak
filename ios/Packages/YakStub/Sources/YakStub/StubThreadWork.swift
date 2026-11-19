@@ -11,7 +11,7 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "work-co-owner-decide", "work-co-owner-link", "work-co-owner-requester", "work-co-owner-reader",
         "work-early-warning", "work-repository-question", "work-repository-taken", "work-move", "work-milestones",
         "work-via", "work-legacy", "work-drained", "work-offline", "work-slow-approve", "work-setup", "work-cancelled",
-        "work-co-owner-no-access", "work-co-owner-check-failed",
+        "work-co-owner-no-access", "work-co-owner-check-failed", "work-co-owner-link-stale",
     ]
     let scenarioDataNames = [
         "scenario-work-stopped", "scenario-work-working", "scenario-work-expired", "scenario-work-needs-you-stopped",
@@ -70,6 +70,7 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         "work-stopped": "scenario-work-stopped", "work-stopped-retry-fails": "scenario-work-stopped",
         "work-stopped-reply": "scenario-work-needs-you-stopped", "work-expired-co-owner": "scenario-work-expired",
         "work-co-owner-decide": "scenario-work-co-owner", "work-co-owner-link": "scenario-work-co-owner",
+        "work-co-owner-link-stale": "scenario-work-co-owner",
         "work-co-owner-requester": "scenario-work-co-owner", "work-co-owner-reader": "scenario-work-co-owner",
         "work-early-warning": "scenario-work-early-warning",
         "work-repository-question": "scenario-work-repository-question",
@@ -228,7 +229,7 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
             }
             return advance("started", to: "scenario-work-repository-answered", context: context)
         case "co-owner/approve":
-            if scenario == "work-co-owner-link" {
+            if scenario == "work-co-owner-link" || scenario == "work-co-owner-link-stale" {
                 return error(
                     409, "not_linked", "Link your GitHub account to decide.", details: ["connectUrl": Self.connectURL])
             }

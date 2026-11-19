@@ -120,6 +120,17 @@ import XCTest
         try audit()
     }
 
+    func testALinkOfferGoesAwayWhenAccessIsCheckedAgain() throws {
+        try open("work-co-owner-link-stale")
+        requireCard("co_owner")
+        app.buttons["task.decision.approve"].tap()
+        XCTAssertTrue(element("task.decision.link").waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("task.decision.approve").exists)
+        element("task.decision.checkAgain").tap()
+        XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("task.decision.link").exists)
+    }
+
     func testTheRequesterCanOnlyWithdraw() throws {
         try open("work-co-owner-requester")
         requireCard("co_owner")

@@ -27,8 +27,9 @@ final class ThreadCardModel: CoOwnerDecisionHost {
     private(set) var isApprovalSlow = false
     private(set) var successCount = 0
     private(set) var errorCount = 0
-    /// A refused decision said the account is not linked: the card then offers the link.
-    private var linkOverride: String?
+    /// A refused decision said the account is not linked: the card then offers the link, until the panel's access or
+    /// status changes or a later action succeeds.
+    private var linkOverride: (connectURL: String, access: String, status: String)?
     @ObservationIgnored private var lastAction: ThreadWorkAction?
     @ObservationIgnored private var slowTask: Task<Void, Never>?
     @ObservationIgnored private var answeredTask: Task<Void, Never>?
@@ -41,11 +42,15 @@ final class ThreadCardModel: CoOwnerDecisionHost {
     var isSending: Bool { sending != nil }
     var isApproving: Bool { sending == .approve }
     var holdReasons: [String] { [] }
-    var repositoryName: String { thread?.snapshot?.show?.thread.repo ?? "" }
+var repositoryName: String { thread?.snapshot?.show?.thread.repo ?? "" }
 
     var decision: TaskDecisionState {
         guard case .coOwner(let decision, _) = state else { return .none }
-        if let linkOverride, case .decide = decision { return .linkGitHub(connectURL: linkOverride) }
+        if let linkOverride, case .decide = decision, let panel = thread?.snapshot?.show?.coOwner,
+            panel.viewer.access == linkOverride.access, panel.status == linkOverride.status
+        {
+            return .linkGitHub(connectURL: linkOverride.connectURL)
+        }
         return decision
     }
 
@@ -81,6 +86,7 @@ final class ThreadCardModel: CoOwnerDecisionHost {
         sending = nil
         switch outcome {
         case .done:
+            linkOverride = nil
             successCount += 1
             if case .requestChanges = action { feedback = "" }
             return true
@@ -92,7 +98,9 @@ final class ThreadCardModel: CoOwnerDecisionHost {
                 return true
             }
             if code == "not_linked" {
-                linkOverride = connectURL ?? thread?.snapshot?.show?.coOwner?.connectUrl
+                if let panel = thread?.snapshot?.show?.coOwner {
+                    linkOverride = (connectURL ?? panel.connectUrl, panel.viewer.access, panel.status)
+                }
             } else {
                 message = text.isEmpty ? String(localized: "chat.action.refused") : text
                 errorCount += 1

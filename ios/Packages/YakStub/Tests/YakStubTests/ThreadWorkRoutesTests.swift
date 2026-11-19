@@ -120,6 +120,13 @@ import Testing
         }
     }
 
+    @Test func aStaleLinkScenarioShowsALinkedWriterButRefusesTheApproval() throws {
+        let play = try Play("work-co-owner-link-stale")
+        let viewer = (try play.show().body["coOwner"] as? [String: Any])?["viewer"] as? [String: Any]
+        #expect(viewer?["isLinked"] as? Bool == true && viewer?["access"] as? String == "write")
+        #expect(try play.post("co-owner/approve").status == 409)
+    }
+
     @Test func aSlowApproveAnswersAfterTwentySeconds() throws {
         let answer = try Play("work-slow-approve").post("co-owner/approve")
         #expect(answer.delay == .seconds(20) && answer.body["status"] as? String == "approved")
