@@ -136,11 +136,12 @@ extension EnvironmentValues {
     @Entry var hasSystemStrip = false
 }
 
-/// The page color. In dark beside the system's pane strip it is black, because the strip's glass pill keeps the
-/// contrast of its labels only over black.
+/// The page color. In dark beside the system's pane strip it is black: the audit reads the strip's glass labels
+/// ("Preview", "Terminal") as low contrast over the board color `#0f1011` (the rendered label is white on about
+/// `#2E2F30`, 13.4 to 1), and passes them over black.
 struct PageStyle: ShapeStyle {
     func resolve(in environment: EnvironmentValues) -> Color {
-        environment.hasSystemStrip && false ? .black : .yakBackground
+        environment.hasSystemStrip && environment.colorScheme == .dark ? .black : .yakBackground
     }
 }
 
