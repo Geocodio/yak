@@ -152,10 +152,27 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
     private func reply(file: String, status: String? = nil, delay: Duration = .zero, context: StubContext) -> StubReply
     {
         var body = Self.variant(context.fixtures.scenario(file), for: context.scenario)
+        if context.scenario == "work-milestones" || context.scenario.hasPrefix("work-stopped") {
+            Self.dateMessagesWithTheSeededHistory(&body)
+        }
         if let status { body["status"] = status }
         var reply = Self.json(body)
         reply.delay = delay
         return reply
+    }
+
+    /// The messages keep their spacing but start when the seeded history does, so no day divider falls between them.
+    private static func dateMessagesWithTheSeededHistory(_ show: inout [String: Any]) {
+        guard var messages = show["messages"] as? [[String: Any]] else { return }
+        let parser = ISO8601DateFormatter()
+        let dates = messages.compactMap { ($0["sentAt"] as? String).flatMap(parser.date(from:)) }
+        guard let first = dates.min() else { return }
+        let start = Date().addingTimeInterval(-StubThreads.seededHistoryAge)
+        for index in messages.indices {
+            guard let text = messages[index]["sentAt"] as? String, let date = parser.date(from: text) else { continue }
+            messages[index]["sentAt"] = parser.string(from: start.addingTimeInterval(date.timeIntervalSince(first)))
+        }
+        show["messages"] = messages
     }
 
     /// The show of a scenario that plays one data file for several viewers.
