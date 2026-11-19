@@ -425,7 +425,7 @@ private let bookInputs = LayoutInputs(
                             #expect(Set(shown).count == shown.count)
                             #expect(
                                 shown.contains(focused)
-                                    || (focused == .overview && plan.overviewIsPanel)
+                                    || (focused == .overview && plan.slots.contains { $0.content == .overviewPanel })
                                     || (panelOpen && shown.contains(.overview)))
                             #expect(shown.allSatisfy(available.contains))
                             #expect((plan.slots.count == 1) == (plan.arrangement == .single))
@@ -573,6 +573,12 @@ private let bookInputs = LayoutInputs(
     @Test func aThreadOpensWithOnePaneAtEverySize() {
         for (name, inputs) in sizes {
             for focused in PaneID.allCases {
+                // A focused Overview is one the person chose; where it is the panel it opens beside Chat.
+                if focused == .overview, PaneLayoutRules.overviewIsPanel(
+                    arrangement: ThreadLayout.arrangement(inputs, slotPaneCount: all.count), inputs: inputs)
+                {
+                    continue
+                }
                 let state = PaneState(focused: focused)
                 let plan = PaneLayoutRules.plan(state, available: all, inputs: inputs)
                 #expect(plan.arrangement == .single, "\(name) \(focused)")
@@ -695,10 +701,12 @@ private let bookInputs = LayoutInputs(
         #expect(state.focused == .chat && state.second == .preview)
     }
 
-    @Test func anOverviewFocusedAtAPanelSizeWithNothingBesideItFallsBackToChat() {
+    @Test func anOverviewFocusedAtAPanelSizeWithNothingBesideItOpensAsThePanelBesideChat() {
         let state = PaneLayoutRules.availableChanged(
             state: PaneState(focused: .overview), available: all, inputs: wide)
-        #expect(state.focused == .chat && state.second == nil)
+        #expect(state.focused == .chat && state.second == .overview)
+        let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
+        #expect(plan.slots.contains { $0.content == .overviewPanel })
     }
 
     @Test func anOlderStoredStateDropsItsSecondPane() {

@@ -424,10 +424,10 @@ public enum PaneLayoutRules {
             && next.isOverviewInPair
         if isPanelShown {
             // The pane beside the panel is a pane slot's pane. A focused Overview with none cannot fill the width as a
-            // pane here, so Chat (or the first pane) takes the focus and the panel stays closed.
+            // pane here, so Chat (or the first pane) takes the focus and the Overview stays open beside it as the panel.
             if next.focused == .overview, next.second.map({ !candidates.contains($0) }) ?? true {
-                next.second = nil
                 next.focused = candidates.contains(.chat) ? .chat : (candidates.first ?? .chat)
+                next.second = .overview
                 next.secondLeads = false
             }
         } else if next.second.map({ !candidates.contains($0) }) ?? true {
