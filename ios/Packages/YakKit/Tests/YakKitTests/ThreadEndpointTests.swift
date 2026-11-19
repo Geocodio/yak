@@ -287,3 +287,74 @@ private let expected: [String: (Endpoint<EmptyResponse>.Method, String)] = [
     #expect(row.method == want.0)
     #expect(row.path == want.1)
 }
+
+private func actionBody(_ endpoint: Endpoint<ThreadActionAnswer>) throws -> [String: Any]? {
+    endpoint.body == nil ? nil : try jsonBody(endpoint)
+}
+
+@Test(arguments: [
+    (ThreadWorkAction.retry, "retry", nil as [String: String]?),
+    (.setUpAndContinue, "setup-and-continue", nil),
+    (.cancel, "cancel", nil),
+    (.move(repo: " example/web "), "move", ["repo": "example/web"]),
+    (.requestReview, "request-review", nil),
+    (.retryRender, "retry-render", nil),
+    (.answerRepository(repo: "example/api"), "repository-answer", ["repo": "example/api"]),
+    (.approve, "co-owner/approve", nil),
+    (.requestChanges(feedback: " Please split it "), "co-owner/request-changes", ["feedback": "Please split it"]),
+    (.reject, "co-owner/reject", nil),
+    (.withdraw, "co-owner/withdraw", nil),
+    (.checkAccess, "co-owner/check-access", nil),
+    (.decline, "co-owner/decline", nil),
+])
+func buildsEveryThreadActionRequest(action: ThreadWorkAction, route: String, body: [String: String]?) throws {
+    let endpoint = Endpoint<ThreadActionAnswer>.threadAction("d0e515ef", action)
+    #expect(endpoint.method == .post && endpoint.path == "threads/d0e515ef/\(route)")
+    #expect(try actionBody(endpoint) as NSDictionary? == body as NSDictionary?)
+}
+
+@Test func tagSendsTheUserIdWithASnakeCaseKey() throws {
+    let endpoint = Endpoint<ThreadActionAnswer>.threadAction("d0e515ef", .tag(userID: 12))
+    #expect(endpoint.path == "threads/d0e515ef/co-owner/tag")
+    #expect(try jsonBody(endpoint) as NSDictionary == ["user_id": 12])
+}
+
+@Test func approveWaitsSixtySeconds() {
+    #expect(Endpoint<ThreadActionAnswer>.threadAction("a", .approve).timeout == .seconds(60))
+    #expect(Endpoint<ThreadActionAnswer>.threadAction("a", .retry).timeout == .seconds(15))
+}
+
+@Test func moveAndRepositoryAnswerTrimTheRepo() throws {
+    let long = String(repeating: "a", count: 300)
+    for action in [ThreadWorkAction.move(repo: long), .answerRepository(repo: long)] {
+        let body = try jsonBody(Endpoint<ThreadActionAnswer>.threadAction("a", action))
+        #expect((body["repo"] as? String)?.count == 255)
+    }
+}
+
+@Test func feedbackIsCutAtFiveThousand() throws {
+    let body = try jsonBody(
+        Endpoint<ThreadActionAnswer>.threadAction("a", .requestChanges(feedback: String(repeating: "f", count: 6000))))
+    #expect((body["feedback"] as? String)?.count == 5000)
+}
+
+@Test func theCandidatesRouteIsAGet() {
+    let endpoint = Endpoint<CoOwnerCandidates>.threadCoOwnerCandidates("d0e515ef")
+    #expect(endpoint.method == .get && endpoint.path == "threads/d0e515ef/co-owner/candidates" && endpoint.body == nil)
+}
+
+@Test func anActionAnswerDecodesStatusAndShow() async throws {
+    let transport = ScriptedTransport()
+    await transport.on(
+        "POST threads/d0e515ef/retry",
+        .json(200, String(decoding: try workShowData(["status": #""queued""#]), as: UTF8.self)))
+    let answer = try await makeClient(transport).send(.threadAction("d0e515ef", .retry))
+    #expect(answer.status == "queued" && answer.show.thread.id == "d0e515ef" && answer.show.latestSequence == 14)
+}
+
+@Test func onlyTheRepeatableActionsAreSafeToResend() {
+    #expect(ThreadWorkAction.retry.isSafeToResend && ThreadWorkAction.approve.isSafeToResend)
+    #expect(ThreadWorkAction.checkAccess.isSafeToResend && ThreadWorkAction.cancel.isSafeToResend)
+    #expect(!ThreadWorkAction.move(repo: "a").isSafeToResend && !ThreadWorkAction.requestReview.isSafeToResend)
+    #expect(!ThreadWorkAction.answerRepository(repo: "a").isSafeToResend)
+}

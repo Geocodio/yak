@@ -29,14 +29,20 @@ public enum TaskActionOutcome: Equatable, Sendable {
             self = .failed(ThreadProblem(failure))
             return
         }
-        var fieldErrors: [String: [String]] = [:]
-        if case .object(let fields)? = error.details["errors"] {
-            for (field, value) in fields {
-                if case .array(let messages) = value { fieldErrors[field] = messages.compactMap(\.stringValue) }
-            }
-        }
+        let fieldErrors = refusalFieldErrors(error)
         self = .refused(
             code: error.code, message: error.message, fieldErrors: fieldErrors,
             connectURL: error.details["connectUrl"]?.stringValue)
     }
+}
+
+/// The messages the server listed per field in `details.errors` of a refusal.
+func refusalFieldErrors(_ error: APIError) -> [String: [String]] {
+    var fieldErrors: [String: [String]] = [:]
+    if case .object(let fields)? = error.details["errors"] {
+        for (field, value) in fields {
+            if case .array(let messages) = value { fieldErrors[field] = messages.compactMap(\.stringValue) }
+        }
+    }
+    return fieldErrors
 }

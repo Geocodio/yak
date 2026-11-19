@@ -40,9 +40,9 @@ public actor PullRequestActions {
                 return .started(PullRequestStatus(rawValue: response.status))
             } catch {
                 switch ThreadActionOutcome(error) {
-                case .refused(_, _, let fieldErrors) where fieldErrors["acknowledged_private_publish"] != nil:
+                case .refused(_, _, let fieldErrors, _) where fieldErrors["acknowledged_private_publish"] != nil:
                     return .needsConfirmation
-                case .refused(let code, let message, _):
+                case .refused(let code, let message, _, _):
                     return .refused(code: code, message: message)
                 case .failed(let problem):
                     return .failed(problem)

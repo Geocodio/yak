@@ -314,3 +314,13 @@ func aTappedConversationLinkOpensOnlyWhenItIsSafe(_ text: String) {
     await model.stop()
     await fixture.session.stop()
 }
+
+@MainActor @Test func theTaskBodyAllowsImagesFromTheSignedInServerOnly() throws {
+    let entry = TaskConversationEntry(kind: "yak", bodyHtml: "<p>Hi</p>")
+    let html = TaskBodyView.document(
+        entry, serverOrigin: try #require(URL(string: "https://yak.example.com:8443/tasks")))
+    #expect(
+        html.contains(
+            "content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data: https://yak.example.com:8443\""))
+    #expect(!html.contains("*"))
+}

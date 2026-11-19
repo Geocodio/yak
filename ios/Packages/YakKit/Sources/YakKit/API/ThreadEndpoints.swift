@@ -228,3 +228,83 @@ extension Endpoint where Response == RepositoryAccess {
         Endpoint(method: .get, path: "threads/new/repository-access", query: [URLQueryItem(name: "repo", value: repo)])
     }
 }
+
+/// An action on the work of a thread. Every case but `checkAccess` changes the thread; the answer carries the
+/// refreshed show.
+public enum ThreadWorkAction: Equatable, Sendable {
+    case retry, setUpAndContinue, cancel
+    case move(repo: String)
+    case requestReview, retryRender
+    case answerRepository(repo: String)
+    case approve
+    case requestChanges(feedback: String)
+    case reject, withdraw, checkAccess
+    case tag(userID: Int)
+    case decline
+
+    /// The request is safe to send again after a lost answer: the server answers the same status. A move, a
+    /// review request and a repository answer are not, because a repeat answers a refusal or finds the work gone.
+    public var isSafeToResend: Bool {
+        switch self {
+        case .move, .requestReview, .answerRepository: false
+        default: true
+        }
+    }
+}
+
+/// The answer of a thread action: the status word and every key of the thread's show.
+public struct ThreadActionAnswer: Decodable, Equatable, Sendable {
+    public let status: String
+    public let show: ThreadShow
+
+    public init(status: String, show: ThreadShow) {
+        self.status = status
+        self.show = show
+    }
+
+    private enum CodingKeys: String, CodingKey { case status }
+
+    public init(from decoder: any Decoder) throws {
+        status = try decoder.container(keyedBy: CodingKeys.self).decode(String.self, forKey: .status)
+        show = try ThreadShow(from: decoder)
+    }
+}
+
+extension Endpoint where Response == ThreadActionAnswer {
+    public static func threadAction(_ id: String, _ action: ThreadWorkAction) -> Endpoint<ThreadActionAnswer> {
+        let base = "threads/\(segment(id))"
+        switch action {
+        case .retry: return Endpoint(method: .post, path: "\(base)/retry")
+        case .setUpAndContinue: return Endpoint(method: .post, path: "\(base)/setup-and-continue")
+        case .cancel: return Endpoint(method: .post, path: "\(base)/cancel")
+        case .move(let repo):
+            return Endpoint(
+                method: .post, path: "\(base)/move", body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
+        case .requestReview: return Endpoint(method: .post, path: "\(base)/request-review")
+        case .retryRender: return Endpoint(method: .post, path: "\(base)/retry-render")
+        case .answerRepository(let repo):
+            return Endpoint(
+                method: .post, path: "\(base)/repository-answer",
+                body: RepositoryBody(repo: cleaned(repo, limit: 255) ?? ""))
+        case .approve:
+            // Approve opens the pull request before it answers, which can take longer than 15 seconds.
+            return Endpoint(method: .post, path: "\(base)/co-owner/approve", timeout: .seconds(60))
+        case .requestChanges(let feedback):
+            return Endpoint(
+                method: .post, path: "\(base)/co-owner/request-changes",
+                body: FeedbackBody(feedback: cleaned(feedback, limit: 5000) ?? ""))
+        case .reject: return Endpoint(method: .post, path: "\(base)/co-owner/reject")
+        case .withdraw: return Endpoint(method: .post, path: "\(base)/co-owner/withdraw")
+        case .checkAccess: return Endpoint(method: .post, path: "\(base)/co-owner/check-access")
+        case .tag(let userID):
+            return Endpoint(method: .post, path: "\(base)/co-owner/tag", body: TagBody(userID: userID))
+        case .decline: return Endpoint(method: .post, path: "\(base)/co-owner/decline")
+        }
+    }
+}
+
+extension Endpoint where Response == CoOwnerCandidates {
+    public static func threadCoOwnerCandidates(_ id: String) -> Endpoint<CoOwnerCandidates> {
+        Endpoint(method: .get, path: "threads/\(segment(id))/co-owner/candidates")
+    }
+}

@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// The feedback a co-owner sends with "Request changes". The text stays when the server refuses it.
-struct RequestChangesSheet: View {
-    static let limit = 5000
+private let requestChangesLimit = 5000
 
-    let model: TaskModel
+/// The feedback a co-owner sends with "Request changes". The text stays when the server refuses it.
+struct RequestChangesSheet<Model: CoOwnerDecisionHost>: View {
+    let model: Model
     let close: () -> Void
     @FocusState private var isFocused: Bool
 
@@ -14,10 +14,10 @@ struct RequestChangesSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("task.requestChanges.prompt").font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
-                    TextEditor(text: Bindable(model).feedback)
+                    TextEditor(text: Binding(get: { model.feedback }, set: { model.feedback = $0 }))
                         .focused($isFocused).frame(minHeight: 160)
                         .padding(8).scrollContentBackground(.hidden)
-                        .background(Color.yakCard, in: .rect(cornerRadius: 12))
+                        .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.card))
                         .accessibilityLabel("task.requestChanges.field")
                         .accessibilityIdentifier("task.requestChanges.field")
                     HStack(alignment: .top) {
@@ -27,7 +27,7 @@ struct RequestChangesSheet: View {
                                 .accessibilityIdentifier("task.requestChanges.error")
                         }
                         Spacer(minLength: 8)
-                        Text("task.requestChanges.count \(model.feedback.count) \(Self.limit)")
+                        Text("task.requestChanges.count \(model.feedback.count) \(String(requestChangesLimit))")
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(isTooLong ? Color.yakDanger : Color.yakMuted)
                     }
@@ -36,7 +36,7 @@ struct RequestChangesSheet: View {
                     }
                     Button {
                         Task {
-                            if await model.perform(.requestChanges(feedback: model.feedback)) { close() }
+                            if await model.decide(.requestChanges(feedback: model.feedback)) { close() }
                         }
                     } label: {
                         if model.isSending { ProgressView() } else { Text("task.requestChanges.send") }
@@ -60,5 +60,5 @@ struct RequestChangesSheet: View {
     }
 
     private var isEmpty: Bool { model.feedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var isTooLong: Bool { model.feedback.count > Self.limit }
+    private var isTooLong: Bool { model.feedback.count > requestChangesLimit }
 }

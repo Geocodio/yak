@@ -386,3 +386,146 @@ private final class GatedFileStore: FileStore, @unchecked Sendable {
     #expect(await server.requestedAfters == [14])
     #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == 1)
 }
+
+// MARK: Realtime pins for the work cards
+
+private func threadEvent(_ sequence: Int, showKey: String?) -> ThreadEvent {
+    var data: [String: JSONValue] = [
+        "status": .string("open"), "sandboxState": .string("ready"), "runnerState": .string("idle"),
+    ]
+    if let showKey { data["showKey"] = .string(showKey) }
+    return ThreadEvent(sequence: sequence, type: "thread", createdAt: "2026-11-15T09:00:00Z", data: .object(data))
+}
+
+private func turnEvent(_ sequence: Int) -> ThreadEvent {
+    ThreadEvent(
+        sequence: sequence, type: "turn", createdAt: "2026-11-15T09:00:00Z",
+        data: .object(["turnId": .number(7), "state": .string("completed")]))
+}
+
+/// An engine open on a show at sequence 14 whose next show carries `card`.
+private func cardRig() async throws -> (rig: Rig, recorder: StreamRecorder<ConversationSnapshot>) {
+    let server = EventServer(threadID: threadID, events: [])
+    await server.publish(through: 14)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    object["latestSequence"] = 16
+    object["card"] = "stopped"
+    let withCard = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+    let rig = try await makeRig(server: server, show: nil)
+    await rig.transport.on(
+        "GET threads/\(threadID)", try showResult(latestSequence: 14), .json(200, withCard))
+    let recorder = StreamRecorder(await rig.engine.snapshots())
+    _ = try await recorder.next { $0.load == .ready && !$0.isShowingCachedCopy && $0.lastSequence == 14 }
+    return (rig, recorder)
+}
+
+/// Waits for the refresh to be waiting out its settle time, then lets that time pass.
+private func advancePastTheRefreshWait(_ rig: Rig) async {
+    let deadline = rig.clock.offset + ThreadEngine.refreshSettle
+    await waitUntil { rig.clock.sleeperDeadlines.contains(deadline) }
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+}
+
+@Test func aThreadEventWithAShowKeyRefreshesTheShow() async throws {
+    let (rig, recorder) = try await cardRig()
+    let before = await rig.transport.requests(on: "GET threads/\(threadID)").count
+    await rig.engine.receive(.event(threadEvent(15, showKey: "abcdef123456")))
+    await advancePastTheRefreshWait(rig)
+    let snapshot = try await recorder.next { $0.show?.card == .stopped }
+    #expect(snapshot.show?.latestSequence == 16)
+    #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == before + 1)
+}
+
+@Test func aThreadEventWithoutAShowKeyRefreshesTheShowToo() async throws {
+    let (rig, recorder) = try await cardRig()
+    await rig.engine.receive(.event(threadEvent(15, showKey: nil)))
+    await advancePastTheRefreshWait(rig)
+    _ = try await recorder.next { $0.show?.card == .stopped }
+}
+
+@Test(arguments: [true, false])
+func theTurnAndThreadEventsInEitherOrderRefreshOnce(turnFirst: Bool) async throws {
+    let (rig, recorder) = try await cardRig()
+    let before = await rig.transport.requests(on: "GET threads/\(threadID)").count
+    let events =
+        turnFirst
+        ? [turnEvent(15), threadEvent(16, showKey: "abcdef123456")]
+        : [threadEvent(15, showKey: "abcdef123456"), turnEvent(16)]
+    for event in events { await rig.engine.receive(.event(event)) }
+    await advancePastTheRefreshWait(rig)
+    _ = try await recorder.next { $0.show?.card == .stopped }
+    // Nothing else is scheduled: a second wait would have no sleeper to wake.
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+    #expect(await rig.transport.requests(on: "GET threads/\(threadID)").count == before + 1)
+}
+
+@Test func theSnapshotCarriesTheShowsMilestonesInPlace() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    await server.publish(through: 14)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    object["milestones"] = [
+        ["key": "pushed", "label": "Pushed", "tone": "ok", "url": NSNull(), "runId": "9", "afterSequence": 14]
+    ]
+    let rig = try await openedEngine(server: server, show: JSONSerialization.data(withJSONObject: object))
+    let snapshot = try await settled(rig.engine)
+    #expect(snapshot.entries.contains { $0.id == "milestone:9:pushed" })
+}
+
+// MARK: Send answers with a notice
+
+private func hasDeliveredRow(_ snapshot: ConversationSnapshot) -> Bool {
+    snapshot.entries.contains { if case .delivered = $0 { true } else { false } }
+}
+
+@Test func aStoppedReplyShowsTheNoticeAndDropsTheDelivery() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    let sendKey = UUID()
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: sendKey, target: .thread(threadID), status: .sent, messageUUID: nil, threadID: threadID,
+            text: "Try the other branch", sentAt: rig.clock.now(), notice: "Trying again with your note."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice != nil }
+    #expect(snapshot.lastSendNotice == SendNotice(id: sendKey, text: "Trying again with your note."))
+    #expect(!hasDeliveredRow(snapshot) && snapshot.replacementThreadID == nil)
+}
+
+@Test func aSecondNoticeReplacesTheFirstAndARepeatOfOneChangesNothing() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    func delivery(_ key: UUID, _ notice: String) -> OutboxDelivery {
+        OutboxDelivery(
+            sendKey: key, target: .thread(threadID), status: .sent, messageUUID: nil, threadID: threadID, text: "x",
+            sentAt: rig.clock.now(), notice: notice)
+    }
+    let (first, second) = (UUID(), UUID())
+    await rig.engine.delivered(delivery(first, "One."))
+    await rig.engine.delivered(delivery(first, "One again."))
+    await rig.engine.delivered(delivery(second, "Two."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice?.id == second }
+    #expect(snapshot.lastSendNotice?.text == "Two.")
+}
+
+@Test func aSendWithARowAndANoticeKeepsItsDelivery() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: UUID(), target: .thread(threadID), status: .queued, messageUUID: "u-1", threadID: threadID,
+            text: "x", sentAt: rig.clock.now(), notice: "Yak is already on it. Your note is included."))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.lastSendNotice != nil }
+    #expect(hasDeliveredRow(snapshot))
+}
+
+@Test func aLegacySendOpensTheContinuingThread() async throws {
+    let server = EventServer(threadID: threadID, events: [])
+    let rig = try await openedEngine(server: server, show: showData(latestSequence: 0))
+    await rig.engine.delivered(
+        OutboxDelivery(
+            sendKey: UUID(), target: .thread(threadID), status: .sent, messageUUID: nil, threadID: "c0n71nue",
+            text: "Carry on", sentAt: rig.clock.now()))
+    let snapshot = try await StreamRecorder(rig.engine.snapshots()).next { $0.replacementThreadID != nil }
+    #expect(snapshot.replacementThreadID == "c0n71nue" && snapshot.lastSendNotice == nil)
+}

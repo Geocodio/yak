@@ -15,6 +15,7 @@ private struct ChatPane: View {
     @Environment(SceneModel.self) private var scene
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var paneHeight: CGFloat = 600
+    @State private var browserURL: BrowserLink?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,11 +33,19 @@ private struct ChatPane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if case .conversation = thread.loadPresentation {
-                QuestionCard(
-                    model: thread.question,
-                    isOffline: thread.isOffline, paneHeight: paneHeight
-                )
-                .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
+                if thread.composer.bar.line != nil {
+                    Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, Design.Space.medium)
+                        .padding(.horizontal, Design.Space.groupInset)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Tone.neutral.surface, in: .rect(cornerRadius: Design.Radius.row))
+                        .padding(.horizontal, Design.Space.compact).padding(.bottom, Design.Space.compact)
+                        .accessibilityIdentifier("composer.legacyLine")
+                }
+                ThreadCardHost(
+                    thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) },
+                    openFiles: thread.panes.contains(.files) ? { scene.select(.files) } : nil)
             }
         }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
@@ -50,6 +59,7 @@ private struct ChatPane: View {
         .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
+        .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
     }
 
     private func openThread(_ id: String) {

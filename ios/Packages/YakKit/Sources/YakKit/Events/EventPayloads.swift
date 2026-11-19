@@ -27,19 +27,23 @@ public struct ThreadStateChange: Decodable, Equatable, Sendable {
     public let runnerState: String
     public let blockedReason: String?
     public let pullRequestOpening: String?
+    /// Present only when a card changed; the show is refetched for every newer `thread` event regardless.
+    public let showKey: String?
 
     public init(
         status: ThreadStatus,
         sandboxState: String,
         runnerState: String,
         blockedReason: String? = nil,
-        pullRequestOpening: String? = nil
+        pullRequestOpening: String? = nil,
+        showKey: String? = nil
     ) {
         self.status = status
         self.sandboxState = sandboxState
         self.runnerState = runnerState
         self.blockedReason = blockedReason
         self.pullRequestOpening = pullRequestOpening
+        self.showKey = showKey
     }
 }
 

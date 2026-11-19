@@ -8,6 +8,8 @@ struct ThreadTitle: View {
     let title: String
     let dot: ThreadStatusDot
     let connectionLine: ConnectionLine?
+    /// The request's status tone; it colors the dot when the server sends one.
+    var tone: Tone?
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
 
@@ -55,7 +57,8 @@ struct ThreadTitle: View {
 
     /// Running is green and blocked or waiting orange; every other state is a neutral gray, never the rust accent.
     private var color: Color {
-        switch dot {
+        if let tone { return tone.color }
+        return switch dot {
         case .running: .green
         case .attention: .orange
         case .neutral: Color(.systemGray2)

@@ -21,6 +21,8 @@ final class ThreadModel {
     private(set) var engine: ThreadEngine?
     /// Lives as long as the model, so typed text survives a retry and a slow load.
     let composer: ComposerModel
+    /// The card the server names above the bar, other than the question.
+    @ObservationIgnored private(set) lazy var cards = ThreadCardModel(thread: self)
     /// The open question round, answered in the card above the bar.
     let question = QuestionModel(canDrive: nil)
     /// The session had no engine to give, so there is nothing to wait for.
@@ -31,6 +33,8 @@ final class ThreadModel {
     private(set) var documents: [String: AppMarkdownRenderer.Document] = [:]
     /// A short message about a refused or failed action, cleared after six seconds or on the next action.
     private var reportedActionLine: String?
+    /// The action line says how things stand and is no failure: no warning haptic goes with it.
+    private(set) var isActionLineInformation = false
     /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
     private(set) var announcement: String?
     private(set) var announcementSerial = 0
@@ -38,6 +42,13 @@ final class ThreadModel {
     private(set) var isNoticeActionRunning = false
     /// The name of the signed-in person, to tell their messages from other people's.
     private(set) var ownName: String?
+    /// The send notice already shown as the action line, so one is said once.
+    @ObservationIgnored private var shownNoticeID: UUID?
+    /// The show a send notice came with. The notice stays on screen until the show changes again after the refresh
+    /// that every delivery triggers, or until the next send starts.
+    @ObservationIgnored private var noticeShow: ThreadShow?
+    @ObservationIgnored private var hasNoticeSeenItsRefresh = false
+    @ObservationIgnored private var isNoticeShown = false
 
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
@@ -113,6 +124,14 @@ final class ThreadModel {
     var panes: [PaneID] { Panes.available(server: snapshot?.show?.panes) }
     var connectionLine: ConnectionLine? { snapshot.flatMap(ConnectionLine.make) }
     var statusDot: ThreadStatusDot { ThreadStatusDot.make(snapshot) }
+    var statusTone: Tone? { snapshot?.show?.request?.status.tone }
+    /// "Step 5 of 7: CI failed" for the failed step, else the current one.
+    var stepLine: String? {
+        guard let progress = snapshot?.show?.progress, let step = progress.attentionStep,
+            let index = progress.steps.firstIndex(of: step)
+        else { return nil }
+        return String(localized: "thread.step \(index + 1) \(progress.steps.count) \(step.label)")
+    }
     var loadPresentation: ThreadLoadPresentation {
         if couldNotOpen, snapshot == nil { return .serverError(message: String(localized: "load.openFailed")) }
         return ThreadLoadPresentation.make(snapshot?.load ?? .loading)
@@ -252,6 +271,20 @@ extension ThreadModel {
         let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
         rows = builtRows
+        if isNoticeShown, next.show != noticeShow {
+            if hasNoticeSeenItsRefresh {
+                clearActionLine()
+            } else {
+                hasNoticeSeenItsRefresh = true
+                noticeShow = next.show
+            }
+        }
+        if let notice = next.lastSendNotice, notice.id != shownNoticeID {
+            shownNoticeID = notice.id
+            setActionLine(notice.text, persists: true)
+            noticeShow = next.show
+            hasNoticeSeenItsRefresh = false
+        }
         if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         requestMarkdown(for: next.entries)
     }
@@ -333,6 +366,23 @@ extension ThreadModel {
         await performNoticeAction { await $0.retryRestore() }
     }
 
+    /// The work actions of the thread's menu; a refusal or failure is said in the action line.
+    func performWork(_ action: ThreadWorkAction) async {
+        guard let engine else { return show(.failed(.offline)) }
+        clearActionLine()
+        let outcome = await engine.perform(action)
+        switch (outcome, action) {
+        case (.refused("review_not_requested", let message, _, _), _):
+            setActionLine(
+                message.isEmpty ? String(localized: "chat.work.reviewNotRequested") : message, isInformation: true)
+        case (.done, .requestReview): setActionLine(String(localized: "chat.work.reviewRequested"), isInformation: true)
+        case (.done, .retry), (.done, .setUpAndContinue):
+            setActionLine(String(localized: "chat.work.retried"), isInformation: true)
+        case (.done, .retryRender): setActionLine(String(localized: "chat.work.renderRetried"), isInformation: true)
+        default: show(outcome)
+        }
+    }
+
     func loadOlder() async {
         guard let engine else { return }
         await engine.loadOlder()
@@ -398,7 +448,7 @@ extension ThreadModel {
         switch outcome {
         case .done: break
         case .alreadySent: setActionLine(String(localized: "chat.message.alreadySent"))
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             setActionLine(message.isEmpty ? String(localized: "chat.action.refused") : message)
         case .failed(let problem):
             switch problem {
@@ -409,11 +459,20 @@ extension ThreadModel {
         }
     }
 
-    private func setActionLine(_ text: String) {
+    /// The composer calls this when a person sends, so a notice about the last send gives way to the next one.
+    func sendStarted() {
+        if isNoticeShown { clearActionLine() }
+    }
+
+    private func setActionLine(_ text: String, persists: Bool = false, isInformation: Bool = false) {
         actionLineSerial += 1
         let mine = actionLineSerial
         reportedActionLine = text
+        isActionLineInformation = isInformation
+        isNoticeShown = persists
         actionLineTask?.cancel()
+        actionLineTask = nil
+        guard !persists else { return }
         actionLineTask = Task { [weak self] in
             do { try await self?.session.clock.sleep(for: .seconds(6)) } catch { return }
             guard let self, self.actionLineSerial == mine else { return }
@@ -422,6 +481,8 @@ extension ThreadModel {
     }
 
     private func clearActionLine() {
+        isNoticeShown = false
+        isActionLineInformation = false
         actionLineSerial += 1
         actionLineTask?.cancel()
         reportedActionLine = nil

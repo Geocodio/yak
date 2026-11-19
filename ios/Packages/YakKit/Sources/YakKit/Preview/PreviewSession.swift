@@ -424,7 +424,7 @@ public actor PreviewSession {
             return .done
         }
         let outcome = ThreadActionOutcome(failure)
-        if case .refused(let code, _, _) = outcome {
+        if case .refused(let code, _, _, _) = outcome {
             if state.isRestoring { endRestore(tookTooLong: false) }
             if code == "thread_closed" || code == "thread_owned_by_device" { await fetchStatus() }
         }

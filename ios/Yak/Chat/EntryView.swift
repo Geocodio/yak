@@ -66,6 +66,9 @@ struct EntryView: View {
             UnsentView(item: item, isOffline: thread.isOffline, thread: thread)
         case .delivered(let delivery):
             DeliveredView(delivery: delivery)
+        case .milestone(let milestone): MilestoneGroupRow(milestones: [milestone])
+        case .retry(let message): RetryDivider(message: message)
+        case .legacyAnswer(let answer): LegacyAnswerView(answer: answer, thread: thread)
         }
     }
 }
@@ -115,8 +118,13 @@ private struct PersonMessageView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let otherName {
+            if let otherName, message.via == nil {
                 Text(otherName).font(.caption).foregroundStyle(Color.yakMuted)
+            }
+            if let via = message.via {
+                ViaCaption(
+                    name: otherName ?? message.authorName ?? String(localized: "chat.message.you"), via: via,
+                    isReply: message.isReply)
             }
             MessageBubble {
                 Text(verbatim: String(message.text.prefix(displayedTextLimit))).textSelection(.enabled)
@@ -148,28 +156,34 @@ private struct PersonMessageView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let uuid = message.uuid {
                 Menu {
-                    Button {
-                        editing = EditTarget(uuid: uuid, text: message.text)
-                    } label: {
-                        Label("chat.message.edit", systemImage: "pencil")
-                    }
-                    if isQueued {
-                        Button {
-                            Task { await thread.setQueuedMode(uuid, mode: .steer) }
-                        } label: {
-                            Label("chat.message.sendNow", systemImage: "paperplane")
+                    ForEach(QueuedMessageMenu.items(canEditText: message.canEditText, isQueued: isQueued), id: \.self) {
+                        item in
+                        switch item {
+                        case .edit:
+                            Button {
+                                editing = EditTarget(uuid: uuid, text: message.text)
+                            } label: {
+                                Label("chat.message.edit", systemImage: "pencil")
+                            }
+                        case .sendNow:
+                            Button {
+                                Task { await thread.setQueuedMode(uuid, mode: .steer) }
+                            } label: {
+                                Label("chat.message.sendNow", systemImage: "paperplane")
+                            }
+                        case .sendAfterTurn:
+                            Button {
+                                Task { await thread.setQueuedMode(uuid, mode: .queue) }
+                            } label: {
+                                Label("chat.message.sendAfterTurn", systemImage: "clock")
+                            }
+                        case .remove:
+                            Button(role: .destructive) {
+                                Task { await thread.withdrawQueued(uuid) }
+                            } label: {
+                                Label("chat.message.remove", systemImage: "trash")
+                            }
                         }
-                    } else {
-                        Button {
-                            Task { await thread.setQueuedMode(uuid, mode: .queue) }
-                        } label: {
-                            Label("chat.message.sendAfterTurn", systemImage: "clock")
-                        }
-                    }
-                    Button(role: .destructive) {
-                        Task { await thread.withdrawQueued(uuid) }
-                    } label: {
-                        Label("chat.message.remove", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis").foregroundStyle(.primary).frame(minWidth: 44, minHeight: 44)
@@ -273,7 +287,8 @@ private struct EditQueuedSheet: View {
         isSaving = false
         switch outcome {
         case .done, .alreadySent: dismiss()
-        case .refused(_, let message, _): problem = message.isEmpty ? String(localized: "chat.action.refused") : message
+        case .refused(_, let message, _, _):
+            problem = message.isEmpty ? String(localized: "chat.action.refused") : message
         case .failed(.offline): problem = String(localized: "chat.action.offline")
         case .failed: problem = String(localized: "chat.action.failed")
         }

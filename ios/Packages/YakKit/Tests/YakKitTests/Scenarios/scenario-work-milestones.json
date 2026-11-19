@@ -1,0 +1,180 @@
+{
+  "thread": {
+    "id": "d0e515ef",
+    "name": "retry-failed-rows",
+    "title": "Retry failed rows when the import times out",
+    "repo": "example/api",
+    "kind": "root",
+    "status": "open",
+    "visibility": "team",
+    "branch": "yak/retry-failed-rows",
+    "sandboxState": "running",
+    "runnerState": "idle",
+    "ownerSide": "yak",
+    "blockedReason": null,
+    "parentThreadId": null,
+    "rootThreadId": null,
+    "lastActivityAt": "2026-11-15T09:30:00Z",
+    "pullRequestCount": 0,
+    "isOwner": true,
+    "isStarred": false,
+    "hasRepository": true
+  },
+  "canDrive": true,
+  "messages": [
+    {
+      "id": "turn-message-1",
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "sendKey": null,
+      "text": "Retry failed rows when the import times out",
+      "authorName": "Test Person",
+      "authorInitials": "TP",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:00:00Z",
+      "readAfterSequence": 2,
+      "bodyHtml": "<p>Retry failed rows when the import times out</p>",
+      "canEditText": false
+    },
+    {
+      "id": "turn-message-2",
+      "uuid": null,
+      "sendKey": null,
+      "text": "",
+      "authorName": "Yak",
+      "authorInitials": "Y",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:25:00Z",
+      "readAfterSequence": 8,
+      "bodyHtml": "",
+      "via": null,
+      "isReply": false,
+      "isRetry": true,
+      "retryNumber": 1,
+      "canEditText": false
+    }
+  ],
+  "composer": {
+    "state": "idle",
+    "model": "sonnet",
+    "accountName": "Test account",
+    "nextAttachmentNumber": 1,
+    "models": [
+      {
+        "family": "sonnet",
+        "latest": {
+          "value": "sonnet",
+          "label": "Sonnet 5.5",
+          "description": "Fast and capable"
+        },
+        "older": [
+          {
+            "value": "claude-sonnet-5-0",
+            "label": "Sonnet 5"
+          }
+        ]
+      }
+    ]
+  },
+  "notice": null,
+  "panes": {
+    "chat": true,
+    "preview": false,
+    "terminal": true,
+    "changes": true,
+    "files": true
+  },
+  "question": null,
+  "latestSequence": 14,
+  "request": {
+    "source": {
+      "key": "dashboard",
+      "label": "Dashboard",
+      "reference": null,
+      "url": null
+    },
+    "starter": {
+      "key": "name:Test person",
+      "name": "Test person",
+      "avatarUrl": null
+    },
+    "responsibleName": null,
+    "status": {
+      "key": "done",
+      "label": "Done",
+      "tone": "ok"
+    }
+  },
+  "progress": null,
+  "milestones": [
+    {
+      "key": "pushed",
+      "label": "Pushed",
+      "tone": "ok",
+      "url": null,
+      "runId": "11",
+      "afterSequence": 6
+    },
+    {
+      "key": "ci_failed",
+      "label": "CI failed",
+      "tone": "bad",
+      "url": null,
+      "runId": "11",
+      "afterSequence": 8
+    },
+    {
+      "key": "pushed",
+      "label": "Pushed",
+      "tone": "ok",
+      "url": null,
+      "runId": "12",
+      "afterSequence": 12
+    },
+    {
+      "key": "ci_passed",
+      "label": "CI passed",
+      "tone": "ok",
+      "url": null,
+      "runId": "12",
+      "afterSequence": 12
+    },
+    {
+      "key": "pull_request_opened",
+      "label": "Pull request opened",
+      "tone": "ok",
+      "url": "https://github.com/example/api/pull/41",
+      "runId": "12",
+      "afterSequence": 14
+    },
+    {
+      "key": "walkthrough_ready",
+      "label": "Walkthrough ready",
+      "tone": "ok",
+      "url": null,
+      "runId": "12",
+      "afterSequence": 14
+    }
+  ],
+  "card": null,
+  "repositoryQuestion": null,
+  "earlyWarning": null,
+  "coOwner": null,
+  "stopped": null,
+  "actions": {
+    "canStop": false,
+    "canRetry": false,
+    "canCancel": false,
+    "canMove": false,
+    "moveTargets": [],
+    "canRequestReview": false,
+    "canRetryRender": false
+  },
+  "isLegacy": false,
+  "legacyAnswers": []
+}

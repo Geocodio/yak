@@ -11,7 +11,17 @@ public enum ComposerUnavailable: Equatable, Sendable {
 
 /// The controls of the one-row bottom bar for what the server allows.
 public struct ComposerBarState: Equatable, Sendable {
-    public enum Placeholder: Equatable, Sendable { case messageYak, steerYak }
+    public enum Placeholder: Equatable, Sendable {
+        case messageYak, steerYak
+        /// The work stopped; a message tries it again with the message as a note.
+        case replyToTryAgain
+    }
+
+    /// A line above the field.
+    public enum Line: Equatable, Sendable {
+        /// A thread made from an old task: a message starts a new thread.
+        case startsNewThread
+    }
 
     /// Non-nil: the reason replaces the field.
     public var unavailable: ComposerUnavailable?
@@ -23,6 +33,7 @@ public struct ComposerBarState: Equatable, Sendable {
     /// The long press menu on Send.
     public var offersSendAfterTurn: Bool
     public var isTurnRunning: Bool
+    public var line: Line? = nil
 
     /// The typed text belongs to the caller and is never cleared by this state.
     public static func make(
@@ -48,9 +59,10 @@ public struct ComposerBarState: Equatable, Sendable {
         let hasText = !typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isTyping = hasText || attachmentCount > 0
         return ComposerBarState(
-            unavailable: nil, placeholder: isRunning ? .steerYak : .messageYak,
+            unavailable: nil,
+            placeholder: isRunning ? .steerYak : (composer == .stopped ? .replyToTryAgain : .messageYak),
             showsPlus: !hasText,
             showsSend: isTyping, showsStop: isRunning, offersSendAfterTurn: isRunning && isTyping,
-            isTurnRunning: isRunning)
+            isTurnRunning: isRunning, line: composer == .legacy ? .startsNewThread : nil)
     }
 }

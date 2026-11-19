@@ -20,6 +20,11 @@ public struct AppTaskDetail: Codable, Equatable, Sendable {
 public struct TaskConversationEntry: Codable, Equatable, Sendable {
     public let kind: String
     public let bodyHtml: String
+
+    public init(kind: String, bodyHtml: String) {
+        self.kind = kind
+        self.bodyHtml = bodyHtml
+    }
 }
 
 public struct TaskProgressStep: Codable, Equatable, Sendable {
@@ -58,6 +63,20 @@ public struct CoOwnerPanel: Codable, Equatable, Sendable {
     public let viewer: CoOwnerViewer
     public let connectUrl: String
     public let requesterName: String
+    /// Thread route only: the viewer can drive the thread. Nil on the task route.
+    public let canDecide: Bool?
+    /// Thread route only: the viewer is one of the people asked. Nil on the task route.
+    public let viewerIsAsked: Bool?
+    /// Thread route only: the paths of the changed files, in the order of the areas that name them. Empty on the
+    /// task route.
+    public let filePaths: [String]
+
+    private enum AreasKey: String, CodingKey { case areas }
+
+    private struct Area: Decodable {
+        struct File: Decodable { let path: String }
+        let files: [File]?
+    }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -72,6 +91,10 @@ public struct CoOwnerPanel: Codable, Equatable, Sendable {
         viewer = try container.decode(CoOwnerViewer.self, forKey: .viewer)
         connectUrl = try container.decode(String.self, forKey: .connectUrl)
         requesterName = try container.decode(String.self, forKey: .requesterName)
+        canDecide = try container.decodeIfPresent(Bool.self, forKey: .canDecide)
+        viewerIsAsked = try container.decodeIfPresent(Bool.self, forKey: .viewerIsAsked)
+        let areas = try decoder.container(keyedBy: AreasKey.self).decodeIfPresent([Area].self, forKey: .areas) ?? []
+        filePaths = areas.flatMap { ($0.files ?? []).map(\.path) }
     }
 }
 
@@ -96,8 +119,20 @@ public struct TaskActionsAvailable: Codable, Equatable, Sendable {
     public let rerouteTargets: [String]
 }
 
-/// The server's `EarlyWarningData` notice; `areas` and other extra keys are ignored.
+public struct EarlyWarningArea: Codable, Equatable, Sendable {
+    public let name: String
+    /// high, medium or low; any other word is kept.
+    public let risk: String
+
+    public init(name: String, risk: String) {
+        self.name = name
+        self.risk = risk
+    }
+}
+
+/// The server's `EarlyWarningData` notice; keys the app does not use are ignored.
 public struct EarlyWarningNotice: Codable, Equatable, Sendable {
+    public let areas: [EarlyWarningArea]
     /// shown, tagged or declined; any other word is kept.
     public let state: String
     /// The server's rule: state shown and the viewer is the requester.
@@ -105,6 +140,34 @@ public struct EarlyWarningNotice: Codable, Equatable, Sendable {
     public let taggedName: String?
     public let fallbackName: String?
     public let repoName: String
+
+    public init(
+        areas: [EarlyWarningArea] = [],
+        state: String,
+        canPick: Bool,
+        taggedName: String? = nil,
+        fallbackName: String? = nil,
+        repoName: String
+    ) {
+        self.areas = areas
+        self.state = state
+        self.canPick = canPick
+        self.taggedName = taggedName
+        self.fallbackName = fallbackName
+        self.repoName = repoName
+    }
+
+    private enum CodingKeys: String, CodingKey { case areas, state, canPick, taggedName, fallbackName, repoName }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        areas = try container.decodeIfPresent([EarlyWarningArea].self, forKey: .areas) ?? []
+        state = try container.decode(String.self, forKey: .state)
+        canPick = try container.decode(Bool.self, forKey: .canPick)
+        taggedName = try container.decodeIfPresent(String.self, forKey: .taggedName)
+        fallbackName = try container.decodeIfPresent(String.self, forKey: .fallbackName)
+        repoName = try container.decode(String.self, forKey: .repoName)
+    }
 }
 
 public struct AppTask: Codable, Equatable, Sendable {

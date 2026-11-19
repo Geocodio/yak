@@ -31,6 +31,29 @@ struct ComposerBarStateTests {
         #expect(state.offersSendAfterTurn == sendAfterTurn && state.placeholder == placeholder)
     }
 
+    @Test func stoppedAndLegacyKeepTheField() {
+        let stopped = ComposerBarState.make(
+            composer: .stopped, canDrive: true, turn: nil, notice: nil, typedText: "", attachmentCount: 0)
+        #expect(stopped.unavailable == nil && stopped.placeholder == .replyToTryAgain && stopped.line == nil)
+        let typing = ComposerBarState.make(
+            composer: .stopped, canDrive: true, turn: nil, notice: nil, typedText: "Try the other branch",
+            attachmentCount: 0)
+        #expect(typing.showsSend && !typing.showsStop && typing.unavailable == nil)
+        let legacy = ComposerBarState.make(
+            composer: .legacy, canDrive: true, turn: nil, notice: nil, typedText: "Carry on", attachmentCount: 0)
+        #expect(legacy.unavailable == nil && legacy.line == .startsNewThread && legacy.showsSend)
+        #expect(legacy.placeholder == .messageYak)
+        // A retry that is running is steered like any other turn.
+        let running = ComposerBarState.make(
+            composer: .stopped, canDrive: true, turn: TurnChange(turnId: LenientID("41"), state: .running),
+            notice: nil, typedText: "", attachmentCount: 0)
+        #expect(running.placeholder == .steerYak && running.showsStop)
+        // A reader cannot send to either.
+        let reader = ComposerBarState.make(
+            composer: .legacy, canDrive: false, turn: nil, notice: nil, typedText: "", attachmentCount: 0)
+        #expect(reader.unavailable == .readOnly && reader.line == nil)
+    }
+
     @Test func theReasonReplacesTheField() {
         let notice = ThreadNotice(
             kind: "restore_failed", title: "Rebuilding the sandbox stopped at step 2",

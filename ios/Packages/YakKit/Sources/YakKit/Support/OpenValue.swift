@@ -76,6 +76,10 @@ public struct ComposerState: OpenValue {
     public static let disabledComputer = ComposerState(rawValue: "disabled_computer")
     public static let disabledBlocked = ComposerState(rawValue: "disabled_blocked")
     public static let readonly = ComposerState(rawValue: "readonly")
+    /// The head task stopped without a pull request; a message retries it with the message as a note.
+    public static let stopped = ComposerState(rawValue: "stopped")
+    /// A closed thread made from an old task; a message continues the work in a new thread.
+    public static let legacy = ComposerState(rawValue: "legacy")
 }
 
 public struct MessageState: OpenValue {

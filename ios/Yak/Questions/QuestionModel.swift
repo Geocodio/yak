@@ -198,7 +198,7 @@ final class QuestionModel {
             sentCount += 1
             clear()
             answeredRoundKey = key
-        case .refused(let code, let message, let errors):
+        case .refused(let code, let message, let errors, _):
             let delivered = mayHaveBeenDelivered
             mayHaveBeenDelivered = false
             if code == "question_closed" {

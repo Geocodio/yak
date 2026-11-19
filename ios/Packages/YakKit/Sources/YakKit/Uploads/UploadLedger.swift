@@ -107,7 +107,8 @@ public actor UploadLedger {
                 return .delivered(status: .sent, messageUUID: nil, threadID: created.id)
             }
             let result: MessageSendResult = try APIClient.interpret(data: body, response: response)
-            return .delivered(status: result.status, messageUUID: result.uuid, threadID: result.threadId)
+            return .delivered(
+                status: result.status, messageUUID: result.uuid, threadID: result.threadId, notice: result.notice)
         } catch {
             return .decision(OutboxRetryPolicy.decision(for: error, attempt: record.attempts))
         }

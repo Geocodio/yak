@@ -28,7 +28,9 @@ public struct OverviewInputs: Equatable, Sendable {
     }
 }
 
-public enum OverviewGroupKind: String, Equatable, Sendable { case subThreads, status, links, access, people }
+public enum OverviewGroupKind: String, Equatable, Sendable {
+    case request, progress, subThreads, status, links, access, people
+}
 
 public enum AddSubThreadAvailability: Equatable, Sendable {
     case allowed

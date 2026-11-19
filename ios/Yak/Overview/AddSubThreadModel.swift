@@ -148,7 +148,7 @@ final class AddSubThreadModel {
             refusedCode = "sub_thread_cannot_spawn"
             refusedParentID = parentID
             problem = message
-        case .notAdded(.refused(let code, let message, let errors)):
+        case .notAdded(.refused(let code, let message, let errors, _)):
             refusalCount += 1
             refusedCode = code
             for field in ["name", "brief", "kind", "model"] {

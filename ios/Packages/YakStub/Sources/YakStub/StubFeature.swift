@@ -73,6 +73,8 @@ enum StubFeatures {
         StubWalkthroughVideo(),
         // Before the changes feature, which answers the core thread's show in every scenario.
         StubQuestions(),
+        // Before the changes feature too: its scenarios answer the thread's show from their own files.
+        StubThreadWork(),
         StubChanges(),
         StubTerminalFeature.shared,
         StubFilesControl(),

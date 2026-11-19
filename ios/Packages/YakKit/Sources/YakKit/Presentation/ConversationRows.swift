@@ -29,6 +29,9 @@ public enum ConversationTimestamps {
         case .event(let item): RelativeAge.parse(item.at)
         case .unsent(let item): item.createdAt
         case .delivered(let delivery): delivery.sentAt
+        case .milestone: nil
+        case .retry(let message): RelativeAge.parse(message.sentAt)
+        case .legacyAnswer(let answer): RelativeAge.parse(answer.at)
         }
     }
 }

@@ -140,7 +140,7 @@ final class PullRequestCardModel {
         case .done, .alreadySent:
             fixing[rowID] = .sent
             successCount += 1
-        case .refused(_, let message, _):
+        case .refused(_, let message, _, _):
             fixing[rowID] = .failed(message)
             errorCount += 1
         case .failed(let failure):
@@ -230,7 +230,7 @@ final class PullRequestCardModel {
             if let movedID, let place = next.firstIndex(of: movedID) {
                 orderAnnouncement = String(localized: "pullRequest.order.moved \(place + 1) \(next.count)")
             }
-        case .refused(let code, let message, let fieldErrors):
+        case .refused(let code, let message, let fieldErrors, _):
             draftOpenIDs = previous
             // The server answers 422 with an error on `order` when the pull requests of the thread are not the ones
             // that were sent.

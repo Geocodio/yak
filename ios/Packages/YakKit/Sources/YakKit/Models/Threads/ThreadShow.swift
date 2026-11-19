@@ -17,6 +17,21 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     public let publishWarning: Bool
     /// The broadcast channel for this thread's Live Activity; nil when the server has none.
     public let liveActivityChannel: String?
+    /// Who asked for the work and how far it is. Nil from a server that does not send it.
+    public let request: ThreadRequest?
+    /// Nil when the thread is closed, has no task or the work succeeded.
+    public let progress: ThreadProgress?
+    public let milestones: [ThreadMilestone]
+    /// The one card to show above the composer. Nil from an older server.
+    public let card: ThreadCard?
+    public let repositoryQuestion: RepositoryQuestion?
+    public let earlyWarning: EarlyWarningNotice?
+    public let coOwner: CoOwnerPanel?
+    public let stopped: ThreadStop?
+    public let actions: ThreadActionFlags
+    /// A thread made from an old task: closed, no sandbox.
+    public let isLegacy: Bool
+    public let legacyAnswers: [LegacyAnswer]
 
     public init(
         thread: ThreadDetail,
@@ -33,7 +48,18 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         diffTotals: DiffTotals? = nil,
         pullRequest: ThreadPullRequestLink? = nil,
         publishWarning: Bool = false,
-        liveActivityChannel: String? = nil
+        liveActivityChannel: String? = nil,
+        request: ThreadRequest? = nil,
+        progress: ThreadProgress? = nil,
+        milestones: [ThreadMilestone] = [],
+        card: ThreadCard? = nil,
+        repositoryQuestion: RepositoryQuestion? = nil,
+        earlyWarning: EarlyWarningNotice? = nil,
+        coOwner: CoOwnerPanel? = nil,
+        stopped: ThreadStop? = nil,
+        actions: ThreadActionFlags = .none,
+        isLegacy: Bool = false,
+        legacyAnswers: [LegacyAnswer] = []
     ) {
         self.thread = thread
         self.canDrive = canDrive
@@ -50,6 +76,17 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         self.pullRequest = pullRequest
         self.publishWarning = publishWarning
         self.liveActivityChannel = liveActivityChannel
+        self.request = request
+        self.progress = progress
+        self.milestones = milestones
+        self.card = card
+        self.repositoryQuestion = repositoryQuestion
+        self.earlyWarning = earlyWarning
+        self.coOwner = coOwner
+        self.stopped = stopped
+        self.actions = actions
+        self.isLegacy = isLegacy
+        self.legacyAnswers = legacyAnswers
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -57,6 +94,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         case stackParent, capacity
         case canOpenPullRequest, diffTotals, pullRequest, publishWarning
         case liveActivityChannel
+        case request, progress, milestones, card, repositoryQuestion, earlyWarning, coOwner, stopped
+        case actions, isLegacy, legacyAnswers
     }
 
     public init(from decoder: any Decoder) throws {
@@ -76,6 +115,17 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         pullRequest = try container.decodeIfPresent(ThreadPullRequestLink.self, forKey: .pullRequest)
         publishWarning = try container.decodeIfPresent(Bool.self, forKey: .publishWarning) ?? false
         liveActivityChannel = try container.decodeIfPresent(String.self, forKey: .liveActivityChannel)
+        request = try container.decodeIfPresent(ThreadRequest.self, forKey: .request)
+        progress = try container.decodeIfPresent(ThreadProgress.self, forKey: .progress)
+        milestones = try container.decodeIfPresent([ThreadMilestone].self, forKey: .milestones) ?? []
+        card = try container.decodeIfPresent(ThreadCard.self, forKey: .card)
+        repositoryQuestion = try container.decodeIfPresent(RepositoryQuestion.self, forKey: .repositoryQuestion)
+        earlyWarning = try container.decodeIfPresent(EarlyWarningNotice.self, forKey: .earlyWarning)
+        coOwner = try container.decodeIfPresent(CoOwnerPanel.self, forKey: .coOwner)
+        stopped = try container.decodeIfPresent(ThreadStop.self, forKey: .stopped)
+        actions = try container.decodeIfPresent(ThreadActionFlags.self, forKey: .actions) ?? .none
+        isLegacy = try container.decodeIfPresent(Bool.self, forKey: .isLegacy) ?? false
+        legacyAnswers = try container.decodeIfPresent([LegacyAnswer].self, forKey: .legacyAnswers) ?? []
     }
 }
 
@@ -102,6 +152,11 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
     public let sharedWithCount: Int?
     public let startedOnDevice: Bool?
     public let pullRequestOpening: PullRequestOpening?
+    /// False means `repo` is the placeholder `unknown`, which is never shown.
+    public let hasRepository: Bool
+
+    /// The repository to show a person: nil while `repo` is the placeholder.
+    public var shownRepo: String? { hasRepository ? repo : nil }
 
     public init(
         id: String,
@@ -125,7 +180,8 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         preview: ThreadPreviewHints? = nil,
         sharedWithCount: Int? = nil,
         startedOnDevice: Bool? = nil,
-        pullRequestOpening: PullRequestOpening? = nil
+        pullRequestOpening: PullRequestOpening? = nil,
+        hasRepository: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -149,9 +205,11 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         self.sharedWithCount = sharedWithCount
         self.startedOnDevice = startedOnDevice
         self.pullRequestOpening = pullRequestOpening
+        self.hasRepository = hasRepository
     }
 
     private enum CodingKeys: String, CodingKey {
+        case hasRepository
         case id, name, title, repo, kind, status, visibility, branch, sandboxState, runnerState, blockedReason
         case parentThreadId, rootThreadId, lastActivityAt, pullRequestCount, isOwner, isStarred, pullRequestOpening
         case ownerSide, preview, sharedWithCount, startedOnDevice
@@ -181,6 +239,7 @@ public struct ThreadDetail: Codable, Equatable, Sendable {
         sharedWithCount = try container.decodeIfPresent(Int.self, forKey: .sharedWithCount)
         startedOnDevice = try container.decodeIfPresent(Bool.self, forKey: .startedOnDevice)
         pullRequestOpening = try container.decodeIfPresent(PullRequestOpening.self, forKey: .pullRequestOpening)
+        hasRepository = try container.decodeIfPresent(Bool.self, forKey: .hasRepository) ?? true
     }
 
     public var isPrivate: Bool { visibility == "private" }
@@ -214,19 +273,29 @@ public struct ThreadNotice: Codable, Equatable, Sendable {
     public let body: String
     public let resetsAt: String?
     public let canContinue: Bool
+    /// The `moved` notice names the thread the work continues in; all three are nil when the viewer cannot see it.
+    public let repo: String?
+    public let threadId: String?
+    public let threadTitle: String?
 
     public init(
         kind: String,
         title: String,
         body: String,
         resetsAt: String? = nil,
-        canContinue: Bool
+        canContinue: Bool,
+        repo: String? = nil,
+        threadId: String? = nil,
+        threadTitle: String? = nil
     ) {
         self.kind = kind
         self.title = title
         self.body = body
         self.resetsAt = resetsAt
         self.canContinue = canContinue
+        self.repo = repo
+        self.threadId = threadId
+        self.threadTitle = threadTitle
     }
 }
 

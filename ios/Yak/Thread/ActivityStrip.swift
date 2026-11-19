@@ -12,14 +12,15 @@ struct ActivityStrip: View {
 
     var body: some View {
         switch line {
-        case .question(let count): questionChip(count)
+        case .question(let count): questionChip(Text("question.chip \(count)"), identifier: "question.chip")
+        case .needsYou: questionChip(Text("activity.needsYou"), identifier: "activity.needsYou")
         case .step, .working: strip
         }
     }
 
     private var text: String {
         switch line {
-        case .working, .question: String(localized: "activity.working")
+        case .working, .question, .needsYou: String(localized: "activity.working")
         case .step(let category, let label, let isFailed):
             switch category {
             case .command:
@@ -54,20 +55,20 @@ struct ActivityStrip: View {
         .transition(.opacity)
     }
 
-    private func questionChip(_ count: Int) -> some View {
+    private func questionChip(_ title: Text, identifier: String) -> some View {
         Button {
             openChat(false)
         } label: {
             HStack(spacing: 8) {
                 Circle().fill(Color.primary).frame(width: 8, height: 8).accessibilityHidden(true)
-                Text("question.chip \(count)").font(.subheadline.weight(.medium)).lineLimit(2)
+                title.font(.subheadline.weight(.medium)).lineLimit(2)
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
             .yakBarSurface(in: .capsule)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("question.chip")
+        .accessibilityIdentifier(identifier)
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8)
         .transition(.opacity)
     }
@@ -80,16 +81,25 @@ struct ActivityStripButton: View {
 
     var body: some View {
         Button {
-            openChat({ if case .question = line { false } else { true } }())
+            openChat({ if case .working = line { true } else if case .step = line { true } else { false } }())
         } label: {
-            Image(systemName: isQuestion ? "questionmark.bubble" : "arrow.triangle.2.circlepath")
-                .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            Image(
+                systemName: isQuestion
+                    ? "questionmark.bubble" : (isNeeded ? "exclamationmark.bubble" : "arrow.triangle.2.circlepath")
+            )
+            .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
-        .accessibilityLabel(Text(isQuestion ? "question.chip.strip" : "activity.strip.compact"))
-        .accessibilityIdentifier(isQuestion ? "question.chip" : "activity.strip")
+        .accessibilityLabel(
+            Text(isQuestion ? "question.chip.strip" : (isNeeded ? "activity.needsYou" : "activity.strip.compact"))
+        )
+        .accessibilityIdentifier(isQuestion ? "question.chip" : (isNeeded ? "activity.needsYou" : "activity.strip"))
     }
 
     private var isQuestion: Bool {
         if case .question = line { true } else { false }
+    }
+
+    private var isNeeded: Bool {
+        if case .needsYou = line { true } else { false }
     }
 }

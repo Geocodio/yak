@@ -64,6 +64,11 @@ struct ChatView: View {
     /// The jump button and the action line sit below the list, so no row hides behind them.
     var body: some View {
         VStack(spacing: 0) {
+            if let request = thread.snapshot?.show?.request {
+                ThreadRequestRow(request: request, stepLine: thread.stepLine)
+                    .padding(.horizontal, Design.Space.pageInset).padding(.top, Design.Space.compact)
+                    .frame(maxWidth: Design.Size.chatMaximumWidth, alignment: .leading).frame(maxWidth: .infinity)
+            }
             list
             floatingControls
         }
@@ -77,20 +82,25 @@ struct ChatView: View {
                         .onAppear { isHistoryVisible = true }
                         .onDisappear { isHistoryVisible = false }
                 }
-                ForEach(thread.rows) { row in
-                    ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
-                        .onGeometryChange(for: CGRect.self) {
-                            $0.frame(in: .scrollView)
-                        } action: {
-                            // A day divider moves when older messages of its day arrive above it, so only entries
-                            // can hold the place.
-                            guard case .entry = row else { return }
-                            rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
-                            if let requested = rowCountWhenRequested, thread.rows.count == requested {
-                                anchorBeforePage = anchorRow()
+                ForEach(ChatDisplayRow.group(thread.rows)) { item in
+                    switch item {
+                    case .milestones(let id, let milestones):
+                        MilestoneGroupRow(milestones: milestones).id(id)
+                    case .row(let row):
+                        ChatRowView(row: row, thread: thread, openThread: openThread).id(row.id)
+                            .onGeometryChange(for: CGRect.self) {
+                                $0.frame(in: .scrollView)
+                            } action: {
+                                // A day divider moves when older messages of its day arrive above it, so only
+                                // entries can hold the place.
+                                guard case .entry = row else { return }
+                                rowFrames.frames[row.id] = ($0, CACurrentMediaTime())
+                                if let requested = rowCountWhenRequested, thread.rows.count == requested {
+                                    anchorBeforePage = anchorRow()
+                                }
                             }
-                        }
-                        .onDisappear { rowFrames.frames[row.id] = nil }
+                            .onDisappear { rowFrames.frames[row.id] = nil }
+                    }
                 }
                 if let notice = thread.notice {
                     NoticeCard(notice: notice, thread: thread)
@@ -99,7 +109,7 @@ struct ChatView: View {
             // No `scrollTargetLayout()`: with one, a change of the list's height re-anchors the position to a row's
             // leading edge, which sits inside the side padding and moves the list sideways by that padding.
             .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.medium)
-            .frame(maxWidth: 720).frame(maxWidth: .infinity)
+            .frame(maxWidth: Design.Size.chatMaximumWidth).frame(maxWidth: .infinity)
         }
         .accessibilityIdentifier("chat.list")
         .scrollPosition($position)
@@ -147,7 +157,8 @@ struct ChatView: View {
         .onChange(of: thread.announcementSerial) {
             if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
         }
-        .sensoryFeedback(.warning, trigger: thread.actionLine) { _, new in new != nil }
+        .sensoryFeedback(.warning, trigger: thread.actionLine) { _, new in new != nil && !thread.isActionLineInformation
+        }
     }
 
     // MARK: Scrolling

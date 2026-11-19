@@ -48,7 +48,7 @@ public struct UploadRecord: Codable, Equatable, Sendable {
 }
 
 public enum UploadOutcome: Equatable, Sendable {
-    case delivered(status: SendStatus, messageUUID: String?, threadID: String?)
+    case delivered(status: SendStatus, messageUUID: String?, threadID: String?, notice: String? = nil)
     case decision(OutboxDecision)
 }
 

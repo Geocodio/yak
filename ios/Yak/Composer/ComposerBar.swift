@@ -34,8 +34,8 @@ struct ComposerBar: View {
             AttachmentStrip(composer: composer)
             PasteImageButton(composer: composer)
             if let reason = composer.bar.unavailable {
-                UnavailableRow(reason: reason, repo: thread.snapshot?.show?.thread.repo) {
-                    scene.openNewThread(repo: thread.snapshot?.show?.thread.repo, text: nil)
+                UnavailableRow(reason: reason, repo: thread.snapshot?.show?.thread.shownRepo) {
+                    scene.openNewThread(repo: thread.snapshot?.show?.thread.shownRepo, text: nil)
                 }
             } else {
                 HStack(alignment: .bottom, spacing: 8) {
@@ -67,11 +67,15 @@ struct ComposerBar: View {
 
     private func field(_ text: Binding<String>) -> some View {
         let isSteering = composer.bar.placeholder == .steerYak
+        let isRetrying = composer.bar.placeholder == .replyToTryAgain
+        let isContinuing = composer.bar.line != nil
         // The short words fit the field at the largest text sizes, where the full ones are cut.
         let placeholder: LocalizedStringKey =
             dynamicTypeSize.isAccessibilitySize
-            ? (isSteering ? "composer.steer.short" : "composer.message.short")
-            : (isSteering ? "composer.steer" : "composer.message")
+            ? (isSteering ? "composer.steer.short" : (isRetrying ? "composer.retry.short" : "composer.message.short"))
+            : (isSteering
+                ? "composer.steer"
+                : (isRetrying ? "composer.retry" : (isContinuing ? "composer.continue" : "composer.message")))
         return TextField(placeholder, text: text, axis: .vertical)
             .lineLimit(1...6)
             .focused($isFocused)
@@ -137,6 +141,7 @@ struct ComposerBar: View {
 
     private func send(_ delivery: MessageDelivery) {
         if delivery == .afterTurn { SendAfterTurnTip.recordUse() }
+        thread.sendStarted()
         Task { await composer.send(delivery: delivery) }
     }
 

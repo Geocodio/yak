@@ -36,7 +36,7 @@ public actor SandboxRestore {
     private static func outcome(_ result: ThreadActionOutcome) -> RestoreOutcome {
         switch result {
         case .done, .alreadySent: .started
-        case .refused(let code, let message, _): code == "nothing_to_restore" ? .started : .refused(message: message)
+        case .refused(let code, let message, _, _): code == "nothing_to_restore" ? .started : .refused(message: message)
         case .failed(let problem): .failed(problem)
         }
     }

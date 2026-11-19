@@ -74,6 +74,10 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
             } else {
                 return Self.refusal(url, status: 409, code: "thread_closed", message: "This thread is closed.")
             }
+        } else if path.hasSuffix("threads/d0e515ef/request-review") {
+            return Self.refusal(url, status: 409, code: "review_not_requested", message: "")
+        } else if path.hasSuffix("threads/d0e515ef/retry-render") {
+            body = String(Self.show.dropLast()) + #","status":"rendering"}"#
         } else if path.hasSuffix("queued-messages/q1") {
             return Self.refusal(url, status: 409, code: "message_delivered", message: "")
         } else {
@@ -213,6 +217,68 @@ private func chatSnapshot(
     await model.apply(try chatSnapshot(.running, items: items))
     await model.apply(try chatSnapshot(.completed, items: items))
     #expect(model.announcement == "Yak finished. " + String(repeating: "a", count: 200))
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aThreadWithoutARepositoryNeverNamesThePlaceholder() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let cards = ThreadCardModel(thread: model)
+    let withoutRepository = ThreadTransport.show.replacingOccurrences(
+        of: #""repo":"example/api""#, with: #""repo":"unknown","hasRepository":false"#)
+    await model.apply(
+        try chatSnapshot(
+            .completed, show: JSONDecoder().decode(ThreadShow.self, from: Data(withoutRepository.utf8))))
+    #expect(model.snapshot?.show?.thread.shownRepo == nil)
+    #expect(cards.repositoryName == String(localized: "thread.card.coOwner.thisRepository"))
+    await model.apply(try chatSnapshot(.completed))
+    #expect(cards.repositoryName == "example/api")
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aSendNoticeStaysUntilTheShowChangesOrTheNextSendStarts() async throws {
+    let clock = ManualClock()
+    let fixture = try await Fixture(clock: clock)
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let notice = SendNotice(id: UUID(), text: "Trying again with your note.")
+    var snapshot = try chatSnapshot(.completed)
+    snapshot.lastSendNotice = notice
+    await model.apply(snapshot)
+    #expect(model.actionLine == notice.text)
+    clock.advance(.seconds(30))
+    await model.apply(snapshot)
+    #expect(model.actionLine == notice.text)
+    var changed = snapshot
+    changed.show = try JSONDecoder().decode(
+        ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "15}").utf8))
+    await model.apply(changed)
+    #expect(model.actionLine == notice.text)
+    changed.show = try JSONDecoder().decode(
+        ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "16}").utf8))
+    await model.apply(changed)
+    #expect(model.actionLine == nil)
+    let second = SendNotice(id: UUID(), text: "Two.")
+    changed.lastSendNotice = second
+    await model.apply(changed)
+    #expect(model.actionLine == "Two.")
+    model.sendStarted()
+    #expect(model.actionLine == nil)
+    await fixture.session.stop()
+}
+
+@MainActor @Test func menuWorkActionsSayHowTheyEndInTheActionLine() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    await model.start(initialTitle: nil)
+    #expect(await fixture.eventually { model.snapshot?.load == .ready })
+    await model.performWork(.requestReview)
+    #expect(model.actionLine == String(localized: "chat.work.reviewNotRequested"))
+    #expect(model.isActionLineInformation)
+    await model.performWork(.retryRender)
+    #expect(model.actionLine == String(localized: "chat.work.renderRetried"))
+    await model.continueTurn()
+    #expect(model.actionLine == "m" && !model.isActionLineInformation)
+    await model.stop()
     await fixture.session.stop()
 }
 

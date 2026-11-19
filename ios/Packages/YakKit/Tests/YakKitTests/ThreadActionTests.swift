@@ -352,3 +352,226 @@ private func forbiddenStop(refreshedCanDrive: Bool) async throws -> Conversation
         typedText: "", attachmentCount: 0)
     #expect(bar.unavailable == .readOnly)
 }
+
+// MARK: Work actions
+
+private func answer(_ status: String, _ keys: [String: String] = [:]) throws -> FakeTransport.Result {
+    var all = keys
+    all["status"] = #""\#(status)""#
+    return .json(200, String(decoding: try workShowData(all), as: UTF8.self))
+}
+
+private func shows(_ rig: Rig) async -> Int { await rig.transport.requests(on: showRoute).count }
+
+@Test func anActionAdoptsTheAnsweredShowWithoutASecondRequest() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/retry"
+    await rig.transport.on(route, try answer("queued", ["card": #""repository_question""#]))
+    let before = await shows(rig)
+    let recorder = StreamRecorder(await rig.engine.snapshots())
+    #expect(await rig.engine.perform(.retry) == .done)
+    _ = try await recorder.next { $0.show?.card == .repositoryQuestion }
+    #expect(await shows(rig) == before)
+    #expect(await rig.transport.requests(on: route).count == 1)
+}
+
+@Test func anAnswerOlderThanTheAppliedEventsIsFetchedAgain() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.engine.receive(
+        .event(ThreadEvent(sequence: 1, type: "stream.reset", createdAt: "2026-11-15T09:00:00Z", data: .null)))
+    await rig.transport.on("POST threads/\(threadID)/retry", try answer("queued", ["latestSequence": "0"]))
+    let before = await shows(rig)
+    #expect(await rig.engine.perform(.retry) == .done)
+    let settled = rig.clock.offset + ThreadEngine.refreshSettle
+    await waitUntil { rig.clock.sleeperDeadlines.contains(settled) }
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+    await waitUntil { await shows(rig) == before + 1 }
+}
+
+@Test func anAnswerOlderThanThePageIsNotAdoptedAndTheShowIsFetchedAgain() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/retry"
+    await rig.transport.on(
+        route, try answer("queued", ["card": #""repository_question""#, "latestSequence": "3"]))
+    let before = await shows(rig)
+    #expect(await rig.engine.perform(.retry) == .done)
+    #expect(await shows(rig) == before)
+    let settled = rig.clock.offset + ThreadEngine.refreshSettle
+    await waitUntil { rig.clock.sleeperDeadlines.contains(settled) }
+    let snapshot = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    #expect(snapshot.show?.card != .repositoryQuestion)
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+    await waitUntil { await shows(rig) == before + 1 }
+}
+
+@Test func aMoveToANewThreadSetsTheReplacement() async throws {
+    let rig = try await makeRig(question: false)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: Scenarios.data("scenario-thread-show")) as? [String: Any])
+    var thread = try #require(object["thread"] as? [String: Any])
+    thread["id"] = "b7c8d9e0"
+    object["thread"] = thread
+    object["status"] = "moved"
+    let moved = String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
+    await rig.transport.on("POST threads/\(threadID)/move", .json(200, moved))
+    let recorder = StreamRecorder(await rig.engine.snapshots())
+    #expect(await rig.engine.perform(.move(repo: "example/web")) == .done)
+    let snapshot = try await recorder.next { $0.replacementThreadID == "b7c8d9e0" }
+    // The old page keeps its own thread: the new thread's show is not adopted.
+    #expect(snapshot.show?.thread.id == threadID)
+}
+
+@Test func aMoveOnTheSameThreadAdoptsTheShow() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/move", try answer("moved", ["card": #""repository_question""#]))
+    let recorder = StreamRecorder(await rig.engine.snapshots())
+    #expect(await rig.engine.perform(.move(repo: "example/web")) == .done)
+    let snapshot = try await recorder.next { $0.show?.card == .repositoryQuestion }
+    #expect(snapshot.replacementThreadID == nil)
+}
+
+@Test func aGitHubFailureIsARefusalWithItsMessage() async throws {
+    let rig = try await makeRig(question: false)
+    let message = "GitHub refused the pull request: branch is protected."
+    await rig.transport.on(
+        "POST threads/\(threadID)/co-owner/approve",
+        .json(503, #"{"error":"github_failed","message":"\#(message)","details":{"githubStatus":422}}"#))
+    #expect(
+        await rig.engine.perform(.approve)
+            == .refused(code: "github_failed", message: message, fieldErrors: [:], connectURL: nil))
+    await rig.transport.on(
+        "POST threads/\(threadID)/co-owner/check-access",
+        .json(503, #"{"error":"access_check_failed","message":"Yak could not check your GitHub access."}"#))
+    guard case .refused("access_check_failed", _, _, _) = await rig.engine.perform(.checkAccess) else {
+        Issue.record("not refused")
+        return
+    }
+}
+
+@Test func aTransientServerErrorStaysAFailure() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/request-review",
+        .json(502, #"{"error":"server_error","message":"Yak could not handle this request."}"#))
+    #expect(
+        await rig.engine.perform(.requestReview)
+            == .failed(.server(code: "server_error", message: "Yak could not handle this request.")))
+    await rig.transport.on(
+        "POST threads/\(threadID)/retry-render", .json(503, #"{"error":"unavailable","message":"Try again."}"#))
+    #expect(await rig.engine.perform(.retryRender) == .failed(.offline))
+}
+
+@Test func notLinkedCarriesTheConnectURL() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/co-owner/approve",
+        .json(
+            409,
+            #"{"error":"not_linked","message":"Link your GitHub account first.","details":{"connectUrl":"https://yak.example.com/connect"}}"#
+        ))
+    #expect(
+        await rig.engine.perform(.approve)
+            == .refused(
+                code: "not_linked", message: "Link your GitHub account first.", fieldErrors: [:],
+                connectURL: "https://yak.example.com/connect"))
+}
+
+@Test func aValidationRefusalKeepsItsFieldErrors() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/co-owner/request-changes",
+        .json(
+            422,
+            #"{"error":"validation_failed","message":"Invalid.","details":{"errors":{"feedback":["Say what to change."]}}}"#
+        ))
+    #expect(
+        await rig.engine.perform(.requestChanges(feedback: "x"))
+            == .refused(
+                code: "validation_failed", message: "Invalid.", fieldErrors: ["feedback": ["Say what to change."]]))
+}
+
+@Test func aDoubleTapOnApproveSendsOnce() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/co-owner/approve"
+    await rig.transport.on(route, try answer("approved"))
+    await rig.transport.hold(route)
+    async let first = rig.engine.perform(.approve)
+    await rig.transport.waitForRequests(1, on: route)
+    async let second = rig.engine.perform(.approve)
+    try await Task.sleep(for: .milliseconds(50))
+    await rig.transport.release(route)
+    let outcomes = await (first, second)
+    #expect(outcomes.0 == .done && outcomes.1 == .done)
+    #expect(await rig.transport.requests(on: route).count == 1)
+}
+
+@Test func twoDifferentFeedbacksAreTwoRequests() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/co-owner/request-changes"
+    await rig.transport.on(route, try answer("changes_requested"), try answer("changes_requested"))
+    #expect(await rig.engine.perform(.requestChanges(feedback: "One")) == .done)
+    #expect(await rig.engine.perform(.requestChanges(feedback: "Two")) == .done)
+    #expect(await rig.transport.requests(on: route).count == 2)
+}
+
+@Test func forbiddenDropsDriveRights() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/cancel", .json(403, #"{"error":"forbidden","message":"Only the owner can do that."}"#)
+    )
+    await rig.transport.on(showRoute, try .scenario(200, "scenario-thread-show"))
+    guard case .refused("forbidden", _, _, _) = await rig.engine.perform(.cancel) else {
+        Issue.record("not refused")
+        return
+    }
+    let snapshot = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    #expect(snapshot.show != nil)
+}
+
+@Test func aCoOwnerErrorThatIsNotForbiddenKeepsDriveRights() async throws {
+    let rig = try await makeRig(question: false)
+    await rig.transport.on(
+        "POST threads/\(threadID)/co-owner/approve",
+        .json(403, #"{"error":"no_write_access","message":"You need write access."}"#))
+    _ = await rig.engine.perform(.approve)
+    let snapshot = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    #expect(snapshot.show?.canDrive == true)
+}
+
+@Test func offlineSendsNothing() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/retry"
+    await rig.transport.on(route, .failure(.notConnectedToInternet))
+    let before = await shows(rig)
+    #expect(await rig.engine.perform(.retry) == .failed(.offline))
+    #expect(await shows(rig) == before)
+    await rig.engine.close()
+    #expect(await rig.engine.perform(.retry) == .failed(.offline))
+    #expect(await rig.transport.requests(on: route).count == 1)
+}
+
+@Test func theCandidatesAreAskedOnTheThreadRoute() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "GET threads/\(threadID)/co-owner/candidates"
+    await rig.transport.on(
+        route, .json(200, #"{"candidates":[{"id":4,"name":"Test person"}],"isComplete":false}"#),
+        .json(200, #"{"candidates":[{"id":4,"name":"Test person"},{"id":5,"name":"Second person"}],"isComplete":true}"#)
+    )
+    guard case .success(let first) = await rig.engine.coOwnerCandidates() else {
+        Issue.record("failed")
+        return
+    }
+    #expect(!first.isComplete && first.candidates.count == 1)
+    guard case .success(let second) = await rig.engine.coOwnerCandidates() else {
+        Issue.record("failed")
+        return
+    }
+    #expect(second.isComplete && second.candidates.count == 2)
+    await rig.transport.on(route, .json(403, #"{"error":"forbidden","message":"No."}"#))
+    guard case .failure(.server(let refusal)) = await rig.engine.coOwnerCandidates() else {
+        Issue.record("not refused")
+        return
+    }
+    #expect(refusal.status == 403)
+}
