@@ -124,6 +124,9 @@ struct ThreadScreen: View {
                     activity: { activityLine(thread, focused: $0) }, openChat: { openChat(focusComposer: $0) }
                 )
                 .collectingPaneSlots(into: slots)
+                // The layout reaches the screen's bottom edge, so the bar sits its own distance from the edge on every
+                // device; the keyboard still lifts it.
+                .ignoresSafeArea(.container, edges: .bottom)
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
             .background(.yakPage)
@@ -143,6 +146,7 @@ struct ThreadScreen: View {
                             title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
                     }
+                    .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {

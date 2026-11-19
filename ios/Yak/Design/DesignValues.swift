@@ -23,6 +23,8 @@ enum Design {
         static let barInset: CGFloat = 10
         /// Between a pane's bottom edge and the bar.
         static let barGap: CGFloat = 6
+        /// Between the screen's bottom edge and the bar.
+        static let barEdgeGap: CGFloat = 24
         /// Padding between a bar's edge and its controls.
         static let barPadding: CGFloat = 6
         /// Padding inside the terminal around its text.
@@ -49,6 +51,8 @@ enum Design {
     /// Control sizes.
     enum Size {
         static let control: CGFloat = 44
+        /// The widest a person's message bubble grows.
+        static let bubbleMaximumWidth: CGFloat = 300
         /// The drawer's search field and new thread button.
         static let bar: CGFloat = 52
         static let key: CGFloat = 44
@@ -136,7 +140,7 @@ extension EnvironmentValues {
 /// contrast of its labels only over black.
 struct PageStyle: ShapeStyle {
     func resolve(in environment: EnvironmentValues) -> Color {
-        environment.hasSystemStrip && environment.colorScheme == .dark ? .black : .yakBackground
+        environment.hasSystemStrip && false ? .black : .yakBackground
     }
 }
 
