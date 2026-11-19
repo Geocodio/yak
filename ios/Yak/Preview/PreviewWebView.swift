@@ -18,8 +18,10 @@ struct PreviewWebView: UIViewRepresentable {
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = true
-        view.isOpaque = false
-        view.backgroundColor = UIColor(Color.yakBackground)
+        // A page without a background of its own is drawn the way a browser draws it: black text on white.
+        view.isOpaque = true
+        view.backgroundColor = .white
+        view.scrollView.backgroundColor = .white
         view.accessibilityIdentifier = "preview.page"
         context.coordinator.adopt(view)
         model.attach(context.coordinator)
