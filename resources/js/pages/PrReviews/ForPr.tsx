@@ -9,7 +9,7 @@ import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/shared/FindingsBlock';
 import { SourceLink } from '@/components/threads/header/SourceLink';
 import { formatWhen } from '@/lib/format';
-import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
+import { RunLogOverlay, runLogMeta, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
 import { rerun } from '@/routes/pr-reviews/for-pr';
 import { rerun as rerunRun } from '@/routes/pr-reviews/for-pr/runs';
 import { show as showThread } from '@/routes/threads';
@@ -327,7 +327,7 @@ export default function ForPr({ pr, runs, pullRequest, description, modelLabels 
                     <SidePanel panel={pullRequest} />
                 </div>
             </div>
-            <RunLogOverlay target={logTarget} isLive={runs.some((run) => run.isLive && run.logUrl === logTarget?.id)} onClose={() => setLogTarget(null)} />
+            <RunLogOverlay target={logTarget} runs={[...runs].reverse().map((run) => ({ target: { kind: 'url', id: run.logUrl, entryId: null, headline: `${run.scope === 'incremental' ? 'Incremental' : 'Full'} review at ${formatWhen(run.startedAt)}` }, meta: runLogMeta(run, modelLabels) }))} onSelectRun={setLogTarget} isLive={runs.some((run) => run.isLive && run.logUrl === logTarget?.id)} onClose={() => setLogTarget(null)} />
         </>
     );
 }

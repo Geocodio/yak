@@ -217,7 +217,7 @@ it('refuses a repository Yak did not offer and a thread that already has one', f
     [$thread, $task] = repositoryQuestionThread($this->requester);
 
     $this->actingAs($this->requester)->post(route('threads.repository-answer.store', $thread), ['repo' => 'elsewhere'])
-        ->assertSessionHas('error', 'Pick one of the repositories Yak offered.');
+        ->assertSessionHas('error', 'Yak could not start in that repository. Pick another one.');
     $this->post(route('threads.repository-answer.store', $thread))->assertSessionHasErrors('repo');
     expect($thread->fresh()->hasRepository())->toBeFalse();
 

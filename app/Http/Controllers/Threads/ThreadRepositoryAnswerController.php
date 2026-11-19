@@ -26,7 +26,7 @@ class ThreadRepositoryAnswerController extends Controller
         $repo = $request->validate(ThreadTaskActions::REPOSITORY_ANSWER_RULES)['repo'];
 
         return $this->respond($thread, function () use ($actions, $thread, $head, $repo): string {
-            $actions->answerRepository($thread, $head, $repo);
+            $actions->answerRepository($thread, $head, $repo, mayPickAnyActive: true);
 
             return "Starting in {$repo}.";
         });

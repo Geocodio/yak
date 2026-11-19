@@ -67,7 +67,12 @@ it('hides the token when serialized', function () {
 });
 
 it('migrates down and up again', function () {
-    $this->artisan('migrate:rollback', ['--step' => 4])->assertExitCode(0);
+    $steps = count(array_filter(
+        glob(database_path('migrations/*.php')) ?: [],
+        fn (string $path): bool => basename($path) >= '2026_12_10_010001_create_device_push_tokens_table.php',
+    ));
+
+    $this->artisan('migrate:rollback', ['--step' => $steps])->assertExitCode(0);
     expect(Schema::hasTable('device_push_tokens'))->toBeFalse()
         ->and(Schema::hasColumn('threads', 'live_activity_channel'))->toBeFalse();
 

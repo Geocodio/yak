@@ -12,6 +12,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadShare;
 use App\Models\ThreadStar;
 use App\Models\User;
@@ -156,9 +157,36 @@ final class ThreadPageData
      */
     public static function pullRequest(Thread $thread): ?array
     {
+        $repository = self::pullRequestRepository($thread);
+
+        return $repository === null ? null : ['number' => (int) $repository->pull_request_number, 'url' => (string) $repository->pull_request_url];
+    }
+
+    /**
+     * The pull request of the web page: the shared value plus its state, which the app API does not carry.
+     *
+     * @return ?array{number: int, url: string, state: 'open'|'merged'|'closed'}
+     */
+    public static function webPullRequest(Thread $thread): ?array
+    {
+        $repository = self::pullRequestRepository($thread);
+
+        if ($repository === null) {
+            return null;
+        }
+
+        return [
+            'number' => (int) $repository->pull_request_number,
+            'url' => (string) $repository->pull_request_url,
+            'state' => $repository->pull_request_state === 'merged' ? 'merged' : ($repository->pull_request_state === 'closed' ? 'closed' : 'open'),
+        ];
+    }
+
+    private static function pullRequestRepository(Thread $thread): ?ThreadRepository
+    {
         foreach ($thread->repositories as $repository) {
             if ($repository->role !== RepositoryRole::Context && $repository->pull_request_url !== null && $repository->pull_request_number !== null) {
-                return ['number' => $repository->pull_request_number, 'url' => $repository->pull_request_url];
+                return $repository;
             }
         }
 

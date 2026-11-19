@@ -104,6 +104,7 @@
         "deletions": 5,
         "filesCount": 3
     },
+    "earlierWalkthroughs": [],
     "earlyWarning": null,
     "isLegacy": false,
     "latestSequence": 12,

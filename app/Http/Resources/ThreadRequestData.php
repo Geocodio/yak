@@ -9,6 +9,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\RepoClarificationResolver;
 use App\Services\Tasks\TaskProgressSteps;
 use App\Services\Threads\ThreadRequestStatus;
 use App\Services\Threads\ThreadTasks;
@@ -75,6 +76,36 @@ final class ThreadRequestData
                 default => 'upcoming',
             },
         ], $steps, array_keys($steps))];
+    }
+
+    /**
+     * The progress row the web page shows while a thread waits for its repository; null for any other thread.
+     * The app API keeps the standard steps, so only the Inertia page props use this.
+     *
+     * @return ?ThreadProgress
+     */
+    public static function waitingForRepositoryProgress(Thread $thread): ?array
+    {
+        if ($thread->hasRepository() || ! $thread->isOpen()) {
+            return null;
+        }
+
+        $head = ThreadTasks::head($thread);
+
+        if ($head === null || $head->status === TaskStatus::Cancelled || ! RepoClarificationResolver::awaitingRepoChoice($head)) {
+            return null;
+        }
+
+        $steps = [
+            ['received', 'Received', 'Task landed in the queue.', 'done'],
+            ['waiting_for_repository', 'Waiting for a repository', 'Work starts when you pick the repository.', 'current'],
+            ['working', 'Working', 'Agent is investigating the codebase and implementing the fix.', 'upcoming'],
+            ['pushed', 'Pushed', 'Changes committed and pushed to a branch.', 'upcoming'],
+            ['ci', 'CI', 'CI verifies the changes before the pull request opens.', 'upcoming'],
+            ['pull_request', 'Pull request', 'Pull request opened for human review.', 'upcoming'],
+        ];
+
+        return ['steps' => array_map(fn (array $step): array => ['key' => $step[0], 'label' => $step[1], 'tooltip' => $step[2], 'state' => $step[3]], $steps)];
     }
 
     /**

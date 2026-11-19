@@ -7,6 +7,7 @@ use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadTurns;
 
 require_once __DIR__ . '/../Support/NewPageFixtures.php';
 
@@ -137,4 +138,103 @@ it('keeps the composer and its Send button on screen at 375 x 667 with a stop ca
         ->and($page->script('document.documentElement.scrollHeight <= window.innerHeight + 1'))->toBeTrue();
 
     $page->assertVisible('[data-testid="stop-retry"]')->click('[data-testid="stop-retry"]')->assertNoJavaScriptErrors();
+});
+
+it('draws the phone thread as the boards do: tabs, header line, card in the scroller, one-line composer, no tab bar', function () {
+    $thread = seedStopCardThread();
+
+    $page = visit(route('threads.show', $thread));
+    $page->resize(390, 844)->assertVisible('[data-testid="card-stop"]')->assertMissing('[data-testid="mobile-tab-bar"]:visible');
+
+    $measure = <<<'JS'
+        (async () => {
+            const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+            const settled = async () => { for (let i = 0; i < 60 && box('[data-testid="thread-composer-input"]').height > 60; i++) { await new Promise((r) => setTimeout(r, 50)); } };
+            await settled();
+            const tabs = [...document.querySelectorAll('[data-testid^="thread-phone-tab-"]:not([data-testid$="dot"])')].map((tab) => tab.textContent.trim());
+            const scroller = document.querySelector('[data-testid="thread-conversation-scroller"]');
+            return {
+                tabs,
+                cardInScroller: scroller.contains(document.querySelector('[data-testid="card-stop"]')),
+                buttonHeights: [...document.querySelectorAll('[data-testid="card-stop"] button')].map((button) => Math.round(button.getBoundingClientRect().height)),
+                composerHeight: Math.round(box('[data-testid="thread-composer"]').height),
+                toolsHidden: getComputedStyle(document.querySelector('[data-testid="thread-composer-tools-row"]')).display === 'none',
+                pill: document.querySelector('[data-testid="thread-phone-pill"]')?.textContent,
+                overflow: document.documentElement.scrollWidth > window.innerWidth,
+            };
+        })()
+    JS;
+    $state = $page->script($measure);
+
+    expect(array_slice($state['tabs'], 0, 2))->toBe(['Chat', 'Overview'])
+        ->and($state['cardInScroller'])->toBeTrue()
+        ->and($state['buttonHeights'])->each->toBeGreaterThanOrEqual(44)
+        ->and($state['composerHeight'])->toBeLessThan(110)
+        ->and($state['toolsHidden'])->toBeTrue()
+        ->and($state['pill'])->toBe('Stopped')
+        ->and($state['overflow'])->toBeFalse();
+
+    $page->click('[data-testid="thread-composer-input"]')->assertVisible('[data-testid="composer-model"]')->assertVisible('[data-testid="thread-send"]');
+});
+
+it('keeps the way back to the thread list and the other sections on a thread page without the tab bar', function () {
+    $thread = seedStopCardThread();
+
+    $page = visit(route('threads.show', $thread));
+    $page->resize(390, 844)->assertVisible('[data-testid="mobile-nav-toggle"]')->click('[data-testid="mobile-nav-toggle"]')
+        ->assertVisible('[data-testid="mobile-nav"]')
+        ->assertVisible('[data-testid="mobile-section-switcher"]')
+        ->assertSeeIn('[data-testid="mobile-section-switcher"]', 'Operations')
+        ->assertNoJavaScriptErrors();
+});
+
+it('reaches the composer tools from the keyboard: focusing the field reveals them in tab order', function () {
+    $thread = seedStopCardThread();
+
+    $page = visit(route('threads.show', $thread));
+    $page->resize(390, 844)->assertVisible('[data-testid="thread-send"]');
+
+    $state = $page->script(<<<'JS'
+        (async () => {
+            const tools = document.querySelector('[data-testid="thread-composer-tools-row"]');
+            const before = getComputedStyle(tools).display;
+            document.querySelector('[data-testid="thread-composer-input"]').focus();
+            for (let attempt = 0; attempt < 40 && getComputedStyle(tools).display === 'none'; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            return { before, after: getComputedStyle(tools).display, hasFocusable: tools.querySelectorAll('button').length > 0 };
+        })()
+    JS);
+
+    expect($state['before'])->toBe('none')->and($state['after'])->not->toBe('none')->and($state['hasFocusable'])->toBeTrue();
+});
+
+it('keeps a queued message, the textarea and Send on separate rows inside the phone composer', function () {
+    require_once __DIR__ . '/../Support/ThreadTurnHelpers.php';
+    require_once __DIR__ . '/../Support/ThreadTurnsHelpers.php';
+    $user = auth()->user();
+    [$thread] = runningTurnFor();
+    YakTask::factory()->create(['thread_id' => $thread->id]);
+    $thread->forceFill(['model' => 'sonnet', 'runner_state' => RunnerState::Starting, 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id])->save();
+    app(ThreadTurns::class)->steer($thread, 'add docs afterwards', $user, null, source: 'thread', isQueueOnly: true);
+
+    $page = visit(route('threads.show', $thread));
+    $page->resize(375, 667)->assertVisible('[data-testid="thread-queued-messages"]')->assertVisible('[data-testid="thread-send"]');
+
+    $inside = $page->script(<<<'JS'
+        (async () => {
+            const inside = () => ['thread-composer-input', 'thread-send'].every((testId) => {
+                const rect = document.querySelector('[data-testid="' + testId + '"]').getBoundingClientRect();
+                return rect.left >= 0 && rect.right <= window.innerWidth;
+            }) && document.documentElement.scrollWidth <= window.innerWidth;
+            for (let attempt = 0; attempt < 60 && ! inside(); attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            return inside();
+        })()
+    JS);
+
+    expect($inside)->toBeTrue();
 });

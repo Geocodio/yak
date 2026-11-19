@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 export const log = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ log.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 log.url = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ log.url = (args: { thread: string | { public_id: string }, run: string | number 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 log.get = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ log.get = (args: { thread: string | { public_id: string }, run: string | number 
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadRunLogController::log
-* @see app/Http/Controllers/Threads/ThreadRunLogController.php:20
+* @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
 log.head = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

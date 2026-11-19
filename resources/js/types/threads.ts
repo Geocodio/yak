@@ -13,6 +13,8 @@ export type ThreadData = {
     name: string;
     title: string;
     repo: string;
+    /** False until a repository is picked; the thread has no branch, sandbox or links before. */
+    hasRepository: boolean;
     kind: 'root' | 'implement' | 'mockup' | 'research' | 'general';
     status: 'open' | 'closed';
     visibility: 'team' | 'private';
@@ -114,8 +116,26 @@ export type TeleportData = {
     canTeleport: boolean;
 };
 
+/** An archived walkthrough version; mirrors `App\Http\Resources\ThreadWalkthroughData::earlier()`. */
+export type EarlierWalkthrough = {
+    number: number;
+    /** The thread event the recording ended at; the card sits after the reply up to it. */
+    anchorSequence: number | null;
+    recordedAt: string | null;
+    video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
+    screenshots: { url: string; caption: string | null }[];
+};
+
 /** The latest walkthrough recording; mirrors `App\Http\Resources\ThreadWalkthroughData`. */
 export type ThreadWalkthrough = {
+    number: number;
+    /** The number the recording in progress gets. */
+    nextNumber: number;
+    /** The thread event the recording ended at; the card sits after the reply up to it. */
+    anchorSequence: number | null;
+    recordedAt: string | null;
+    /** Code changed after this recording was made. */
+    isOutdated: boolean;
     isRecording: boolean;
     isRendering: boolean;
     video: { url: string; thumbnailUrl: string | null; durationSeconds: number; chapters: { title: string; startSeconds: number }[] } | null;
@@ -169,7 +189,7 @@ export type ThreadRunDetails = {
     errorLogTruncated: boolean;
 };
 
-export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null; /** The run's turn has not ended. */ isActive: boolean };
+export type ThreadRunSummary = { runId: string; afterSequence: number; durationSeconds: number; stepCount: number; isRetry: boolean; model: string | null; /** The run's turn has not ended. */ isActive: boolean; startedAt: string | null };
 
 export type ThreadMilestone = {
     key: 'pushed' | 'ci_passed' | 'ci_failed' | 'pull_request_opened' | 'pull_request_held' | 'walkthrough_ready' | 'research_report';
@@ -189,18 +209,20 @@ export type ThreadStopped = { kind: 'needs_you' | 'yak_retrying' | 'yak_stopped'
 export type ThreadActions = { canStop: boolean; canRetry: boolean; canCancel: boolean; canMove: boolean; moveTargets: string[]; canRequestReview: boolean; canRetryRender: boolean };
 
 /** The question that gates a thread without a repository; mirrors `ThreadCardsData`. */
-export type RepositoryQuestion = { prompt: string; options: string[]; selected: string | null; canAnswer: boolean };
+/** `otherOptions` are the active repositories Yak did not offer; the "Another repository" picker lists them. */
+export type RepositoryQuestion = { prompt: string; options: string[]; otherOptions: string[]; selected: string | null; canAnswer: boolean };
 
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
     canDrive: boolean;
     diffTotals: { additions: number; deletions: number; filesCount: number } | null;
-    pullRequest: { number: number; url: string } | null;
+    pullRequest: { number: number; url: string; state: 'open' | 'merged' | 'closed' } | null;
     brief: { text: string; kind: string; model: string | null; startedAt: string; branch: string | null } | null;
     teleport: TeleportData;
     publishWarning: boolean;
     walkthrough: ThreadWalkthrough | null;
+    earlierWalkthroughs: EarlierWalkthrough[];
     sharedFiles: SharedFile[];
     isLegacy: boolean;
     /** Yak's answers of a thread made from an old task, in time order; empty for other threads. */
@@ -236,7 +258,7 @@ export type ThreadPageData = {
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
     /** Web only: the run and entry a `?log=` link names, or null. */
-    openLog: { runId: string; entryId: number } | null;
+    openLog: { runId: string; entryId: number | null } | null;
 };
 
 /** One turn from the person's computer; mirrors the `Turn` shape of `App\Services\Teleport\LocalTurns`. */

@@ -10,7 +10,7 @@ import type { ThreadData } from '@/types/threads';
 const REQUEST_TEXT = 'Record a walkthrough video and screenshots of this change.';
 
 /** Sends the visible request; Claude receives the full recording prompt from the server. */
-function requestWalkthrough(threadId: string, intent: 'record_walkthrough' | 'record_walkthrough_and_open_pr', acknowledgePrivate: boolean) {
+export function requestWalkthrough(threadId: string, intent: 'record_walkthrough' | 'record_walkthrough_and_open_pr', acknowledgePrivate: boolean) {
     router.post(
         storeMessage.url(threadId),
         { message: REQUEST_TEXT, intent, ...(acknowledgePrivate ? { acknowledged_private_publish: true } : {}) },

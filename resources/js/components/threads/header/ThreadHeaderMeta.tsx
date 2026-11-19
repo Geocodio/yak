@@ -19,6 +19,20 @@ const CHANNEL_SOURCES = ['slack', 'linear', 'sentry', 'github', 'email'];
 
 /** The repo line of the header: repository, branch, a diff count that opens Changes, and a sub-thread count. */
 export function ThreadHeaderMeta({ thread, diffTotals, subThreadCount, source, onOpenChanges, onOpenOverview }: Props) {
+    if (!thread.hasRepository) {
+        return (
+            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12.5px] text-muted" data-testid="thread-header-meta">
+                <span className="inline-flex shrink-0 items-center rounded-pill bg-warn-soft px-2 py-0.5 text-[12px] font-medium text-warn" data-testid="thread-no-repository-pill">No repository yet</span>
+                {source !== undefined && CHANNEL_SOURCES.includes(source.key) && (
+                    <span className="inline-flex min-w-0 shrink-0 items-center gap-1" data-testid="thread-header-source">
+                        From
+                        <SourceLink source={source} testId="thread-source-link" />
+                    </span>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12.5px] text-muted" data-testid="thread-header-meta">
             <RepositoryAvatar repo={thread.repo} variant="owner" />

@@ -356,6 +356,15 @@ export type TranscriptEntry = {
     error: boolean;
     milestone: boolean;
     tool?: string;
+    /** The command, path or pattern a tool step acted on. */
+    subject?: string;
+    /** The step's place in its run's list, counted over all steps even when a search narrows the list. */
+    number?: number;
+    /** Seconds from a tool call to its output. */
+    durationSeconds?: number | null;
+    isTruncated?: boolean;
+    /** The input is one shell command string, shown with a `$ ` prompt. */
+    isShellCommand?: boolean;
     input?: string | null;
     output?: string | null;
     html?: string;

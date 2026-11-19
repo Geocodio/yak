@@ -368,6 +368,10 @@ class ThreadList
      */
     private static function needsYou(Thread $thread, ?string $personReason): array
     {
+        if ($personReason === 'repository_question') {
+            return [NeedsYouReason::RepositoryQuestion, 'Which repository?'];
+        }
+
         if ($thread->tasks->last()?->status === TaskStatus::AwaitingClarification) {
             return [NeedsYouReason::Question, 'Asked you a question'];
         }
@@ -389,7 +393,7 @@ class ThreadList
         return match ($personReason) {
             'co_owner' => [NeedsYouReason::CoOwner, 'Waiting for your co-owner decision'],
             'early_warning' => [NeedsYouReason::EarlyWarning, 'Pick a co-owner or decline'],
-            'repository_question' => [NeedsYouReason::RepositoryQuestion, 'Asked which repository'],
+            'repository_question' => [NeedsYouReason::RepositoryQuestion, 'Which repository?'],
             default => [null, null],
         };
     }

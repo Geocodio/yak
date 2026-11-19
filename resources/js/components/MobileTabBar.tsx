@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
 import { Code2, MessageSquare, Menu as MenuIcon, MessagesSquare, Plus } from 'lucide-react';
-import { isThreadsSectionUrl } from '@/components/shell/threadUrl';
+import { isThreadsSectionUrl, threadIdOfUrl } from '@/components/shell/threadUrl';
 import { isActive, openMobileNav, openNewThread } from '@/components/Sidebar';
 import { home, prReviews, repos } from '@/routes';
 import type { SharedProps } from '@/types/shared';
@@ -24,6 +24,10 @@ function PrefetchingTabLink(props: TabBarLinkProps) {
  */
 export function MobileTabBar() {
     const { props, url } = usePage<SharedProps>();
+
+    // A thread page owns the whole phone screen below `sm`; the header's navigation button opens the drawer with the
+    // thread list and the sections. Wider screens keep the bar.
+    const isThreadPage = threadIdOfUrl(url) !== null;
 
     const slots = [
         { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: true, badge: props.nav.activeTaskCount },
@@ -50,7 +54,7 @@ export function MobileTabBar() {
 
     return (
         <TabBar
-            className="lg:hidden"
+            className={isThreadPage ? 'max-sm:hidden lg:hidden' : 'lg:hidden'}
             LinkComponent={PrefetchingTabLink}
             items={items}
             action={{ label: 'New thread', icon: <Plus size={24} />, onSelect: () => openNewThread(), testId: 'tab-new-task' }}
