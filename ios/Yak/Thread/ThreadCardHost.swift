@@ -203,12 +203,14 @@ struct ThreadCardHost: View {
                     VStack(alignment: .leading, spacing: Design.Space.hairline * 4) {
                         ForEach(panel.filePaths.prefix(Self.shownFileCount), id: \.self) { path in
                             Text(verbatim: path).font(.footnote.monospaced())
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         if more > 0 {
                             Text("thread.card.coOwner.moreFiles \(more)").font(.subheadline.weight(.medium))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .workBox().accessibilityIdentifier("thread.card.coOwner.files")
+                    .workBox().accessibilityElement(children: .combine)
                 } else if let stat = panel.stat {
                     Text("thread.card.coOwner.files \(stat.files) \(stat.additions) \(stat.deletions)")
                         .font(.footnote.monospaced())
