@@ -36,6 +36,8 @@ enum Design {
         static let terminalInset: CGFloat = 14
         /// Between two blocks of the chat.
         static let chatGap: CGFloat = 16
+        /// Top and bottom padding of a status pill.
+        static let pillVertical: CGFloat = 3
     }
 
     /// Corner radii.
@@ -54,6 +56,8 @@ enum Design {
         static let bubbleTail: CGFloat = 8
         /// The pane's own corners in a layout with two panes.
         static let pane: CGFloat = 28
+        /// The card above the composer.
+        static let workCard: CGFloat = 22
     }
 
     /// Control sizes.
@@ -81,6 +85,12 @@ enum Design {
         static let statusColumn: CGFloat = 20
         static let statusDot: CGFloat = 9
         static let sectionDot: CGFloat = 10
+        /// A card's button.
+        static let cardButton: CGFloat = 50
+        /// A status pill's smallest height.
+        static let pill: CGFloat = 24
+        /// The source chip's drawn height.
+        static let sourceChip: CGFloat = 28
     }
 }
 
@@ -156,6 +166,34 @@ extension Color {
     static let yakInfo = board(dark: 0x6FA6D8, light: 0x3D7CB8)
     /// Icons of the drawer's two shortcuts: `--slate`.
     static let yakSlate = board(dark: 0x7F9CB4, light: 0x4A6580)
+}
+
+/// The colors of the cards, pills and chips that show the work of a thread, from the work boards.
+extension Color {
+    /// The white row on a card.
+    static let yakCardRow = board(dark: 0x2C2C2E, light: 0xFFFFFF)
+    /// The source chip and the neutral card.
+    static let yakCardSurface = board(dark: 0x1C1C1E, light: 0xF2F2F7)
+    static let yakCardWarnSurface = board(dark: 0x2E2206, light: 0xFDF3DC)
+    static let yakCardBadSurface = board(dark: 0x32110F, light: 0xFDECEA)
+    static let yakCardButton = board(dark: 0x3A3A3C, light: 0xE5E5EA)
+    static let yakCardPrimary = board(dark: 0xFFFFFF, light: 0x1C1C1E)
+    static let yakCardPrimaryText = board(dark: 0x000000, light: 0xFFFFFF)
+    static let yakCardDangerText = board(dark: 0xFF8A80, light: 0xA0201A)
+    static let yakCardSeparator = board(dark: 0x3A3A3C, light: 0xD1D1D6)
+    static let yakCardSecondaryText = board(dark: 0xD1D1D6, light: 0x3A3A3C)
+    static let yakPillNeutral = board(dark: 0x2C2C2E, light: 0xE5E5EA)
+    static let yakPillNeutralText = board(dark: 0xE5E5EA, light: 0x2C2C2E)
+    static let yakPillOK = board(dark: 0x12381F, light: 0xDCF2E3)
+    static let yakPillOKText = board(dark: 0xB9EFC8, light: 0x14532D)
+    static let yakPillWarn = board(dark: 0x3D2C05, light: 0xFBEBC8)
+    static let yakPillWarnText = board(dark: 0xF6D98F, light: 0x6B4A00)
+    static let yakPillBad = board(dark: 0x451512, light: 0xFBDCD8)
+    static let yakPillBadText = board(dark: 0xF7C1BB, light: 0x7F1D1D)
+    static let yakDotOK = board(dark: 0x4CC071, light: 0x1E7A3C)
+    static let yakDotWarn = board(dark: 0xF0A93B, light: 0xB26A00)
+    static let yakDotBad = board(dark: 0xF2695F, light: 0xB3261E)
+    static let yakDotNeutral = board(dark: 0x8E8E93, light: 0x8E8E93)
 }
 
 /// The boards' text styles. Each one is a system text style, so it follows Dynamic Type.

@@ -67,6 +67,16 @@ public struct CoOwnerPanel: Codable, Equatable, Sendable {
     public let canDecide: Bool?
     /// Thread route only: the viewer is one of the people asked. Nil on the task route.
     public let viewerIsAsked: Bool?
+    /// Thread route only: the paths of the changed files, in the order of the areas that name them. Empty on the
+    /// task route.
+    public let filePaths: [String]
+
+    private enum AreasKey: String, CodingKey { case areas }
+
+    private struct Area: Decodable {
+        struct File: Decodable { let path: String }
+        let files: [File]?
+    }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -83,6 +93,8 @@ public struct CoOwnerPanel: Codable, Equatable, Sendable {
         requesterName = try container.decode(String.self, forKey: .requesterName)
         canDecide = try container.decodeIfPresent(Bool.self, forKey: .canDecide)
         viewerIsAsked = try container.decodeIfPresent(Bool.self, forKey: .viewerIsAsked)
+        let areas = try decoder.container(keyedBy: AreasKey.self).decodeIfPresent([Area].self, forKey: .areas) ?? []
+        filePaths = areas.flatMap { ($0.files ?? []).map(\.path) }
     }
 }
 

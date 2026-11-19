@@ -14428,6 +14428,28 @@
         }
       }
     },
+    "thread.card.coOwner.moreFiles %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more file in Files"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more files in Files"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "thread.card.coOwner.noAccess %@" : {
       "localizations" : {
         "en" : {

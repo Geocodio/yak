@@ -3,7 +3,7 @@ import YakKit
 
 /// A row of wrapped pills with the board's gap in both directions.
 struct WrappingRow: Layout {
-    var spacing: CGFloat = WorkStyle.pillGap
+    var spacing: CGFloat = Design.Space.small
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -13,7 +13,8 @@ struct WrappingRow: Layout {
         let placed = arrange(width: bounds.width, subviews: subviews)
         for (index, origin) in placed.origins.enumerated() {
             subviews[index].place(
-                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y), proposal: .unspecified)
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                proposal: ProposedViewSize(width: bounds.width, height: nil))
         }
     }
 
@@ -24,7 +25,7 @@ struct WrappingRow: Layout {
         var rowHeight: CGFloat = 0
         var widest: CGFloat = 0
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
             if x > 0, x + size.width > width {
                 x = 0
                 y += rowHeight + spacing
@@ -67,10 +68,10 @@ struct MilestoneGroupRow: View {
                         Image(systemName: "arrow.up.right").font(.caption2.weight(.semibold))
                             .foregroundStyle(milestone.tone.pillText).accessibilityHidden(true)
                     }
-                    .frame(minHeight: WorkStyle.tapTarget).contentShape(.rect)
+                    .frame(minHeight: Design.Size.control).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, -(WorkStyle.tapTarget - WorkStyle.pillHeight) / 2)
+                .padding(.vertical, -(Design.Size.control - Design.Size.pill) / 2)
             } else {
                 pill
             }
@@ -89,14 +90,14 @@ struct RetryDivider: View {
             Group {
                 if let number = message.retryNumber { Text("chat.retry.number \(number)") } else { Text("chat.retry") }
             }
-            .font(.footnote.weight(.medium)).foregroundStyle(WorkColor.secondaryText).fixedSize()
+            .font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText).fixedSize()
             .accessibilityIdentifier("chat.retry")
             line
         }
     }
 
     private var line: some View {
-        Rectangle().fill(WorkColor.separator).frame(height: 1).accessibilityHidden(true)
+        Rectangle().fill(Color.yakCardSeparator).frame(height: 1).accessibilityHidden(true)
     }
 }
 
@@ -133,15 +134,15 @@ struct ViaCaption: View {
                 Button {
                     browserURL = BrowserLink(url: url)
                 } label: {
-                    text.frame(minHeight: WorkStyle.tapTarget).contentShape(.rect)
+                    text.frame(minHeight: Design.Size.control).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, -(WorkStyle.tapTarget - 16) / 2)
+                .padding(.vertical, -(Design.Size.control - 16) / 2)
             } else {
                 text
             }
         }
-        .font(.footnote.weight(.medium)).foregroundStyle(WorkColor.secondaryText)
+        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText)
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
         .accessibilityIdentifier("chat.message.via")
     }

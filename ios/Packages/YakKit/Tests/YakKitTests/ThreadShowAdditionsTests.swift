@@ -199,7 +199,7 @@ private func composerJSON(state: String) throws -> String {
         "earlyWarning":
             #"{"areas":[{"name":"Middleware","risk":"high"}],"state":"shown","taggedName":null,"fallbackName":"Test person","repoName":"example/api","canPick":true}"#,
         "coOwner":
-            #"{"id":3,"status":"pending","decidedBy":null,"feedback":null,"prUrl":null,"holdReasons":[],"asked":["Test person"],"stat":null,"viewer":{"isRequester":false,"isLinked":true,"login":null,"access":"write"},"connectUrl":"https://yak.example.com/connect","requesterName":"Test person","canDecide":true,"viewerIsAsked":true}"#,
+            #"{"id":3,"status":"pending","decidedBy":null,"feedback":null,"prUrl":null,"holdReasons":[],"asked":["Test person"],"stat":null,"areas":[{"name":"A","risk":"high","files":[{"path":"app/One.php","status":"modified"},{"path":"app/Two.php","status":"added"}]},{"name":"B","risk":"low"}],"viewer":{"isRequester":false,"isLinked":true,"login":null,"access":"write"},"connectUrl":"https://yak.example.com/connect","requesterName":"Test person","canDecide":true,"viewerIsAsked":true}"#,
         "actions":
             #"{"canStop":true,"canRetry":false,"canCancel":true,"canMove":true,"moveTargets":["example/web"],"canRequestReview":false,"canRetryRender":false}"#,
     ])
@@ -208,6 +208,7 @@ private func composerJSON(state: String) throws -> String {
     #expect(show.repositoryQuestion?.options.count == 2 && show.repositoryQuestion?.canAnswer == true)
     #expect(show.earlyWarning?.areas == [EarlyWarningArea(name: "Middleware", risk: "high")])
     #expect(show.coOwner?.canDecide == true && show.coOwner?.viewerIsAsked == true)
+    #expect(show.coOwner?.filePaths == ["app/One.php", "app/Two.php"])
     #expect(show.actions.canMove && show.actions.moveTargets == ["example/web"] && show.actions.canStop)
 }
 

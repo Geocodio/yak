@@ -118,7 +118,7 @@ private struct PersonMessageView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let otherName {
+            if let otherName, message.via == nil {
                 Text(otherName).font(.caption).foregroundStyle(Color.yakMuted)
             }
             if let via = message.via {

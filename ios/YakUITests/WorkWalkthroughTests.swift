@@ -15,6 +15,17 @@ import XCTest
         XCTAssertTrue(element("thread.title").waitForExistence(timeout: 60))
     }
 
+    /// A thread opens with one pane; on a wide window the second one is the person's choice, made on the pane's item.
+    private func openSecondPane(_ pane: String) throws {
+        let row = app.buttons["pane.row.\(pane)"]
+        let item = row.exists ? row : app.buttons["pane.strip.\(pane)"]
+        XCTAssertTrue(item.waitForExistence(timeout: 30))
+        item.press(forDuration: 1.2)
+        let open = app.buttons["pane.second.open"]
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        open.tap()
+    }
+
     private func card(_ kind: String, _ scenario: String, name: String, audits: Bool = false) throws {
         try open(scenario)
         XCTAssertTrue(element("thread.card.\(kind)").waitForExistence(timeout: 60))
@@ -112,12 +123,15 @@ import XCTest
 
     /// iPad: the card in Chat with the Overview at the side, then Chat hidden behind another pane with the chip.
     func testPadChatAndChip() throws {
-        try card("co_owner", "work-co-owner-decide", name: "work-pad-chat")
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "The side panel is for a wide window")
+        try card("co_owner", "work-co-owner-decide", name: "work-pad-chat-before")
+        try openSecondPane("overview")
         XCTAssertTrue(element("overview.group.request").waitForExistence(timeout: 30))
         try shoot("work-pad-chat", audits: false)
     }
 
     func testPadPreviewChip() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "The chip is for a wide window")
         try card("co_owner", "work-co-owner-decide", name: "work-pad-chat-before")
         for pane in ["terminal", "files", "overview"] where !element("activity.needsYou").exists {
             let row = app.buttons["pane.row.\(pane)"]

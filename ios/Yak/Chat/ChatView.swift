@@ -64,21 +64,24 @@ struct ChatView: View {
     /// The jump button and the action line sit below the list, so no row hides behind them.
     var body: some View {
         VStack(spacing: 0) {
+            if let request = thread.snapshot?.show?.request {
+                ThreadRequestRow(request: request, stepLine: thread.stepLine)
+                    .padding(.horizontal, Design.Space.pageInset).padding(.top, Design.Space.compact)
+                    .frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+            }
             list
             floatingControls
         }
     }
 
     private var list: some View {
+
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Design.Space.chatGap) {
                 if thread.historyState != .hidden {
                     HistoryRow(state: thread.historyState, retry: { Task { await thread.loadOlder() } })
                         .onAppear { isHistoryVisible = true }
                         .onDisappear { isHistoryVisible = false }
-                }
-                if let request = thread.snapshot?.show?.request {
-                    ThreadRequestRow(request: request, stepLine: thread.stepLine)
                 }
                 ForEach(ChatDisplayRow.group(thread.rows)) { item in
                     switch item {

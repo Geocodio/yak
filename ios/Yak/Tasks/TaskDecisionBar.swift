@@ -166,7 +166,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         } label: {
             if model.isApproving {
                 HStack(spacing: 10) {
-                    ProgressView().tint(WorkColor.primaryText)
+                    ProgressView().tint(Color.yakCardPrimaryText)
                     Text("task.approve.opening")
                 }
             } else {
@@ -186,15 +186,15 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         .buttonStyle(WorkButtonStyle(kind: .danger)).accessibilityIdentifier("task.decision.reject")
         let others = model.isSending || model.isOffline
         if horizontalSizeClass == .regular {
-            HStack(spacing: WorkStyle.buttonGap) {
+            HStack(spacing: Design.Space.compact) {
                 approve
                 changes.disabled(others)
                 reject.disabled(others)
             }
         } else {
-            VStack(spacing: WorkStyle.buttonGap) {
+            VStack(spacing: Design.Space.compact) {
                 approve
-                HStack(spacing: WorkStyle.buttonGap) {
+                HStack(spacing: Design.Space.compact) {
                     changes.disabled(others)
                     reject.disabled(others)
                 }
