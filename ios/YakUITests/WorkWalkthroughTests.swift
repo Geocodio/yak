@@ -123,7 +123,7 @@ import XCTest
 
     func testMilestones() throws {
         try open("work-milestones")
-        XCTAssertTrue(element("thread.milestone.ci_failed").waitForExistence(timeout: 60))
+        XCTAssertTrue(element("thread.milestone.walkthrough_ready").waitForExistence(timeout: 60))
         try shoot("work-milestones", audits: false)
     }
 
