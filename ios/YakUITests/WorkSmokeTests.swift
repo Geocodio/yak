@@ -105,6 +105,8 @@ import XCTest
     func testACoOwnerApprovesAndTheCardGoesAway() throws {
         try open("work-co-owner-decide")
         requireCard("co_owner")
+        // The card's buttons are drawn once its text has its final height; the audit starts from that screen.
+        XCTAssertTrue(app.buttons["task.decision.approve"].waitForExistence(timeout: Wait.appear))
         try audit()
         app.buttons["task.decision.approve"].tap()
         XCTAssertTrue(element("task.decision.approving").waitForExistence(timeout: Wait.appear))
