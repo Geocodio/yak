@@ -386,6 +386,11 @@ private struct CardContainer<Content: View, Pinned: View>: View {
     @ViewBuilder let pinned: Pinned
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    private var share: CGFloat {
+        if dynamicTypeSize.isAccessibilitySize { return Design.Card.largeShare }
+        return paneHeight < Design.Card.shortPane ? Design.Card.shortShare : Design.Card.heightShare
+    }
+
     private func text() -> some View {
         VStack(alignment: .leading, spacing: Design.Space.snug) { content }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -401,8 +406,7 @@ private struct CardContainer<Content: View, Pinned: View>: View {
     var body: some View {
         HeightCap(
             limit: max(
-                paneHeight
-                    * (dynamicTypeSize.isAccessibilitySize ? Design.Card.largeShare : Design.Card.heightShare),
+                paneHeight * share,
                 Design.Card.leastHeight)
         ) {
             ViewThatFits(in: .vertical) {

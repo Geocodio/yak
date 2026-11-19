@@ -17,6 +17,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
     @State private var isRejecting = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         if shows {
@@ -190,7 +191,8 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         }
         .buttonStyle(WorkButtonStyle(kind: .danger)).accessibilityIdentifier("task.decision.reject")
         let others = model.isSending || model.isOffline
-        if horizontalSizeClass == .regular {
+        // A short window (a phone on its side) keeps the three in one row so the chat keeps its height.
+        if horizontalSizeClass == .regular || verticalSizeClass == .compact {
             WeightedRow(weights: [2, 1, 1], spacing: Design.Space.compact) {
                 approve
                 changes.disabled(others)

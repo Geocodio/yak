@@ -66,8 +66,11 @@ enum Design {
     enum Card {
         /// A share of the pane's height, and the card scrolls its text inside beyond it.
         static let heightShare: CGFloat = 0.6
+        /// A pane shorter than this (a phone on its side, or with the keyboard up) offers the card the short share.
+        static let shortPane: CGFloat = 500
+        static let shortShare: CGFloat = 0.45
         /// At the accessibility sizes the card leaves more of the pane to the chat.
-        static let largeShare: CGFloat = 0.5
+        static let largeShare: CGFloat = 0.65
         /// The least height the card is offered: its title and buttons.
         static let leastHeight: CGFloat = 160
     }

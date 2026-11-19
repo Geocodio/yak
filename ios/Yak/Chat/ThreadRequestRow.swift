@@ -15,6 +15,7 @@ struct ThreadRequestRow: View {
     var stepLine: String?
     @State private var browserURL: BrowserLink?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         VStack(alignment: .leading, spacing: Design.Space.compact) {
@@ -36,7 +37,7 @@ struct ThreadRequestRow: View {
                 }
             }
             // At the accessibility sizes the line would take the room of the chat; the status pill says the same.
-            if let stepLine, !dynamicTypeSize.isAccessibilitySize {
+            if let stepLine, !dynamicTypeSize.isAccessibilitySize, verticalSizeClass != .compact {
                 HStack(spacing: Design.Space.compact) {
                     Circle().fill(request.status.tone.dot).frame(
                         width: Design.Size.statusDot, height: Design.Size.statusDot
