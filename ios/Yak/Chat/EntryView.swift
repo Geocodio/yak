@@ -156,28 +156,34 @@ private struct PersonMessageView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let uuid = message.uuid {
                 Menu {
-                    Button {
-                        editing = EditTarget(uuid: uuid, text: message.text)
-                    } label: {
-                        Label("chat.message.edit", systemImage: "pencil")
-                    }
-                    if isQueued {
-                        Button {
-                            Task { await thread.setQueuedMode(uuid, mode: .steer) }
-                        } label: {
-                            Label("chat.message.sendNow", systemImage: "paperplane")
+                    ForEach(QueuedMessageMenu.items(canEditText: message.canEditText, isQueued: isQueued), id: \.self) {
+                        item in
+                        switch item {
+                        case .edit:
+                            Button {
+                                editing = EditTarget(uuid: uuid, text: message.text)
+                            } label: {
+                                Label("chat.message.edit", systemImage: "pencil")
+                            }
+                        case .sendNow:
+                            Button {
+                                Task { await thread.setQueuedMode(uuid, mode: .steer) }
+                            } label: {
+                                Label("chat.message.sendNow", systemImage: "paperplane")
+                            }
+                        case .sendAfterTurn:
+                            Button {
+                                Task { await thread.setQueuedMode(uuid, mode: .queue) }
+                            } label: {
+                                Label("chat.message.sendAfterTurn", systemImage: "clock")
+                            }
+                        case .remove:
+                            Button(role: .destructive) {
+                                Task { await thread.withdrawQueued(uuid) }
+                            } label: {
+                                Label("chat.message.remove", systemImage: "trash")
+                            }
                         }
-                    } else {
-                        Button {
-                            Task { await thread.setQueuedMode(uuid, mode: .queue) }
-                        } label: {
-                            Label("chat.message.sendAfterTurn", systemImage: "clock")
-                        }
-                    }
-                    Button(role: .destructive) {
-                        Task { await thread.withdrawQueued(uuid) }
-                    } label: {
-                        Label("chat.message.remove", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis").foregroundStyle(.primary).frame(minWidth: 44, minHeight: 44)
