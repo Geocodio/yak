@@ -232,6 +232,32 @@ private func chatSnapshot(
     await fixture.session.stop()
 }
 
+@MainActor @Test func aSendNoticeStaysUntilTheShowChangesOrTheNextSendStarts() async throws {
+    let clock = ManualClock()
+    let fixture = try await Fixture(clock: clock)
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let notice = SendNotice(id: UUID(), text: "Trying again with your note.")
+    var snapshot = try chatSnapshot(.completed)
+    snapshot.lastSendNotice = notice
+    await model.apply(snapshot)
+    #expect(model.actionLine == notice.text)
+    clock.advance(.seconds(30))
+    await model.apply(snapshot)
+    #expect(model.actionLine == notice.text)
+    var changed = snapshot
+    changed.show = try JSONDecoder().decode(
+        ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "15}").utf8))
+    await model.apply(changed)
+    #expect(model.actionLine == nil)
+    let second = SendNotice(id: UUID(), text: "Two.")
+    changed.lastSendNotice = second
+    await model.apply(changed)
+    #expect(model.actionLine == "Two.")
+    model.sendStarted()
+    #expect(model.actionLine == nil)
+    await fixture.session.stop()
+}
+
 @MainActor @Test func refusedActionShowsAMessage() async throws {
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)

@@ -34,6 +34,7 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
         var current = ""
         var counts: [String: Int] = [:]
         var lastBody = ""
+        var lastShownThread = ""
         var isOnline = true
     }
     private let state = Locked(State())
@@ -84,8 +85,9 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
     ]
 
     func control(_ request: StubRequest) -> StubReply? {
-        guard request.path == "/__stub/work/last-request" else { return nil }
-        let body = state.get().lastBody
+        guard request.path == "/__stub/work/last-request" || request.path == "/__stub/work/last-shown-thread"
+        else { return nil }
+        let body = request.path.hasSuffix("last-request") ? state.get().lastBody : state.get().lastShownThread
         return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(body.utf8)))
     }
 
@@ -136,6 +138,9 @@ final class StubThreadWork: StubFeature, @unchecked Sendable {
     }
 
     private func show(of id: String, context: StubContext) -> StubReply? {
+        if [Self.threadID, Self.movedThreadID, Self.continuedThreadID].contains(id) {
+            state.mutate { $0.lastShownThread = id }
+        }
         switch id {
         case Self.movedThreadID: return reply(file: "scenario-work-moved-new", context: context)
         case Self.continuedThreadID: return reply(file: "scenario-work-legacy-continued", context: context)

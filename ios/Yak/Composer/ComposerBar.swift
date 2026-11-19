@@ -141,6 +141,7 @@ struct ComposerBar: View {
 
     private func send(_ delivery: MessageDelivery) {
         if delivery == .afterTurn { SendAfterTurnTip.recordUse() }
+        thread.sendStarted()
         Task { await composer.send(delivery: delivery) }
     }
 

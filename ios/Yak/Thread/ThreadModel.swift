@@ -42,6 +42,9 @@ final class ThreadModel {
     private(set) var ownName: String?
     /// The send notice already shown as the action line, so one is said once.
     @ObservationIgnored private var shownNoticeID: UUID?
+    /// The show a send notice came with. The notice stays on screen until the show differs or the next send starts.
+    @ObservationIgnored private var noticeShow: ThreadShow?
+    @ObservationIgnored private var isNoticeShown = false
 
     let session: InstanceSession
     /// Day dividers follow this calendar; a test sets another.
@@ -264,9 +267,11 @@ extension ThreadModel {
         let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
         rows = builtRows
+        if isNoticeShown, next.show != noticeShow { clearActionLine() }
         if let notice = next.lastSendNotice, notice.id != shownNoticeID {
             shownNoticeID = notice.id
-            setActionLine(notice.text)
+            setActionLine(notice.text, persists: true)
+            noticeShow = next.show
         }
         if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         requestMarkdown(for: next.entries)
@@ -432,11 +437,19 @@ extension ThreadModel {
         }
     }
 
-    private func setActionLine(_ text: String) {
+    /// The composer calls this when a person sends, so a notice about the last send gives way to the next one.
+    func sendStarted() {
+        if isNoticeShown { clearActionLine() }
+    }
+
+    private func setActionLine(_ text: String, persists: Bool = false) {
         actionLineSerial += 1
         let mine = actionLineSerial
         reportedActionLine = text
+        isNoticeShown = persists
         actionLineTask?.cancel()
+        actionLineTask = nil
+        guard !persists else { return }
         actionLineTask = Task { [weak self] in
             do { try await self?.session.clock.sleep(for: .seconds(6)) } catch { return }
             guard let self, self.actionLineSerial == mine else { return }
@@ -445,6 +458,7 @@ extension ThreadModel {
     }
 
     private func clearActionLine() {
+        isNoticeShown = false
         actionLineSerial += 1
         actionLineTask?.cancel()
         reportedActionLine = nil

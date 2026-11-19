@@ -225,9 +225,7 @@ import XCTest
         try open("work-drained")
         XCTAssertTrue(app.staticTexts["Sends after this turn"].waitForExistence(timeout: Wait.firstLoad))
         waitForGone(app.staticTexts["Sends after this turn"])
-        XCTAssertTrue(
-            app.staticTexts["Also handle the night run."].exists
-                || app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Also handle'")).count == 1)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Also handle'")).count, 1)
     }
 
     // MARK: Move
@@ -239,6 +237,21 @@ import XCTest
         XCTAssertTrue(move.waitForExistence(timeout: Wait.appear))
         move.tap()
         XCTAssertTrue(try waitForLastRequest(contains: "\"repo\""))
+        XCTAssertTrue(try waitForLastShownThread("m0v3d000"))
+        XCTAssertFalse(element("notice.moved.open").exists)
+        if app.buttons["threads.button"].exists { app.buttons["threads.button"].tap() }
+        let old = element("drawer.row.thread:d0e515ef")
+        XCTAssertTrue(old.waitForExistence(timeout: Wait.firstLoad))
+        old.tap()
+        XCTAssertTrue(element("notice.moved.open").waitForExistence(timeout: Wait.firstLoad))
+    }
+
+    private func waitForLastShownThread(_ id: String) throws -> Bool {
+        for _ in 0..<40 {
+            if try stub.get("work/last-shown-thread").contains(id) { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return false
     }
 
     private func waitForLastRequest(contains text: String) throws -> Bool {
