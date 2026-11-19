@@ -338,12 +338,6 @@ public enum PaneLayoutRules {
         return tidy(next, plan: plan)
     }
 
-    public static func defaultSecond(focused: PaneID, lastSecond: PaneID?, candidates: [PaneID]) -> PaneID? {
-        if let lastSecond, lastSecond != focused, candidates.contains(lastSecond) { return lastSecond }
-        if focused != .chat, candidates.contains(.chat) { return .chat }
-        return PaneID.allCases.first { $0 != focused && candidates.contains($0) }
-    }
-
     public static func marks(state: PaneState, plan: SlotPlan) -> [PaneID: PaneMark] {
         var marks = Dictionary(uniqueKeysWithValues: PaneID.allCases.map { ($0, PaneMark.none) })
         guard case .pane(let focused)? = plan.slots.first(where: { $0.position == plan.focusedPosition })?.content

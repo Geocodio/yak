@@ -322,16 +322,6 @@ private let bookInputs = LayoutInputs(
         #expect(state.focused == .overview && state.second == .chat)
     }
 
-    @Test func defaultSecondOrder() {
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .terminal, candidates: all) == .terminal)
-        #expect(PaneLayoutRules.defaultSecond(focused: .files, lastSecond: nil, candidates: all) == .chat)
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: nil, candidates: all) == .preview)
-        #expect(PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .chat, candidates: [.chat]) == nil)
-        #expect(
-            PaneLayoutRules.defaultSecond(focused: .chat, lastSecond: .files, candidates: [.chat, .preview]) == .preview
-        )
-    }
-
     @Test func marksFollowTheSlots() {
         let state = PaneState(focused: .chat, second: .preview)
         let plan = PaneLayoutRules.plan(state, available: all, inputs: wide)
