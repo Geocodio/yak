@@ -73,6 +73,7 @@ struct EntryView: View {
 /// The bubble every message of a person sits in, on the trailing side.
 struct MessageBubble<Content: View>: View {
     @ViewBuilder let content: Content
+    @ScaledMetric(relativeTo: .body) private var maximumWidth = Design.Size.bubbleMaximumWidth
 
     var body: some View {
         content
@@ -83,6 +84,7 @@ struct MessageBubble<Content: View>: View {
                     topLeadingRadius: Design.Radius.bubble, bottomLeadingRadius: Design.Radius.bubble,
                     bottomTrailingRadius: Design.Radius.bubbleTail, topTrailingRadius: Design.Radius.bubble)
             )
+            .frame(maxWidth: maximumWidth, alignment: .trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
@@ -384,7 +386,7 @@ struct InlineOrStacked<Content: View>: View {
     }
 }
 
-/// A row that opens and closes, with the chevron on its trailing side.
+/// A row that opens and closes, with the chevron before its text.
 struct DisclosureButton<Label: View>: View {
     let isExpanded: Bool
     let toggle: () -> Void
@@ -393,9 +395,9 @@ struct DisclosureButton<Label: View>: View {
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: 8) {
-                label.fixedSize(horizontal: false, vertical: true)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0)).accessibilityHidden(true)
+                label.fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .frame(minHeight: 44).contentShape(.rect)

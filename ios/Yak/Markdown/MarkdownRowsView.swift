@@ -66,7 +66,8 @@ struct MarkdownRowList: View {
             MarkdownRowView(
                 row: rows[index],
                 barsBelow: index + 1 < range.upperBound
-                    ? min(rows[index].decoration.quoteDepth, rows[index + 1].decoration.quoteDepth) : 0
+                    ? min(rows[index].decoration.quoteDepth, rows[index + 1].decoration.quoteDepth) : 0,
+                isLast: index + 1 == range.upperBound && !pager.hasNext
             )
             .id(RowIdentifier(list: listIdentifier, row: index))
         }
@@ -95,6 +96,8 @@ private struct MarkdownRowView: View {
     let row: MarkdownRow
     /// How many quote bars continue into the row below.
     let barsBelow: Int
+    /// The last row of the document leaves no gap below it: the container spaces the blocks of a conversation.
+    let isLast: Bool
 
     private static let barStep: CGFloat = 13
     private static let indentStep: CGFloat = 20
@@ -121,7 +124,7 @@ private struct MarkdownRowView: View {
                     }
                 }
             }
-            .padding(.bottom, barsBelow > 0 ? 0 : spacing)
+            .padding(.bottom, barsBelow > 0 || isLast ? 0 : spacing)
     }
 
     @ViewBuilder private var content: some View {
