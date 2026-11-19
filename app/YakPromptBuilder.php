@@ -109,6 +109,7 @@ class YakPromptBuilder
         return match ($task->source) {
             'sentry' => self::sentryFixPrompt($metadata, $otherRepositories),
             'flaky-test' => self::flakyTestPrompt($metadata, $otherRepositories),
+            'ci-failure' => self::ciFailurePrompt($metadata, $otherRepositories),
             'preview-repair' => self::previewRepairPrompt($metadata),
             'linear' => self::linearFixPrompt($metadata, $task->description ?? '', $otherRepositories),
             'research' => self::researchPrompt($task->description ?? ''),
@@ -316,6 +317,25 @@ class YakPromptBuilder
         return Prompts::render('tasks-flaky-test', [
             'tests' => self::flakyTestEntries($metadata),
             'commitSha' => (string) ($metadata['commit_sha'] ?? ''),
+            'otherRepositories' => $otherRepositories,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @param  list<array{slug: string, description: string}>  $otherRepositories
+     */
+    private static function ciFailurePrompt(array $metadata, array $otherRepositories = []): string
+    {
+        return Prompts::render('tasks-ci-failure', [
+            'jobName' => (string) ($metadata['job_name'] ?? ''),
+            'workflowName' => (string) ($metadata['workflow_name'] ?? ''),
+            'workflowPath' => (string) ($metadata['workflow_path'] ?? ''),
+            'failures' => array_values((array) ($metadata['failures'] ?? [])),
+            'defaultBranchLastGreenAt' => (string) ($metadata['default_branch_last_green_at'] ?? ''),
+            'testNames' => array_values((array) ($metadata['test_names'] ?? [])),
+            'advisoryIds' => array_values((array) ($metadata['advisory_ids'] ?? [])),
+            'openPullRequests' => array_values((array) ($metadata['open_ci_failure_prs'] ?? [])),
             'otherRepositories' => $otherRepositories,
         ]);
     }

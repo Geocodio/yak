@@ -198,7 +198,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($captured['body'])->not->toContain('Nitpicks')
         ->and($captured['body'])->toContain('Request a re-review')
         ->and($captured['body'])->not->toContain('Yak will look again.')
-        ->and($captured['body'])->toContain(route('tasks.show', $task));
+        ->and($captured['body'])->toContain(route('pr-reviews.for-pr', [$task->repo, $task->pullRequestNumber()]) . '#run-' . $task->public_id);
 
     $comment = PrReviewComment::first();
     expect($comment)->not->toBeNull()

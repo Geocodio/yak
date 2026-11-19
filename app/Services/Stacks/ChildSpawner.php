@@ -5,6 +5,7 @@ namespace App\Services\Stacks;
 use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Enums\ThreadKind;
+use App\Enums\ThreadSource;
 use App\Exceptions\StackRuleViolation;
 use App\Jobs\StartChildThreadJob;
 use App\Models\TaskRun;
@@ -84,6 +85,7 @@ class ChildSpawner
                 'title' => Str::limit(trim((string) strtok($brief, "\n")), 120, '...'),
                 'repo' => $repo ?? $locked->repo,
                 'kind' => $kind,
+                'source' => ThreadSource::Stack,
                 'brief' => $brief,
                 'visibility' => $root->visibility,
                 'owner_user_id' => $root->owner_user_id,

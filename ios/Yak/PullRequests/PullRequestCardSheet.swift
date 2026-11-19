@@ -33,7 +33,7 @@ struct PullRequestCardSheet: View {
                 }
         }
         .presentationDetents([.large])
-        .presentationBackground(Color(.systemBackground))
+        .presentationBackground(Color.yakBackground)
         .sheet(item: $webLink) { BrowserSheet(url: $0.url) }
         .sensoryFeedback(.success, trigger: model.successCount)
         .sensoryFeedback(.error, trigger: model.errorCount)

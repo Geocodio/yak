@@ -77,6 +77,10 @@ final class ThreadPreviewRestore
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, 'This thread runs on a local machine.');
         }
 
+        if (! $thread->hasRepository()) {
+            throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
+        }
+
         if ($this->isRunning($thread) || ThreadRecovery::isRestoreQueued($thread)) {
             return false;
         }

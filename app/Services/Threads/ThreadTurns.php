@@ -12,6 +12,7 @@ use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Exceptions\ThreadActionRefused;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
@@ -43,6 +44,9 @@ class ThreadTurns
 {
     public const WAITING_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox];
 
+    /** The states of a turn that has not ended. */
+    public const ACTIVE_STATES = [TurnState::Pending, TurnState::WaitingForAccount, TurnState::WaitingForSandbox, TurnState::Running];
+
     private const MAX_ADVANCE_FAILURES = 5;
 
     public function __construct(
@@ -72,7 +76,7 @@ class ThreadTurns
     {
         return TaskRun::query()
             ->where('thread_id', $thread->id)
-            ->whereIn('turn_state', [...self::WAITING_STATES, TurnState::Running])
+            ->whereIn('turn_state', self::ACTIVE_STATES)
             ->latest('id')
             ->first();
     }
@@ -131,6 +135,10 @@ class ThreadTurns
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
+            if (! $thread->hasRepository()) {
+                throw ThreadActionRefused::because(ThreadActionRefused::NO_REPOSITORY, ThreadActionRefused::NO_REPOSITORY_SENTENCE);
+            }
+
             if ($thread->lock_holder !== ThreadLockHolder::None || self::activeTurn($thread) !== null) {
                 throw new ThreadBusy("Thread {$thread->id} already runs a turn.");
             }
@@ -153,8 +161,13 @@ class ThreadTurns
                 $this->answerOpenQuestion($task, $shownText ?? $prompt, $driver);
             }
 
-            $queued = PendingSteeringMessage::drainFor($task);
+            $drained = PendingSteeringMessage::takeableFor($task);
+            $queued = $drained->isEmpty() ? null : PendingSteeringMessage::render($drained);
             $text = $queued === null ? $prompt : ($prompt === '' ? $queued : $queued . "\n\n" . $prompt);
+
+            if ($prompt === '' && $shownText === null && $drained->contains(fn (PendingSteeringMessage $message): bool => $message->source !== 'system')) {
+                $shownText = '';
+            }
             $uuid = (string) Str::uuid();
 
             if ($this->needsStandingInstructions($thread)) {
@@ -179,6 +192,7 @@ class ThreadTurns
                 'turn_state' => TurnState::Pending,
                 'started_at' => now(),
             ]);
+            PendingSteeringMessage::drain($task, $drained, $run);
             $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => $uuid, 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Sent, 'text' => $shownText, 'intent' => $intent, 'send_key' => $sendKey]);
 
             if ($storeAttachments !== null) {

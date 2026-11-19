@@ -62,7 +62,7 @@ it('redirects numeric task and deployment urls', function () {
     $deployment = BranchDeployment::factory()->create();
     $this->actingAs(User::factory()->create());
 
-    $this->get("/tasks/{$task->id}")->assertStatus(301)->assertRedirect(route('tasks.show', $task));
+    $this->get("/tasks/{$task->id}")->assertStatus(301)->assertRedirect(route('threads.show', $task->thread()->first()));
     $this->get("/deployments/{$deployment->id}")->assertStatus(301)->assertRedirect(route('deployments.show', $deployment));
 });
 

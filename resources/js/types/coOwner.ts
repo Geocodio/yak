@@ -47,6 +47,10 @@ export type CoOwnerData = {
     connectUrl: string;
     requesterName: string;
     linkError: CoOwnerLinkError | null;
+    /** Thread page only: false when the viewer cannot drive the thread, so the panel shows no decision controls. */
+    canDecide?: boolean;
+    /** Thread page only: whether the viewer is one of the asked people. */
+    viewerIsAsked?: boolean;
 };
 
 /** `errors.coOwner` after a refused decision. */

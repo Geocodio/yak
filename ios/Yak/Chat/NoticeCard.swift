@@ -54,7 +54,7 @@ struct NoticeCard: View {
             }
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 14))
+        .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("notice.\(notice.kind)")
     }

@@ -27,10 +27,12 @@ struct UploadLine: View {
 
     private func progress(percent: Int, isSlow: Bool) -> some View {
         HStack(spacing: 8) {
-            Capsule().fill(Color(.tertiarySystemFill)).frame(width: 160, height: 3)
+            Capsule().fill(Color.yakFill).frame(width: Design.Size.uploadBarWidth, height: Design.Size.uploadBarHeight)
                 .overlay(alignment: .leading) {
-                    Capsule().fill(Color.yakMuted).frame(width: 160 * Double(percent) / 100, height: 3)
-                        .animation(reduceMotion ? nil : .linear(duration: 0.25), value: percent)
+                    Capsule().fill(Color.yakMuted).frame(
+                        width: Design.Size.uploadBarWidth * Double(percent) / 100, height: Design.Size.uploadBarHeight
+                    )
+                    .animation(reduceMotion ? nil : .linear(duration: 0.25), value: percent)
                 }
                 .accessibilityHidden(true)
             Group {

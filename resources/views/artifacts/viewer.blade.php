@@ -116,7 +116,7 @@
     <div class="header-left">
         <span class="header-wordmark">Y<span class="accent">a</span>k</span>
         <span class="header-divider"></span>
-        <a href="{{ route('tasks.show', $task) }}" class="header-back" data-testid="back-to-task">
+        <a href="{{ \App\Support\TaskPageUrl::for($task) ?? route('threads.log') }}" class="header-back" data-testid="back-to-task">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
             </svg>

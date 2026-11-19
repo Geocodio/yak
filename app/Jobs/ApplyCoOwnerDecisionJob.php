@@ -14,6 +14,7 @@ use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\CoOwner\SlackUserResolver;
 use App\Services\CoOwner\TaskRequester;
 use App\Support\PersonName;
+use App\Support\TaskPageUrl;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -126,7 +127,7 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
             ['type' => 'actions', 'elements' => [[
                 'type' => 'button',
                 'action_id' => 'yak_link_connect_github',
-                'url' => GitHubAccountController::connectUrl(route('tasks.show', $request->task, false)),
+                'url' => GitHubAccountController::connectUrl(TaskPageUrl::forTaskId($request->task_id, absolute: false)),
                 'text' => ['type' => 'plain_text', 'text' => 'Connect GitHub'],
             ]]],
         ];

@@ -3,19 +3,18 @@
 namespace App\Services;
 
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 
 /**
  * The text Yak posts to a task's channel about pending questions. One
  * question in Slack or Linear is asked inline; anything else links to the
- * questions form on the task page.
+ * questions form on the thread.
  */
 class ClarificationMessage
 {
     public static function formLink(YakTask $task): string
     {
-        $root = $task->conversation()->first() ?? $task;
-
-        return route('tasks.show', $root) . '#questions';
+        return TaskPageUrl::for($task, 'questions') ?? route('threads.log');
     }
 
     public static function answersInline(YakTask $task): bool
@@ -53,7 +52,7 @@ class ClarificationMessage
         $link = self::formLink($task);
 
         return match (true) {
-            $count === 0 => "Please answer on the task page: {$link}",
+            $count === 0 => "Please answer on the thread: {$link}",
             $count === 1 => "Please answer the question on the form: {$link}",
             default => "There are {$count} questions, so please answer them together on the form: {$link}",
         };

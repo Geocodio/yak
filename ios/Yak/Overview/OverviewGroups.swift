@@ -11,12 +11,12 @@ struct OverviewGroupCard<Rows: View>: View {
     @ViewBuilder let rows: Rows
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
-                .padding(.horizontal, 16).accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: Design.Space.small) {
+            Text(title).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
+                .padding(.horizontal, Design.Space.medium).accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: 0) { rows }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.group))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("overview.group.\(kind.rawValue)")
@@ -41,14 +41,14 @@ struct OverviewRow<Subtitle: View, Trailing: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             trailing.layoutPriority(1)
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, Design.Space.rowInset).padding(.vertical, 10)
         .frame(minHeight: 44)
         .accessibilityElement(children: .contain)
     }
 }
 
 struct RowDivider: View {
-    var body: some View { Divider().padding(.leading, 16) }
+    var body: some View { Divider().padding(.leading, Design.Space.rowInset) }
 }
 
 /// A copy button that says "Copied" in place for two seconds. It plays no haptic.
@@ -516,18 +516,10 @@ struct SetupOutputSheet: View {
                 Button("overview.done") { dismiss() }.fontWeight(.semibold).foregroundStyle(Color.primary)
                     .accessibilityIdentifier("overview.setupOutput.done")
             }
-            .background(Color(.systemBackground))
+            .background(.yakPage)
         }
-        .background(Color(.systemBackground))
-        .presentationBackground(Color(.systemBackground))
+        .background(.yakPage)
+        .presentationBackground(Color.yakBackground)
         .accessibilityIdentifier("overview.setupOutput")
     }
-}
-
-extension Color {
-    /// A warning orange dark enough to read as text on light surfaces.
-    static let yakWarning = Color(
-        UIColor { traits in
-            traits.userInterfaceStyle == .dark ? .systemOrange : UIColor(red: 0.62, green: 0.33, blue: 0.0, alpha: 1)
-        })
 }

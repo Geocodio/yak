@@ -46,9 +46,22 @@ import XCTest
         XCTAssertTrue(detail.waitForExistence(timeout: Wait.firstLoad))
     }
 
-    /// Waits until the thread's panes have loaded, which turns a wide window from `single` into two slots.
-    private func waitForTwoSlotsIfWide() {
+    /// The item that stands for `pane` where there is no pane menu: a button of the row, or of the system's strip.
+    private func paneItem(_ pane: String) -> XCUIElement {
+        let row = app.buttons["pane.row.\(pane)"]
+        return row.exists ? row : app.buttons["pane.strip.\(pane)"]
+    }
+
+    /// Opens the second pane through the pane item's context menu, as a person does on a wide window. A thread opens
+    /// with one pane; the second is always the person's choice.
+    private func openSecondPaneIfWide(_ pane: String = "preview") {
         guard !isNarrowWindow else { return }
+        let item = paneItem(pane)
+        XCTAssertTrue(item.waitForExistence(timeout: Wait.firstLoad))
+        item.press(forDuration: 1.2)
+        let open = app.buttons["pane.second.open"]
+        XCTAssertTrue(open.waitForExistence(timeout: Wait.appear))
+        open.tap()
         let changed = NSPredicate { [self] _, _ in arrangement != "single" && !arrangement.isEmpty }
         wait(for: [XCTNSPredicateExpectation(predicate: changed, object: nil)], timeout: Wait.appear)
     }
@@ -90,10 +103,40 @@ import XCTest
         return labels
     }
 
+    func testAThreadOpensWithOnePaneAtEverySize() throws {
+        try launch(scenario: "preview-ready")
+        openThread()
+        XCTAssertTrue(
+            paneItem("preview").waitForExistence(timeout: Wait.firstLoad)
+                || app.buttons["pane.menu"].waitForExistence(timeout: Wait.appear))
+        XCTAssertEqual(arrangement, "single", "a thread opens with one pane, wide or narrow")
+        XCTAssertTrue(slotLabels().isEmpty, "one pane has no slot markers")
+    }
+
+    func testTheSecondPaneOpensAndClosesFromThePaneItems() throws {
+        try launch(scenario: "preview-ready")
+        openThread()
+        try XCTSkipIf(isNarrowWindow, "a narrow window has one slot and offers no second pane")
+        openSecondPaneIfWide()
+        XCTAssertEqual(slotLabels().count, 2)
+        let beside = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'pane.row.' OR identifier BEGINSWITH 'pane.strip.'")
+        )
+        .allElementsBoundByIndex.first { ($0.value as? String ?? "").contains("Shown beside") }
+        let item = try XCTUnwrap(beside)
+        item.press(forDuration: 1.2)
+        let close = app.buttons["pane.second.close"]
+        XCTAssertTrue(close.waitForExistence(timeout: Wait.appear))
+        close.tap()
+        let single = NSPredicate { [self] _, _ in arrangement == "single" }
+        wait(for: [XCTNSPredicateExpectation(predicate: single, object: nil)], timeout: Wait.appear)
+        XCTAssertTrue(slotLabels().isEmpty)
+    }
+
     func testTheLayoutFollowsTheWidth() throws {
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         switch arrangement {
         case "single":
             XCTAssertTrue(isNarrowWindow, "a wide window shows two panes")
@@ -125,7 +168,7 @@ import XCTest
     func testATapMovesTheFocus() throws {
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         try XCTSkipIf(arrangement == "single", "one pane has no second slot")
         let slots = positions.map { element("pane.slot.\($0)") }.filter(\.exists)
         let other = try XCTUnwrap(slots.first { !$0.isSelected })
@@ -139,7 +182,7 @@ import XCTest
     func testRotationKeepsBothPanes() throws {
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         try XCTSkipIf(arrangement == "single", "one pane has no second slot")
         let loaded = app.webViews.staticTexts["Path: /"]
         XCTAssertTrue(loaded.waitForExistence(timeout: Wait.firstLoad))
@@ -162,7 +205,7 @@ import XCTest
         XCUIDevice.shared.orientation = .landscapeLeft
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         try XCTSkipUnless(arrangement == "sideBySide" && !element("pane.strip.chat").exists, "needs the iPad's bars")
         let button = app.buttons["pane.button.trailing"]
         XCTAssertTrue(button.waitForExistence(timeout: Wait.appear))
@@ -182,7 +225,7 @@ import XCTest
     func testMarksShowTheFocusedAndTheSecondPane() throws {
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         try XCTSkipIf(arrangement == "single", "one pane has no second slot")
         let slots = positions.map { element("pane.slot.\($0)") }.filter(\.exists)
         XCTAssertEqual(slots.count, 2)
@@ -197,6 +240,7 @@ import XCTest
         try launch(scenario: "preview-ready", extraArguments: ["-yakTestPosture", "book"])
         openThread()
         try XCTSkipIf(isNarrowWindow, "the book pose needs a wide window")
+        openSecondPaneIfWide()
         let book = NSPredicate { [self] _, _ in arrangement == "book" }
         wait(for: [XCTNSPredicateExpectation(predicate: book, object: nil)], timeout: Wait.appear)
         XCTAssertEqual(arrangement, "book")
@@ -210,6 +254,7 @@ import XCTest
         try launch(scenario: "preview-ready", extraArguments: ["-yakTestPosture", "laptop"])
         openThread()
         try XCTSkipIf(isNarrowWindow, "the laptop pose needs a wide window")
+        openSecondPaneIfWide()
         let laptop = NSPredicate { [self] _, _ in arrangement == "laptop" }
         wait(for: [XCTNSPredicateExpectation(predicate: laptop, object: nil)], timeout: Wait.appear)
         XCTAssertEqual(arrangement, "laptop")
@@ -221,7 +266,7 @@ import XCTest
     func testCommandNumbersSwitchPanes() throws {
         try launch(scenario: "preview-ready")
         openThread()
-        waitForTwoSlotsIfWide()
+        openSecondPaneIfWide()
         try XCTSkipIf(isNarrowWindow, "needs the iPad")
         app.typeKey("2", modifierFlags: .command)
         waitForFocusedPane("preview", "Command 2 focuses Preview")

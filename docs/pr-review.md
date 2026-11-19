@@ -110,7 +110,7 @@ Before it approves, Yak checks the live head and base commits, the base branch, 
 
 The base branch must have at least one required status check, through branch protection or a ruleset, and the GitHub App must be able to read the branch. If it cannot, Yak holds the PR and says so. Yak withdraws its own approval when new commits are pushed, so GitHub's "dismiss stale approvals" setting is not required. Yak never changes branch protection. A PR with auto-merge enabled is ineligible. The review is pinned to the reviewed commit, so new commits need a fresh approval. A rejected submission falls back to a comment, with no second approval attempt.
 
-The same GitHub App cannot approve its own PRs. Yak-authored PRs stay comment-only, even in **Enforce**. The review body and the task page show the decision and reasons. The findings panel on the task page labels the model verdict separately from the real GitHub review event. Shadow recommendations are labelled and never shown as a submitted approval.
+The same GitHub App cannot approve its own PRs. Yak-authored PRs stay comment-only, even in **Enforce**. The review body and the review page show the decision and reasons. The findings panel on the review page labels the model verdict separately from the real GitHub review event. Shadow recommendations are labelled and never shown as a submitted approval.
 
 If you customized the review prompt, keep the Risk signals section from the default prompt. Without it, no signals arrive and approval is blocked.
 
@@ -141,7 +141,7 @@ The **PR reviews** page shows every finding Yak posted, with filters for severit
 - `/pr-reviews`: the main table.
 - `/pr-reviews/for/{repoSlug}/{prNumber}`: every Yak review of one PR, with a **Re-run review** button.
 
-The task page of a review task shows the findings panel: the model verdict, the counts of must-fix, should-fix and consider findings, the risk details when approval is on, the review summary and each comment.
+Each run on the review page shows the findings panel: the model verdict, the counts of must-fix, should-fix and consider findings, the risk details when approval is on, the review summary and each comment.
 
 ## Limitations
 
@@ -152,7 +152,7 @@ The task page of a review task shows the findings panel: the model verdict, the 
 
 ## Troubleshooting
 
-- **Review never posted**: open the failed review task from the **PR reviews** page or the task list. The sandbox might have failed to check out the PR head, or Claude's output might be malformed. The task log records both.
+- **Review never posted**: open the failed review run from the **PR reviews** page. The sandbox might have failed to check out the PR head, or Claude's output might be malformed. The run's **Full log** records both.
 - **Review posted but comments missing**: path filters may be too aggressive. Check the list under **PR review path filters** and `review.exclude_paths` in `.yak/config.yml`.
 - **Reactions not showing up**: the polling job runs hourly. Wait for the next cycle.
 - **Linear ticket context not included**: confirm Yak is connected under **Settings > Linear** and the ticket identifier follows the `[A-Z]{2,6}-\d+` pattern.

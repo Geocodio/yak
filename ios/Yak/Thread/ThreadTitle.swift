@@ -13,6 +13,13 @@ struct ThreadTitle: View {
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.hasSystemStrip) private var hasSystemStrip
+
+    /// On a phone the title sits in a pill between the round buttons; beside the system's strip and on a wide screen it
+    /// is plain text.
+    private var isInPill: Bool { horizontalSizeClass == .compact && !hasSystemStrip }
+
     var body: some View {
         if let action {
             Button(action: action) { content }
@@ -29,7 +36,7 @@ struct ThreadTitle: View {
         VStack(spacing: 1) {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8).accessibilityHidden(true)
-                Text(title).font(.headline).lineLimit(1).truncationMode(.tail)
+                Text(title).font(isInPill ? .yakBarTitle : .headline).lineLimit(1).truncationMode(.tail)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityValue(statusText)
             }
@@ -38,7 +45,14 @@ struct ThreadTitle: View {
                     .accessibilityIdentifier("thread.connection")
             }
         }
-        .frame(minHeight: 44).contentShape(.rect)
+        .frame(minHeight: Design.Size.control).contentShape(.rect)
+        .padding(.horizontal, isInPill ? Design.Space.large : 0)
+        .background {
+            if isInPill {
+                Capsule().fill(Color.yakBar).overlay(
+                    Capsule().stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+            }
+        }
     }
 
     /// Running is green and blocked or waiting orange; every other state is a neutral gray, never the rust accent.

@@ -38,7 +38,7 @@ struct InstanceShell: View {
         Group {
             switch status {
             case .starting, .active: layout
-            case .needsPairing: Color(.systemBackground).task { await model.markRevoked(instance) }
+            case .needsPairing: Color.yakBackground.task { await model.markRevoked(instance) }
             case .tokenUnreadable: problem("signedIn.tokenUnreadable")
             case .appTooOld: problem("signedIn.appTooOld")
             case .serverTooOld: problem("signedIn.serverTooOld")
@@ -69,7 +69,7 @@ struct InstanceShell: View {
                 SettingsScreen(app: model, push: push, active: instance, onClose: { scene.isSettingsOpen = false })
                     .linkPairingStatus(model, sheetDepth: 1)
                     .countsAsOpenSheet(model)
-                    .presentationBackground(Color(.systemGroupedBackground))
+                    .presentationBackground(Color.yakBackground)
             }
         }
         .sheet(isPresented: $showsSwitcher) {
@@ -77,7 +77,7 @@ struct InstanceShell: View {
                 .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
                 .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
-                .presentationBackground(Color(.systemGroupedBackground))
+                .presentationBackground(Color.yakBackground)
         }
         .sheet(isPresented: isConnecting) {
             NavigationStack {
@@ -201,7 +201,7 @@ struct InstanceShell: View {
             }
             .frame(maxWidth: 560).frame(maxWidth: .infinity).padding(24)
         }
-        .background(Color(.systemBackground))
+        .background(Color.yakBackground)
     }
 
     private func refreshStoredInstance() async {
@@ -237,7 +237,7 @@ struct InstanceShell: View {
         if scene.showsOtherInstanceNotice {
             Text("window.otherInstance").font(.footnote.weight(.medium)).multilineTextAlignment(.center)
                 .padding(12).frame(maxWidth: 420)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                .background(Color.yakCard, in: .rect(cornerRadius: 16))
                 .padding(.bottom, 72)
                 .task {
                     do { try await Task.sleep(for: .seconds(6)) } catch { return }

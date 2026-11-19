@@ -14,10 +14,12 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\ClarificationMessage;
+use App\Services\CoOwner\SlackUserResolver;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
@@ -183,6 +185,7 @@ class WebhookController extends Controller
         $detector = new RepoDetector;
         $detection = $detector->detect($description);
         $authorName = UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null);
+        $starterId = $this->slackUser($description->metadata['slack_user_id'] ?? null)?->id;
 
         // Multi-repo: create one task per repo
         if ($detection->isMultiRepo()) {
@@ -197,6 +200,8 @@ class WebhookController extends Controller
                     'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                     'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
                     'author_name' => $authorName,
+                    'started_by_user_id' => $starterId,
+                    'author_user_id' => $starterId,
                     'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repo->slug),
                     'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 ]);
@@ -235,6 +240,8 @@ class WebhookController extends Controller
                 'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                 'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
                 'author_name' => $authorName,
+                'started_by_user_id' => $starterId,
+                'author_user_id' => $starterId,
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, 'unknown'),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
@@ -264,6 +271,8 @@ class WebhookController extends Controller
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
             'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
             'author_name' => $authorName,
+            'started_by_user_id' => $starterId,
+            'author_user_id' => $starterId,
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repoSlug),
             'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
         ]);
@@ -471,7 +480,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($heldTask, 'Follow-up received via Slack thread while held for a co-owner');
-            app(FollowUpTaskFactory::class)->create($heldTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
+            app(FollowUpTaskFactory::class)->create($heldTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -498,7 +507,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
+            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -516,7 +525,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($researchTask, 'Research follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
+            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -557,6 +566,14 @@ class WebhookController extends Controller
     }
 
     /**
+     * The Yak user behind a Slack user id, or null for someone outside Yak.
+     */
+    private function slackUser(?string $slackUserId): ?User
+    {
+        return $slackUserId === null || $slackUserId === '' ? null : app(SlackUserResolver::class)->userFor($slackUserId);
+    }
+
+    /**
      * The thread's newest task when it stopped without a PR, so a reply can retry it.
      */
     private function stoppedTaskInThread(string $channel, string $threadTs): ?YakTask
@@ -592,7 +609,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'handled_as_stopped_reply']);
         }
 
-        $reply = app(StoppedTaskReplies::class)->handle($task, $text, 'slack', UserNameResolver::resolve((string) $userId));
+        $reply = app(StoppedTaskReplies::class)->handle($task, $text, 'slack', UserNameResolver::resolve((string) $userId), authorUserId: $this->slackUser($userId)?->id);
         SendNotificationJob::dispatch($task, NotificationType::Progress, $reply, personalize: false);
 
         return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);

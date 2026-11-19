@@ -16,24 +16,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Tasks outside an open thread that need a person: a question they were asked,
- * or a co-owner decision they owe. A task inside an open thread is never listed
- * here because its thread row already says so.
+ * Tasks with no open thread that need a person: a question they were asked,
+ * or a co-owner decision they owe. A task item is listed only for a task with
+ * no open thread, because an open thread's row already says so. The app list
+ * also keeps a pending co-owner decision on an open thread as a task item,
+ * which the installed app opens the decision screen from.
  */
 class NeedsYouTasks
 {
     private const LIMIT = 50;
 
     /**
-     * @return list<array{type: 'task', taskId: string, title: string, needsYouReason: 'question'|'co_owner', needsYouLabel: string, isPrivate: bool, lastActivityAt: string}>
+     * @return list<array{type: 'task', taskId: string, threadId: ?string, title: string, needsYouReason: 'question'|'co_owner', needsYouLabel: string, isPrivate: bool, lastActivityAt: string}>
      */
-    public static function for(User $user, ?string $search = null): array
+    public static function for(User $user, ?string $search = null, bool $includesCoOwnerOnOpenThread = false): array
     {
         // Thread facts come from joins, so no relation scoped to the signed-in person is involved.
-        $query = self::matching($user)
+        $query = self::matching($user, $includesCoOwnerOnOpenThread)
             ->leftJoin('threads as item_thread', 'item_thread.id', '=', 'tasks.thread_id')
             ->leftJoin('threads as item_root', 'item_root.id', '=', DB::raw('coalesce(item_thread.root_thread_id, item_thread.id)'))
-            ->select('tasks.*', 'item_thread.status as item_thread_status', 'item_root.visibility as item_root_visibility')
+            ->select('tasks.*', 'item_thread.status as item_thread_status', 'item_thread.public_id as item_thread_public_id', 'item_root.visibility as item_root_visibility')
             ->orderByDesc('tasks.updated_at')
             ->orderByDesc('tasks.id');
 
@@ -52,6 +54,7 @@ class NeedsYouTasks
             $items[] = [
                 'type' => 'task',
                 'taskId' => $task->public_id,
+                'threadId' => $task->getAttribute('item_thread_public_id'),
                 'title' => Str::limit(TaskRowData::plainPreview((string) $task->description), 120),
                 'needsYouReason' => $isQuestion ? 'question' : 'co_owner',
                 'needsYouLabel' => $isQuestion ? 'Asked you a question' : 'Waiting for your co-owner decision',
@@ -79,7 +82,7 @@ class NeedsYouTasks
     /**
      * @return Builder<YakTask>
      */
-    private static function matching(User $user): Builder
+    private static function matching(User $user, bool $includesCoOwnerOnOpenThread = false): Builder
     {
         $coOwnerTaskIds = CoOwnerRequest::query()
             ->select('task_id')
@@ -89,8 +92,9 @@ class NeedsYouTasks
         $query = YakTask::withoutGlobalScopes();
         VisibleTaskScope::constrain($query, 'tasks', $user->id);
 
-        return $query->where(function (Builder $query) use ($user, $coOwnerTaskIds): void {
-            $query->whereIn('tasks.id', $coOwnerTaskIds)
+        return $query->where(function (Builder $query) use ($user, $coOwnerTaskIds, $includesCoOwnerOnOpenThread): void {
+            $query->where(fn (Builder $coOwner) => $coOwner->whereIn('tasks.id', $coOwnerTaskIds)
+                ->unless($includesCoOwnerOnOpenThread, fn (Builder $withoutThread) => $withoutThread->where(fn (Builder $open) => self::withoutOpenThread($open))))
                 ->orWhere(fn (Builder $question) => self::question($question, $user));
         });
     }
@@ -102,7 +106,15 @@ class NeedsYouTasks
     {
         $query->where('tasks.status', TaskStatus::AwaitingClarification)
             ->where('tasks.started_by_user_id', $user->id)
-            ->where(fn (Builder $open) => $open->whereNull('tasks.thread_id')
-                ->orWhereHas('thread', fn (Builder $thread) => $thread->withoutGlobalScopes()->where('status', ThreadStatus::Closed)));
+            ->where(fn (Builder $open) => self::withoutOpenThread($open));
+    }
+
+    /**
+     * @param  Builder<YakTask>  $query
+     */
+    private static function withoutOpenThread(Builder $query): void
+    {
+        $query->whereNull('tasks.thread_id')
+            ->orWhereHas('thread', fn (Builder $thread) => $thread->withoutGlobalScopes()->where('status', ThreadStatus::Closed));
     }
 }

@@ -10,6 +10,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadFactory;
 
 /**
  * Resolves a repo-clarification reply into a concrete repository and
@@ -55,12 +56,41 @@ class RepoClarificationResolver
             return;
         }
 
-        $repository = Repository::where('slug', $matchedSlug)->where('is_active', true)->first();
+        if (! self::start($task, $matchedSlug)) {
+            TaskLogger::error($task, "Matched repo slug '{$matchedSlug}' not found or inactive");
+        }
+    }
+
+    /**
+     * The repositories a person can pick for a task that waits for one: the options it offered that are
+     * still active, or every active repository when it offered none and no agent session has started.
+     * The page's question, its answer route and the resolver all read this one list.
+     *
+     * @return list<string>
+     */
+    public static function offeredOptions(YakTask $task): array
+    {
+        /** @var list<string> $active */
+        $active = Repository::where('is_active', true)->orderBy('slug')->pluck('slug')->all();
+        $offered = array_values(array_filter((array) ($task->clarification_options ?? []), 'is_string'));
+
+        if ($offered !== []) {
+            return array_values(array_intersect($offered, $active));
+        }
+
+        return self::awaitingRepoChoice($task) ? $active : [];
+    }
+
+    /**
+     * Gives the task the chosen active repository, attaches it to the task's thread and dispatches the
+     * agent job. Returns false, changing nothing, when the repository is not active.
+     */
+    public static function start(YakTask $task, string $slug): bool
+    {
+        $repository = Repository::where('slug', $slug)->where('is_active', true)->first();
 
         if ($repository === null) {
-            TaskLogger::error($task, "Matched repo slug '{$matchedSlug}' not found or inactive");
-
-            return;
+            return false;
         }
 
         /** @var TaskMode $mode */
@@ -75,17 +105,19 @@ class RepoClarificationResolver
                 ?? app(ResponsiblePersonResolver::class)->resolve(null, $task->author_name, $repository->slug),
         ]);
 
+        $thread = $task->thread;
+
+        if ($thread !== null && ! $thread->hasRepository()) {
+            app(ThreadFactory::class)->attachRepository($thread, $repository->slug);
+        }
+
         TaskLogger::info($task, "Repo resolved to {$repository->slug}");
 
         $dispatcher = app(AgentJobDispatcher::class);
 
-        if ($mode === TaskMode::Research) {
-            $dispatcher->dispatch($task, ResearchYakJob::class);
+        $dispatcher->dispatch($task, $mode === TaskMode::Research ? ResearchYakJob::class : RunYakJob::class);
 
-            return;
-        }
-
-        $dispatcher->dispatch($task, RunYakJob::class);
+        return true;
     }
 
     /**

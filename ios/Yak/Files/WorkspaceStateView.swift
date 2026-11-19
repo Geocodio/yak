@@ -121,10 +121,11 @@ struct WorkspaceStateView: View {
                     .accessibilityIdentifier(action.identifier)
                 }
             }
-            .padding(24).frame(maxWidth: 520).frame(maxWidth: .infinity)
+            .padding(Design.Space.pageInset).frame(maxWidth: 520, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.state")
     }

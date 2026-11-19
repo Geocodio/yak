@@ -7,6 +7,8 @@ struct PreviewCardView: View {
     let card: PreviewCard
 
     private var status: PreviewStatus? { model.snapshot.status }
+    /// The height of one line of a step's title, so the mark sits on the title's line.
+    @ScaledMetric(relativeTo: .body) private var lineHeight: CGFloat = 22
 
     var body: some View {
         ZStack {
@@ -16,12 +18,12 @@ struct PreviewCardView: View {
                     actions
                 }
                 .frame(maxWidth: 520, alignment: .leading)
-                .padding(20)
-                .frame(maxWidth: .infinity)
+                .padding(Design.Space.pageInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollBounceBehavior(.basedOnSize)
         }
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("preview.card.\(Self.identifier(of: card.kind))")
     }
@@ -138,7 +140,7 @@ struct PreviewCardView: View {
             step("preview.step.start", nil, steps[safe: 1])
             step(
                 "preview.step.wait",
-                status?.port.map { (port: Int) -> LocalizedStringKey in "preview.step.port \(port)" },
+                status?.port.map { (port: Int) -> LocalizedStringKey in "preview.step.port \(String(port))" },
                 steps[safe: 2])
         }
         .accessibilityElement(children: .contain)
@@ -152,7 +154,7 @@ struct PreviewCardView: View {
     private func step(_ title: LocalizedStringKey, _ detail: LocalizedStringKey?, _ status: PreviewStepStatus?)
         -> some View
     {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .top, spacing: Design.Space.medium) {
             Group {
                 switch status ?? .pending {
                 case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.primary)
@@ -160,7 +162,7 @@ struct PreviewCardView: View {
                 case .pending: Image(systemName: "circle").foregroundStyle(Color.yakMuted)
                 }
             }
-            .frame(width: 24)
+            .frame(width: Design.Size.stepColumn, height: lineHeight)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).fontWeight(status == .active ? .semibold : .regular)
@@ -210,7 +212,7 @@ struct PreviewCardView: View {
                 .textSelection(.enabled)
                 .padding(12)
             }
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+            .yakCardSurface(in: .rect(cornerRadius: Design.Radius.row))
             .accessibilityIdentifier("preview.log")
         }
     }
@@ -218,7 +220,7 @@ struct PreviewCardView: View {
     private var sample: some View {
         Text("preview.sample").font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+            .yakCardSurface(in: .rect(cornerRadius: Design.Radius.row))
     }
 
     // MARK: Actions
@@ -325,7 +327,7 @@ struct PreviewMessageCard<Actions: View>: View {
         ZStack {
             card
         }
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }
@@ -339,7 +341,8 @@ struct PreviewMessageCard<Actions: View>: View {
                 actions.padding(.top, 4)
             }
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: 520, alignment: .leading).padding(20).frame(maxWidth: .infinity)
+            .frame(maxWidth: 520, alignment: .leading).padding(Design.Space.pageInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.basedOnSize)
     }
@@ -352,7 +355,7 @@ struct PreviewSkeleton: View {
 
     var body: some View {
         ZStack { skeleton }
-            .background(Color(.systemBackground))
+            .background(.yakPage)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("preview.card.checking")
     }
@@ -380,7 +383,8 @@ struct PreviewSkeleton: View {
                         .accessibilityIdentifier("preview.retry")
                 }
             }
-            .frame(maxWidth: 520, alignment: .leading).padding(20).frame(maxWidth: .infinity)
+            .frame(maxWidth: 520, alignment: .leading).padding(Design.Space.pageInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

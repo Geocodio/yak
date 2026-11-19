@@ -14,9 +14,11 @@ use App\Jobs\Deployments\DeployBranchJob;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\FlushFollowUpBatchJob;
+use App\Jobs\HandleCiJobFailureJob;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\QuietPeriodReviewJob;
+use App\Jobs\RecordCiJobGreenJob;
 use App\Jobs\RunConfigCheckJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
@@ -28,6 +30,7 @@ use App\Models\Repository;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
+use App\Services\CiFailure\CiFailureIntake;
 use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use App\Services\Threads\PullRequests\CiCheckDetails;
@@ -71,6 +74,10 @@ class WebhookController extends Controller
             return $this->handleCheckSuite($request, $github);
         }
 
+        if ($event === 'workflow_job') {
+            return $this->handleWorkflowJob($request);
+        }
+
         if ($event === 'push') {
             return $this->handlePush($request);
         }
@@ -110,6 +117,7 @@ class WebhookController extends Controller
         $action = $request->input('action');
 
         if ($action === 'closed') {
+            app(CiFailureIntake::class)->resolveClosedPullRequest($request);
             $this->maybeDispatchDeployment($request, 'closed');
 
             return $this->handleClosed($request);
@@ -170,6 +178,30 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'skipped' => "unhandled action: {$action}"]);
+    }
+
+    private function handleWorkflowJob(Request $request): JsonResponse
+    {
+        $intake = app(CiFailureIntake::class);
+        $repository = $intake->accepts($request);
+
+        if ($repository === null) {
+            return response()->json(['ok' => true, 'skipped' => 'workflow_job not counted']);
+        }
+
+        if ($request->input('workflow_job.conclusion') === 'success') {
+            if (! $intake->greenMatters($repository, $request)) {
+                return response()->json(['ok' => true, 'skipped' => 'green job changes nothing']);
+            }
+
+            RecordCiJobGreenJob::dispatch($repository->id, $request->input());
+
+            return response()->json(['ok' => true, 'dispatched' => true]);
+        }
+
+        HandleCiJobFailureJob::dispatch($repository->id, $request->input());
+
+        return response()->json(['ok' => true, 'dispatched' => true]);
     }
 
     private function handleCheckSuite(Request $request, AppService $github): JsonResponse
@@ -466,6 +498,7 @@ class WebhookController extends Controller
             mergedAt: $request->input('pull_request.merged_at'),
             closedAt: $request->input('pull_request.closed_at'),
             via: 'webhook',
+            mergeCommitSha: $request->input('pull_request.merge_commit_sha'),
         );
 
         if (! $recorded) {
@@ -613,6 +646,14 @@ class WebhookController extends Controller
         }
 
         $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo !== null && $repo->is_active) {
+            app(CiFailureIntake::class)->resolveBranch(
+                $repo->slug,
+                (string) $request->input('ref'),
+                'branch_deleted',
+            );
+        }
 
         if ($repo === null || ! $repo->deployments_enabled) {
             return response()->json(['ok' => true, 'skipped' => 'deployments disabled or repo not found']);

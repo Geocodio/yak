@@ -2,6 +2,7 @@ import { IconButton, Tooltip, cn } from '@geocodio/console-ui';
 import { File, FileArchive, FileAudio, FileCode, FileSpreadsheet, FileText, FileVideo, ImagePlus, Paperclip, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatBytes } from '@/lib/format';
+import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { AttachmentData, MediaItem } from '@/types/tasks';
 import type { AttachmentDraft } from './useAttachmentDraft';
 
@@ -199,8 +200,10 @@ export function DraftAttachments({
     draft: AttachmentDraft;
     errors: Record<string, string | undefined>;
     progress: number | null;
-    onOpenMedia: (media: MediaItem[], index: number) => void;
+    onOpenMedia?: (media: MediaItem[], index: number) => void;
 }) {
+    const [lightbox, setLightbox] = useState<{ media: MediaItem[]; index: number } | null>(null);
+    const open = onOpenMedia ?? ((media: MediaItem[], index: number) => setLightbox({ media, index }));
     const listError = errors.attachments;
     const notice = draft.notice ?? listError ?? null;
 
@@ -235,7 +238,7 @@ export function DraftAttachments({
                             highlighted={draft.highlighted === item.ref}
                             onHighlight={draft.setHighlighted}
                             error={errors[`attachments.${index}`]}
-                            onOpen={item.objectUrl ? () => onOpenMedia(media, previewable.indexOf(item)) : undefined}
+                            onOpen={item.objectUrl ? () => open(media, previewable.indexOf(item)) : undefined}
                             onRemove={progress === null ? () => draft.remove(item.key) : undefined}
                             testId="draft-attachment"
                         />
@@ -251,6 +254,14 @@ export function DraftAttachments({
                 <p className="mt-1.5 text-[12px] text-fail" role="alert" data-testid="attachment-notice">
                     {notice}
                 </p>
+            )}
+            {onOpenMedia === undefined && (
+                <MediaLightbox
+                    media={lightbox?.media ?? null}
+                    index={lightbox?.index ?? 0}
+                    onOpenChange={(isOpen) => !isOpen && setLightbox(null)}
+                    onIndexChange={(index) => setLightbox((current) => (current === null ? null : { ...current, index }))}
+                />
             )}
         </div>
     );

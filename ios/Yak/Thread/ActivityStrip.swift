@@ -45,7 +45,7 @@ struct ActivityStrip: View {
                 Text("activity.steer").font(.subheadline.weight(.bold)).fixedSize()
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(Color(.secondarySystemBackground), in: .capsule)
+            .yakBarSurface(in: .capsule)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -64,7 +64,7 @@ struct ActivityStrip: View {
                 title.font(.subheadline.weight(.medium)).lineLimit(2)
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(Color(.secondarySystemBackground), in: .capsule)
+            .yakBarSurface(in: .capsule)
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)

@@ -30,9 +30,9 @@ class CoOwnerGate
 
     private const LISTING_MESSAGE = 'GitHub compares at most 300 files, so Yak cannot see every file and holds this change.';
 
-    private const EXPIRY_DAYS = 7;
+    public const int EXPIRY_DAYS = 7;
 
-    private const EXEMPT_SOURCES = ['sentry', 'flaky-test'];
+    private const EXEMPT_SOURCES = ['sentry', 'flaky-test', 'ci-failure'];
 
     public function __construct(
         private AppService $github,

@@ -37,7 +37,7 @@ struct ToolActivityView: View {
                 if isTinted { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 InlineOrStacked {
                     // The id is on the text, so a text size change redraws it while the row keeps its expanded state.
-                    Text(verbatim: item.text ?? "").font(.subheadline.weight(.medium))
+                    Text(verbatim: item.text ?? "").font(.subheadline).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
                     if isTinted, let start = RelativeAge.parse(item.at) { ElapsedView(since: start) }
                 }

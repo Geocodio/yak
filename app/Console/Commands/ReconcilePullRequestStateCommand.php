@@ -102,6 +102,7 @@ class ReconcilePullRequestStateCommand extends Command
                     closedAt: $pr['closed_at'] ?? null,
                     via: 'reconcile',
                     humanCommits: $humanCommits,
+                    mergeCommitSha: $pr['merge_commit_sha'] ?? null,
                 );
                 $closed++;
 

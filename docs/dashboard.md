@@ -106,13 +106,15 @@ Keys inside the open palette:
 
 The Thread keys act on the thread you are viewing. They do nothing on other pages, and the row of an action that cannot run now is skipped.
 
-## Task log
+## Thread log
 
-The task log (Operations > Task log) is the list of everything that channels and the dashboard asked Yak to do. It is a log: you start work from the thread list, not from here. Each task runs as a turn in a thread (see [Concepts](concepts.md)). Open it from Operations or the command palette. Three tabs split the list: Tasks, PR Reviews and Setup, each with a count. Filter by status, source, repository or pull request, search, and sort by newest, oldest, source, author or repository. A "Needs co-owner" chip lists tasks waiting for a second person to approve. Open a task to see its logs, runs, cost and pull request, and to retry or cancel it.
+The thread log (`/threads/log`, "Thread log" in the sidebar) lists everything that channels and the dashboard asked Yak to do, one row per thread. It is a log: you start work from the thread list, not from here. Each task runs as a turn in a thread (see [Concepts](concepts.md)). Filter by status, source, who started it, repository or pull request, search, and sort by newest activity, oldest activity, source, who started it or repository. A "Needs co-owner" chip lists threads waiting for a second person to approve. Open a row to see its logs, runs, cost and pull request on the thread, and to retry or cancel from there.
+
+Old links to the task log and to `/tasks/<id>` redirect to the thread log or the thread. Setup runs and repository research runs are on the repository's Runs tab. Reviews are on the PR reviews pages.
 
 ## Operations
 
-Operations holds the task log, Repositories, Deployments, PR reviews and Observations.
+Operations holds Repositories, Deployments, PR reviews and Observations.
 
 ### Repositories
 

@@ -134,7 +134,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $exceptions->render(function (ThreadActionRefused $e, Request $request) {
             if (ClientApi::for($request) === null) {
-                return null;
+                if (! $request->routeIs('threads.*')) {
+                    return null;
+                }
+
+                return $request->expectsJson()
+                    ? response()->json(['error' => $e->errorCode, 'message' => $e->getMessage()], $e->status)
+                    : back()->with('error', $e->getMessage());
             }
 
             return response()->json([

@@ -26,7 +26,7 @@ test('each section url renders its component with the shared header', function (
         ->where('header.slug', 'acme/site')
         ->where('header.approval.level', 3)
         ->where('header.approval.mode', 'enforce')
-        ->has('header.sections', 7)
+        ->has('header.sections', 8)
         ->missing('yakConfig'));
 })->with([
     ['general', 'Repositories/Settings/General'],

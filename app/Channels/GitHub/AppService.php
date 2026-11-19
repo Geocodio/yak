@@ -700,7 +700,7 @@ class AppService
     /**
      * The first merged pull request that contains a commit.
      *
-     * @return array{number: int, title: string, url: string}|null
+     * @return array{number: int, title: string, url: string, author: string|null}|null
      */
     public function findPullRequestForCommit(int $installationId, string $repoSlug, string $sha): ?array
     {
@@ -717,6 +717,7 @@ class AppService
                     'number' => (int) $pullRequest['number'],
                     'title' => (string) $pullRequest['title'],
                     'url' => (string) $pullRequest['html_url'],
+                    'author' => $pullRequest['user']['login'] ?? null,
                 ];
             }
         }
@@ -1304,6 +1305,75 @@ GRAPHQL;
         }
 
         return (array) $response->throw()->json();
+    }
+
+    /**
+     * One workflow run. Any non-2xx response throws.
+     *
+     * @return array{path: string, name: string, event: string, head_repository_full_name: ?string, head_branch: ?string, head_sha: string}
+     */
+    public function getWorkflowRun(int $installationId, string $repoSlug, int $runId): array
+    {
+        $run = (array) $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}")
+            ->throw()
+            ->json();
+
+        return [
+            'path' => (string) ($run['path'] ?? ''),
+            'name' => (string) ($run['name'] ?? ''),
+            'event' => (string) ($run['event'] ?? ''),
+            'head_repository_full_name' => $run['head_repository']['full_name'] ?? null,
+            'head_branch' => $run['head_branch'] ?? null,
+            'head_sha' => (string) ($run['head_sha'] ?? ''),
+        ];
+    }
+
+    /**
+     * Whether `$name` is a tag of the repository. A tag run reports the tag
+     * name as its head branch. Any failed lookup counts as not a tag.
+     */
+    public function isTag(int $installationId, string $repoSlug, string $name): bool
+    {
+        return $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/git/ref/tags/" . self::encodeRef($name))
+            ->successful();
+    }
+
+    /**
+     * How `$head` relates to `$base` (`ahead`, `behind`, `identical` or
+     * `diverged`) and their merge base. Any non-2xx response throws.
+     *
+     * @return array{status: string, merge_base_sha: string}
+     */
+    public function compareCommits(int $installationId, string $repoSlug, string $base, string $head): array
+    {
+        $comparison = (array) $this->installationClient($installationId)
+            ->get('https://api.github.com/repos/' . $repoSlug . '/compare/' . self::encodeRef($base) . '...' . self::encodeRef($head))
+            ->throw()
+            ->json();
+
+        return [
+            'status' => (string) ($comparison['status'] ?? ''),
+            'merge_base_sha' => (string) ($comparison['merge_base_commit']['sha'] ?? ''),
+        ];
+    }
+
+    /**
+     * Whether `$ancestorSha` is reachable from `$descendantSha`. A commit's
+     * ancestry never changes, so the answer is cached.
+     */
+    public function isAncestor(int $installationId, string $repoSlug, string $ancestorSha, string $descendantSha): bool
+    {
+        return Cache::remember(
+            "github-ancestor:{$repoSlug}:{$ancestorSha}:{$descendantSha}",
+            now()->addDay(),
+            fn (): bool => in_array(
+                $this->compareCommits($installationId, $repoSlug, $ancestorSha, $descendantSha)['status'],
+                ['ahead', 'identical'],
+                true,
+            ),
+        );
     }
 
     /**

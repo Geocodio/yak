@@ -42,7 +42,7 @@ test('a direct message looks up the Slack user by email, stores the id and posts
             && str_contains($blocks, '*PR ready: Fix null postal code*')
             && str_contains($blocks, "geocodio/api · Task #{$task->id} · from Dashboard")
             && str_contains($blocks, '"View PR"')
-            && str_contains($blocks, '"View task"');
+            && str_contains($blocks, '"Open thread"');
     });
 });
 

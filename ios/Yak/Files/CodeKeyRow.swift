@@ -13,7 +13,7 @@ struct CodeKeyRow: View {
             row
             ScrollView(.horizontal) { row }.scrollIndicators(.hidden)
         }
-        .frame(maxWidth: .infinity).background(Color(.secondarySystemBackground))
+        .frame(maxWidth: .infinity).background(Color.yakCard)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files.editor.keys")
     }

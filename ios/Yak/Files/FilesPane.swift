@@ -70,7 +70,7 @@ struct FilesPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("files")
         .accessibilityHidden(!isPaneShown)
@@ -126,7 +126,9 @@ struct FilesPane: View {
                 },
                 label: { Text("files.mode.switch") }
             )
-            .pickerStyle(.segmented).padding(.horizontal, 16).padding(.vertical, 8)
+            .pickerStyle(.segmented).padding(.horizontal, Design.Space.pageInset).padding(
+                .vertical, Design.Space.compact
+            )
             .accessibilityIdentifier("files.mode")
         } else if let only = modes.first {
             Text(Self.title(of: only)).font(.subheadline.weight(.semibold))

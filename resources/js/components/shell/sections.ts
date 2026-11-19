@@ -1,14 +1,15 @@
 import { BarChart3, Code2, DollarSign, Eye, Heart, ListChecks, MessageSquare, Rocket } from 'lucide-react';
 import type { NavItem } from '@/components/Sidebar';
 import { SETTINGS_SECTIONS } from '@/components/shell/settingsSections';
-import { analytics, costs, deployments, health, observations, prReviews, repos, tasks } from '@/routes';
+import { analytics, costs, deployments, health, observations, prReviews, repos } from '@/routes';
+import { log as threadLog } from '@/routes/threads';
 
 export type RailSection = 'threads' | 'operations' | 'insights' | 'settings';
 
 export const RAIL_SECTIONS: RailSection[] = ['threads', 'operations', 'insights', 'settings'];
 
 export const OPERATIONS_ITEMS: NavItem[] = [
-    { label: 'Task log', icon: ListChecks, url: tasks.url() },
+    { label: 'Thread log', icon: ListChecks, url: threadLog.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
     { label: 'PR reviews', icon: MessageSquare, url: prReviews.url() },
@@ -34,7 +35,7 @@ export function sectionForUrl(url: string): RailSection {
     if (SETTINGS_PREFIXES.some((prefix) => startsWithPath(path, prefix))) {
         return 'settings';
     }
-    if (OPERATIONS_ITEMS.some((item) => startsWithPath(path, item.url))) {
+    if (startsWithPath(path, '/tasks') || OPERATIONS_ITEMS.some((item) => startsWithPath(path, item.url))) {
         return 'operations';
     }
     if (INSIGHTS_ITEMS.some((item) => startsWithPath(path, item.url))) {

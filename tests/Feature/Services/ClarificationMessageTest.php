@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
 
@@ -22,7 +23,7 @@ it('links to the form for several questions', function () {
 
     expect(ClarificationMessage::answersInline($task->fresh()))->toBeFalse()
         ->and(ClarificationMessage::asked($task->fresh()))
-        ->toBe('I have 2 questions before I can continue: Scope, Data. Answer them here: ' . route('tasks.show', $task) . '#questions');
+        ->toBe('I have 2 questions before I can continue: Scope, Data. Answer them here: ' . route('threads.show', Thread::query()->find($task->thread_id)) . '#card-question');
 });
 
 it('always links to the form from GitHub and the dashboard', function (string $source) {
@@ -30,14 +31,15 @@ it('always links to the form from GitHub and the dashboard', function (string $s
     $task->recordClarificationRound([sampleQuestion('scope')], 'Summary');
 
     expect(ClarificationMessage::asked($task->fresh()))
-        ->toBe('I have a question before I can continue: Scope. Answer it here: ' . route('tasks.show', $task) . '#questions');
+        ->toBe('I have a question before I can continue: Scope. Answer it here: ' . route('threads.show', Thread::query()->find($task->thread_id)) . '#card-question');
 })->with(['github', 'dashboard']);
 
-it('links follow-ups to the root task page', function () {
-    $root = YakTask::factory()->create(['source' => 'slack']);
-    $child = YakTask::factory()->create(['source' => 'github', 'parent_task_id' => $root->id]);
+it('links follow-ups to the thread they share with the root task', function () {
+    $thread = Thread::factory()->create();
+    $root = YakTask::factory()->create(['source' => 'slack', 'thread_id' => $thread->id]);
+    $child = YakTask::factory()->create(['source' => 'github', 'parent_task_id' => $root->id, 'thread_id' => $thread->id]);
 
-    expect(ClarificationMessage::formLink($child))->toBe(route('tasks.show', $root) . '#questions');
+    expect(ClarificationMessage::formLink($child))->toBe(route('threads.show', $thread) . '#card-question');
 });
 
 it('has no em dashes in any message', function () {
@@ -65,9 +67,9 @@ it('points to the form with wording that fits the question count', function (int
         $task->recordClarificationRound(array_map(fn (int $index) => sampleQuestion("q{$index}"), range(1, $questionCount)), 'Summary');
     }
 
-    expect(ClarificationMessage::pointToForm($task->fresh()))->toBe(str_replace('{link}', route('tasks.show', $task) . '#questions', $expected));
+    expect(ClarificationMessage::pointToForm($task->fresh()))->toBe(str_replace('{link}', route('threads.show', Thread::query()->find($task->thread_id)) . '#card-question', $expected));
 })->with([
-    'none' => [0, 'Please answer on the task page: {link}'],
+    'none' => [0, 'Please answer on the thread: {link}'],
     'one' => [1, 'Please answer the question on the form: {link}'],
     'several' => [3, 'There are 3 questions, so please answer them together on the form: {link}'],
 ]);

@@ -43,7 +43,7 @@ struct CodeTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> CodeUITextView {
         let view = CodeUITextView()
         view.delegate = context.coordinator
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(Color.yakBackground)
         view.alwaysBounceVertical = true
         view.autocorrectionType = .no
         view.autocapitalizationType = .none
@@ -324,7 +324,7 @@ private final class GutterView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         isOpaque = false
-        backgroundColor = .systemBackground
+        backgroundColor = UIColor(Color.yakBackground)
         contentMode = .redraw
     }
 

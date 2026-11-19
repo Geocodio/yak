@@ -120,7 +120,7 @@ it('keeps raw exception text off the PR', function () {
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)
         ->and($task->fresh()->error_log)->toContain('password=secret');
-    Http::assertSent(fn (Request $request): bool => str_starts_with((string) $request['body'], "I couldn't finish this. The details are on the task page."));
+    Http::assertSent(fn (Request $request): bool => str_starts_with((string) $request['body'], "I couldn't finish this. The details are on the thread."));
     Http::assertNotSent(fn (Request $request): bool => str_contains((string) $request['body'], 'secret'));
 });
 

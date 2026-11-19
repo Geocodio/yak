@@ -3,16 +3,19 @@
 namespace App\Models;
 
 use App\Enums\SteeringMode;
+use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Facades\Telemetry;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
+use App\Services\Threads\ThreadShowChanged;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * @property SteeringMode $mode
@@ -21,7 +24,27 @@ use Illuminate\Support\Facades\DB;
  */
 class PendingSteeringMessage extends Model
 {
+    /** Sources whose text belongs to the channel it came from. */
+    public const array CHANNEL_SOURCES = ['slack', 'linear', 'github_review'];
+
     protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key'];
+
+    /**
+     * A waiting message shows in the thread page's list, so an open page reloads when one is queued, changed or removed.
+     */
+    protected static function booted(): void
+    {
+        $publish = fn (self $message) => self::publishChange($message->root_task_id);
+
+        static::created($publish);
+        static::updated($publish);
+        static::deleted($publish);
+    }
+
+    public static function publishChange(int $rootTaskId): void
+    {
+        ThreadShowChanged::publish(DB::table('tasks')->where('id', $rootTaskId)->value('thread_id'));
+    }
 
     /**
      * @return array<string, string>
@@ -164,11 +187,12 @@ class PendingSteeringMessage extends Model
     }
 
     /**
-     * Only the signed-in person who wrote a message can change its text; channel messages and older rows have no author.
+     * Only the signed-in person who wrote a message can change its text, and not for a message from a channel: the
+     * text of a Slack, Linear or GitHub reply belongs to its channel, whoever it maps to.
      */
     public function canEditTextBy(?User $user): bool
     {
-        return $user !== null && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
+        return $user !== null && ! in_array($this->source, self::CHANNEL_SOURCES, true) && $this->author_user_id !== null && $this->reviewer_login === null && $this->author_user_id === $user->id;
     }
 
     /**
@@ -193,28 +217,65 @@ class PendingSteeringMessage extends Model
     }
 
     /**
+     * The undelivered replies queued on the task's conversation, oldest first, with their files. A message the
+     * agent already read stays as history and is not taken; one whose turn ended before the agent read it is.
+     *
+     * @return Collection<int, self>
+     */
+    public static function takeableFor(YakTask $task): Collection
+    {
+        return self::where('root_task_id', $task->rootTask()->id)
+            ->unread()
+            ->with('attachments')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * Take every undelivered reply queued on the task's conversation and render it as
      * markdown, deleting the rows. Their files move onto `$task`, whose run
      * now carries the replies, so the agent still gets them. Returns null
-     * when nothing is queued. A message the agent already read stays as history
-     * and is not drained; one whose turn ended before the agent read it is.
+     * when nothing is queued.
      */
     public static function drainFor(YakTask $task): ?string
     {
-        $messages = self::where('root_task_id', $task->rootTask()->id)
-            ->unread()
-            ->orderBy('id')
-            ->get();
+        $messages = self::takeableFor($task);
 
         if ($messages->isEmpty()) {
             return null;
         }
 
+        self::drain($task, $messages);
+
+        return self::render($messages);
+    }
+
+    /**
+     * Delete the given messages and move their files onto `$task`. With `$run`, each message that a person wrote or
+     * a channel sent also becomes a message of that run, in the order it was queued, so the conversation shows what
+     * Yak was told and by whom. Yak's own notes (source `system`) are not shown.
+     *
+     * @param  Collection<int, self>  $messages
+     */
+    public static function drain(YakTask $task, Collection $messages, ?TaskRun $run = null): void
+    {
         TaskAttachment::whereIn('pending_steering_message_id', $messages->pluck('id'))->update([
             'yak_task_id' => $task->id,
             'pending_steering_message_id' => null,
             'context' => TaskAttachment::CONTEXT_REQUEST,
         ]);
+
+        if ($run !== null) {
+            foreach ($messages->where('source', '!=', 'system') as $message) {
+                $row = ThreadTurnMessage::query()->updateOrCreate(
+                    ['pending_steering_message_id' => $message->id],
+                    ['task_run_id' => $run->id, 'uuid' => $message->uuid ?? (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => $message->text, 'send_key' => $message->send_key, ...$message->conversationAuthor()],
+                );
+                $row->forceFill(['created_at' => $message->created_at])->save();
+
+                TaskAttachment::whereIn('id', $message->attachments->pluck('id'))->update(['thread_turn_message_id' => $row->id]);
+            }
+        }
 
         // The rows are deleted below; the send keys stay so a retry after the drain is still recognised.
         $keyed = $messages->whereNotNull('send_key')->map(fn (self $message): array => [
@@ -230,8 +291,20 @@ class PendingSteeringMessage extends Model
         }
 
         self::whereIn('id', $messages->pluck('id'))->delete();
+        self::publishChange($task->rootTask()->id);
+    }
 
-        return self::render($messages);
+    /**
+     * What the conversation keeps of the message once this row is deleted: where it came from and who wrote it.
+     *
+     * @return array{source: string, author_name: ?string}
+     */
+    public function conversationAuthor(): array
+    {
+        return [
+            'source' => $this->source,
+            'author_name' => ($this->author_user_id === null ? null : User::query()->whereKey($this->author_user_id)->value('name')) ?? $this->author_name,
+        ];
     }
 
     /**

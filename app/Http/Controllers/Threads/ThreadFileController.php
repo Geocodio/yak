@@ -159,7 +159,7 @@ class ThreadFileController extends Controller
         $body = $unavailable->webBody();
 
         if ($unavailable->state === SandboxUnavailable::DESTROYED) {
-            $body['canRestore'] = Gate::allows('drive', $thread);
+            $body['canRestore'] = $thread->hasRepository() && Gate::allows('drive', $thread);
         }
 
         return response()->json($body, 409);

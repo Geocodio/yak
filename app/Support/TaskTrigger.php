@@ -6,7 +6,7 @@ use App\Models\YakTask;
 
 /**
  * Names the specific thing that started an automated task -- the Sentry
- * issue or the flaky tests -- so the task page and the PR body can say
+ * issue or the flaky tests -- so the thread page and the PR body can say
  * exactly what the work is about, not just which channel it came from.
  */
 class TaskTrigger
@@ -34,6 +34,17 @@ class TaskTrigger
                         'url' => $test['build_urls'][0] ?? null,
                     ],
                     array_values($context['tests'] ?? []),
+                ),
+            ],
+            'ci-failure' => [
+                'label' => 'CI job ' . ($context['job_name'] ?? $task->external_id),
+                'url' => TaskSourceUrl::resolve($task),
+                'lines' => array_map(
+                    fn (array $failure): array => [
+                        'text' => (string) $failure['branch'],
+                        'url' => $failure['job_url'] ?? null,
+                    ],
+                    array_values(array_filter($context['failures'] ?? [], is_array(...))),
                 ),
             ],
             'preview-repair' => [

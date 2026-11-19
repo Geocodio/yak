@@ -60,7 +60,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 test('the sidebar shows the Yak brand lockup', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/tasks');
+    $page = visit('/threads/log');
 
     $page->assertVisible('[data-testid="app-brand"]')
         ->assertMissing('[data-testid="mobile-nav-trigger"]')

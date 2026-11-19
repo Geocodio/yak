@@ -8,7 +8,7 @@ import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { useRetained } from '@/lib/useRetained';
 import repos from '@/routes/repos';
-import { tasks } from '@/routes';
+import { index as runsIndex } from '@/routes/repos/runs';
 import type { PageProps } from '@/types/shared';
 import type { RepositoryDocsLinks, RepositoryStats, SandboxData, SetupHistoryRow, YakConfig } from '@/types/repositories';
 import type { RepositorySettingsHeader } from '@/types/repositorySettings';
@@ -67,7 +67,7 @@ export default function Sandbox({ header, repository, sandbox, setupHistory, sta
             </SettingsCard>
 
             <SettingsCard title="Setup history" description="Setup tasks prepare the dev environment and verify it works.">
-                <SetupHistory rows={setupHistory} viewAllHref={setupHistory.length > 0 ? tasks.url({ query: { tab: 'setup', repo: repository.slug } }) : null} />
+                <SetupHistory rows={setupHistory} viewAllHref={setupHistory.length > 0 ? runsIndex.url(repository.slug, { query: { kind: 'setup' } }) : null} />
             </SettingsCard>
         </RepositorySettingsLayout>
     );

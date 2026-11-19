@@ -67,7 +67,7 @@ class RepoDetector
         }
 
         // Slack, Linear, and email low-confidence: ask the user in the thread,
-        // the session, or (for email) the Yak task page.
+        // the session, or (for email) the Yak thread page.
         if (in_array($description->channel, ['slack', 'linear', 'email'], true)) {
             return RepoDetectionResult::needsClarification(array_values($activeRepos->all()));
         }

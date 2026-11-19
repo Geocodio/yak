@@ -15,11 +15,18 @@ class ThreadListController extends Controller
     {
         $validated = $request->validate([
             'filter' => ['nullable', Rule::enum(ThreadListFilter::class)],
+            'sources' => ['nullable', 'array', 'max:50'],
+            'sources.*' => ['string', 'max:64'],
+            'starters' => ['nullable', 'array', 'max:50'],
+            'starters.*' => ['string', 'max:255'],
         ]);
 
         return response()->json(ThreadList::for(
             $request->user() ?? abort(401),
             ThreadListFilter::tryFrom($validated['filter'] ?? '') ?? ThreadListFilter::Mine,
+            null,
+            $validated['sources'] ?? [],
+            $validated['starters'] ?? [],
         ));
     }
 }

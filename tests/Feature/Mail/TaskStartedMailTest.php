@@ -121,14 +121,14 @@ it('renders the started state with repo, mode, task link, instruction, and attac
     $mail->assertSeeInHtml('geocodio');
     $mail->assertSeeInHtml('Research');
     $mail->assertSeeInHtml('EMAIL-20261109-1');
-    $mail->assertSeeInHtml(route('tasks.show', $task));
+    $mail->assertSeeInHtml(route('threads.show', $task->thread()->first()));
     $mail->assertSeeInHtml('Open task in Yak');
     $mail->assertSeeInHtml('Figure out why the error consumption is so high');
     $mail->assertSeeInHtml('noreply@md.getsentry.com', escape: true);
     $mail->assertSeeInHtml('usage-chart.png');
     $mail->assertSeeInHtml('2 KB');
     $mail->assertSeeInHtml("Replies to this email aren't read", escape: false);
-    $mail->assertSeeInText('Open task in Yak: ' . route('tasks.show', $task));
+    $mail->assertSeeInText('Open task in Yak: ' . route('threads.show', $task->thread()->first()));
     $mail->assertDontSeeInHtml('Needs one answer');
 });
 
@@ -149,8 +149,8 @@ it('renders the clarification state with one link per option carrying ?repo=', f
     $mail = startedMail($task);
 
     $mail->assertSeeInHtml('Needs one answer');
-    $mail->assertSeeInHtml(route('tasks.show', ['task' => $task, 'repo' => 'geocodio']));
-    $mail->assertSeeInHtml(route('tasks.show', ['task' => $task, 'repo' => 'geocodio-website']));
+    $mail->assertSeeInHtml(route('threads.show', ['thread' => $task->thread()->first(), 'repo' => 'geocodio']));
+    $mail->assertSeeInHtml(route('threads.show', ['thread' => $task->thread()->first(), 'repo' => 'geocodio-website']));
     $mail->assertSeeInHtml('confirm with one click');
     $mail->assertDontSeeInHtml('Task started');
 });
@@ -161,8 +161,8 @@ it('renders one row per task for multi-repo forwards', function () {
     $mail = startedMail($first, $second);
 
     $mail->assertSeeInHtml('2 repositories');
-    $mail->assertSeeInHtml(route('tasks.show', $first));
-    $mail->assertSeeInHtml(route('tasks.show', $second));
+    $mail->assertSeeInHtml(route('threads.show', $first->thread()->first()));
+    $mail->assertSeeInHtml(route('threads.show', $second->thread()->first()));
 });
 
 it('uses no coloured left border in the email', function () {

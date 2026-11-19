@@ -1,8 +1,19 @@
 {
+    "actions": {
+        "canCancel": false,
+        "canMove": true,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
     "brief": null,
     "canDrive": true,
     "canOpenPullRequest": false,
     "capacity": null,
+    "card": null,
+    "coOwner": null,
     "composer": {
         "accountName": null,
         "context": null,
@@ -89,7 +100,10 @@
         "state": "idle"
     },
     "diffTotals": null,
+    "earlyWarning": null,
+    "isLegacy": false,
     "latestSequence": 12,
+    "legacyAnswers": [],
     "liveActivityChannel": "dGVzdC1jaGFubmVs",
     "localTurnStints": [],
     "localTurns": null,
@@ -104,16 +118,21 @@
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
+            "isReply": false,
+            "isRetry": false,
             "mode": null,
             "model": "opus",
             "readAfterSequence": null,
+            "retryNumber": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "read",
             "text": "Retry failed uploads with backoff",
-            "uuid": "<volatile:string>"
+            "uuid": "<volatile:string>",
+            "via": null
         }
     ],
+    "milestones": [],
     "modelLabels": {
         "claude-fable-5-2": "Fable 5.2",
         "claude-haiku-5-5": "Haiku 5.5",
@@ -132,11 +151,46 @@
         "preview": true,
         "terminal": false
     },
+    "progress": null,
     "publishWarning": false,
     "pullRequest": null,
     "question": null,
+    "repositoryQuestion": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "done",
+            "label": "Done",
+            "tone": "ok"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": "2026-11-15T11:00:00+00:00",
+        "costUsd": 1.25,
+        "durationSeconds": 60,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 1,
+        "sessionId": null,
+        "startedAt": "2026-11-15T11:40:00+00:00",
+        "stepCount": 10
+    },
     "sharedFiles": [],
     "stackParent": null,
+    "stopped": null,
     "teleport": {
         "accountName": null,
         "canTeleport": true,
@@ -162,6 +216,8 @@
     "thread": {
         "blockedReason": null,
         "branch": null,
+        "canShare": true,
+        "hasRepository": true,
         "id": "<volatile:string>",
         "isOwner": true,
         "isStarred": false,

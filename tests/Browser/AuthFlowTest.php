@@ -1,7 +1,7 @@
 <?php
 
+use App\Models\Thread;
 use App\Models\User;
-use App\Models\YakTask;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
@@ -10,7 +10,7 @@ test('unauthenticated user visiting tasks is redirected to login', function () {
         ->assertRedirect(route('login'));
 });
 
-test('oauth flow authenticates user and grants access to task list', function () {
+test('oauth flow authenticates user and grants access to the thread log', function () {
     config(['services.google.allowed_domains' => 'example.com']);
 
     $socialiteUser = new SocialiteUser;
@@ -25,32 +25,26 @@ test('oauth flow authenticates user and grants access to task list', function ()
     $this->get(route('auth.google.callback'));
     $this->assertAuthenticated();
 
-    YakTask::factory()->success()->create([
-        'description' => 'Fix the login bug',
-    ]);
+    Thread::factory()->create(['title' => 'Fix the login bug']);
 
-    $page = visit('/tasks');
+    $page = visit('/threads/log');
 
     $page->assertSee('Fix the login bug');
 });
 
-test('authenticated user can access task list in browser', function () {
+test('authenticated user can access the thread log in browser', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user);
 
-    YakTask::factory()->success()->create([
-        'description' => 'Browser auth test task',
-    ]);
+    Thread::factory()->create(['title' => 'Browser auth test task']);
 
-    $page = visit('/tasks');
+    $page = visit('/threads/log');
 
-    $page->assertSee('Browser auth test task')
-        ->assertSee('Status')
-        ->assertSee('Description');
+    $page->assertSee('Browser auth test task');
 });
 
-test('full auth flow: redirect to login then oauth then task list', function () {
+test('full auth flow: redirect to login then oauth then thread log', function () {
     config(['services.google.allowed_domains' => 'example.com']);
 
     $socialiteUser = new SocialiteUser;
@@ -67,11 +61,9 @@ test('full auth flow: redirect to login then oauth then task list', function () 
     $this->get(route('auth.google.callback'));
     $this->assertAuthenticated();
 
-    YakTask::factory()->success()->create([
-        'description' => 'Post-login task',
-    ]);
+    Thread::factory()->create(['title' => 'Post-login task']);
 
-    $page = visit('/tasks');
+    $page = visit('/threads/log');
 
     $page->assertSee('Post-login task');
 });

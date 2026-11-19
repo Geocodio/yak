@@ -35,7 +35,7 @@ struct PaneHost: View {
                     let isVisible = isShown && (isSingle || frame != nil)
                     descriptor.content(thread)
                         .frame(width: frame?.width, height: frame?.height)
-                        .background(isSingle ? Color.clear : Color(.systemBackground))
+                        .background(isSingle ? Color.clear : Color.yakBackground)
                         .clipShape(RoundedRectangle(cornerRadius: cornerRadius).inset(by: isSingle ? -4000 : 0))
                         .offset(x: (frame?.minX ?? 0) + slide(of: id, isShown: isShown), y: frame?.minY ?? 0)
                         .opacity(isVisible ? 1 : 0)

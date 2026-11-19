@@ -19,6 +19,7 @@ struct ChatRowView: View {
 
 private struct DayDivider: View {
     let label: DayLabel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -29,6 +30,7 @@ private struct DayDivider: View {
             }
         }
         .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+        .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
         .frame(maxWidth: .infinity).padding(.top, 6)
         .accessibilityAddTraits(.isHeader)
     }
@@ -76,11 +78,18 @@ struct EntryView: View {
 /// The bubble every message of a person sits in, on the trailing side.
 struct MessageBubble<Content: View>: View {
     @ViewBuilder let content: Content
+    @ScaledMetric(relativeTo: .body) private var maximumWidth = Design.Size.bubbleMaximumWidth
 
     var body: some View {
         content
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Color(.secondarySystemFill), in: .rect(cornerRadius: 18))
+            .padding(.horizontal, Design.Space.bubbleInset).padding(.vertical, Design.Space.snug)
+            .background(
+                Color.yakBubble,
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: Design.Radius.bubble, bottomLeadingRadius: Design.Radius.bubble,
+                    bottomTrailingRadius: Design.Radius.bubbleTail, topTrailingRadius: Design.Radius.bubble)
+            )
+            .frame(maxWidth: maximumWidth, alignment: .trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
@@ -211,7 +220,7 @@ struct AttachmentChip: View {
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Color(.tertiarySystemFill), in: .rect(cornerRadius: 10))
+        .background(Color.yakFill, in: .rect(cornerRadius: 10))
         .accessibilityElement(children: .combine)
     }
 }
@@ -237,7 +246,7 @@ private struct EditQueuedSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 12) {
                 TextEditor(text: $text)
-                    .padding(8).background(Color(.secondarySystemFill), in: .rect(cornerRadius: 12))
+                    .padding(8).background(Color.yakBubble, in: .rect(cornerRadius: 12))
                     .frame(minHeight: 120)
                     .accessibilityLabel("chat.message.editField")
                     .accessibilityIdentifier("message.edit.field")
@@ -388,7 +397,7 @@ struct InlineOrStacked<Content: View>: View {
     }
 }
 
-/// A row that opens and closes, with the chevron on its trailing side.
+/// A row that opens and closes, with the chevron before its text.
 struct DisclosureButton<Label: View>: View {
     let isExpanded: Bool
     let toggle: () -> Void
@@ -397,9 +406,9 @@ struct DisclosureButton<Label: View>: View {
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: 8) {
-                label.fixedSize(horizontal: false, vertical: true)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0)).accessibilityHidden(true)
+                label.fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .frame(minHeight: 44).contentShape(.rect)

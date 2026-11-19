@@ -13,6 +13,7 @@ use App\Services\IncusSandboxManager;
 use App\Services\Tasks\StopNotifier;
 use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\RepositoryTemplateDrift;
+use App\Services\Threads\Repos\ThreadsAwaitingRepository;
 use App\Services\Threads\SetupScriptHash;
 use Closure;
 use Illuminate\Support\Facades\Log;
@@ -116,22 +117,51 @@ class EnsureRepoReady
     }
 
     /**
-     * A thread task whose repository template is stale, or already being rebuilt, does not
-     * fail: the thread waits for the repository and ThreadsAwaitingRepository starts the
-     * task once setup succeeds. A stale template is invalidated and rebuilt here, once.
+     * A thread task whose repository has no usable template does not fail: the thread waits
+     * for the repository and ThreadsAwaitingRepository starts the task once setup succeeds.
+     * A stale or changed template is invalidated and rebuilt here, a never-built one is set up,
+     * each with one Setup task unless a setup is already pending or running.
      */
     private function waitForTemplate(YakTask $task, Repository $repository): bool
     {
-        if (! app(RepositoryTemplateDrift::class)->mustWait($repository)) {
+        if ($task->status !== TaskStatus::Pending && ! $task->status->canTransitionTo(TaskStatus::Pending)) {
+            return false;
+        }
+
+        $drift = app(RepositoryTemplateDrift::class);
+        $mustWait = $drift->mustWait($repository);
+        $detail = 'The repository workspace is being rebuilt.';
+
+        if (! $mustWait && empty($repository->sandbox_snapshot)) {
+            $drift->dispatchSetupTask($repository, 'first task for this repository');
+            $mustWait = true;
+            $detail = 'Repository has no workspace yet; setup started.';
+        }
+
+        if (! $mustWait && $this->setupScriptChanged($repository)) {
+            $drift->invalidateAndSetUp($repository, '.yak/setup.sh changed');
+            $mustWait = true;
+            $detail = '.yak/setup.sh changed; a fresh setup started.';
+        }
+
+        if (! $mustWait) {
             return false;
         }
 
         $task->update(['status' => TaskStatus::Pending]);
 
+        $wasWaiting = Thread::query()->withoutGlobalScopes()->whereKey($task->thread_id)->value('blocked_reason') === ThreadBlockReason::WaitingForRepository;
+
         Thread::query()->withoutGlobalScopes()->whereKey($task->thread_id)->update([
             'blocked_reason' => ThreadBlockReason::WaitingForRepository,
             'blocked_at' => now(),
         ]);
+
+        if ($this->hasFinishedSetupMeanwhile($repository)) {
+            app(ThreadsAwaitingRepository::class)->release($repository);
+        } elseif (! $wasWaiting) {
+            StopNotifier::notify($task, TaskStop::refreshingWorkspace($repository->slug, $detail), NotificationType::Retry);
+        }
 
         return true;
     }
@@ -152,17 +182,12 @@ class EnsureRepoReady
 
     /**
      * Fails the task but marks it to continue once the repository's setup finishes, starting
-     * that setup unless one is already pending or running. Thread tasks, and tasks the state
-     * machine will not move to Failed, are refused instead because nothing could resume them.
+     * that setup unless one is already pending or running. Tasks the state machine will not
+     * move to Failed are refused instead because nothing could resume them. Thread tasks wait
+     * on their thread instead and never reach this method.
      */
     private function parkForSetup(object $job, YakTask $task, Repository $repository, string $detail): void
     {
-        if ($task->thread_id !== null) {
-            $this->refuse($job, $task, $detail);
-
-            return;
-        }
-
         if (! $this->markFailed($task, $detail)) {
             StopNotifier::notify($task, TaskStop::yakSideProblem($detail));
             $this->failJob($job, $detail);

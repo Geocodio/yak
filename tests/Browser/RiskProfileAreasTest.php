@@ -132,8 +132,8 @@ it('returns to the risk profile when going back from another page', function () 
     $this->actingAs(User::factory()->create());
 
     $page = visitAreasTab($repository)->assertSee('Areas, riskiest first');
-    $page->script("document.querySelector('a[href=\"" . route('tasks', absolute: false) . "\"]').click()");
-    $page->assertPathIs(route('tasks', absolute: false));
+    $page->script("document.querySelector('a[href=\"" . route('threads.log', absolute: false) . "\"]').click()");
+    $page->assertPathIs(route('threads.log', absolute: false));
     $page->script('window.history.back()');
     $page->assertVisible('[data-testid="risk-tab-areas"]')->assertSee('Areas, riskiest first');
 });

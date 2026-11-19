@@ -40,7 +40,7 @@ private struct LockWindowView: View {
         switch content.shows {
         case .lockScreen: AppLockScreen(controller: controller)
         case .cover: AppSwitcherCover()
-        case .nothing: Color(.systemBackground).ignoresSafeArea()
+        case .nothing: Color.yakBackground.ignoresSafeArea()
         }
     }
 }
@@ -139,7 +139,7 @@ private struct LockWindowView: View {
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
         let host = UIHostingController(rootView: LockWindowView(content: content, controller: controller))
-        host.view.backgroundColor = .systemBackground
+        host.view.backgroundColor = UIColor(Color.yakBackground)
         window.rootViewController = host
         window.isHidden = true
         entries[key] = Entry(scene: scene, window: window, content: content)

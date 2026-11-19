@@ -1,7 +1,7 @@
 import type { RepositoryDetail } from '@/types/repositories';
 export type ApprovalHeaderMode = 'off' | 'shadow' | 'enforce';
 
-export type SettingsSectionSlug = 'general' | 'review' | 'approvals' | 'previews' | 'sandbox' | 'accounts' | 'danger';
+export type SettingsSectionSlug = 'general' | 'review' | 'approvals' | 'previews' | 'sandbox' | 'runs' | 'accounts' | 'danger';
 
 /** Mirrors RepositorySettingsData::header(). */
 export type RepositorySettingsHeader = {

@@ -110,7 +110,7 @@ test('a pull request held for a co-owner shows the wait instead of the button', 
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'root_task_id' => $task->id, 'status' => CoOwnerRequestStatus::Pending]);
 
     visit(route('threads.show', $thread))
-        ->assertSeeIn('[data-testid="pull-request-held"]', 'Waiting for a co-owner')
+        ->assertSeeIn('[data-testid="pull-request-held"]', 'Held for a co-owner')
         ->assertMissing('[data-testid="open-pull-request"]')
         ->assertNoJavaScriptErrors();
 });

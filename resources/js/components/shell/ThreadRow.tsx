@@ -2,8 +2,10 @@ import { Link, router } from '@inertiajs/react';
 import { Badge, ConfirmDialog, Tooltip, cn } from '@geocodio/console-ui';
 import { ChevronRight, Lock, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { YakAvatar } from '@/components/brand/YakAvatar';
 import { formatTime } from '@/components/shell/formatTime';
 import { ThreadStatusDot } from '@/components/shell/ThreadStatusDot';
+import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
 import { refreshThreadList, toggleStar } from '@/lib/threadStar';
 import { destroy, show } from '@/routes/threads';
 import type { ThreadListRow } from '@/types/shell';
@@ -22,6 +24,7 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const hasChildren = row.children.length > 0;
     const isClosed = row.status === 'closed';
+    const isUnread = row.isUnread && !active;
     const hoverControl = 'absolute top-1.5 hidden size-5 items-center justify-center rounded-control text-faint hover:bg-panel hover:text-body focus-visible:flex group-hover/row:flex';
 
     return (
@@ -39,24 +42,20 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                 >
                     <span className="flex items-center gap-2">
                         <ThreadStatusDot row={row} />
-                        <span className={cn('flex min-w-0 flex-1 items-center gap-1 text-[13px] text-body', nested && 'text-[12.5px]')} data-testid={`thread-title-${row.id}`}>
+                        <span className={cn('flex min-w-0 flex-1 items-center gap-1 text-[13px] text-body', nested && 'text-[12.5px]', isUnread && 'font-semibold')} data-testid={`thread-title-${row.id}`}>
                             {row.isPrivate ? <Lock size={11} className="shrink-0 text-faint" aria-hidden /> : null}
                             <span className="truncate">{row.title}</span>
                         </span>
-                        {row.isUnattended ? (
-                            <Tooltip label="Started by Yak, not a person">
-                                <Badge tone="accent">Unattended</Badge>
-                            </Tooltip>
-                        ) : null}
-                        {row.ownerInitials ? (
-                            <span data-testid={`thread-owner-${row.id}`} className="shrink-0 rounded-pill bg-panel-2 px-1.5 text-[10px] text-muted">
-                                {row.ownerInitials}
-                            </span>
-                        ) : null}
                         {row.isStarred ? <Star size={11} className="shrink-0 fill-warn text-warn group-hover/row:hidden" aria-hidden data-testid={`thread-starred-${row.id}`} /> : null}
+                        {isUnread ? <span role="img" aria-label="Unread" data-testid={`thread-unread-${row.id}`} className="size-1.5 shrink-0 rounded-full bg-info" /> : null}
                         <span className="tnum shrink-0 text-[11px] text-faint group-hover/row:invisible">{formatTime(row.lastActivityAt)}</span>
                     </span>
                     <span className="flex items-center gap-2 pl-4 text-[11.5px]">
+                        {nested ? null : (
+                            <span className="shrink-0 rounded bg-panel-2 px-1 text-[10.5px] text-body" data-testid={`thread-source-${row.id}`}>
+                                {row.source.label}
+                            </span>
+                        )}
                         {row.needsYouLabel ? (
                             <span className={cn('truncate', row.needsYouReason === 'blocked' ? 'text-fail' : 'text-brand')}>{row.needsYouLabel}</span>
                         ) : row.status === 'waiting_for_repository' ? (
@@ -68,12 +67,19 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                         )}
                         {row.isPrivate ? <Badge tone="neutral" data-testid={`thread-visibility-${row.id}`}>{row.isShared ? 'Shared' : 'Private'}</Badge> : null}
                         {hasChildren && !isExpanded ? (
-                            <span className="ml-auto flex shrink-0 items-center gap-1" data-testid={`thread-dots-${row.id}`}>
+                            <span className="flex shrink-0 items-center gap-1" data-testid={`thread-dots-${row.id}`}>
                                 {row.children.map((child) => (
                                     <ThreadStatusDot key={child.id} row={child} />
                                 ))}
                             </span>
                         ) : null}
+                        {nested ? null : (
+                            <Tooltip label={`Started by ${row.starter.name}`}>
+                                <span className="ml-auto flex shrink-0" data-testid={`thread-starter-${row.id}`}>
+                                    {row.starter.key === 'yak' ? <YakAvatar className="size-5" /> : <PersonAvatar name={row.starter.name} avatarUrl={row.starter.avatarUrl} />}
+                                </span>
+                            </Tooltip>
+                        )}
                     </span>
                 </Link>
                 {nested ? null : (

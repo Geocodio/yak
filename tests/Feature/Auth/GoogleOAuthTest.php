@@ -5,7 +5,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
 test('unauthenticated users are redirected to the login page', function () {
-    $this->get(route('tasks'))
+    $this->get(route('threads.log'))
         ->assertRedirect(route('login'));
 });
 
@@ -153,7 +153,48 @@ test('session persists across page navigation after oauth login', function () {
     $this->get(route('auth.google.callback'));
     $this->assertAuthenticated();
 
-    $this->get(route('tasks'))->assertOk();
+    $this->get(route('threads.log'))->assertOk();
     $this->get(route('profile.edit'))->assertOk();
     $this->assertAuthenticated();
+});
+
+test('google sign-in stores the profile picture', function () {
+    config(['services.google.allowed_domains' => 'example.com']);
+
+    $socialiteUser = new SocialiteUser;
+    $socialiteUser->map([
+        'id' => '123456',
+        'name' => 'Jane Doe',
+        'email' => 'jane@example.com',
+        'avatar' => 'https://lh3.googleusercontent.com/a/picture',
+    ]);
+
+    Socialite::fake('google', $socialiteUser);
+
+    $this->get(route('auth.google.callback'))->assertRedirect(route('home'));
+
+    expect(User::firstWhere('email', 'jane@example.com')->avatar_url)
+        ->toBe('https://lh3.googleusercontent.com/a/picture');
+});
+
+test('google sign-in clears the profile picture when Google sends none', function () {
+    config(['services.google.allowed_domains' => 'example.com']);
+
+    $user = User::factory()->create([
+        'email' => 'jane@example.com',
+        'avatar_url' => 'https://lh3.googleusercontent.com/a/old',
+    ]);
+
+    $socialiteUser = new SocialiteUser;
+    $socialiteUser->map([
+        'id' => '123456',
+        'name' => 'Jane Doe',
+        'email' => 'jane@example.com',
+    ]);
+
+    Socialite::fake('google', $socialiteUser);
+
+    $this->get(route('auth.google.callback'))->assertRedirect(route('home'));
+
+    expect($user->fresh()->avatar_url)->toBeNull();
 });

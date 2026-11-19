@@ -11,7 +11,8 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Changes who may see a thread. Only the root thread's owner may share, a
+ * Changes who may see a thread. Only the root thread's owner may share (or
+ * any driver of a team thread nobody owns, who becomes its owner), a
  * child resolves to its root, and every change runs in one transaction on the
  * locked root row so a failure leaves visibility and share rows untouched.
  */
@@ -27,9 +28,11 @@ class ThreadSharing
         DB::transaction(function () use ($thread, $actor, $mode, $userIds): void {
             $root = $this->lockedRoot($thread);
 
-            if ($root->owner_user_id !== $actor->id) {
+            if (! app(ThreadAccess::class)->canShare($actor, $root)) {
                 throw new AuthorizationException('Only the owner can share a thread.');
             }
+
+            $root->owner_user_id = $actor->id;
 
             $root->visibility = $mode === ThreadShareMode::Everyone ? ThreadVisibility::Team : ThreadVisibility::Private;
             $root->save();

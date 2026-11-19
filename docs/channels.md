@@ -101,6 +101,7 @@ Without them the Connect GitHub button cannot complete, so nobody links an accou
 The GitHub App subscribes to:
 
 - `check_suite.completed`: CI result processing
+- `workflow_job.completed` (**Workflow jobs**): spots GitHub Actions jobs that fail on several branches for a shared cause, so Yak can open one PR to fix it
 - `pull_request.closed`: merge/close tracking (also denormalizes onto `pr_reviews`)
 - `pull_request.opened` / `ready_for_review` / `reopened`: triggers a full PR review when `pr_review_enabled` is on
 - `pull_request.synchronize`: refreshes the branch preview and re-runs the `yak / config` check. It does not trigger a review
@@ -114,7 +115,7 @@ The GitHub App subscribes to:
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
 
-> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
+> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Workflow jobs** (or shared CI failures go unnoticed), **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
 
 ### Accepting new permissions
 
@@ -286,7 +287,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification`. Reply in the thread with a number and Yak continues the same thread, with no re-reading and no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option). Several questions, or any question from GitHub or the dashboard, are answered on the task page form, and Yak posts a link to it. An unanswered question is closed after three working days (see the Slack gotchas).
+The task pauses in `awaiting_clarification`. Reply in the thread with a number and Yak continues the same thread, with no re-reading and no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option). Several questions, or any question from GitHub or the dashboard, are answered on the question card on the thread, and Yak posts a link to it. An unanswered question is closed after three working days (see the Slack gotchas).
 
 ### Follow-ups
 

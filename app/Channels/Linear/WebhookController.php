@@ -236,6 +236,7 @@ class WebhookController extends Controller
                 $repoSlug,
             ),
             'started_by_user_id' => $starter?->id,
+            'author_user_id' => $starter?->id,
             'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser($assignee, $starter, $repoSlug)?->id,
             ...($detection->needsClarification ? [
                 'status' => TaskStatus::AwaitingClarification,
@@ -501,7 +502,7 @@ class WebhookController extends Controller
         }
 
         if ($task->acceptsFollowUp()) {
-            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'), replier: User::findByEmail($request->input('actor.email')));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -517,7 +518,7 @@ class WebhookController extends Controller
             app(NotificationDriver::class)->postAgentActivity(
                 $sessionId,
                 type: 'response',
-                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name')),
+                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name'), authorUserId: User::findByEmail($request->input('actor.email'))?->id),
             );
 
             return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);

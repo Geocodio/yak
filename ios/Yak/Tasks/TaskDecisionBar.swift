@@ -40,7 +40,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
             }
             .padding(.horizontal, isInCard ? 0 : 16).padding(.vertical, isInCard ? 0 : 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isInCard ? Color.clear : Color(.systemBackground))
+            .background(isInCard ? Color.clear : Color.yakBackground)
             .overlay(alignment: .top) { if !isInCard { Divider() } }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("task.decision")

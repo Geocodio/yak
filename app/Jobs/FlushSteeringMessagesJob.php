@@ -50,6 +50,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
         if ($root === null) {
             $messages->flatMap->attachments->each(fn (TaskAttachment $attachment) => $attachment->delete());
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();
+            PendingSteeringMessage::publishChange($this->rootTaskId);
 
             return;
         }
@@ -63,6 +64,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 
         if ($child !== null) {
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();
+            PendingSteeringMessage::publishChange($this->rootTaskId);
         }
     }
 }

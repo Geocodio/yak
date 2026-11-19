@@ -300,3 +300,58 @@ private func compactInputs() -> LayoutInputs {
     none.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
     #expect(none.state.threadID == nil)
 }
+
+@MainActor private func wideScene(second: PaneID? = nil) -> SceneModel {
+    let scene = SceneModel(state: SceneState(secondPane: second))
+    let state = scene.paneState
+    let inputs = sideBySideInputs()
+    scene.updatePlan(
+        PaneLayoutRules.plan(state, available: [.chat, .preview, .terminal, .overview], inputs: inputs),
+        ownedBy: "t")
+    return scene
+}
+
+@MainActor @Test func aWideWindowOffersTheSecondPaneAndShowsOnePaneByDefault() {
+    let scene = wideScene()
+    #expect(scene.plan?.slots.count == 1)
+    let choices = scene.secondChoices
+    #expect(choices?.isOffered == true && choices?.current == nil)
+    #expect(choices?.panes == [.preview, .terminal, .overview])
+}
+
+@MainActor @Test func aNarrowWindowOffersNoSecondPane() {
+    let scene = SceneModel(state: SceneState())
+    let inputs = compactInputs()
+    scene.updatePlan(
+        PaneLayoutRules.plan(scene.paneState, available: [.chat, .preview], inputs: inputs),
+        ownedBy: "t")
+    #expect(scene.secondChoices?.isOffered == false)
+}
+
+@MainActor @Test func pickingASecondPaneOpensItAndNoneClosesIt() {
+    let scene = wideScene()
+    scene.setSecond(.preview)
+    #expect(scene.state.secondPane == .preview && scene.state.focusedPane == .chat)
+    scene.setSecond(nil)
+    #expect(scene.state.secondPane == nil)
+}
+
+@MainActor @Test func theSecondPaneChoiceIsStoredAndRestored() throws {
+    let scene = wideScene()
+    scene.setSecond(.terminal)
+    let restored = SceneModel.restoredState(from: scene.encodedState)
+    #expect(restored.secondPane == .terminal)
+}
+
+@MainActor @Test func aStateStoredBeforeTheChoiceDropsTheAppsSecondPane() {
+    let stored = Data(#"{"threadID":"e5f6g7h8","focusedPane":"chat","secondPane":"preview"}"#.utf8)
+    #expect(SceneModel.restoredState(from: stored).secondPane == nil)
+}
+
+@MainActor @Test func aRelaunchedWindowOfTheSameInstanceKeepsTheSecondPane() {
+    let instance = UUID()
+    let scene = SceneModel(state: SceneState(instanceID: instance, threadID: "d0e515ef", secondPane: .terminal))
+    let relaunched = SceneModel(
+        state: SceneModel.restoredState(from: scene.encodedState), request: nil, activeInstance: instance)
+    #expect(relaunched.state.threadID == "d0e515ef" && relaunched.state.secondPane == .terminal)
+}

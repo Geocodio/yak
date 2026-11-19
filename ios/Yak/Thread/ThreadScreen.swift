@@ -61,7 +61,7 @@ struct ThreadScreen: View {
                 if let model {
                     content(model, placement: placement, hasStrip: hasStrip)
                 } else {
-                    Color(.systemBackground)
+                    Color.yakBackground
                 }
             }
         }
@@ -125,15 +125,18 @@ struct ThreadScreen: View {
                     activity: { activityLine(thread, focused: $0) }, openChat: { openChat(focusComposer: $0) }
                 )
                 .collectingPaneSlots(into: slots)
+                // The layout reaches the screen's bottom edge, so the bar sits its own distance from the edge on every
+                // device; the keyboard still lifts it.
+                .ignoresSafeArea(.container, edges: .bottom)
                 if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
             }
-            .background(Color(.systemBackground))
+            .background(.yakPage)
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-            .toolbarBackground(Color(.systemBackground), for: .navigationBar)
+            .toolbarBackground(.yakPage, for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
@@ -145,6 +148,7 @@ struct ThreadScreen: View {
                             tone: thread.statusTone,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
                     }
+                    .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
                 }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
@@ -164,6 +168,7 @@ struct ThreadScreen: View {
             .overlay(alignment: .top) { copiedToast }
         }
         .environment(scene)
+        .environment(\.hasSystemStrip, hasStrip)
         .sensoryFeedback(.success, trigger: copiedLink)
     }
 

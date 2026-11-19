@@ -54,7 +54,7 @@ private struct ChatPane: View {
             paneHeight = $0
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(.yakPage)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }

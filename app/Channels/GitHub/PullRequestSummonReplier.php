@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Support\TaskPageUrl;
 use Throwable;
 
 /**
@@ -50,12 +51,14 @@ class PullRequestSummonReplier
             Repository::githubNameFor((string) $task->repo),
             (int) $task->pr_number,
             $task->summon_review_comment_id,
-            $body . "\n\n" . self::taskLink($task),
+            trim($body . "\n\n" . self::taskLink($task)),
         );
     }
 
     public static function taskLink(YakTask $task): string
     {
-        return '[View task](' . route('tasks.show', $task) . ')';
+        $url = TaskPageUrl::for($task);
+
+        return $url === null ? '' : '[' . TaskPageUrl::buttonText($task) . '](' . $url . ')';
     }
 }

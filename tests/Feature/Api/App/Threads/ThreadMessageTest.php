@@ -7,6 +7,7 @@ use App\Enums\ThreadShareMode;
 use App\Enums\ThreadStatus;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
@@ -72,6 +73,23 @@ it('starts a turn and returns the message uuid', function () {
     expect($response->json('uuid'))->toBe($promptUuid)
         ->and(ThreadTurnMessage::where('uuid', $promptUuid)->first()->attachments)->toHaveCount(1);
     ContractFixture::assertMatches('app', 'thread-message-sent', $response->json(), ['uuid']);
+});
+
+it('re-labels a sent file whose label the conversation already used', function () {
+    [$thread, $user] = idleThreadForApp();
+    TaskAttachment::factory()->for($thread->headTask(), 'task')->create(['reference' => 'Image #1']);
+
+    $this->post(appThreadPath($thread, '/messages'), [
+        'message' => 'Compare with [Image #1]',
+        'send_key' => APP_SEND_KEY,
+        'attachments' => [UploadedFile::fake()->image('new.png')],
+        'attachment_refs' => ['Image #1'],
+    ], phoneHeadersFor($user) + ['Accept' => 'application/json'])->assertOk();
+
+    $message = ThreadTurnMessage::query()->sole();
+
+    expect($message->text)->toBe('Compare with [Image #2]')
+        ->and($message->attachments->first()->reference)->toBe('Image #2');
 });
 
 it('queues after the turn when asked', function () {

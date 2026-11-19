@@ -2,6 +2,7 @@
 
 namespace App\Services\Tasks;
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Exceptions\ThreadActionRefused;
 use App\Models\PendingSteeringMessage;
@@ -24,10 +25,23 @@ class StoppedTaskReplies
     public function __construct(private readonly TaskActions $taskActions) {}
 
     /**
+     * Whether a reply to this task retries it with the reply as a note: it failed or expired without a
+     * pull request and is not a review or a setup run.
+     */
+    public static function appliesTo(YakTask $task): bool
+    {
+        return in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)
+            && $task->pr_url === null
+            && ! in_array($task->mode, [TaskMode::Review, TaskMode::Setup], true)
+            && ! $task->acceptsFollowUp();
+    }
+
+    /**
      * @param  Closure(PendingSteeringMessage): mixed|null  $afterNoteQueued  runs once the reply is queued as a note, so a caller can attach files to it
+     * @param  int|null  $authorUserId  the Yak user who wrote the reply, stored on the note
      * @return string the reply to post back to the starter
      */
-    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null, ?Closure $afterNoteQueued = null): string
+    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null, ?Closure $afterNoteQueued = null, ?int $authorUserId = null): string
     {
         if ($task->status === TaskStatus::Cancelled) {
             return $source === 'slack'
@@ -44,7 +58,7 @@ class StoppedTaskReplies
 
         $isAlreadyActive = in_array($task->status, [TaskStatus::Pending, TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi], true);
 
-        $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName);
+        $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName, authorUserId: $authorUserId);
 
         if ($afterNoteQueued !== null) {
             $afterNoteQueued($note);
@@ -53,11 +67,11 @@ class StoppedTaskReplies
         try {
             $this->taskActions->retry($task);
         } catch (ThreadActionRefused) {
-            $note->delete();
+            $note->withdraw();
 
             return self::CANNOT_RETRY;
         } catch (Throwable $exception) {
-            $note->delete();
+            $note->withdraw();
             report($exception);
 
             return self::TRY_AGAIN_LATER;

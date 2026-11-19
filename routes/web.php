@@ -69,6 +69,7 @@ use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Repositories\RepositoryRunController;
 use App\Http\Controllers\Repositories\RepositorySettingsController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
@@ -77,18 +78,8 @@ use App\Http\Controllers\SharedFileController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TaskAttachmentController;
-use App\Http\Controllers\Tasks\CoOwnerDecisionController;
-use App\Http\Controllers\Tasks\DismissSetupCardController;
-use App\Http\Controllers\Tasks\EarlyWarningController;
 use App\Http\Controllers\Tasks\PullRequestImageController;
-use App\Http\Controllers\Tasks\QueuedMessageController;
-use App\Http\Controllers\Tasks\RequestReReviewController;
-use App\Http\Controllers\Tasks\StoreTaskController;
-use App\Http\Controllers\Tasks\TaskActionController;
-use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
-use App\Http\Controllers\Tasks\TaskController;
-use App\Http\Controllers\Tasks\TaskListController;
-use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\TaskRedirectController;
 use App\Http\Controllers\Threads\ContinueTurnController;
 use App\Http\Controllers\Threads\LocalTurnsController;
 use App\Http\Controllers\Threads\NewThreadController;
@@ -112,20 +103,26 @@ use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
 use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
+use App\Http\Controllers\Threads\ThreadCoOwnerController;
 use App\Http\Controllers\Threads\ThreadDestroyController;
 use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEnvironmentController;
 use App\Http\Controllers\Threads\ThreadEventController;
 use App\Http\Controllers\Threads\ThreadFileController;
 use App\Http\Controllers\Threads\ThreadListController;
+use App\Http\Controllers\Threads\ThreadLogController;
 use App\Http\Controllers\Threads\ThreadMessageController;
 use App\Http\Controllers\Threads\ThreadPullRequestController;
+use App\Http\Controllers\Threads\ThreadQueuedMessageController;
+use App\Http\Controllers\Threads\ThreadRepositoryAnswerController;
 use App\Http\Controllers\Threads\ThreadRepositoryController;
 use App\Http\Controllers\Threads\ThreadRepositoryProgressController;
+use App\Http\Controllers\Threads\ThreadRunLogController;
 use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
 use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
+use App\Http\Controllers\Threads\ThreadTaskActionController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\ClientProtocol;
@@ -153,32 +150,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('tasks', TaskListController::class)->name('tasks');
-    Route::post('tasks', StoreTaskController::class)->name('tasks.store');
-    Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
-    Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
-    Route::get('tasks/{task}/log-entries', [TaskController::class, 'logEntries'])->name('tasks.log-entries');
-    Route::middleware('task.drive')->group(function (): void {
-        Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
-        Route::post('tasks/{task}/setup-and-continue', [TaskActionController::class, 'setUpRepositoryAndContinue'])->name('tasks.setup-and-continue');
-        Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
-        Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
-        Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
-        Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
-        Route::post('tasks/{task}/co-owner/approve', [CoOwnerDecisionController::class, 'approve'])->name('tasks.co-owner.approve');
-        Route::post('tasks/{task}/co-owner/request-changes', [CoOwnerDecisionController::class, 'requestChanges'])->name('tasks.co-owner.request-changes');
-        Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('tasks.co-owner.reject');
-        Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('tasks.co-owner.withdraw');
-        Route::post('tasks/{task}/co-owner/check-access', [CoOwnerDecisionController::class, 'checkAccess'])->name('tasks.co-owner.check-access');
-        Route::post('tasks/{task}/co-owner/tag', [EarlyWarningController::class, 'tag'])->name('tasks.co-owner.tag');
-        Route::post('tasks/{task}/co-owner/decline', [EarlyWarningController::class, 'decline'])->name('tasks.co-owner.decline');
-        Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
-        Route::patch('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'update'])->whereNumber('message')->name('tasks.queued-messages.update');
-        Route::delete('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'destroy'])->whereNumber('message')->name('tasks.queued-messages.destroy');
-        Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
-        Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
-            ->name('tasks.re-request-review');
-    });
+    Route::get('tasks', [TaskRedirectController::class, 'index'])->name('tasks');
+    Route::get('tasks/{task}', [TaskRedirectController::class, 'show'])->name('tasks.show');
     Route::get('tasks/{task}/pr-images/{asset}', PullRequestImageController::class)
         ->whereUuid('asset')
         ->name('tasks.pr-images.show');
@@ -213,6 +186,19 @@ Route::middleware(['auth'])->group(function () {
         ->name('repos.approvals.review')
         ->where('repository', '.+')
         ->whereNumber('number');
+    Route::get('repos/{repository}/runs', [RepositoryRunController::class, 'show'])
+        ->name('repos.runs.index')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/runs/{task}', [RepositoryRunController::class, 'show'])
+        ->name('repos.runs.show')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/runs/{task}/log', [RepositoryRunController::class, 'log'])
+        ->name('repos.runs.log')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/runs/{task}/retry', [RepositoryRunController::class, 'retry'])
+        ->name('repos.runs.retry')
+        ->middleware('task.drive')
+        ->where('repository', '.+');
     Route::get('repos/{repository}/settings/{section}', [RepositorySettingsController::class, 'show'])
         ->name('repos.settings.show')
         ->where('repository', '.+')
@@ -309,6 +295,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('pr-reviews.for-pr.rerun')
         ->where('repoSlug', '.+')
         ->where('prNumber', '[0-9]+');
+    Route::get('pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/log', [PrReviewForPrController::class, 'runLog'])
+        ->name('pr-reviews.for-pr.runs.log')
+        ->where('repoSlug', '.+')
+        ->where('prNumber', '[0-9]+');
+    Route::post('pr-reviews/for/{repoSlug}/{prNumber}/runs/{task}/rerun', [PrReviewForPrController::class, 'rerunRun'])
+        ->middleware('task.drive')
+        ->name('pr-reviews.for-pr.runs.rerun')
+        ->where('repoSlug', '.+')
+        ->where('prNumber', '[0-9]+');
 
     Route::get('deployments', [DeploymentController::class, 'index'])->name('deployments');
     Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])
@@ -333,10 +328,31 @@ Route::middleware(['auth'])->group(function () {
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
         ->middleware('thread.drive')
         ->name('threads.stop');
+    Route::middleware('thread.drive')->group(function (): void {
+        Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
+        Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
+        Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');
+        Route::post('threads/{thread}/move', [ThreadTaskActionController::class, 'move'])->name('threads.move');
+        Route::post('threads/{thread}/setup-and-continue', [ThreadTaskActionController::class, 'setUpRepositoryAndContinue'])->name('threads.setup-and-continue');
+        Route::post('threads/{thread}/request-review', [ThreadTaskActionController::class, 'requestReview'])->name('threads.request-review');
+        Route::post('threads/{thread}/retry-render', [ThreadTaskActionController::class, 'retryRender'])->name('threads.retry-render');
+        Route::post('threads/{thread}/clarification-answers', [ThreadTaskActionController::class, 'answerClarification'])->name('threads.clarification-answers.store');
+        Route::post('threads/{thread}/co-owner/approve', [ThreadCoOwnerController::class, 'approve'])->name('threads.co-owner.approve');
+        Route::post('threads/{thread}/co-owner/request-changes', [ThreadCoOwnerController::class, 'requestChanges'])->name('threads.co-owner.request-changes');
+        Route::post('threads/{thread}/co-owner/reject', [ThreadCoOwnerController::class, 'reject'])->name('threads.co-owner.reject');
+        Route::post('threads/{thread}/co-owner/withdraw', [ThreadCoOwnerController::class, 'withdraw'])->name('threads.co-owner.withdraw');
+        Route::post('threads/{thread}/co-owner/check-access', [ThreadCoOwnerController::class, 'checkAccess'])->name('threads.co-owner.check-access');
+        Route::post('threads/{thread}/co-owner/tag', [ThreadCoOwnerController::class, 'tag'])->name('threads.co-owner.tag');
+        Route::post('threads/{thread}/co-owner/decline', [ThreadCoOwnerController::class, 'decline'])->name('threads.co-owner.decline');
+        Route::get('threads/{thread}/co-owner/candidates', [ThreadCoOwnerController::class, 'candidates'])->name('threads.co-owner.candidates');
+        Route::patch('threads/{thread}/queued-messages/{message}', [ThreadQueuedMessageController::class, 'update'])->name('threads.queued-messages.update');
+        Route::delete('threads/{thread}/queued-messages/{message}', [ThreadQueuedMessageController::class, 'destroy'])->name('threads.queued-messages.destroy');
+    });
     Route::post('threads/{thread}/continue', ContinueTurnController::class)
         ->name('threads.continue');
     Route::post('threads/{thread}/restore/retry', RestoreRetryController::class)
         ->name('threads.restore.retry');
+    Route::get('threads/log', ThreadLogController::class)->name('threads.log');
     Route::get('threads/new', NewThreadController::class)->name('threads.new');
     Route::post('threads', StoreThreadController::class)->name('threads.store');
     Route::get('threads/{thread}', [ThreadController::class, 'show'])
@@ -374,6 +390,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])
         ->name('threads.diff.files.show')
         ->where(['file' => '[0-9]+']);
+    Route::get('threads/{thread}/runs/{run}/log', [ThreadRunLogController::class, 'show'])
+        ->name('threads.runs.log')
+        ->where(['run' => '[0-9]+']);
+    Route::get('threads/{thread}/tasks/{task}/log', [ThreadRunLogController::class, 'showTask'])
+        ->name('threads.tasks.log');
     Route::get('threads/{thread}/local-turns', LocalTurnsController::class)
         ->name('threads.local-turns');
     Route::get('threads/{thread}/environment', [ThreadEnvironmentController::class, 'show'])

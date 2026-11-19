@@ -46,7 +46,7 @@ test('rerun setup redirects to the new task', function () {
     $repo = Repository::factory()->create(['slug' => 'redirect-test']);
 
     $this->post(route('repos.rerun-setup', $repo))
-        ->assertRedirect(route('tasks.show', YakTask::where('repo', 'redirect-test')->first()));
+        ->assertRedirect(route('repos.runs.show', [$repo, YakTask::where('repo', 'redirect-test')->first()]));
 });
 
 test('review open prs enqueues retroactive review tasks', function () {
