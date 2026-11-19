@@ -388,6 +388,22 @@ private func shows(_ rig: Rig) async -> Int { await rig.transport.requests(on: s
     await waitUntil { await shows(rig) == before + 1 }
 }
 
+@Test func anAnswerOlderThanThePageIsNotAdoptedAndTheShowIsFetchedAgain() async throws {
+    let rig = try await makeRig(question: false)
+    let route = "POST threads/\(threadID)/retry"
+    await rig.transport.on(
+        route, try answer("queued", ["card": #""repository_question""#, "latestSequence": "3"]))
+    let before = await shows(rig)
+    #expect(await rig.engine.perform(.retry) == .done)
+    #expect(await shows(rig) == before)
+    let settled = rig.clock.offset + ThreadEngine.refreshSettle
+    await waitUntil { rig.clock.sleeperDeadlines.contains(settled) }
+    let snapshot = try await StreamRecorder(await rig.engine.snapshots()).next { _ in true }
+    #expect(snapshot.show?.card != .repositoryQuestion)
+    await rig.clock.advance(by: ThreadEngine.refreshSettle)
+    await waitUntil { await shows(rig) == before + 1 }
+}
+
 @Test func aMoveToANewThreadSetsTheReplacement() async throws {
     let rig = try await makeRig(question: false)
     var object = try #require(

@@ -292,14 +292,19 @@ public actor ThreadEngine {
         refreshTask = nil
     }
 
-    /// Takes the show an action answered. True when the page now holds it, so no second request is needed. An
-    /// answer for another thread (a move) sets the replacement instead and leaves this page as it is.
-    func adopt(_ answered: ThreadShow) -> Bool {
+    /// Takes the show an action answered. True when no second request is needed by the caller. An
+    /// answer for another thread (a move) sets the replacement instead and leaves this page as it is. An answer
+    /// older than the page is left unused and a refresh is scheduled.
+    func adopt(_ answered: ThreadShow) async -> Bool {
         guard !isClosed, isShowConfirmed else { return false }
         guard answered.thread.id == threadID else {
             replacementThreadID = answered.thread.id
             changed(isStored: false)
             return false
+        }
+        if answered.latestSequence < (show?.latestSequence ?? 0) {
+            scheduleShowRefresh()
+            return true
         }
         refreshGeneration += 1
         show = answered
@@ -307,6 +312,7 @@ public actor ThreadEngine {
         isOffline = false
         problem = nil
         changed(isStored: true)
+        await dropStaleQuestionDraft()
         // Events applied after the answer was made are newer than it: fetch again rather than lose them.
         if answered.latestSequence < state.lastSequence { scheduleShowRefresh() }
         return true
