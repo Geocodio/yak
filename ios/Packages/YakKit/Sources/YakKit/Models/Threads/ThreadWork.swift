@@ -140,7 +140,7 @@ public struct ThreadMilestone: Codable, Equatable, Sendable, Identifiable {
     public let runId: String
     public let afterSequence: Int
 
-    public var id: String { "\(runId):\(key.rawValue):\(afterSequence)" }
+    public var id: String { "\(runId):\(key.rawValue)" }
 
     public init(
         key: MilestoneKey,

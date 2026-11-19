@@ -470,7 +470,7 @@ func theTurnAndThreadEventsInEitherOrderRefreshOnce(turnFirst: Bool) async throw
     ]
     let rig = try await openedEngine(server: server, show: JSONSerialization.data(withJSONObject: object))
     let snapshot = try await settled(rig.engine)
-    #expect(snapshot.entries.contains { $0.id == "milestone:9:pushed:14" })
+    #expect(snapshot.entries.contains { $0.id == "milestone:9:pushed" })
 }
 
 // MARK: Send answers with a notice

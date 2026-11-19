@@ -46,16 +46,23 @@ private func merge(
         ])
     #expect(
         entries.map(\.id) == [
-            "u1", "a", "b", "milestone:1:pushed:3", "milestone:1:ci_passed:3", "u2", "c",
-            "milestone:1:pull_request_opened:6",
+            "u1", "a", "b", "milestone:1:pushed", "milestone:1:ci_passed", "u2", "c",
+            "milestone:1:pull_request_opened",
         ])
+}
+
+@Test func aMilestoneKeepsItsIdWhenItsPlacementMoves() {
+    let before = merge(items: [event("a", 3), event("b", 5)], milestones: [milestone(.ciPassed, after: 3)])
+    let after = merge(items: [event("a", 3), event("b", 5)], milestones: [milestone(.ciPassed, after: 5)])
+    #expect(before.map(\.id) == ["a", "milestone:1:ci_passed", "b"])
+    #expect(after.map(\.id) == ["a", "b", "milestone:1:ci_passed"])
 }
 
 @Test func aMilestoneComesBeforeThePersonMessageThatStartsTheNextRun() {
     let entries = merge(
         messages: [message(uuid: "u2", id: "m2", readAfter: 4)], items: [event("a", 3), event("b", 5)],
         milestones: [milestone(.ciFailed, after: 4)])
-    #expect(entries.map(\.id) == ["a", "milestone:1:ci_failed:4", "u2", "b"])
+    #expect(entries.map(\.id) == ["a", "milestone:1:ci_failed", "u2", "b"])
 }
 
 @Test func aMilestoneBeforeTheLoadedHistoryIsHidden() {
@@ -63,16 +70,16 @@ private func merge(
     let items = [event("a", 21), event("b", 30)]
     #expect(
         merge(items: items, milestones: milestones, firstLoadedAfter: 20).map(\.id) == [
-            "a", "milestone:1:ci_passed:25", "b",
+            "a", "milestone:1:ci_passed", "b",
         ])
-    #expect(merge(items: items, milestones: milestones, firstLoadedAfter: 0).map(\.id).first == "milestone:1:pushed:10")
+    #expect(merge(items: items, milestones: milestones, firstLoadedAfter: 0).map(\.id).first == "milestone:1:pushed")
     // Loading the older page brings it back, in place.
     #expect(merge(items: [event("z", 5)] + items, milestones: milestones, firstLoadedAfter: 0).count == 5)
 }
 
 @Test func aMilestoneForAnEventNotLoadedAtAllStillComesLast() {
     let entries = merge(items: [event("a", 3)], milestones: [milestone(.pushed, after: 99)])
-    #expect(entries.map(\.id) == ["a", "milestone:1:pushed:99"])
+    #expect(entries.map(\.id) == ["a", "milestone:1:pushed"])
 }
 
 @Test func aRepeatedMilestoneShowsOnce() {
@@ -134,8 +141,8 @@ private func merge(
     let entries = merge(messages: messages, milestones: milestones, isLegacy: true, answers: answers)
     #expect(
         entries.map(\.id) == [
-            "legacy-message-1", "legacy-answer:old-1", "milestone:old-1:pull_request_opened:0",
-            "legacy-message-2", "legacy-answer:old-2", "milestone:old-2:ci_passed:0", "milestone:gone:pushed:0",
+            "legacy-message-1", "legacy-answer:old-1", "milestone:old-1:pull_request_opened",
+            "legacy-message-2", "legacy-answer:old-2", "milestone:old-2:ci_passed", "milestone:gone:pushed",
         ])
 }
 
