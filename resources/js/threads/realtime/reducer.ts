@@ -16,6 +16,7 @@ export function initialEventState(): ThreadEventState {
         entries: [],
         streamingBlocks: {},
         turn: null,
+        turnStartSequence: null,
         thread: null,
         questionOpen: null,
         children: {},
@@ -64,8 +65,12 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
         }
         case 'stream.reset':
             return { ...next, streamingBlocks: {} };
-        case 'turn':
-            return { ...next, turn: event.data as ThreadEventEnvelope<'turn'>['data'] };
+        case 'turn': {
+            const turn = event.data as ThreadEventEnvelope<'turn'>['data'];
+            const isStart = turn.state === 'running' && (state.turn === null || state.turn.turnId !== turn.turnId || state.turn.state !== 'running');
+
+            return { ...next, turn, turnStartSequence: isStart ? event.sequence : state.turnStartSequence };
+        }
         case 'thread': {
             const data = event.data as ThreadEventEnvelope<'thread'>['data'];
 
