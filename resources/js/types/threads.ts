@@ -3,6 +3,7 @@ import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData, QuestionData } from '@/types/tasks';
 import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 import type { ThreadAgentsData } from '@/types/thread-agents';
+import type { SlashCommandsData } from '@/components/threads/composer/slashCommands';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -264,6 +265,8 @@ export type ThreadPageData = {
     runs: ThreadRunSummary[];
     /** Web only: Claude's agents and workflows and the sub-threads, for the Agents panel. */
     agents: ThreadAgentsData;
+    /** Web only: the slash commands the composer offers, Yak's own first. */
+    slashCommands: SlashCommandsData;
     /** Web only: the run and entry a `?log=` link names, or null. */
     openLog: { runId: string; entryId: number | null } | null;
 };
