@@ -1,9 +1,11 @@
 import { Link, router, usePoll } from '@inertiajs/react';
 import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr, cn } from '@geocodio/console-ui';
 import { ArrowLeft, RefreshCw, Search } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Prose } from '@/components/Prose';
+import { stepKind } from '@/components/shared/TranscriptOverlay';
 import { RunLogOverlay, type RunLogTarget } from '@/components/threads/conversation/RunLogOverlay';
+import { useRunLog } from '@/components/threads/conversation/useRunLog';
 import { RepositorySettingsLayout } from '@/layouts/RepositorySettingsLayout';
 import { AppLayout } from '@/layouts/AppLayout';
 import { rowLinkHandlers } from '@/lib/visitRow';
@@ -190,7 +192,37 @@ function RememberedCard({ run }: { run: RepositoryRunDetail }) {
     );
 }
 
-function RunDetail({ run, modelLabels, settingsUrl, onOpenLog }: { run: RepositoryRunDetail; modelLabels: Record<string, string>; settingsUrl: string; onOpenLog: () => void }) {
+/** The steps of a running run as they happen; it loads every page and keeps the newest step in view. Picking a step opens it in the full log. */
+function LiveRunLog({ logUrl, onOpenStep }: { logUrl: string; onOpenStep: (entryId: number) => void }) {
+    const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore } = useRunLog(logUrl, true);
+    const list = useRef<HTMLOListElement>(null);
+
+    useEffect(() => {
+        if (status === 'ready' && hasMore && !isLoadingMore && !moreFailed) {
+            loadMore();
+        }
+    }, [status, hasMore, isLoadingMore, moreFailed, loadMore]);
+
+    useEffect(() => {
+        list.current?.scrollTo({ top: list.current.scrollHeight });
+    }, [entries.length]);
+
+    return (
+        <ol ref={list} className="max-h-[50vh] overflow-y-auto rounded-card border border-hair bg-panel shadow-card" data-testid="run-live-log">
+            {entries.length === 0 && <li className="p-4 text-[13px] text-muted">{status === 'error' ? 'The log could not be loaded. It loads again in a few seconds.' : 'Yak is starting the sandbox.'}</li>}
+            {entries.map((entry) => (
+                <li key={entry.id}>
+                    <button type="button" onClick={() => onOpenStep(entry.id)} className="flex w-full items-baseline gap-2.5 border-b border-hair px-3.5 py-[7px] text-left text-[13px] last:border-b-0 hover:bg-panel-2">
+                        <span className="w-[56px] shrink-0 text-[12px] text-muted">{stepKind(entry)}</span>
+                        <span className={cn('min-w-0 flex-1 truncate', entry.kind === 'tool' && 'font-mono text-[12.5px]', entry.error && 'text-fail')}>{entry.kind === 'tool' && entry.subject ? entry.subject : entry.text}</span>
+                    </button>
+                </li>
+            ))}
+        </ol>
+    );
+}
+
+function RunDetail({ run, modelLabels, settingsUrl, onOpenLog }: { run: RepositoryRunDetail; modelLabels: Record<string, string>; settingsUrl: string; onOpenLog: (entryId?: number) => void }) {
     const status = STATUS[run.status];
     const meta = [
         formatWhen(run.startedAt),
@@ -207,23 +239,24 @@ function RunDetail({ run, modelLabels, settingsUrl, onOpenLog }: { run: Reposito
                 <b className="text-[16px] text-body">{run.kind === 'setup' ? 'Setup run' : 'Repository research'}</b>
                 <span className="min-w-0 text-[12px] text-muted">{meta.join(' · ')}</span>
                 <span className="flex-1" />
-                <Button variant="secondary" onClick={onOpenLog} data-testid="run-full-log">
+                <Button variant="secondary" onClick={() => onOpenLog()} data-testid="run-full-log">
                     Full log
                 </Button>
             </div>
 
-            {run.isLive && (
+            {run.status === 'queued' && (
                 <p className="text-[13px] text-muted" data-testid="run-live">
-                    {run.status === 'queued' ? 'Waiting for a free sandbox.' : 'Yak is working on this run.'}
+                    Waiting for a free sandbox.
                 </p>
             )}
+            {run.status === 'running' && <LiveRunLog logUrl={run.logUrl} onOpenStep={onOpenLog} />}
 
             {run.durationSeconds > 0 && (
                 <div className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted" data-testid="run-work-row">
                     <b className="text-body">Worked for {formatMs(run.durationSeconds * 1000)}</b>
                     {run.stepCount > 0 && <span>· {run.stepCount} steps</span>}
                     <span className="flex-1" />
-                    <button type="button" onClick={onOpenLog} className="text-accent-text hover:underline">
+                    <button type="button" onClick={() => onOpenLog()} className="text-accent-text hover:underline">
                         Show the steps
                     </button>
                 </div>
@@ -329,7 +362,7 @@ export default function Runs({ header, runs, totalCount, selected, selectedUrl, 
                                 run={selected}
                                 modelLabels={modelLabels}
                                 settingsUrl={settingsUrl}
-                                onOpenLog={() => setLogTarget({ kind: 'url', id: selected.logUrl, entryId: null, headline: `${selected.kind === 'setup' ? 'Setup' : 'Repository research'} at ${formatWhen(selected.startedAt)}` })}
+                                onOpenLog={(entryId) => setLogTarget({ kind: 'url', id: selected.logUrl, entryId: entryId ?? null, headline: `${selected.kind === 'setup' ? 'Setup' : 'Repository research'} at ${formatWhen(selected.startedAt)}` })}
                             />
                         ) : (
                             <p className="text-[13px] text-muted">Pick a run to see it in full.</p>
