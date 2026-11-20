@@ -66,6 +66,7 @@ final class WebConversationModel {
     let policy: EmbedNavigationPolicy
 
     @ObservationIgnored var handleRequest: @MainActor (WebConversationRequest) -> Void = { _ in }
+    @ObservationIgnored private var requestOwner: ObjectIdentifier?
     @ObservationIgnored private(set) var page: (any WebConversationPage)?
     @ObservationIgnored private let mint: Mint
     @ObservationIgnored private let now: () -> WebConversationInstant
@@ -117,6 +118,22 @@ final class WebConversationModel {
         case .server(let error): error.status >= 500 ? .server(error.status) : .rejected
         default: .rejected
         }
+    }
+
+    // MARK: The pane that carries out requests
+
+    /// The pane that shows the conversation now carries out what the page asks for.
+    func takeRequests(owner: AnyObject, _ handler: @escaping @MainActor (WebConversationRequest) -> Void) {
+        requestOwner = ObjectIdentifier(owner)
+        handleRequest = handler
+    }
+
+    /// A pane that goes away lets go of the requests, unless a newer pane has taken them over, so the window's model
+    /// does not keep the old pane's thread alive or send a link tap to a pane that is gone.
+    func releaseRequests(owner: AnyObject) {
+        guard requestOwner == ObjectIdentifier(owner) else { return }
+        requestOwner = nil
+        handleRequest = { _ in }
     }
 
     // MARK: Decision

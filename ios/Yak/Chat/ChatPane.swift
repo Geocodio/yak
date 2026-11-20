@@ -10,6 +10,8 @@ extension PaneDescriptor {
         barRow: { thread in AnyView(ComposerBar(thread: thread)) }, hasBadge: { $0.hasOpenQuestion })
 }
 
+private final class RequestOwner {}
+
 private struct ChatPane: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
@@ -21,6 +23,8 @@ private struct ChatPane: View {
     @Environment(SystemFeatures.self) private var system
     @State private var paneHeight: CGFloat = 600
     @State private var browserURL: BrowserLink?
+    /// Names this pane to the window's web conversation, which hands the page's requests to one pane at a time.
+    @State private var requestOwner = RequestOwner()
 
     /// The page shows the conversation and its cards; the native chat shows them when the server has no page.
     private var usesWeb: Bool { web?.mode == .web }
@@ -45,9 +49,12 @@ private struct ChatPane: View {
         .task(id: canChooseConversation) { await followConversationChoice() }
         .task(id: usesWeb) { await followOutbox() }
         .onAppear {
-            web?.handleRequest = { [thread, scene] request in handle(request, thread: thread, scene: scene) }
+            web?.takeRequests(owner: requestOwner) { [thread, scene] request in
+                handle(request, thread: thread, scene: scene)
+            }
             web?.show(thread: thread.threadID)
         }
+        .onDisappear { web?.releaseRequests(owner: requestOwner) }
         .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)

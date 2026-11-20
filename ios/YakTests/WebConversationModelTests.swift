@@ -368,6 +368,24 @@ private let instanceURL = URL(string: "https://yak.example.com")!
             ])
     }
 
+    @Test func aPaneThatGoesAwayLetsGoOfTheRequestsUnlessANewerPaneHasThem() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        final class Owner {}
+        let first = Owner()
+        let second = Owner()
+        var firstHeard: [WebConversationRequest] = []
+        var secondHeard: [WebConversationRequest] = []
+        harness.model.takeRequests(owner: first) { firstHeard.append($0) }
+        harness.model.takeRequests(owner: second) { secondHeard.append($0) }
+        harness.model.releaseRequests(owner: first)
+        harness.model.receive(.openPane(.terminal))
+        #expect(firstHeard.isEmpty && secondHeard == [.openPane(.terminal)])
+        harness.model.releaseRequests(owner: second)
+        harness.model.receive(.openPane(.preview))
+        #expect(secondHeard == [.openPane(.terminal)])
+    }
+
     @Test func aQuickLookGoesToTheWebViewAndAFocusToThePage() async {
         let harness = Harness()
         await harness.open("d0e515ef")
