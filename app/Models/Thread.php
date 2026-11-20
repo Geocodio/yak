@@ -313,6 +313,16 @@ class Thread extends Model
     }
 
     /**
+     * The agents and workflows Claude started in this thread.
+     *
+     * @return HasMany<ThreadAgent, $this>
+     */
+    public function agents(): HasMany
+    {
+        return $this->hasMany(ThreadAgent::class);
+    }
+
+    /**
      * The latest captured diff of the sandbox's working tree.
      *
      * @return HasOne<ThreadDiff, $this>
@@ -438,10 +448,12 @@ class Thread extends Model
             return true;
         }
 
+        // Agents run on after Claude's reply, so the sandbox stays awake for them.
         return TaskRun::query()
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
-            ->exists();
+            ->exists()
+            || ThreadAgent::query()->running()->whereIn('thread_id', $sharing->select('id'))->exists();
     }
 
     /**

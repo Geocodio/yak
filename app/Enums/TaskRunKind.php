@@ -18,4 +18,6 @@ enum TaskRunKind: string
     case Review = 'review';
     case Setup = 'setup';
     case RepositoryEvent = 'repository_event';
+    /** Claude's own reply after a background agent or workflow finished; nobody sent a prompt. */
+    case AgentFollowUp = 'agent_follow_up';
 }
