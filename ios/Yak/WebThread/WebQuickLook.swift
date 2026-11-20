@@ -78,7 +78,10 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
         folder = target.deletingLastPathComponent()
         Task { [weak self] in
             let download = await webView.startDownload(using: URLRequest(url: url))
-            guard let self, isBusy else { return download.cancel { _ in } }
+            guard let self, isBusy else {
+                _ = await download.cancel()
+                return
+            }
             current = download
             download.delegate = self
             // A body that outgrows the cap is cancelled and its partial file removed. The progress may name no total
