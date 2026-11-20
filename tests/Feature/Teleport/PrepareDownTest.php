@@ -2,11 +2,16 @@
 
 use App\DataTransferObjects\SandboxWake;
 use App\Enums\RunnerState;
+use App\Enums\TaskRunKind;
 use App\Enums\TeleportState;
 use App\Enums\ThreadAgentStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
+use App\Events\TurnCompleted;
+use App\Events\TurnFailed;
+use App\Events\TurnStarted;
 use App\Jobs\PrepareTeleportDownJob;
+use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\SessionFile;
 use App\Models\TaskRun;
@@ -27,6 +32,7 @@ use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
@@ -273,4 +279,82 @@ it('stops running agents, waits for them to end, and proceeds on the next attemp
 
     expect($agents->map->refresh()->pluck('status')->unique()->all())->toBe([ThreadAgentStatus::Stopped])
         ->and(runDown($teleport)->state)->toBe(TeleportState::Ready);
+});
+
+it('waits for the reply Claude starts to the stopped agents, then reaches ready once with the reply in the session', function () {
+    config(['yak.threads.subagents' => true]);
+    $account = ClaudeAccount::factory()->create();
+    $this->thread->forceFill(['runner_generation' => 1, 'runner_state' => RunnerState::Idle, 'claude_account_id' => $account->id])->save();
+    $origin = startRunningTurn($this->thread);
+    $origin->update(['turn_state' => TurnState::Completed, 'finished_at' => now()]);
+    $agents = ThreadAgent::factory()->count(2)->create(['thread_id' => $this->thread->id, 'task_run_id' => $origin->id]);
+    $stream = 'threads:' . $this->thread->id;
+    $driver = app(ThreadDriver::class);
+    $broker = app(BrokerStreams::class);
+    $sequence = 0;
+    $push = function (array $line) use ($driver, $broker, $stream, &$sequence): void {
+        $driver->handle($broker->pushOut($stream, 1, ++$sequence, $line));
+    };
+
+    $teleport = runDown(downTeleport($this));
+    expect($teleport->state)->toBe(TeleportState::WaitingForTurn);
+
+    foreach ($agents as $agent) {
+        $push(['type' => 'system', 'subtype' => 'task_notification', 'task_id' => $agent->task_id, 'status' => 'stopped', 'summary' => 'Stopped']);
+    }
+
+    // Claude answers the notifications on its own while the teleport waits.
+    Event::fake([TurnStarted::class, TurnCompleted::class, TurnFailed::class]);
+    $push(['type' => 'assistant', 'message' => ['content' => [['type' => 'text', 'text' => 'Both agents were stopped.']]], 'parent_tool_use_id' => null]);
+
+    $followUp = TaskRun::query()->where('thread_id', $this->thread->id)->where('kind', TaskRunKind::AgentFollowUp)->sole();
+    expect($followUp->turn_state)->toBe(TurnState::Running);
+
+    $teleport = runDown($teleport);
+    expect($teleport->state)->toBe(TeleportState::WaitingForTurn)
+        ->and($this->sandboxes->calls)->toBe([]);
+
+    $push(['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'stop_reason' => 'end_turn', 'origin' => ['kind' => 'task-notification'], 'usage' => ['input_tokens' => 1, 'output_tokens' => 1]]);
+    $this->travel(60)->seconds();
+    $driver->tick();
+
+    expect($followUp->refresh()->turn_state)->toBe(TurnState::Completed)
+        ->and($followUp->account_slot_held_at)->toBeNull();
+
+    $teleport = runDown($teleport);
+    expect($teleport->state)->toBe(TeleportState::Ready)
+        ->and(TaskRun::query()->where('thread_id', $this->thread->id)->where('turn_state', TurnState::Running)->count())->toBe(0)
+        ->and(TaskRun::query()->where('thread_id', $this->thread->id)->where('kind', TaskRunKind::AgentFollowUp)->count())->toBe(1);
+
+    // The teleport is ready and the session copied: a later reply is refused and silent.
+    $push(['type' => 'assistant', 'message' => ['content' => [['type' => 'text', 'text' => 'late']]], 'parent_tool_use_id' => null]);
+    expect(TaskRun::query()->where('thread_id', $this->thread->id)->where('turn_state', TurnState::Running)->count())->toBe(0);
+});
+
+it('stops a reply Claude already runs to the agents when the teleport asks for a stop, and reaches ready', function () {
+    config(['yak.threads.subagents' => true]);
+    $account = ClaudeAccount::factory()->create();
+    $this->thread->forceFill(['claude_account_id' => $account->id])->save();
+    $followUp = startRunningTurn($this->thread);
+    $followUp->update(['kind' => TaskRunKind::AgentFollowUp, 'claude_account_id' => $account->id]);
+    $turns = Mockery::mock(ThreadTurns::class);
+    $turns->shouldReceive('stop')->once()->andReturnUsing(fn () => $followUp->update(['turn_state' => TurnState::Interrupted, 'finished_at' => now()]));
+    app()->instance(ThreadTurns::class, $turns);
+
+    $teleport = runDown(downTeleport($this, ['running_turn' => 'stop']));
+
+    expect($teleport->state)->toBe(TeleportState::Ready)
+        ->and(TaskRun::query()->where('thread_id', $this->thread->id)->where('turn_state', TurnState::Running)->count())->toBe(0);
+});
+
+it('waits for a reply to the agents that is already running when the teleport asks to wait', function () {
+    $followUp = startRunningTurn($this->thread);
+    $followUp->update(['kind' => TaskRunKind::AgentFollowUp]);
+
+    $teleport = runDown(downTeleport($this, ['state' => TeleportState::WaitingForTurn, 'running_turn' => 'wait']));
+    expect($teleport->state)->toBe(TeleportState::WaitingForTurn)->and($this->sandboxes->calls)->toBe([]);
+
+    $followUp->update(['turn_state' => TurnState::Completed, 'finished_at' => now()]);
+
+    expect(runDown($teleport)->state)->toBe(TeleportState::Ready);
 });
