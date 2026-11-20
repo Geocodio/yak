@@ -255,9 +255,9 @@ it('keeps the submit button and the composer reachable with a keyboard-sized vie
     $page = phonePage($thread, 390, 400);
     $page->assertVisible('[data-testid="questions-form"]');
 
-    $state = settled($page, 'document.querySelector(\'[data-testid="questions-submit"]\')', '(async () => { const submit = document.querySelector(\'[data-testid="questions-submit"]\'); submit.scrollIntoView({ block: \'center\' }); await new Promise((resolve) => setTimeout(resolve, 200)); const rect = submit.getBoundingClientRect(); const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2); const composer = document.querySelector(\'[data-testid="thread-composer"]\').getBoundingClientRect(); return { submitReachable: submit.contains(top), composerInside: composer.bottom <= window.innerHeight + 1, submitAboveComposer: rect.bottom <= composer.top + 1, pageScrolls: document.documentElement.scrollHeight > window.innerHeight + 1 }; })()');
+    $state = settled($page, 'document.querySelector(\'[data-testid="questions-submit"]\')', '(async () => { const submit = document.querySelector(\'[data-testid="questions-submit"]\'); submit.scrollIntoView({ block: \'center\' }); await new Promise((resolve) => setTimeout(resolve, 200)); const rect = submit.getBoundingClientRect(); const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2); const composer = document.querySelector(\'[data-testid="thread-composer"]\').getBoundingClientRect(); return { submitReachable: submit.contains(top), composerInside: composer.bottom <= window.innerHeight + 1, submitAboveComposer: rect.bottom <= composer.top + 1, pageScrolls: document.documentElement.scrollHeight > window.innerHeight + 1, scrollHeight: document.documentElement.scrollHeight, innerHeight: window.innerHeight, connectionStrip: document.querySelector(\'[data-testid="thread-connection-strip"]\')?.dataset.kind ?? null }; })()');
 
-    expect($state['submitReachable'])->toBeTrue()->and($state['composerInside'])->toBeTrue()->and($state['submitAboveComposer'])->toBeTrue()->and($state['pageScrolls'])->toBeFalse();
+    expect($state)->toMatchArray(['submitReachable' => true, 'composerInside' => true, 'submitAboveComposer' => true, 'pageScrolls' => false], json_encode($state));
 });
 
 it('keeps the 768 px layout usable: tabs and the tab bar', function () {
