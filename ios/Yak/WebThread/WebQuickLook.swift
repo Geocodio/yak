@@ -18,6 +18,7 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
     private var folder: URL?
     private var file: URL?
     private var isBusy = false
+    private var progressObservation: NSKeyValueObservation?
 
     static var root: URL {
         FileManager.default.temporaryDirectory.appending(path: "YakQuickLook", directoryHint: .isDirectory)
@@ -47,6 +48,15 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
         Task {
             let download = await webView.startDownload(using: URLRequest(url: url))
             download.delegate = self
+            progressObservation = download.progress.observe(\.completedUnitCount) { [weak self] progress, _ in
+                let received = progress.completedUnitCount
+                Task { @MainActor in
+                    // A body that outgrows the cap is cancelled and its partial file removed.
+                    guard QuickLookFile.mustCancel(receivedBytes: received) else { return }
+                    download.cancel { _ in }
+                    self?.finish()
+                }
+            }
         }
     }
 
@@ -57,7 +67,7 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
         completionHandler: @escaping @MainActor (URL?) -> Void
     ) {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 200
-        guard (200..<300).contains(status), QuickLookFile.isWithinLimit(bytes: response.expectedContentLength),
+        guard (200..<300).contains(status), QuickLookFile.admits(expectedLength: response.expectedContentLength),
             let file, let folder
         else { return completionHandler(nil) }
         do {
@@ -105,6 +115,8 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
     func previewControllerDidDismiss(_ controller: QLPreviewController) { finish() }
 
     private func finish() {
+        progressObservation?.invalidate()
+        progressObservation = nil
         if let folder { try? FileManager.default.removeItem(at: folder) }
         folder = nil
         file = nil

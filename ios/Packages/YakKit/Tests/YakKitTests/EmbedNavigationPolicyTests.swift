@@ -138,6 +138,15 @@ import Testing
         #expect(emoji.utf8.count <= 100 && emoji.hasSuffix(".png"))
     }
 
+    @Test func decidesFromTheAnnouncedLengthAndTheProgress() {
+        #expect(QuickLookFile.admits(expectedLength: 0))
+        #expect(QuickLookFile.admits(expectedLength: QuickLookFile.maximumBytes))
+        #expect(!QuickLookFile.admits(expectedLength: -1))
+        #expect(!QuickLookFile.admits(expectedLength: QuickLookFile.maximumBytes + 1))
+        #expect(!QuickLookFile.mustCancel(receivedBytes: QuickLookFile.maximumBytes))
+        #expect(QuickLookFile.mustCancel(receivedBytes: QuickLookFile.maximumBytes + 1))
+    }
+
     @Test func capsTheSize() {
         #expect(QuickLookFile.isWithinLimit(bytes: 0))
         #expect(QuickLookFile.isWithinLimit(bytes: QuickLookFile.maximumBytes))
