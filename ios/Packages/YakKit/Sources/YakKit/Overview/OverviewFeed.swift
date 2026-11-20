@@ -136,6 +136,9 @@ public actor OverviewFeed {
         broadcast.stream()
     }
 
+    /// The state as it is now, for a caller that must judge what a `refresh` just loaded without waiting for `states()`.
+    public func currentState() -> OverviewState { state }
+
     /// Visible while any caller is visible: loads what is missing or old at once and polls. Hidden once every caller
     /// is hidden: cancels every timer and request. A caller is whatever shows the feed, such as a pane or a panel.
     public func setVisible(_ requested: Bool, caller: UUID = OverviewFeed.defaultCaller) async {
