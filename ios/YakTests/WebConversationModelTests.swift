@@ -139,7 +139,6 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         await harness.open("d0e515ef")
         #expect(harness.model.phase == .ready)
         #expect(harness.model.loadPresentation == .conversation)
-        #expect(harness.model.title == "Title")
     }
 
     @Test func aMintThatFailsOnTheNetworkShowsAFailureAndRetryMintsAgain() async {
@@ -382,18 +381,29 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         harness.model.receive(.openPane(.terminal))
         #expect(firstHeard.isEmpty && secondHeard == [.openPane(.terminal)])
         harness.model.releaseRequests(owner: second)
-        harness.model.receive(.openPane(.preview))
+        harness.model.receive(.openPane(.preview(url: nil)))
         #expect(secondHeard == [.openPane(.terminal)])
     }
 
-    @Test func aQuickLookGoesToTheWebViewAndAFocusToThePage() async {
+    @Test func aLinkToAThreadOfTheInstanceOpensInTheAppAndOtherLinksInTheBrowser() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.model.receive(.link(URL(string: "https://yak.example.com/threads/a1b2c3d4#card-question")!))
+        harness.model.receive(.link(URL(string: "https://yak.example.com/threads/a1b2c3d4/files")!))
+        harness.model.receive(.link(URL(string: "https://other.example.com/threads/a1b2c3d4")!))
+        #expect(
+            harness.requests == [
+                .openThread("a1b2c3d4"), .link(URL(string: "https://yak.example.com/threads/a1b2c3d4/files")!),
+                .link(URL(string: "https://other.example.com/threads/a1b2c3d4")!),
+            ])
+    }
+
+    @Test func aQuickLookGoesToTheWebView() async {
         let harness = Harness()
         await harness.open("d0e515ef")
         let file = URL(string: "https://yak.example.com/files/report.pdf")!
         harness.model.receive(.quickLook(url: file, name: "report.pdf", mimeType: nil))
         #expect(harness.page.quickLooks == [file])
-        harness.model.focus(fragment: "card-question")
-        #expect(harness.page.messages == [.focus(fragment: "card-question")])
     }
 
     @Test func thePageIsHiddenWhileTheAppIsCovered() {

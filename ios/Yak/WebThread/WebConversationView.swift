@@ -145,7 +145,10 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         case .allow: return .allow
         case .cancel: return .cancel
         case .openLink(let url):
-            model?.handleRequest(.link(url))
+            model?.open(link: url)
+            return .cancel
+        case .openThread(let id):
+            model?.handleRequest(.openThread(id))
             return .cancel
         }
     }
@@ -189,11 +192,13 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if case .openLink(let url) = policy.decide(
+        switch policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod, isMainFrame: true,
             isUserInitiated: true)
         {
-            model?.handleRequest(.link(url))
+        case .openLink(let url): model?.open(link: url)
+        case .openThread(let id): model?.handleRequest(.openThread(id))
+        case .allow, .cancel: break
         }
         return nil
     }

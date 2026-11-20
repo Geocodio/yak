@@ -11,6 +11,8 @@ import YakKit
 /// carries each one out, because only it knows the thread model, the window's scene and the browser sheet.
 enum WebConversationRequest: Equatable {
     case link(URL)
+    /// A link to a thread of this instance, which opens in the app.
+    case openThread(String)
     case openPane(EmbedPane)
     /// The page moved to another thread by itself, for instance through a link inside it.
     case threadChanged(threadID: String)
@@ -58,7 +60,6 @@ final class WebConversationModel {
     private(set) var pageThreadID: String?
     /// The thread of the page's last `ready`: the cover over the page lifts only once this is the shown thread.
     private(set) var readyThreadID: String?
-    private(set) var title = ""
     private(set) var isOnline = true
 
     let instanceURL: URL
@@ -204,9 +205,6 @@ final class WebConversationModel {
         }
     }
 
-    /// Scrolls the open page to a fragment such as `card-question`, from a push or a link.
-    func focus(fragment: String) { send(.focus(fragment: fragment)) }
-
     func retry() {
         switch machine.phase {
         case .slow: restart()
@@ -313,11 +311,15 @@ final class WebConversationModel {
         apply(.connectivity(isOnline: isOnline))
     }
 
+    /// A link of the page: a thread of this instance opens in the app, anything else in the browser sheet.
+    func open(link url: URL) {
+        handleRequest(policy.threadID(in: url).map(WebConversationRequest.openThread) ?? .link(url))
+    }
+
     /// A decoded message of the page. Messages that need the pane go to `handleRequest`.
     func receive(_ message: EmbedPageMessage) {
         switch message {
-        case .ready(let readyThreadID, _, _, let readyTitle):
-            title = readyTitle
+        case .ready(let readyThreadID, _, _, _):
             pageThreadID = readyThreadID
             self.readyThreadID = readyThreadID
             if threadID == readyThreadID {
@@ -336,7 +338,7 @@ final class WebConversationModel {
                 // Nothing was asked of the page, so it moved by itself and the window follows it.
                 handleRequest(.threadChanged(threadID: changedThreadID))
             }
-        case .link(let url): handleRequest(.link(url))
+        case .link(let url): open(link: url)
         case .openPane(let pane): handleRequest(.openPane(pane))
         case .quickLook(let url, let name, _): page?.quickLook(url: url, name: name)
         case .cardAnswered(let card, let action, let isOK):

@@ -174,6 +174,7 @@ private struct ChatPane: View {
     private func handle(_ request: WebConversationRequest, thread: ThreadModel, scene: SceneModel) {
         switch request {
         case .link(let url): browserURL = BrowserLink(url: url)
+        case .openThread(let id): openThread(id)
         case .openPane(let pane): open(pane, thread: thread, scene: scene)
         case .threadChanged(let id):
             scene.openReplacement(id, sentFrom: thread.threadID, isCompactWidth: horizontalSizeClass == .compact)

@@ -42,8 +42,8 @@ import Testing
             expected: .openLink(URL(string: "https://yak.example.com/app/embed/../threads/d0e515ef")!)),
         // The instance's own full pages and other hosts go to the browser, only after a tap.
         Case(
-            url: "https://yak.example.com/threads/d0e515ef", method: "GET", isMainFrame: true, isUserInitiated: true,
-            expected: .openLink(URL(string: "https://yak.example.com/threads/d0e515ef")!)),
+            url: "https://yak.example.com/settings", method: "GET", isMainFrame: true, isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/settings")!)),
         Case(
             url: "https://yak.example.com/threads/d0e515ef", method: "GET", isMainFrame: true, isUserInitiated: false,
             expected: .cancel),
@@ -64,6 +64,64 @@ import Testing
         Case(
             url: "http://yak.example.com/app/embed/threads/d0e515ef", method: "GET", isMainFrame: true,
             isUserInitiated: false, expected: .cancel),
+        // The instance's own thread links open in the app.
+        Case(
+            url: "https://yak.example.com/threads/d0e515ef", method: "GET", isMainFrame: true, isUserInitiated: true,
+            expected: .openThread("d0e515ef")),
+        Case(
+            url: "https://yak.example.com/threads/d0e515ef#card-question", method: "GET", isMainFrame: true,
+            isUserInitiated: true, expected: .openThread("d0e515ef")),
+        Case(
+            url: "https://yak.example.com:443/threads/D0E515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: true, expected: .openThread("D0E515ef")),
+        Case(
+            url: "https://yak.example.com/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: false, expected: .cancel),
+        Case(
+            url: "https://yak.example.com/threads/d0e515e", method: "GET", isMainFrame: true, isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/threads/d0e515e")!)),
+        Case(
+            url: "https://yak.example.com/threads/d0e515efg", method: "GET", isMainFrame: true,
+            isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/threads/d0e515efg")!)),
+        Case(
+            url: "https://yak.example.com/threads/d0e515ef/files", method: "GET", isMainFrame: true,
+            isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/threads/d0e515ef/files")!)),
+        Case(
+            url: "https://yak.example.com/threads/d0e515ef?x=1", method: "GET", isMainFrame: true,
+            isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/threads/d0e515ef?x=1")!)),
+        Case(
+            url: "https://evil.example.net/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: true,
+            expected: .openLink(URL(string: "https://evil.example.net/threads/d0e515ef")!)),
+        // The default port is the same origin as no port.
+        Case(
+            url: "https://yak.example.com:443/app/embed/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: false, expected: .allow),
+        // Addresses that are not web pages, a user name in front of the host, and encoded dots.
+        Case(url: "blob:https://yak.example.com/1b2c", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
+        Case(url: "file:///etc/passwd", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
+        Case(url: "yak://thread/d0e515ef", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
+        Case(url: "about:blank", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
+        Case(url: "about:srcdoc", method: "GET", isMainFrame: false, isUserInitiated: false, expected: .allow),
+        Case(
+            url: "https://yak.example.com/app/embed/%2e%2e/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: false, expected: .cancel),
+        Case(
+            url: "https://yak.example.com/app/embed/%2e%2e/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: true,
+            expected: .openLink(URL(string: "https://yak.example.com/app/embed/%2e%2e/threads/d0e515ef")!)),
+        Case(
+            url: "https://user@yak.example.com/app/embed/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: false, expected: .cancel),
+        Case(
+            url: "https://user@yak.example.com/app/embed/threads/d0e515ef", method: "GET", isMainFrame: true,
+            isUserInitiated: true, expected: .cancel),
+        Case(
+            url: "https://yak.example.com@evil.example.net/app/embed/threads/d0e515ef", method: "GET",
+            isMainFrame: true, isUserInitiated: true, expected: .cancel),
         Case(url: "javascript:alert(1)", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
         Case(
             url: "data:text/html,hi", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
@@ -98,7 +156,9 @@ import Testing
 
     @Test func checksTheOriginOfAMessage() {
         #expect(policy.isInstanceOrigin(scheme: "https", host: "yak.example.com", port: 0))
-        #expect(policy.isInstanceOrigin(scheme: "HTTPS", host: "YAK.example.com", port: 443) == false)
+        #expect(policy.isInstanceOrigin(scheme: "HTTPS", host: "YAK.example.com", port: 443))
+        #expect(policy.isInstanceOrigin(URL(string: "https://yak.example.com:443/x")!))
+        #expect(policy.isInstanceOrigin(URL(string: "https://user@yak.example.com/x")!) == false)
         #expect(policy.isInstanceOrigin(scheme: "https", host: "yak.example.com", port: 8443) == false)
         #expect(policy.isInstanceOrigin(scheme: "http", host: "yak.example.com", port: 0) == false)
         #expect(policy.isInstanceOrigin(scheme: "https", host: "yak.example.com.evil.net", port: 0) == false)

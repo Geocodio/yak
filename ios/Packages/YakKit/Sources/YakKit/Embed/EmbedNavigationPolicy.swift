@@ -10,6 +10,8 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
         case cancel
         /// The web view stays; the address passed `WebLinkRule` and opens in the app's browser.
         case openLink(URL)
+        /// The web view stays; a link to a thread of this instance opens that thread in the app.
+        case openThread(String)
     }
 
     public static let embedPathPrefix = "/app/embed/"
@@ -22,12 +24,33 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
         self.allowsLoopbackHTTP = allowsLoopbackHTTP
     }
 
-    /// The scheme, host and port are the instance's own. Plain http counts only for 127.0.0.1 with `allowsLoopbackHTTP`.
+    /// The scheme, host and port are the instance's own, with a default port (443 for https) the same as none, and no
+    /// user or password. Plain http counts only for 127.0.0.1 with `allowsLoopbackHTTP`.
     public func isInstanceOrigin(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased(), let authority = PreviewNavigation.authority(of: url),
-            authority == PreviewNavigation.authority(of: instanceURL), scheme == instanceURL.scheme?.lowercased()
+        guard let scheme = url.scheme?.lowercased(), let origin = Self.origin(of: url),
+            origin == Self.origin(of: instanceURL)
         else { return false }
         return scheme == "https" || (scheme == "http" && allowsLoopbackHTTP && url.host() == "127.0.0.1")
+    }
+
+    private static func origin(of url: URL) -> String? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let scheme = components.scheme?.lowercased(), let host = components.host, !host.isEmpty,
+            components.user == nil, components.password == nil
+        else { return nil }
+        let defaultPort = ["https": 443, "http": 80][scheme]
+        let port = components.port.flatMap { $0 == defaultPort ? nil : $0 }
+        return "\(scheme)://\(host.lowercased())" + (port.map { ":\($0)" } ?? "")
+    }
+
+    /// The id in a link to one of this instance's threads: `/threads/` and eight letters or digits, with at most a
+    /// fragment after it.
+    public func threadID(in url: URL) -> String? {
+        guard isInstanceOrigin(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            components.query == nil,
+            let match = components.percentEncodedPath.wholeMatch(of: /\/threads\/([A-Za-z0-9]{8})/)
+        else { return nil }
+        return String(match.1)
     }
 
     /// The origin of a script message's frame, as WebKit names it. A port of 0 is the scheme's default port.
@@ -53,7 +76,9 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
             if url.path == EmbedRedeem.redeemPath { return verb == "POST" && url.query == nil ? .allow : .cancel }
             if isEmbedPage(url) { return verb == "GET" ? .allow : .cancel }
         }
-        guard isUserInitiated, let link = WebLinkRule.safeURL(url.absoluteString) else { return .cancel }
+        guard isUserInitiated else { return .cancel }
+        if let id = threadID(in: url) { return .openThread(id) }
+        guard let link = WebLinkRule.safeURL(url.absoluteString) else { return .cancel }
         return .openLink(link)
     }
 
