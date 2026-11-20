@@ -226,7 +226,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                     <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
                 ))}
                 {question !== null && !readonly && (
-                    <QuestionsForm key={question.taskId} threadId={threadId} questions={question.questions} who="Claude" footer="Answers go to Claude as the next message." />
+                    <QuestionsForm key={question.taskId} threadId={threadId} questions={question.questions} who="Claude" isLive={working} footer={working ? "Step and time limits pause while Claude waits. If the sandbox has to sleep, the question stays here and your answer wakes it." : "Answers go to Claude as the next message."} />
                 )}
                 {trailingWalkthroughs.map(renderWalkthrough)}
                 {walkthrough?.isRecording === true && <WalkthroughRecordingRow number={walkthrough.nextNumber} />}
