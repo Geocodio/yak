@@ -238,9 +238,10 @@ import Testing
         let other = StubRequest(method: "GET", path: "/app/embed/other")
         #expect(feature.web(other, context: try context("embed-basic")) == nil)
         #expect(feature.coreScenario(for: "embed-slow") == "paired")
+        #expect(feature.coreScenario(for: "embed-working") == "one-thread-held")
         #expect(
             feature.scenarios == [
-                "embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed",
+                "embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed", "embed-working",
             ])
     }
 
@@ -314,5 +315,46 @@ private final class StopAtRedirect: NSObject, URLSessionTaskDelegate {
         let (_, again) = try await session.data(for: redeem, delegate: StopAtRedirect())
         #expect((again as? HTTPURLResponse)?.statusCode == 403)
         server.stop()
+    }
+}
+
+@Suite struct EmbedWaitingTests {
+    private func context(_ core: @escaping @Sendable () -> StubAnswer) throws -> StubContext {
+        var directory = URL(fileURLWithPath: #filePath)
+        while directory.lastPathComponent != "ios" { directory.deleteLastPathComponent() }
+        return StubContext(
+            scenario: "embed-working", baseURL: "http://127.0.0.1:1",
+            fixtures: try StubFixtures(directory: directory.appendingPathComponent("fixtures")),
+            threads: StubThreads(), core: core)
+    }
+
+    @Test func aSentMessageWaitsUntilItIsWithdrawn() throws {
+        let feature = StubEmbedWaiting()
+        let show = Data(#"{"messages":[]}"#.utf8)
+        let ctx = try context { .reply(status: 200, contentType: "application/json", body: show) }
+        let send = StubRequest(
+            method: "POST", path: "/api/app/v1/threads/d0e515ef/messages",
+            body: Data(#"{"message":"hi","delivery":"steer"}"#.utf8))
+        guard
+            case .reply(_, _, let sent)? = feature.answer(
+                route: "POST threads/d0e515ef/messages", request: send, context: ctx)?.answer,
+            let uuid = (try JSONSerialization.jsonObject(with: sent) as? [String: Any])?["uuid"] as? String
+        else {
+            Issue.record("no uuid")
+            return
+        }
+        func messages() throws -> [[String: Any]] {
+            guard
+                case .reply(_, _, let body)? = feature.answer(
+                    route: "GET threads/d0e515ef",
+                    request: StubRequest(method: "GET", path: "/api/app/v1/threads/d0e515ef"), context: ctx)?.answer
+            else { return [] }
+            return ((try JSONSerialization.jsonObject(with: body) as? [String: Any])?["messages"] as? [[String: Any]])
+                ?? []
+        }
+        #expect(try messages().count == 1)
+        let delete = StubRequest(method: "DELETE", path: "/api/app/v1/threads/d0e515ef/queued-messages/\(uuid)")
+        _ = feature.answer(route: "DELETE threads/d0e515ef/queued-messages/\(uuid)", request: delete, context: ctx)
+        #expect(try messages().isEmpty)
     }
 }
