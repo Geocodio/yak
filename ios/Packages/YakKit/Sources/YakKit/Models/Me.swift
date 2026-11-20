@@ -49,6 +49,16 @@ public struct Me: Decodable, Sendable, Equatable {
     public struct WebSupport: Decodable, Sendable, Equatable {
         /// The version of the embedded thread page; 1 is the first.
         public let embed: Int
+
+        public init(embed: Int) { self.embed = embed }
+
+        /// A `web` object without a whole-number `embed` offers nothing, and must not fail the whole `me` decode.
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            embed = (try? container.decodeIfPresent(Int.self, forKey: .embed)) ?? 0
+        }
+
+        private enum CodingKeys: String, CodingKey { case embed }
     }
 
     public let user: UserInfo
