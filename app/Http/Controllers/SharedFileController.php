@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Artifact;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Support\ServedFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
@@ -18,14 +19,6 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class SharedFileController extends Controller
 {
-    private const array IMAGE_TYPES = [
-        'png' => 'image/png',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'gif' => 'image/gif',
-        'webp' => 'image/webp',
-    ];
-
     public function show(Request $request, string $publicId): Response|BinaryFileResponse
     {
         $file = $this->openable($request, $publicId);
@@ -74,21 +67,6 @@ class SharedFileController extends Controller
 
     private function deliver(Artifact $file, bool $inline): BinaryFileResponse
     {
-        $extension = strtolower(pathinfo($file->filename, PATHINFO_EXTENSION));
-        $headers = ['Content-Type' => self::IMAGE_TYPES[$extension] ?? match ($extension) {
-            'html' => 'text/html; charset=utf-8',
-            'csv' => 'text/csv',
-            'pdf' => 'application/pdf',
-            default => 'application/octet-stream',
-        }, 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-cache, private'];
-
-        if ($extension === 'html') {
-            $headers['Content-Security-Policy'] = 'sandbox allow-scripts';
-        }
-
-        $response = response()->file(Storage::disk('artifacts')->path((string) $file->disk_path), $headers);
-        $response->setContentDisposition($inline ? 'inline' : 'attachment', $file->filename);
-
-        return $response;
+        return ServedFile::response(Storage::disk('artifacts')->path((string) $file->disk_path), $file->filename, $inline);
     }
 }
