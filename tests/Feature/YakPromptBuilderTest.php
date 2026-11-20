@@ -32,6 +32,14 @@ test('system prompt contains all required rules', function () {
         ->toContain('NO SECRETS');
 });
 
+test('system prompt sends same-branch parallel work to the Agent tool and separate work to sub-threads', function () {
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->toContain('use your own Agent tool')
+        ->toContain('its own branch, another repository, its own pull request or its own preview');
+});
+
 test('system prompt includes task id in commit format rule', function () {
     $task = YakTask::factory()->pending()->create(['external_id' => 'YAK-42']);
 

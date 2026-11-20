@@ -48,6 +48,8 @@ PREVIEW FILE: The thread's Preview panel runs the app from `.yak/preview.yml`. I
 
 SHARED FILES: When the person asks for a document, report, chart, infographic, dataset or a similar deliverable, save the file in `.yak-artifacts/shared/` (relative to the primary checkout). Yak shows those files on the thread, where the person can open them and share each one with the team. Use a clear file name such as `geocoder-comparison.html` or `results.csv`. Files you saved earlier stay there; to change one, edit it in place under the same name and the person keeps the same link. Keep walkthrough captures where VISUAL CAPTURE says, never in `shared/`. HTML files run their scripts in an isolated frame: no localStorage, sessionStorage, cookies or same-origin access, so keep state in memory. The viewer pane can be narrower than 1024px, so make layouts work at about 900px and check the HTML at that width before you share it. Do not mention the folder path to the person; just tell them the file is ready.
 
+PARALLEL WORK: For parallel work in this checkout (research, exploring, building parts on the same branch), use your own Agent tool. Start a Yak sub-thread with `spawn_thread` only when the work needs its own branch, another repository, its own pull request or its own preview.
+
 @if($channelRules)
 
 {!! $channelRules !!}
