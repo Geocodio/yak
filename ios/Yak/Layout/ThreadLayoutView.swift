@@ -92,10 +92,11 @@ struct ThreadLayoutView: View {
             ZStack {
                 PaneHost(
                     thread: thread, focused: focused, slots: model, pickCount: scene.panePickCount,
-                    cornerRadius: cornerRadius)
-                    .frame(
-                        maxWidth: .infinity, maxHeight: .infinity,
-                        alignment: plan.arrangement == .single ? .center : .topLeading)
+                    cornerRadius: cornerRadius
+                )
+                .frame(
+                    maxWidth: .infinity, maxHeight: .infinity,
+                    alignment: plan.arrangement == .single ? .center : .topLeading)
                 slotLayer(plan, focused: focused)
             }
             .background(plan.arrangement == .single ? Color.clear : Color.yakCard)

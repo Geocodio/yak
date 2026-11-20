@@ -50,7 +50,10 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: Design.Radius.pane * progress)
-                            .stroke(Color.primary.opacity(Motion.drawerStrokeOpacity * progress), lineWidth: Design.Space.hairline)
+                            .stroke(
+                                Color.primary.opacity(Motion.drawerStrokeOpacity * progress),
+                                lineWidth: Design.Space.hairline
+                            )
                             .ignoresSafeArea()
                     )
                     .scaleEffect(reduceMotion ? 1 : 1 - Motion.drawerScaleBack * progress, anchor: .leading)
