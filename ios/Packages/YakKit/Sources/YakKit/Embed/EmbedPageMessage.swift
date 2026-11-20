@@ -191,6 +191,9 @@ extension EmbedPageMessage {
     }
 
     private struct QuickLook: Decodable {
+        /// The page's own limit for a name, in UTF-16 units.
+        static let maximumNameUnits = 500
+
         let url: String
         let name: String
         let mime: String?
@@ -202,21 +205,46 @@ extension EmbedPageMessage {
                 components.user == nil, components.password == nil,
                 let authority = PreviewNavigation.authority(of: target),
                 authority == PreviewNavigation.authority(of: context.instanceURL),
-                name.utf8.count <= maximumNameLength,
+                name.utf16.count <= Self.maximumNameUnits,
                 let safeName = Self.safeFileName(name)
             else { return nil }
             return .quickLook(url: target, name: safeName, mimeType: Self.validMimeType(mime))
         }
 
-        /// Separators and control characters become "_"; nil when nothing readable is left.
+        /// Separators, control characters and format characters (such as a right-to-left override) become "_", and a
+        /// name over `maximumNameLength` bytes is shortened at a character boundary, keeping its extension. Nil when
+        /// nothing readable is left.
         static func safeFileName(_ name: String) -> String? {
             var cleaned = ""
             for scalar in name.unicodeScalars {
-                let isControl = scalar.properties.generalCategory == .control
-                cleaned.unicodeScalars.append(isControl || scalar == "/" || scalar == "\\" ? "_" : scalar)
+                let category = scalar.properties.generalCategory
+                let isUnsafe = category == .control || category == .format || scalar == "/" || scalar == "\\"
+                cleaned.unicodeScalars.append(isUnsafe ? "_" : scalar)
             }
             cleaned = cleaned.trimmingCharacters(in: .whitespaces)
-            return cleaned.isEmpty || cleaned == "." || cleaned == ".." ? nil : cleaned
+            guard !cleaned.isEmpty, cleaned != ".", cleaned != ".." else { return nil }
+            return shortened(cleaned)
+        }
+
+        private static func shortened(_ name: String) -> String {
+            guard name.utf8.count > maximumNameLength else { return name }
+            var extensionPart = ""
+            var base = Substring(name)
+            if let dot = name.lastIndex(of: "."), dot != name.startIndex {
+                let candidate = name[dot...]
+                if candidate.utf8.count <= 16 {
+                    extensionPart = String(candidate)
+                    base = name[..<dot]
+                }
+            }
+            var result = ""
+            var bytes = extensionPart.utf8.count
+            for character in base {
+                bytes += String(character).utf8.count
+                if bytes > maximumNameLength { break }
+                result.append(character)
+            }
+            return result + extensionPart
         }
 
         /// A `type/subtype` of at most 100 characters, or nil; the type is a hint, so a bad one is dropped.

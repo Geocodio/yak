@@ -38,7 +38,7 @@ private func typeName(of message: EmbedPageMessage) -> String {
     }
 }
 
-/// Exact values for the fixtures known by name; every other page fixture is checked for its case only.
+/// Exact values for every page fixture; a fixture missing here is checked for its case only.
 private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-ready": .ready(
         threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 42,
@@ -56,6 +56,14 @@ private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-unsentAction": .unsentAction(key: UUID(uuidString: "6f1c2f9e-3b1d-4c55-9a53-0d4b5c8f7a10")!, action: .retry),
     "page-auth": .authExpired,
     "page-error": .error(kind: .http, status: 503),
+    "page-cardAnswered-failed": .cardAnswered(card: .question, action: "answer", isOK: false),
+    "page-error-network": .error(kind: .network, status: nil),
+    "page-error-script": .error(kind: .script, status: nil),
+    "page-quickLook-without-mime": .quickLook(
+        url: URL(string: "https://yak.example.com/threads/d0e515ef/attachments/4")!, name: "notes.zip", mimeType: nil),
+    "page-openPane-files-without-path": .openPane(.files(mode: .everything, path: nil)),
+    "page-openPane-overview-without-section": .openPane(.overview(section: nil)),
+    "page-openPane-preview-without-url": .openPane(.preview(url: nil)),
 ]
 
 @Test func everyPageFixtureInTheFolderDecodesToItsCase() throws {
@@ -245,11 +253,29 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
     #expect(message == .quickLook(url: URL(string: "https://yak.example.com/f")!, name: ".._a_b.csv", mimeType: nil))
 }
 
-@Test func aQuickLookNameOverTheLimitIsRefused() {
-    let name = String(repeating: "n", count: EmbedPageMessage.maximumNameLength + 1)
-    #expect(throws: EmbedMessageProblem.malformed(type: "quickLook")) {
-        try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"\#(name)"}"#)
-    }
+private func quickLookName(_ name: String) throws -> String {
+    let message = try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"\#(name)"}"#)
+    guard case .quickLook(_, let safe, _) = message else { throw EmbedMessageProblem.malformed(type: "quickLook") }
+    return safe
+}
+
+@Test func aQuickLookNameOverTheLimitOfThePageIsRefused() {
+    let name = String(repeating: "n", count: 501)
+    #expect(throws: EmbedMessageProblem.malformed(type: "quickLook")) { try quickLookName(name) }
+}
+
+@Test func aLongNameIsShortenedToTheByteLimitAtACharacterBoundaryKeepingItsExtension() throws {
+    let cjk = String(repeating: "日本語", count: 100) + ".pdf"
+    let safe = try quickLookName(cjk)
+    #expect(safe.utf8.count <= EmbedPageMessage.maximumNameLength && safe.hasSuffix(".pdf"))
+    #expect(safe.hasPrefix("日本語日本語") && safe.dropLast(4).allSatisfy { "日本語".contains($0) })
+    let plain = try quickLookName(String(repeating: "n", count: 400))
+    #expect(plain.utf8.count == EmbedPageMessage.maximumNameLength)
+}
+
+@Test func aRightToLeftOverrideInANameBecomesAnUnderscore() throws {
+    #expect(try quickLookName("report\u{202E}fdp.exe") == "report_fdp.exe")
+    #expect(try quickLookName("a\u{200B}b") == "a_b")
 }
 
 @Test func aBadMimeTypeIsDroppedButTheMessageStays() throws {
@@ -337,4 +363,43 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
     #expect(
         try page(#"{"v":1,"type":"cardAnswered","card":"stopped","action":"restart","ok":false}"#)
             == .cardAnswered(card: .stopped, action: "restart", isOK: false))
+}
+
+private func outboxItems(_ message: EmbedAppMessage) throws -> [[String: Any]] {
+    let dictionary = try #require(message.dictionary())
+    return try #require(dictionary["items"] as? [[String: Any]])
+}
+
+private func outboxItem(key: String = "k", text: String = "t", reason: String? = nil) -> EmbedOutboxItem {
+    EmbedOutboxItem(
+        key: key, text: text, status: .refused, reason: reason, createdAt: Date(timeIntervalSince1970: 0),
+        attachmentCount: 0)
+}
+
+@Test func anOutboxOverTheCountIsCutToTheFirstHundred() throws {
+    let items = (0..<150).map { outboxItem(key: "k\($0)") }
+    let sent = try outboxItems(.outbox(threadID: "d0e515ef", items: items))
+    #expect(sent.count == 100 && sent.first?["key"] as? String == "k0" && sent.last?["key"] as? String == "k99")
+}
+
+@Test func outboxTextAndReasonAreCutAtACharacterBoundary() throws {
+    let family = "👨‍👩‍👧"
+    let text = String(repeating: "a", count: 99_999) + family
+    let reason = String(repeating: "b", count: 999) + family
+    let sent = try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: text, reason: reason)]))
+    let sentText = try #require(sent[0]["text"] as? String)
+    let sentReason = try #require(sent[0]["reason"] as? String)
+    #expect(sentText == String(repeating: "a", count: 99_999) && sentText.utf16.count <= 100_000)
+    #expect(sentReason == String(repeating: "b", count: 999) && sentReason.utf16.count <= 1_000)
+    let exact = String(repeating: "c", count: 100_000)
+    #expect(
+        try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: exact)]))[0]["text"] as? String == exact)
+}
+
+@Test func anOutboxItemWithAKeyOverTheCapIsDropped() throws {
+    let long = String(repeating: "k", count: 101)
+    let exact = String(repeating: "k", count: 100)
+    let sent = try outboxItems(
+        .outbox(threadID: "d0e515ef", items: [outboxItem(key: long), outboxItem(key: exact), outboxItem(key: "")]))
+    #expect(sent.count == 1 && sent[0]["key"] as? String == exact)
 }

@@ -5,9 +5,9 @@ import Testing
 
 typealias Machine = WebConversationMachine
 
-private let start = Date(timeIntervalSince1970: 1_800_000_000)
+private let start = ContinuousClock.now
 
-private func later(_ seconds: TimeInterval) -> Date { start.addingTimeInterval(seconds) }
+private func later(_ seconds: Double) -> ContinuousClock.Instant { start + .seconds(seconds) }
 
 private let ready = EmbedPageMessage.ready(
     threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 1, title: "t")
@@ -245,7 +245,8 @@ func aNavigationStatusMapsToItsFailure(status: Int, failure: Machine.Failure) {
     _ = machine.handle(.page(.error(kind: .http, status: 503)), at: later(10))
     #expect(machine.phase == .failed(.server(503)) && machine.nextDeadline == nil)
     _ = machine.handle(.retry, at: later(11))
-    _ = machine.handle(.tick, at: later(100))
+    #expect(machine.nextDeadline == later(41))
+    _ = machine.handle(.tick, at: later(20))
     #expect(machine.phase == .loading(.minting))
 }
 
@@ -290,4 +291,124 @@ func aNavigationStatusMapsToItsFailure(status: Int, failure: Machine.Failure) {
     var machine = readyMachine()
     _ = machine.handle(.navigation(.http(500)), at: later(1))
     #expect(machine.phase == .failed(.server(500)))
+}
+
+private func readyMessage(_ id: String) -> EmbedPageMessage {
+    .ready(threadID: id, path: "/app/embed/threads/\(id)", latestSequence: 1, title: "t")
+}
+
+private func waitingFor(_ id: String) -> Machine {
+    var machine = Machine(supportsEmbeddedThread: true, threadID: id)
+    _ = machine.handle(.begin, at: start)
+    _ = machine.handle(.mintSucceeded, at: start)
+    _ = machine.handle(.navigation(.committed), at: start)
+    return machine
+}
+
+@Test func aReadyForAnotherThreadIsIgnored() {
+    var machine = waitingFor("aaaaaaaa")
+    _ = machine.handle(.page(readyMessage("bbbbbbbb")), at: later(1))
+    #expect(machine.phase == .loading(.waitingForReady))
+    _ = machine.handle(.page(readyMessage("aaaaaaaa")), at: later(2))
+    #expect(machine.phase == .ready)
+}
+
+@Test func aLateReadyOfThreadADuringTheLoadOfThreadBIsIgnored() {
+    var machine = waitingFor("aaaaaaaa")
+    _ = machine.handle(.page(readyMessage("aaaaaaaa")), at: later(1))
+    #expect(machine.handle(.opened(threadID: "bbbbbbbb"), at: later(2)) == [])
+    #expect(machine.phase == .loading(.waitingForReady))
+    _ = machine.handle(.page(readyMessage("aaaaaaaa")), at: later(3))
+    #expect(machine.phase == .loading(.waitingForReady))
+    _ = machine.handle(.page(readyMessage("bbbbbbbb")), at: later(4))
+    #expect(machine.phase == .ready && machine.threadID == "bbbbbbbb")
+}
+
+@Test func tenThreadSwitchesCauseNoMint() {
+    var machine = waitingFor("aaaaaaaa")
+    _ = machine.handle(.page(readyMessage("aaaaaaaa")), at: later(1))
+    var effects: [Machine.Effect] = []
+    for index in 0..<10 {
+        let id = String(format: "%08x", index + 1)
+        effects += machine.handle(.opened(threadID: id), at: later(Double(2 + index)))
+        _ = machine.handle(.page(readyMessage(id)), at: later(Double(2 + index) + 0.5))
+        #expect(machine.phase == .ready)
+    }
+    #expect(effects.isEmpty)
+}
+
+@Test func openedWhileLoadingTheRedeemRequestIsIgnoredAndReadyIsRefusedThen() {
+    var machine = Machine(supportsEmbeddedThread: true, threadID: "aaaaaaaa")
+    _ = machine.handle(.begin, at: start)
+    _ = machine.handle(.mintSucceeded, at: start)
+    _ = machine.handle(.opened(threadID: "bbbbbbbb"), at: later(1))
+    #expect(machine.threadID == "aaaaaaaa")
+    _ = machine.handle(.page(readyMessage("aaaaaaaa")), at: later(1))
+    #expect(machine.phase == .loading(.redeeming))
+}
+
+@Test func theClockRunsFromTheMintAndCoversEveryLoadingPhase() {
+    var machine = Machine(supportsEmbeddedThread: true)
+    _ = machine.handle(.begin, at: start)
+    #expect(machine.nextDeadline == later(30))
+    _ = machine.handle(.tick, at: later(30))
+    #expect(machine.phase == .failed(.timeout))
+    #expect(machine.handle(.mintSucceeded, at: later(31)) == [] && machine.phase == .failed(.timeout))
+
+    var redeeming = Machine(supportsEmbeddedThread: true)
+    _ = redeeming.handle(.begin, at: start)
+    _ = redeeming.handle(.mintSucceeded, at: later(5))
+    #expect(redeeming.nextDeadline == later(30))
+    _ = redeeming.handle(.tick, at: later(40))
+    #expect(redeeming.phase == .failed(.timeout))
+}
+
+@Test func slowAndTimeoutCountFromTheStartOfTheLoadNotFromTheCommit() {
+    var machine = Machine(supportsEmbeddedThread: true)
+    _ = machine.handle(.begin, at: start)
+    _ = machine.handle(.mintSucceeded, at: later(5))
+    _ = machine.handle(.navigation(.committed), at: later(6))
+    #expect(machine.nextDeadline == later(8))
+    _ = machine.handle(.tick, at: later(8))
+    #expect(machine.phase == .slow && machine.nextDeadline == later(30))
+}
+
+@Test func aSignedOutMintThatNeverAnswersTimesOut() {
+    var machine = readyMachine()
+    _ = machine.handle(.page(.authExpired), at: later(100))
+    #expect(machine.nextDeadline == later(130))
+    _ = machine.handle(.tick, at: later(130))
+    #expect(machine.phase == .failed(.timeout))
+}
+
+@Test func readyRecoversOnlyFromFailuresThatAPageCanFollow() {
+    func after(_ status: Int?) -> Machine.Phase {
+        var machine = waiting()
+        if let status { _ = machine.handle(.navigation(.http(status)), at: later(1)) }
+        _ = machine.handle(.page(ready), at: later(2))
+        return machine.phase
+    }
+    #expect(after(500) == .ready)
+    #expect(after(403) == .failed(.forbidden))
+    #expect(after(404) == .failed(.notFound))
+    var network = waiting()
+    _ = network.handle(.navigation(.networkError), at: later(1))
+    _ = network.handle(.page(ready), at: later(2))
+    #expect(network.phase == .ready)
+    var unauthorized = Machine(supportsEmbeddedThread: true)
+    _ = unauthorized.handle(.begin, at: start)
+    _ = unauthorized.handle(.mintFailed(.unauthorized), at: start)
+    _ = unauthorized.handle(.page(ready), at: later(1))
+    #expect(unauthorized.phase == .failed(.deviceUnauthorized))
+    var rejected = Machine(supportsEmbeddedThread: true)
+    _ = rejected.handle(.begin, at: start)
+    _ = rejected.handle(.mintFailed(.rejected), at: start)
+    _ = rejected.handle(.page(ready), at: later(1))
+    #expect(rejected.phase == .failed(.mintRejected))
+}
+
+@Test func retryWhileSignedOutDoesNotMintTwice() {
+    var machine = readyMachine()
+    _ = machine.handle(.page(.authExpired), at: later(100))
+    #expect(machine.handle(.retry, at: later(101)) == [] && machine.phase == .signedOut)
 }

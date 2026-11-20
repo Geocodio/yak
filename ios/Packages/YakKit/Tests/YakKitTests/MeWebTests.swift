@@ -21,3 +21,11 @@ import Testing
     let me = try JSONDecoder().decode(Me.self, from: JSONSerialization.data(withJSONObject: object))
     #expect(!me.supportsEmbeddedThread)
 }
+
+@Test(arguments: ["{}", #"{"embed":"1"}"#, #"{"embed":1.5}"#, #"{"embed":null}"#])
+func aWebObjectWithoutAnIntegerEmbedDecodesAsZero(web: String) throws {
+    var object = try #require(JSONSerialization.jsonObject(with: Fixtures.data("me")) as? [String: Any])
+    object["web"] = try JSONSerialization.jsonObject(with: Data(web.utf8))
+    let me = try JSONDecoder().decode(Me.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(me.web == Me.WebSupport(embed: 0) && !me.supportsEmbeddedThread)
+}

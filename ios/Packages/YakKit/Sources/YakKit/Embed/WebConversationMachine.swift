@@ -1,7 +1,15 @@
 import Foundation
 
+/// A point on the monotonic clock, so a change of the wall clock cannot stretch or shrink a deadline.
+public typealias WebConversationInstant = ContinuousClock.Instant
+
 /// What the web conversation of a thread is doing, as pure logic. The view feeds it events (a mint result, what the
 /// web view's navigation did, messages from the page, connectivity, time) and carries out the effects it returns.
+///
+/// The machine is built for one `me.web` answer: whether the server supports the embedded thread is fixed at
+/// construction, so the owner builds a new machine when `me.web` changes. Every phase that waits has a deadline on
+/// the monotonic clock: the clock starts when a load starts (the mint) and runs until `ready`, so minting, redeeming
+/// and waiting for the page share one budget.
 public struct WebConversationMachine: Equatable, Sendable {
     public enum LoadingStep: Equatable, Sendable {
         /// Asking the server for a code.
@@ -76,6 +84,9 @@ public struct WebConversationMachine: Equatable, Sendable {
         case tick
         /// The person asked to try again.
         case retry
+        /// The page switched to another thread by itself (its `open` message). The loaded page stays; the machine
+        /// waits for that thread's `ready`. No new code is minted.
+        case opened(threadID: String)
     }
 
     public enum Effect: Equatable, Sendable {
@@ -103,32 +114,38 @@ public struct WebConversationMachine: Equatable, Sendable {
 
     public private(set) var phase: Phase
     public let timing: Timing
+    /// The thread whose `ready` ends the load; a `ready` for another thread is ignored. Nil accepts any thread.
+    public private(set) var threadID: String?
     private var hasOfflineCopy: Bool
     private var isOnline = true
-    private var waitingSince: Date?
-    private var lastReMintAt: Date?
+    private var waitingSince: WebConversationInstant?
+    private var lastReMintAt: WebConversationInstant?
 
-    public init(supportsEmbeddedThread: Bool, hasOfflineCopy: Bool = false, timing: Timing = Timing()) {
+    public init(
+        supportsEmbeddedThread: Bool, hasOfflineCopy: Bool = false, threadID: String? = nil,
+        timing: Timing = Timing()
+    ) {
+        self.threadID = threadID
         phase = supportsEmbeddedThread ? .loading(.minting) : .unsupported
         self.hasOfflineCopy = hasOfflineCopy
         self.timing = timing
     }
 
     /// When the view should send `tick` next; nil when time changes nothing.
-    public var nextDeadline: Date? {
+    public var nextDeadline: WebConversationInstant? {
         guard let waitingSince else { return nil }
         switch phase {
-        case .loading(.waitingForReady): return waitingSince.addingTimeInterval(timing.slowAfter.seconds)
-        case .slow: return waitingSince.addingTimeInterval(timing.failAfter.seconds)
+        case .loading(.waitingForReady): return waitingSince + timing.slowAfter
+        case .loading, .slow, .signedOut: return waitingSince + timing.failAfter
         default: return nil
         }
     }
 
-    public mutating func handle(_ event: Event, at now: Date) -> [Effect] {
+    public mutating func handle(_ event: Event, at now: WebConversationInstant) -> [Effect] {
         switch event {
         case .begin:
             guard phase != .unsupported else { return [] }
-            return startMinting()
+            return startMinting(at: now)
         case .mintSucceeded:
             guard isMintInFlight else { return [] }
             phase = .loading(.redeeming)
@@ -149,18 +166,18 @@ public struct WebConversationMachine: Equatable, Sendable {
         case .connectivity(let isOnline):
             self.isOnline = isOnline
             guard isOnline, phase == .offline || phase == .failed(.network) else { return [] }
-            return startMinting()
+            return startMinting(at: now)
         case .offlineCopyChanged(let isAvailable):
             hasOfflineCopy = isAvailable
             return []
         case .tick:
             guard let waitingSince else { return [] }
-            let waited = now.timeIntervalSince(waitingSince)
+            let waited = waitingSince.duration(to: now)
             switch phase {
-            case .loading(.waitingForReady), .slow:
-                if waited >= timing.failAfter.seconds {
+            case .loading(.waitingForReady), .slow, .loading(.minting), .loading(.redeeming), .signedOut:
+                if waited >= timing.failAfter {
                     phase = .failed(.timeout)
-                } else if waited >= timing.slowAfter.seconds {
+                } else if waited >= timing.slowAfter, phase == .loading(.waitingForReady) {
                     phase = .slow
                 }
             default: break
@@ -171,12 +188,21 @@ public struct WebConversationMachine: Equatable, Sendable {
             case .failed(let failure):
                 guard failure.isRetryable else { return [] }
                 lastReMintAt = nil
-                return startMinting()
-            case .offline, .signedOut:
+                return startMinting(at: now)
+            case .offline:
                 lastReMintAt = nil
-                return startMinting()
+                return startMinting(at: now)
             default: return []
             }
+        case .opened(let newThreadID):
+            switch phase {
+            case .ready, .slow, .loading(.waitingForReady):
+                threadID = newThreadID
+                phase = .loading(.waitingForReady)
+                waitingSince = now
+            default: break
+            }
+            return []
         }
     }
 
@@ -184,9 +210,9 @@ public struct WebConversationMachine: Equatable, Sendable {
 
     private var isMintInFlight: Bool { phase == .loading(.minting) || phase == .signedOut }
 
-    private mutating func startMinting() -> [Effect] {
+    private mutating func startMinting(at now: WebConversationInstant) -> [Effect] {
         phase = .loading(.minting)
-        waitingSince = nil
+        waitingSince = now
         return [.mint]
     }
 
@@ -197,14 +223,14 @@ public struct WebConversationMachine: Equatable, Sendable {
 
     /// The session ended, as a 401 on a navigation or an `auth` message from the page. One new code is minted, and none
     /// again within `Timing.reMintInterval`, so a server that keeps refusing the session cannot start a loop.
-    private mutating func sessionExpired(at now: Date, fromPage: Bool) -> [Effect] {
-        if let lastReMintAt, now.timeIntervalSince(lastReMintAt) < timing.reMintInterval.seconds {
+    private mutating func sessionExpired(at now: WebConversationInstant, fromPage: Bool) -> [Effect] {
+        if let lastReMintAt, lastReMintAt.duration(to: now) < timing.reMintInterval {
             phase = .failed(.sessionExpired)
             waitingSince = nil
             return []
         }
         lastReMintAt = now
-        waitingSince = nil
+        waitingSince = now
         phase = fromPage ? .signedOut : .loading(.minting)
         return [.mint]
     }
@@ -216,12 +242,11 @@ public struct WebConversationMachine: Equatable, Sendable {
         }
     }
 
-    private mutating func navigated(_ outcome: NavigationOutcome, at now: Date) -> [Effect] {
+    private mutating func navigated(_ outcome: NavigationOutcome, at now: WebConversationInstant) -> [Effect] {
         switch outcome {
         case .committed:
             guard phase == .loading(.redeeming) else { return [] }
             phase = .loading(.waitingForReady)
-            waitingSince = now
             return []
         case .networkError:
             guard isLoadingPage || phase == .ready else { return [] }
@@ -243,11 +268,14 @@ public struct WebConversationMachine: Equatable, Sendable {
     /// `auth` can arrive at any time (a background fetch or a live reload that got 401 or 419); it is ignored while a
     /// new code is being minted or redeemed and while nothing is shown. `error` is acted on only before the page
     /// is ready, because a ready page shows its own errors.
-    private mutating func received(_ message: EmbedPageMessage, at now: Date) -> [Effect] {
+    private mutating func received(_ message: EmbedPageMessage, at now: WebConversationInstant) -> [Effect] {
         switch message {
-        case .ready:
+        case .ready(let readyThreadID, _, _, _):
+            guard threadID == nil || threadID == readyThreadID else { return [] }
+            // While a code is minted or redeemed, the page that is still shown is the old one.
             switch phase {
-            case .loading(.redeeming), .loading(.waitingForReady), .slow, .failed, .offline, .ready:
+            case .loading(.waitingForReady), .slow, .failed(.timeout), .failed(.network), .failed(.server), .offline,
+                .ready:
                 phase = .ready
                 waitingSince = nil
             default: break
@@ -269,12 +297,5 @@ public struct WebConversationMachine: Equatable, Sendable {
         default:
             return []
         }
-    }
-}
-
-extension Duration {
-    fileprivate var seconds: TimeInterval {
-        let parts = components
-        return TimeInterval(parts.seconds) + TimeInterval(parts.attoseconds) / 1e18
     }
 }

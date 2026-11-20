@@ -40,11 +40,9 @@ enum PreviewWebData {
     private static func eraseNow(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
         let known = read(knownStoresKey, in: defaults) as Set<UUID>
         let isPending = (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID)
-        let previewStoreID = PreviewDataStoreID.for(instanceID: instanceID)
-        // A store never handed out has nothing to erase; a pending instance also retries its preview store.
-        let doomed = PreviewDataStoreID.allStores(for: instanceID).filter {
-            known.contains($0) || (isPending && $0 == previewStoreID)
-        }
+        // A store never handed out has nothing to erase; a pending instance retries every store it can have, so an
+        // unreadable `known` record cannot leave one behind.
+        let doomed = PreviewDataStoreID.allStores(for: instanceID).filter { known.contains($0) || isPending }
         guard !doomed.isEmpty else { return true }
         startWebKit()
         var isEveryStoreRemoved = true

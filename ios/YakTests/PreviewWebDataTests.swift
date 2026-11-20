@@ -126,6 +126,20 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(try known(defaults).isEmpty)
     }
 
+
+    @Test func aPendingInstanceErasesItsEmbedStoreEvenWhenTheKnownRecordIsUnreadable() async throws {
+        let defaults = PreviewDefaults()
+        let instance = UUID()
+        await PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults).httpCookieStore.setCookie(
+            cookie("session"))
+        defaults.set(Data("not json".utf8), forKey: PreviewWebData.knownStoresKey)
+        defaults.set(try JSONEncoder().encode([instance]), forKey: PreviewWebData.pendingKey)
+        #expect(await eraseEventually(instance, defaults: defaults))
+        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance, purpose: .embed)))
+        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+    }
+
     @Test func aStoreInUseBecomesPendingAndPrepareFinishesIt() async throws {
         let defaults = PreviewDefaults()
         let instance = UUID()
