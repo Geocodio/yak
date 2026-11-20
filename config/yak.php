@@ -716,7 +716,7 @@ return [
         'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
         'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
         // Claude's own subagents: background agents and workflows, per-agent stop, agent events. Off restores the old runner behaviour.
-        'subagents' => (bool) env('YAK_THREADS_SUBAGENTS', in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+        'subagents' => (bool) env('YAK_THREADS_SUBAGENTS', true),
         // Undocumented SDK option that forwards depth-2 agent tool calls; turn it off if a CLI update removes it.
         'subagents_forward_nested' => (bool) env('YAK_THREADS_SUBAGENTS_FORWARD_NESTED', true),
         'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
