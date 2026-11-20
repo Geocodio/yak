@@ -27,6 +27,9 @@ class PullRequestOpening
 
     private const GITHUB_PREFIX = 'GitHub PR creation failed: ';
 
+    /** Records and flushes on one instance: the publisher holds recorded events until its flush broadcasts them. */
+    public function __construct(private ThreadEventPublisher $publisher) {}
+
     /**
      * Takes the opening for this thread with one conditional update, so only one request wins. A claim older than
      * the opening window counts as a job that died. The claim and its thread event commit together.
@@ -46,14 +49,14 @@ class PullRequestOpening
                 ->update(['pull_request_opening_state' => 'opening', 'pull_request_opening_error' => null, 'pull_request_opening_at' => $claimedAt]);
 
             if ($changed === 1) {
-                app(ThreadEventPublisher::class)->recordThreadState($thread->id);
+                $this->publisher->recordThreadState($thread->id);
             }
 
             return $changed === 1;
         });
 
         if ($isClaimed) {
-            app(ThreadEventPublisher::class)->flush();
+            $this->publisher->flush();
         }
 
         return $isClaimed;
@@ -73,14 +76,14 @@ class PullRequestOpening
                 ->update(['pull_request_opening_state' => null, 'pull_request_opening_error' => null, 'pull_request_opening_at' => null]);
 
             if ($changed === 1) {
-                app(ThreadEventPublisher::class)->recordThreadState($thread->id);
+                $this->publisher->recordThreadState($thread->id);
             }
 
             return $changed === 1;
         });
 
         if ($hasReleased) {
-            app(ThreadEventPublisher::class)->flush();
+            $this->publisher->flush();
         }
     }
 
@@ -103,14 +106,14 @@ class PullRequestOpening
                     : ['pull_request_opening_state' => 'failed', 'pull_request_opening_error' => $this->reason($failure), 'pull_request_opening_at' => now()]);
 
             if ($changed === 1) {
-                app(ThreadEventPublisher::class)->recordThreadState($threadId);
+                $this->publisher->recordThreadState($threadId);
             }
 
             return $changed === 1;
         });
 
         if ($hasFinished) {
-            app(ThreadEventPublisher::class)->flush();
+            $this->publisher->flush();
         }
     }
 
