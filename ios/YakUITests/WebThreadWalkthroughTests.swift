@@ -33,4 +33,28 @@ import XCTest
         XCTAssertTrue(app.buttons["thread.retry"].exists)
         try shootThread("web-thread-failed")
     }
+
+    func testWaitingMessages() throws {
+        try open("embed-working")
+        try stub.setPlaybackMilliseconds(1000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: Wait.firstLoad))
+        try stub.setPlaybackMilliseconds(600_000)
+        let messages = [
+            "Also cover the empty file case",
+            "Then update the docs and the changelog so the retry behaviour is described for people who run the import by hand",
+            "Run the full suite once more", "Leave the old migration alone", "Open the pull request as a draft",
+        ]
+        let texts = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "queued.text."))
+        for (index, text) in messages.enumerated() {
+            let field = app.textFields["composer.field"]
+            field.tap()
+            field.typeText(text)
+            app.buttons["composer.send"].tap()
+            let count = index + 1
+            let shown = NSPredicate { _, _ in texts.count == min(count, 3) || (count > 3 && texts.count >= 3) }
+            wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: Wait.appear)
+            if [1, 3, 5].contains(count) { try shootThread("queued-\(count)") }
+        }
+    }
 }
