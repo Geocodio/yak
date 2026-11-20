@@ -112,3 +112,20 @@ test('keeps unknown event types ignored by the reducer', () => {
     assert.deepEqual(state.children, {});
     assert.equal(state.entries.length, 0);
 });
+
+test('keeps an agent entry out of the transcript and tracks the agent from its events', () => {
+    const agent = { id: 'a1', status: 'running', description: 'Research' };
+    const state = apply(
+        initialEventState(),
+        user(1),
+        { sequence: 2, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm2', agentId: 'a1', blocks: [{ type: 'text', text: 'agent step' }] } },
+        { sequence: 3, type: 'agent.started', createdAt: at, data: agent },
+        { sequence: 4, type: 'agent.progress', createdAt: at, data: { ...agent, lastTool: 'Bash' } },
+        { sequence: 5, type: 'agent.finished', createdAt: at, data: { ...agent, lastTool: 'Bash', status: 'completed' } },
+    );
+
+    assert.equal(state.entries.length, 1);
+    assert.equal(state.agents.a1.status, 'completed');
+    assert.equal(state.agents.a1.lastTool, 'Bash');
+    assert.equal(state.lastSequence, 5);
+});

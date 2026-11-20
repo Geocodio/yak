@@ -101,6 +101,7 @@ use App\Http\Controllers\Threads\Stack\StackShowController;
 use App\Http\Controllers\Threads\Stack\StackStopController;
 use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
+use App\Http\Controllers\Threads\ThreadAgentController;
 use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
 use App\Http\Controllers\Threads\ThreadCoOwnerController;
@@ -326,11 +327,19 @@ Route::middleware(['auth'])->group(function () {
     // Threads and the thread page.
     Route::post('threads/{thread}/messages', [ThreadMessageController::class, 'store'])
         ->name('threads.messages.store');
+    Route::get('threads/{thread}/agents/{agent:task_id}/log', [ThreadAgentController::class, 'log'])
+        ->scopeBindings()
+        ->name('threads.agents.log');
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
         ->middleware('thread.drive')
         ->name('threads.stop');
     Route::middleware('thread.drive')->group(function (): void {
         Route::post('threads/{thread}/step-limit', ThreadStepLimitController::class)->name('threads.step-limit.store');
+        Route::post('threads/{thread}/agents/stop', [ThreadAgentController::class, 'stopAll'])->name('threads.agents.stop-all');
+        Route::scopeBindings()->group(function (): void {
+            Route::post('threads/{thread}/agents/{agent:task_id}/stop', [ThreadAgentController::class, 'stop'])->name('threads.agents.stop');
+            Route::post('threads/{thread}/agents/{agent:task_id}/messages', [ThreadAgentController::class, 'message'])->name('threads.agents.messages.store');
+        });
         Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
         Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
         Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');

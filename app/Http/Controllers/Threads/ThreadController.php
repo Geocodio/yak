@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ThreadAgentsData;
 use App\Http\Resources\ThreadCardsData;
 use App\Http\Resources\ThreadPageData;
 use App\Http\Resources\ThreadQueuedMessagesData;
@@ -38,6 +39,7 @@ class ThreadController extends Controller
             'isExpiredCoOwnerStop' => ! $thread->is_legacy && ($head = ThreadTasks::head($thread)) !== null && ThreadCardsData::isExpiredCoOwnerStop($head),
             'queuedMessages' => ThreadQueuedMessagesData::for($thread, $request->user()),
             'runs' => ThreadRunLogData::runs($thread),
+            'agents' => ThreadAgentsData::for($thread),
             'openLog' => (is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null) ?? $this->openRun($request, $thread),
         ]);
     }

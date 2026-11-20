@@ -14,6 +14,7 @@ use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\TelemetryEvent;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadEvent;
@@ -57,6 +58,8 @@ class VisibilityWorld
     public YakTask $childTask;
 
     public TaskRun $run;
+
+    public ThreadAgent $agent;
 
     public BranchDeployment $deployment;
 
@@ -136,6 +139,7 @@ class VisibilityWorld
             'description' => self::TITLE . ' child',
         ]);
         $world->run = TaskRun::factory()->create(['yak_task_id' => $world->task->id, 'thread_id' => $world->thread->id, 'repo' => self::REPO]);
+        $world->agent = ThreadAgent::factory()->finished()->create(['thread_id' => $world->thread->id, 'task_id' => 'a0agentvisibility']);
         $world->deployment = BranchDeployment::factory()->running()->create([
             'yak_task_id' => $world->task->id,
             'hostname' => self::HOSTNAME,
