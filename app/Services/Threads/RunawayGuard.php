@@ -24,11 +24,7 @@ class RunawayGuard
 
     public function check(TaskRun $run, CarbonImmutable $now, int $assistantTurns): ?string
     {
-        // A turn that waits on the person's answer to Claude's question does not run up either limit.
-        if ($run->task?->liveClarificationRound() !== null) {
-            return null;
-        }
-
+        // Time spent waiting on Claude's questions does not count towards the wall clock; the step limit always applies.
         $now = $now->subSeconds(ThreadLiveQuestions::waitedSeconds($run, $now));
 
         if (self::hasTurnLimit($run) && $assistantTurns >= self::turnLimit($run)) {

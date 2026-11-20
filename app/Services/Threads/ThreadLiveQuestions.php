@@ -34,6 +34,10 @@ class ThreadLiveQuestions
 
     public const TIMEOUT_MESSAGE = 'The person has not answered yet. Stop here and wait for their reply.';
 
+    public const MAX_ROUNDS_PER_TURN = 5;
+
+    public const TOO_MANY_MESSAGE = 'Ask the remaining questions in your reply instead.';
+
     public const NO_ANSWER = 'No answer given. Use your own judgment.';
 
     public function __construct(
@@ -60,6 +64,7 @@ class ThreadLiveQuestions
         $refusal = match (true) {
             $task === null => 'No turn is waiting for an answer, so the question was not asked.',
             $questions === null => 'Ask 1 to ' . self::MAX_QUESTIONS . ' questions, each with 2 to ' . ClarificationQuestion::MAX_OPTIONS . ' options.',
+            self::roundsInTurn($run) >= self::MAX_ROUNDS_PER_TURN => self::TOO_MANY_MESSAGE,
             $task->liveClarificationRound() !== null => 'Another question is still open. Wait for its answer first.',
             default => null,
         };
@@ -208,6 +213,16 @@ class ThreadLiveQuestions
         if ($task !== null && $task->liveClarificationRound() !== null) {
             $this->abandon($task, 'The runner stopped before the question was answered.');
         }
+    }
+
+    /**
+     * How many live questions this turn has asked; each can hold the wall clock for up to the wait limit.
+     */
+    public static function roundsInTurn(TaskRun $run): int
+    {
+        return collect($run->task?->clarificationRounds() ?? [])
+            ->filter(fn (array $round): bool => array_key_exists('runner_question_id', $round) && ! CarbonImmutable::parse((string) $round['asked_at'])->lt($run->started_at))
+            ->count();
     }
 
     /**

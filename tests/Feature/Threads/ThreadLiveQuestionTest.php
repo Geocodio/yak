@@ -13,6 +13,7 @@ use App\Jobs\RunYakJob;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
@@ -20,6 +21,7 @@ use App\Services\Threads\ThreadEventWindow;
 use App\Services\Threads\ThreadLiveQuestions;
 use App\Services\Threads\ThreadMessageSender;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -281,4 +283,32 @@ it('leaves the text-fence contract out of thread prompts and keeps it when the t
 
     expect($withTool)->toContain('AskUserQuestion')->not->toContain('```clarification')
         ->and($withFence)->toContain('```clarification')->not->toContain('AskUserQuestion');
+});
+
+it('still enforces the step limit while a question is open', function () {
+    config(['yak.max_turns' => 300]);
+    [$thread, $run] = threadWithRunningTurn();
+    $run->update(['driver_user_id' => null, 'source' => 'sentry']);
+    questionLineFor($thread, [widthQuestion()]);
+
+    expect((new RunawayGuard)->check($run->refresh(), CarbonImmutable::now(), 299))->toBeNull()
+        ->and((new RunawayGuard)->check($run, CarbonImmutable::now(), 300))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
+
+it('declines the sixth question of one turn so waiting cannot be extended without end', function () {
+    [$thread, , $task, $user] = threadWithRunningTurn();
+
+    foreach (range(1, 5) as $number) {
+        questionLineFor($thread, [widthQuestion()], $number, "rq-{$number}");
+        $this->actingAs($user)->post(route('threads.clarification-answers.store', $thread), ['answers' => ['q1' => ['choices' => ['Desktop'], 'other' => null]]]);
+    }
+    questionLineFor($thread, [widthQuestion()], 6, 'rq-6');
+
+    $declined = runnerCommands($thread, 'decline_question');
+
+    expect($declined)->toHaveCount(1)
+        ->and($declined[0]['id'])->toBe('rq-6')
+        ->and($declined[0]['message'])->toBe(ThreadLiveQuestions::TOO_MANY_MESSAGE)
+        ->and($task->refresh()->liveClarificationRound())->toBeNull()
+        ->and($task->clarificationRoundCount())->toBe(5);
 });
