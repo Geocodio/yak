@@ -24,7 +24,6 @@ struct InstanceShell: View {
     @Environment(\.walkthroughPlayback) private var walkthroughPlayback
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
@@ -76,7 +75,7 @@ struct InstanceShell: View {
             InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
                 .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
-                .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+                .shortSheetDetents()
                 .presentationBackground(Color.yakBackground)
         }
         .sheet(isPresented: isConnecting) {
@@ -152,7 +151,19 @@ struct InstanceShell: View {
             retry: { Task { await retryList() } }, openTasksRoute: openTasks)
     }
 
-    @ViewBuilder private var threadScreen: some View {
+    /// Names the screen the detail shows, so a change of screen cross-fades.
+    private var screenIdentity: AnyHashable {
+        if let tasksRoute { return AnyHashable(tasksRoute) }
+        if scene.state.isNewThreadOpen { return AnyHashable("new") }
+        return AnyHashable(scene.state.threadID)
+    }
+
+    private var threadScreen: some View {
+        threadScreenContent.motion(Motion.crossFade, value: screenIdentity)
+            .haptic(.threadSwitched, trigger: scene.state.threadID) { old, new in old != nil && new != nil }
+    }
+
+    @ViewBuilder private var threadScreenContent: some View {
         if let route = tasksRoute {
             TasksNavigation(
                 route: route, session: session, scene: scene, instanceURL: instance.url,
