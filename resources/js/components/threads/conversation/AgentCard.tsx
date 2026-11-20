@@ -1,6 +1,7 @@
 import { Button, IconButton, cn } from '@geocodio/console-ui';
 import { Check, ChevronDown, ChevronUp, ScrollText } from 'lucide-react';
 import { useId, useState } from 'react';
+import { useEmbed } from '@/embed/useEmbed';
 import { AgentLog } from '@/threads/panels/agents/AgentLog';
 import { AgentStatusDot } from '@/threads/panels/agents/AgentStatusDot';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
@@ -34,6 +35,8 @@ function PhaseTiles({ agent }: { agent: AgentRowData }) {
  */
 export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: AgentRowData | undefined; fallbackTitle: string; isNested?: boolean }) {
     const agents = useAgents();
+    // The phone's web view cannot reach the agent log route, so the card shows its status and nothing to open.
+    const isEmbed = useEmbed() !== null;
     const [isExpanded, setIsExpanded] = useState(false);
     const bodyId = useId();
 
@@ -66,10 +69,12 @@ export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: A
                         {cardSubtitle(agent, agents.now, isExpanded)}
                     </span>
                 </div>
-                {agents.canDrive && <StopAgentButton threadId={agents.threadId} agent={agent} className="h-8 shrink-0" />}
-                <IconButton label={toggleLabel} aria-expanded={isExpanded} aria-controls={bodyId} onClick={() => setIsExpanded((value) => !value)} data-testid="agent-card-toggle">
-                    {isExpanded ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
-                </IconButton>
+                {agents.canDrive && !isEmbed && <StopAgentButton threadId={agents.threadId} agent={agent} className="h-8 shrink-0" />}
+                {!isEmbed && (
+                    <IconButton label={toggleLabel} aria-expanded={isExpanded} aria-controls={bodyId} onClick={() => setIsExpanded((value) => !value)} data-testid="agent-card-toggle">
+                        {isExpanded ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+                    </IconButton>
+                )}
             </div>
             {isWorkflow && <PhaseTiles agent={agent} />}
             {agent.stopError !== null && isRunning(agent) && (
@@ -77,7 +82,7 @@ export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: A
                     Claude could not stop this agent: {agent.stopError}
                 </p>
             )}
-            {isExpanded && (
+            {isExpanded && !isEmbed && (
                 <div id={bodyId} className="flex flex-col gap-2.5 border-t border-hair bg-panel-2 px-3.5 py-3 text-[13px] text-body" data-testid="agent-card-body">
                     {agent.summary !== null && agent.summary !== '' && (
                         <p className="text-muted" data-testid="agent-card-summary">
@@ -108,15 +113,20 @@ export function AgentItemCard({ toolUseId, fallbackTitle }: { toolUseId: string;
 /** The line between an agent ending and Claude's reply to it: nobody wrote a message, the agent's end started the turn. */
 export function AgentContinuedRow({ agent }: { agent: AgentRowData }) {
     const agents = useAgents();
+    const isEmbed = useEmbed() !== null;
     const text = formatAgentDuration(agentDurationMs(agent, 0));
 
     return (
         <div className="ml-9 flex items-center gap-2 text-[13px] text-muted" data-testid="agent-continued-row" data-agent-id={agent.id}>
             <Check size={16} aria-hidden className="shrink-0" />
             <span>
-                <button type="button" className="cursor-pointer font-medium text-body hover:underline" onClick={() => agents?.openPanel(agent.id)} data-testid="agent-continued-open">
-                    {agentTitle(agent)}
-                </button>{' '}
+                {isEmbed ? (
+                    <span className="font-medium text-body">{agentTitle(agent)}</span>
+                ) : (
+                    <button type="button" className="cursor-pointer font-medium text-body hover:underline" onClick={() => agents?.openPanel(agent.id)} data-testid="agent-continued-open">
+                        {agentTitle(agent)}
+                    </button>
+                )}{' '}
                 {agent.status === 'completed' ? 'finished' : agent.status} after {text}. Claude continued.
             </span>
         </div>

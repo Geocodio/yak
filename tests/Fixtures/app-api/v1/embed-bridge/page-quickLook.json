@@ -1,0 +1,7 @@
+{
+    "v": 1,
+    "type": "quickLook",
+    "url": "https://yak.example.com/shared-files/9/raw",
+    "name": "results.csv",
+    "mime": "text/csv"
+}

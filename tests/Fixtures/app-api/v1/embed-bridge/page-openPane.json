@@ -1,0 +1,7 @@
+{
+    "v": 1,
+    "type": "openPane",
+    "pane": "files",
+    "mode": "changed",
+    "path": "app/Jobs/ImportJob.php"
+}

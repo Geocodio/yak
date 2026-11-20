@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, FileAudio, X } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react';
 import { CodeViewer } from '@/components/editor/CodeViewer';
 import { detectLanguage } from '@/components/editor/languageForFile';
+import { postQuickLook, useEmbed } from '@/embed/useEmbed';
 import type { MediaItem } from '@/types/tasks';
 
 /** Text previews stop here; the rest of the file is a download away. */
@@ -104,6 +105,7 @@ export function MediaLightbox({
     onIndexChange: (index: number) => void;
 }) {
     const open = media !== null;
+    const embed = useEmbed();
 
     useEffect(() => {
         if (!open) {
@@ -158,6 +160,12 @@ export function MediaLightbox({
                             className={control}
                             aria-label="Download"
                             title="Download"
+                            onClick={(event) => {
+                                // In the app a download opens in the system's quick look, which fetches with the session.
+                                if (postQuickLook(embed, item.downloadUrl ?? item.url, item.downloadName ?? item.fileName ?? item.caption ?? 'file')) {
+                                    event.preventDefault();
+                                }
+                            }}
                             data-testid="media-lightbox-download"
                         >
                             <Download size={16} aria-hidden />

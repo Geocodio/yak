@@ -3,6 +3,7 @@ import type { ThreadEventEnvelope, ThreadEventPointer, ThreadEventState, Viewer 
 import { fetchEvent, fetchEventsAfter } from './catchUp';
 import { type ThreadEventFeed } from './feedReducer.ts';
 import { createCatchUpRunner, linkKind, needsHttpCatchUp, type LinkState } from './catchUpRunner';
+import { isBrowserOnline } from '@/embed/connectivity';
 import { getEcho } from './echo';
 import { pollWhileVisible } from './pollWhileVisible';
 import { initialFeed, reduceFeed } from './feedReducer.ts';
@@ -11,7 +12,7 @@ import { findGap, initialEventState } from './reducer';
 export { initialFeed, reduceFeed, type ThreadEventFeed } from './feedReducer.ts';
 
 /** Live thread state plus the sequence of each transcript entry. */
-export function useThreadEventFeed(threadId: string): ThreadEventFeed & { link: LinkState } {
+export function useThreadEventFeed(threadId: string, isPresenceJoined = true): ThreadEventFeed & { link: LinkState } {
     const [feed, dispatchFeed] = useReducer(reduceFeed, undefined, initialFeed);
     const [link, setLink] = useState<LinkState>({ kind: 'ok', since: null });
     const state = feed.state;
@@ -32,7 +33,7 @@ export function useThreadEventFeed(threadId: string): ThreadEventFeed & { link: 
         let reconnectSocket = (): void => {};
 
         const refreshLink = (): void => {
-            const kind = linkKind({ lastCatchUpFailed, isBrowserOnline: navigator.onLine, hasSocket, socketDownForMs: socketDownAt === null ? 0 : Date.now() - socketDownAt });
+            const kind = linkKind({ lastCatchUpFailed, isBrowserOnline: isBrowserOnline(), hasSocket, socketDownForMs: socketDownAt === null ? 0 : Date.now() - socketDownAt });
 
             if (isActive) {
                 setLink((current) => (current.kind === kind ? current : { kind, since: kind === 'ok' ? null : Date.now() }));
@@ -130,8 +131,10 @@ export function useThreadEventFeed(threadId: string): ThreadEventFeed & { link: 
         connection.bind('state_change', onStateChange);
 
         echo.private(`thread.${threadId}`).listen('.thread.event', onEvent);
-        echo.join(`thread-presence.${threadId}`)
-            .here((viewers: Viewer[]) => dispatch({ kind: 'viewers', viewers }))
+        // The phone's app keeps presence natively, so its web view stays out of the channel.
+        const presence = isPresenceJoined ? echo.join(`thread-presence.${threadId}`) : null;
+        presence
+            ?.here((viewers: Viewer[]) => dispatch({ kind: 'viewers', viewers }))
             .joining((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: [...viewersRef.current.filter((known) => known.id !== viewer.id), viewer] }))
             .leaving((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: viewersRef.current.filter((known) => known.id !== viewer.id) }));
 
@@ -151,9 +154,11 @@ export function useThreadEventFeed(threadId: string): ThreadEventFeed & { link: 
             window.removeEventListener('offline', refreshLink);
             connection.unbind('state_change', onStateChange);
             echo.leave(`thread.${threadId}`);
-            echo.leave(`thread-presence.${threadId}`);
+            if (presence !== null) {
+                echo.leave(`thread-presence.${threadId}`);
+            }
         };
-    }, [threadId]);
+    }, [threadId, isPresenceJoined]);
 
     return { ...feed, link };
 }

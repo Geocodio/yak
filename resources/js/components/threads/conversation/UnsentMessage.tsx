@@ -13,7 +13,7 @@ function Action({ onClick, testId, children }: { onClick: () => void; testId: st
 }
 
 /** The person's own message between Enter and the server's confirmation, with what is happening to it. */
-export function UnsentMessage({ message, onRetry, onEdit }: { message: UnsentMessageData; onRetry: () => void; onEdit: () => void }) {
+export function UnsentMessage({ message, onRetry, onEdit, onDiscard }: { message: UnsentMessageData; onRetry: () => void; onEdit: () => void; onDiscard?: () => void }) {
     const user = usePage<SharedProps>().props.auth.user;
     const { status } = message;
     // Object URLs for the pasted images, released when the message leaves the queue.
@@ -43,6 +43,7 @@ export function UnsentMessage({ message, onRetry, onEdit }: { message: UnsentMes
                     {status === 'refused' && <Action onClick={onRetry} testId="thread-message-unsent-retry">Retry</Action>}
                     {status === 'refused' && <Action onClick={onEdit} testId="thread-message-unsent-edit">Edit</Action>}
                     {(status === 'slow' || status === 'waiting') && <Action onClick={onEdit} testId="thread-message-unsent-edit">Cancel and edit</Action>}
+                    {onDiscard !== undefined && status !== 'queued' && status !== 'sending' && <Action onClick={onDiscard} testId="thread-message-unsent-discard">Discard</Action>}
                 </div>
             </div>
         </div>

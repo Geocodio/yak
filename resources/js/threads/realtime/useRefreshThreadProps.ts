@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { reportAuthIfExpired } from '@/embed/bridge';
 import { useEffect, useRef } from 'react';
 
 export { livePropsSignature } from './livePropsSignature';
@@ -54,7 +55,11 @@ export function useRefreshThreadProps(signature: string): void {
                 return false;
             };
 
-            router.reload({ showProgress: false, onNetworkError: retry, onHttpException: () => false });
+            router.reload({ showProgress: false, onNetworkError: retry, onHttpException: (response) => {
+                    reportAuthIfExpired(response.status);
+
+                    return false;
+                } });
         }
 
         return () => window.clearTimeout(timer);

@@ -4,8 +4,8 @@ import { fillJsonCache, readCachedJson, writeCachedJson } from './jsonCache';
 
 type State<T> = { url: string; data: T | null; error: string | null; isFetching: boolean };
 
-function initialState<T>(url: string): State<T> {
-    return { url, data: readCachedJson<T>(url) ?? null, error: null, isFetching: true };
+function initialState<T>(url: string, isEnabled = true): State<T> {
+    return { url, data: readCachedJson<T>(url) ?? null, error: null, isFetching: isEnabled };
 }
 
 /** Loads a URL into the shared cache ahead of time, so the panel that later reads it opens with data. */
@@ -17,19 +17,22 @@ export function prefetchJson(url: string): Promise<void> {
  * Fetches a JSON endpoint. It starts from the last response for the URL when
  * one is cached and refetches in the background (`isRefreshing`). `isLoading`
  * is true only while there is nothing to show, a failed refetch keeps the shown
- * data, and `reload` refetches without clearing it.
+ * data, and `reload` refetches without clearing it. A disabled hook never fetches.
  */
-export function useJson<T>(url: string): { data: T | null; isLoading: boolean; isRefreshing: boolean; error: string | null; reload: () => void } {
-    const [state, setState] = useState<State<T>>(() => initialState<T>(url));
+export function useJson<T>(url: string, isEnabled = true): { data: T | null; isLoading: boolean; isRefreshing: boolean; error: string | null; reload: () => void } {
+    const [state, setState] = useState<State<T>>(() => initialState<T>(url, isEnabled));
     const [tick, setTick] = useState(0);
 
     let current = state;
     if (state.url !== url) {
-        current = initialState<T>(url);
+        current = initialState<T>(url, isEnabled);
         setState(current);
     }
 
     useEffect(() => {
+        if (!isEnabled) {
+            return;
+        }
         const controller = new AbortController();
         setState((previous) => (previous.url === url && !previous.isFetching ? { ...previous, isFetching: true } : previous));
         fetchJsonWithRetry<T>(url, { signal: controller.signal })
@@ -46,7 +49,7 @@ export function useJson<T>(url: string): { data: T | null; isLoading: boolean; i
             });
 
         return () => controller.abort();
-    }, [url, tick]);
+    }, [url, tick, isEnabled]);
 
     const reload = useCallback(() => setTick((value) => value + 1), []);
 

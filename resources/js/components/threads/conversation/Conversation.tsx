@@ -6,6 +6,7 @@ import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
 import type { EarlierWalkthrough, ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadMilestone, ThreadNotice as ThreadNoticeData, ThreadRunSummary, ThreadWalkthrough } from '@/types/threads';
+import { useEmbed, useEmbedMessage, useEmbedUnsent } from '@/embed/useEmbed';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { AgentContinuedRow, AgentItemCard } from './AgentCard';
@@ -96,15 +97,19 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, childrenSignature: string) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, childrenSignature: string) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     // The feed knows where the turn started; the run before the active one is the fallback.
     const { entries, liveSteps, lastSequence, connection, link, agents: liveAgents, children: liveChildren } = useConversation(threadId, messages, runs.at(-2)?.afterSequence ?? 0);
     const agents = useAgents();
-    const unsent = useUnsentMessages(threadId);
+    const embed = useEmbed();
+    const webUnsent = useUnsentMessages(threadId);
+    const embedUnsent = useEmbedUnsent(threadId, serverMessages);
+    const unsent = embed === null ? webUnsent : embedUnsent;
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
     const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
+    useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
     const liveChildrenSignature = childrenSignature(liveChildren);
     useEffect(() => onAgentsChange?.(liveAgents, liveChildrenSignature), [liveAgents, liveChildrenSignature, onAgentsChange]);
@@ -227,7 +232,13 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                     );
                 })}
                 {unsent.map((message) => (
-                    <UnsentMessage key={message.key} message={message} onRetry={() => outbox.retry(threadId, message.key)} onEdit={() => onEditUnsent?.(outbox.cancel(threadId, message.key))} />
+                    <UnsentMessage
+                        key={message.key}
+                        message={message}
+                        onRetry={() => (embed === null ? outbox.retry(threadId, message.key) : embed.post({ type: 'unsentAction', key: message.key, action: 'retry' }))}
+                        onEdit={() => (embed === null ? onEditUnsent?.(outbox.cancel(threadId, message.key)) : embed.post({ type: 'unsentAction', key: message.key, action: 'edit' }))}
+                        onDiscard={embed === null ? undefined : () => embed.post({ type: 'unsentAction', key: message.key, action: 'discard' })}
+                    />
                 ))}
                 {question !== null && !readonly && (
                     <QuestionsForm key={question.taskId} threadId={threadId} questions={question.questions} who="Claude" isLive={working} footer={working ? "The time limit pauses while Claude waits. If the sandbox has to sleep, the question stays here and your answer wakes it." : "Answers go to Claude as the next message."} />

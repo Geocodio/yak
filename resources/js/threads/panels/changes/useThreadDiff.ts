@@ -18,8 +18,8 @@ export function patchUrl(threadId: string, fileId: number): string {
  * state moves (a turn ending), and polls while a turn runs. `reload` is the one
  * seam a realtime `diff.updated` event can call instead of the poll.
  */
-export function useThreadDiff(thread: ThreadData, childId: string | null = null): { diff: ThreadDiffSummary | null; isLoading: boolean; isRefreshing: boolean; error: string | null; reload: () => void } {
-    const { data, isLoading, isRefreshing, error, reload } = useJson<{ diff: ThreadDiffSummary | null }>(childId === null ? `/threads/${thread.id}/diff` : childDiff.url({ thread: thread.id, child: childId }));
+export function useThreadDiff(thread: ThreadData, childId: string | null = null, isEnabled = true): { diff: ThreadDiffSummary | null; isLoading: boolean; isRefreshing: boolean; error: string | null; reload: () => void } {
+    const { data, isLoading, isRefreshing, error, reload } = useJson<{ diff: ThreadDiffSummary | null }>(childId === null ? `/threads/${thread.id}/diff` : childDiff.url({ thread: thread.id, child: childId }), isEnabled);
 
     useEffect(() => {
         reload();

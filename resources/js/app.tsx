@@ -4,6 +4,7 @@ import { toast } from '@geocodio/console-ui';
 import { createRoot } from 'react-dom/client';
 import { ComponentType, StrictMode } from 'react';
 import { healStandaloneViewport } from '@/lib/healStandaloneViewport';
+import { installReceiver, isEmbedActive } from '@/embed/bridge';
 import { registerServiceWorker } from '@/pwa/registerServiceWorker';
 
 const appName = 'Yak';
@@ -13,7 +14,7 @@ const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
 router.on('httpException', (event) => {
     const status = event.detail.response.status;
 
-    if (status === 419) {
+    if (status === 419 && !isEmbedActive()) {
         toast.error('Your session expired. Reloading…');
         window.location.reload();
 
@@ -64,17 +65,24 @@ router.on('error', (event) => {
 });
 
 healStandaloneViewport();
-
-if (document.readyState === 'complete') {
-    void registerServiceWorker();
-} else {
-    window.addEventListener('load', () => void registerServiceWorker(), { once: true });
+// The app's web view takes push natively; a service worker there would only cache nothing for nobody.
+if (!navigator.userAgent.includes('YakApp/')) {
+    if (document.readyState === 'complete') {
+        void registerServiceWorker();
+    } else {
+        window.addEventListener('load', () => void registerServiceWorker(), { once: true });
+    }
 }
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),
     resolve: (name) => pages[`./pages/${name}.tsx`]().then((module) => module.default),
     setup({ el, App, props }) {
+        // Only the phone's web view has an app to hear from; other sessions get no receiver at all.
+        if ((props.initialPage.props as { embed?: unknown }).embed) {
+            installReceiver();
+        }
+
         createRoot(el).render(
             <StrictMode>
                 <App {...props} />
