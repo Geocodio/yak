@@ -310,7 +310,8 @@ struct ThreadScreen: View {
 
 /// A brief confirmation that the link is on the clipboard. It leaves by itself.
 private struct CopiedToast: View {
-    @State private var isShown = true
+    @State private var isShown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -318,14 +319,15 @@ private struct CopiedToast: View {
                 Text("thread.linkCopied").font(.subheadline.weight(.medium))
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(.regularMaterial, in: .capsule)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                     .accessibilityIdentifier("thread.linkCopied")
             }
         }
         .task {
+            withMotion(Motion.panel, reduceMotion: reduceMotion) { isShown = true }
             UIAccessibility.post(notification: .announcement, argument: String(localized: "thread.linkCopied"))
             do { try await Task.sleep(for: .seconds(1.6)) } catch { return }
-            withAnimation { isShown = false }
+            withMotion(Motion.panel, reduceMotion: reduceMotion) { isShown = false }
         }
     }
 }
