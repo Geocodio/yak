@@ -3,6 +3,7 @@
 namespace App\Services\Threads;
 
 use App\Enums\RunnerState;
+use App\Enums\ThreadKind;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -36,6 +37,21 @@ class ThreadCommands
         return 'threads:' . $thread->id;
     }
 
+    /**
+     * A research child looking at another repository runs inside its parent's sandbox, so that
+     * repository's project and local settings (hooks, MCP servers) must never load.
+     *
+     * @return list<string>
+     */
+    private function settingSourcesFor(Thread $thread): array
+    {
+        if ($thread->kind === ThreadKind::Research && $thread->sharesParentSandbox() && $thread->repo !== $thread->parent?->repo) {
+            return ['user'];
+        }
+
+        return ['user', 'project', 'local'];
+    }
+
     public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt, ?string $workingDirectory = null): void
     {
         $workingDirectory ??= self::WORKING_DIRECTORY;
@@ -56,7 +72,7 @@ class ThreadCommands
                 'additionalDirectories' => ThreadRepositoryPrompt::extraDirectories($thread),
                 'mcpServers' => (object) [],
                 'mcpConfigPath' => $this->mcpConfigPath(),
-                'settingSources' => ['user', 'project', 'local'],
+                'settingSources' => $this->settingSourcesFor($thread),
                 'resume' => $resumeSessionId,
                 'claudeConfigDir' => $thread->claude_config_dir,
                 'placeholder' => $placeholder,
