@@ -117,6 +117,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
         if (message.type === 'result') sawResult = true;
         trackTurn(message);
         emit(message);
+        if (message.type === 'system' && message.subtype === 'init') reportCommands(message);
       }
     } catch (error) {
       // The CLI exits 1 after an error result; the result line already carried the outcome.
@@ -124,6 +125,20 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       runnerLine('exit_after_result', { error: describe(error) });
     }
     runnerLine('done');
+  }
+
+  // The init line names the slash commands; only the control channel knows their descriptions, so ask once per session.
+  function reportCommands(init) {
+    Promise.resolve(activeQuery.supportedCommands?.())
+      .then((commands) => {
+        if (!Array.isArray(commands)) return;
+        runnerLine('commands', {
+          commands: commands.map(({ name, description, argumentHint, builtin }) => ({ name, description: description ?? '', argumentHint: argumentHint || null, builtin: builtin === true })),
+          skills: init.skills ?? [],
+          terminal: init.terminal_slash_commands ?? [],
+        });
+      })
+      .catch((error) => runnerLine('commands_failed', { error: describe(error) }));
   }
 
   // Stops one agent or workflow and answers with a runner line, so Yak never waits on a silent runner.

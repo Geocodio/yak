@@ -240,7 +240,8 @@ class ThreadMessageSender
                 $input->storeAttachments,
                 'thread',
                 $input->sendKey,
-                $input->delivery === MessageDelivery::AfterTurn,
+                // A slash command runs as its own turn: the steering preamble in front of it would stop Claude seeing the slash.
+                $input->delivery === MessageDelivery::AfterTurn || app(SlashCommands::class)->startsWithKnownCommand($thread, $input->text),
                 $input->effort,
             );
 

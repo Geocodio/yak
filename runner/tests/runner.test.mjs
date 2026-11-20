@@ -417,3 +417,25 @@ test('it arms the sweep again when the last background task ends after the final
   assert.deepEqual(again.kills, [[900, 'SIGTERM']]);
   await finish(second);
 });
+
+test('it reports the slash commands with their descriptions when the session starts', async () => {
+  const init = { type: 'system', subtype: 'init', session_id: 's1', skills: ['greet'], terminal_slash_commands: ['doctor'] };
+  const supportedCommands = [
+    { name: 'greet', description: 'Say hello', argumentHint: '<who>' },
+    { name: 'doctor', description: 'Diagnose', argumentHint: '', builtin: true },
+  ];
+  const run = createHarness({ messages: [init], supportedCommands });
+  run.send(start());
+  await run.tick();
+  assert.deepEqual(run.lines().find((line) => line.event === 'commands'), {
+    type: 'runner',
+    event: 'commands',
+    commands: [
+      { name: 'greet', description: 'Say hello', argumentHint: '<who>', builtin: false },
+      { name: 'doctor', description: 'Diagnose', argumentHint: null, builtin: true },
+    ],
+    skills: ['greet'],
+    terminal: ['doctor'],
+  });
+  await finish(run);
+});
