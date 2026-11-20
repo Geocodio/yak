@@ -216,16 +216,16 @@ test('Files opens in Everything mode when the thread has no changes', function (
         ->assertNoJavaScriptErrors();
 });
 
-test('the phone shows five tabs and never scrolls sideways', function () {
+test('the phone shows six tabs and never scrolls sideways', function () {
     $thread = layoutThread();
 
     $page = visit(route('threads.show', $thread))->on()->mobile()->resize(390, 844)->assertPresent('[data-testid="thread-phone-tab-overview"]')->wait(1);
 
     expect($page->script('window.innerWidth'))->toBe(390);
     expect($page->script('[...document.querySelectorAll(\'[data-testid^="thread-phone-tab-"]\')].map((tab) => tab.textContent.trim()).filter((text) => text !== "").join(",")'))
-        ->toBe('Chat,Overview,Preview,Files1,Terminal');
+        ->toBe('Chat,Overview,Preview,Files1,Terminal,Agents');
 
-    foreach (['files', 'terminal', 'overview', 'preview', 'chat'] as $tab) {
+    foreach (['files', 'terminal', 'agents', 'overview', 'preview', 'chat'] as $tab) {
         $page->click("[data-testid=\"thread-phone-tab-{$tab}\"]")->wait(0.5);
         expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$tab} scrolls sideways");
     }

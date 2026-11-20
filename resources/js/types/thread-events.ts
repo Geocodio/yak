@@ -1,3 +1,5 @@
+import type { ThreadAgent } from '@/types/thread-agents';
+
 /** Mirrors `App\Enums\ThreadStatus`. */
 export type ThreadStatus = 'open' | 'closed';
 
@@ -17,7 +19,7 @@ export type AssistantBlock =
     | { type: 'thinking'; text: string }
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
-export type TranscriptEntry =
+export type TranscriptEntry = (
     | { role: 'assistant'; messageId: string; blocks: AssistantBlock[] }
     | { role: 'tool_result'; toolUseId: string; isError: boolean; text: string; truncated?: boolean }
     | { role: 'system'; subtype: 'init'; model?: string; sessionId?: string }
@@ -31,7 +33,11 @@ export type TranscriptEntry =
           costUsd: number;
           durationMs: number;
           numTurns: number;
-      };
+      }
+) & {
+    /** Set on a line an agent wrote; Claude's own transcript leaves these out and the agent's log shows them. */
+    agentId?: string;
+};
 
 export type ChildCardState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
 
@@ -72,7 +78,7 @@ export type RepositoryCardData = {
     error: string | null;
 };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository' | 'question';
+export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository' | 'question' | 'agent.started' | 'agent.progress' | 'agent.finished';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
@@ -85,6 +91,9 @@ export type ThreadEventDataMap = {
     child: ChildCardData;
     repository: RepositoryCardData;
     question: { open: boolean };
+    'agent.started': ThreadAgent;
+    'agent.progress': ThreadAgent;
+    'agent.finished': ThreadAgent;
 };
 
 export type ThreadEventEnvelope<T extends ThreadEventType = ThreadEventType> = {
@@ -110,6 +119,8 @@ export type ThreadEventState = {
     children: Record<string, { sequence: number; data: ChildCardData }>;
     /** Latest event per added repository, keyed by slug, with the sequence of its first event. */
     repositories: Record<string, { sequence: number; data: RepositoryCardData }>;
+    /** Latest state of each agent or workflow by task id, from the `agent.*` events. */
+    agents: Record<string, ThreadAgent>;
     viewers: Viewer[];
     connection: 'connecting' | 'live' | 'catching-up' | 'offline';
     lastSequence: number;

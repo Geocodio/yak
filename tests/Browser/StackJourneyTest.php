@@ -172,3 +172,21 @@ it('shows queued, asking and merged sub-threads with their new card layout', fun
         ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', 'Merge conflict resolved')
         ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', '3 files');
 });
+
+it('explains sub-threads and opens the Agents tab from the sidebar and the header chip', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    Thread::factory()->child($parent)->create(['name' => 'scout', 'title' => 'Scout the API']);
+
+    visit(route('threads.show', $parent))
+        ->assertSeeIn('[data-testid="stack-definition"]', 'A separate thread with its own branch and PR. Open one to talk to it directly.')
+        ->click('[data-testid="stack-view-agents"]')
+        ->assertVisible('[data-testid="agents-panel"]')
+        ->assertSeeIn('[data-testid="agents-subthreads"]', 'Scout the API')
+        ->assertNoJavaScriptErrors();
+
+    visit(route('threads.show', $parent))
+        ->click('[data-testid="thread-header-subthreads"]')
+        ->assertVisible('[data-testid="agents-panel"]')
+        ->assertSeeIn('[data-testid="thread-header-subthreads"]', '1 sub-thread');
+});

@@ -61,7 +61,7 @@ it('persists the recording on the thread task, dispatches the render and clears 
     Queue::assertPushed(RenderWalkthroughJob::class, fn ($job) => $job->taskId === $this->task->id);
 
     $commands = collect($this->sandboxes->calls)->pluck('arguments.command.2');
-    expect($commands->last())->toBe("rm -rf '/workspace/.yak-artifacts'");
+    expect($commands->last())->toContain("find '/workspace/.yak-artifacts'")->toContain('! -name shared');
 });
 
 it('replaces an older recording with a newer one', function () {

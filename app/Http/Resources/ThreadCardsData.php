@@ -72,7 +72,7 @@ final class ThreadCardsData
         }
         $repositoryQuestion = self::repositoryQuestion($thread, $head, $canDrive);
         $stopped = self::stopped($head);
-        $hasQuestion = $head->status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [];
+        $hasQuestion = $head->hasOpenQuestion();
 
         $card = match (true) {
             $hasQuestion => 'question',

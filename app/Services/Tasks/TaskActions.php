@@ -28,12 +28,14 @@ use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\Devices\ShortLockWait;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
+use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadRetryReset;
 use App\Services\Threads\ThreadTurns;
@@ -437,8 +439,13 @@ class TaskActions
             app(ThreadTurns::class)->stop($thread);
         }
 
+        // Agents are asked to stop as well; they end on their own time, so the move waits for them like it waits for a turn.
+        if (ThreadAgent::hasRunning($thread->id)) {
+            app(ThreadAgents::class)->stopAll($thread);
+        }
+
         if (ThreadTurns::activeTurn($thread) !== null || $thread->refresh()->isSandboxBusy()) {
-            throw ThreadActionRefused::because(ThreadActionRefused::TURN_RUNNING, 'Stop the running turn first, then move the task.');
+            throw ThreadActionRefused::because(ThreadActionRefused::TURN_RUNNING, 'Stop the running turn and its agents first, then move the task. The agents are stopping; try again in a moment.');
         }
     }
 

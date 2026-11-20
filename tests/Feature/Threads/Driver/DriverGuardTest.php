@@ -3,11 +3,15 @@
 use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
 use App\Enums\NotificationType;
+use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskLog;
+use App\Models\ThreadEvent;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\GuardStopNotifier;
@@ -15,6 +19,7 @@ use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
 
@@ -29,6 +34,30 @@ it('stops a runaway turn', function () {
         ->and(TaskLog::query()->where('message', 'turn_stopped_by_guard')->exists())->toBeTrue()
         ->and(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->pluck('type')->all())->toContain('interrupt');
     Event::assertDispatchedTimes(TurnFailed::class, 1);
+});
+
+it('ends the messages of a guard-stopped turn so none stays started and the prompt stays visible', function () {
+    [$thread, $run] = runningTurnFor();
+    $started = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Started, 'text' => 'Go']);
+    $unread = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => 'Also this']);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($started->refresh()->state)->toBe(TurnMessageState::Completed)
+        ->and($unread->refresh()->state)->toBe(TurnMessageState::Cancelled)
+        ->and(ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'message.state')->where('payload->uuid', $started->uuid)->latest('sequence')->first()->payload)
+        ->toBe(['uuid' => $started->uuid, 'state' => 'completed']);
+});
+
+it('counts only the time the agent ran, not the wait for a slot', function () {
+    $this->freezeSecond();
+    [, $run] = runningTurnFor(['agent_started_at' => null, 'started_at' => now()->subHours(3), 'total_ms' => null]);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->total_ms)->toBe(0);
 });
 
 it('ends a turn when the grace window closes', function () {
@@ -107,4 +136,15 @@ it('leaves the turn stopped when the notifier fails', function () {
     app(ThreadDriver::class)->tick();
 
     expect($run->refresh()->turn_state)->toBe(TurnState::StoppedByGuard);
+});
+
+it('stores how long a turn ran and how many steps it took when it ends', function () {
+    $this->freezeSecond();
+    [, $run] = runningTurnFor(['assistant_turns' => 42, 'agent_started_at' => now(), 'total_ms' => null, 'num_turns' => 0]);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->total_ms)->toBe(241 * 60_000)
+        ->and($run->num_turns)->toBe(42);
 });

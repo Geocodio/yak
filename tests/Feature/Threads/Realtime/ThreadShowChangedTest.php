@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\EarlyWarningState;
 use App\Services\FollowUpTaskFactory;
+use App\Services\Threads\SlashCommands;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadShowChanged;
 use App\Services\Threads\ThreadTurns;
@@ -71,6 +72,17 @@ function showChangedTask(array $attributes = []): YakTask
 {
     return YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'pr_url' => null, ...$attributes]);
 }
+
+it('publishes the thread state when a session saves a new slash command list', function () {
+    $task = showChangedTask();
+    $thread = Thread::findOrFail($task->thread_id);
+    $line = ['type' => 'runner', 'event' => 'commands', 'commands' => [['name' => 'greet', 'description' => 'Say hello', 'builtin' => false]], 'skills' => ['greet'], 'terminal' => []];
+
+    expectShowChanged($thread, function () use ($thread, $line) {
+        $this->travel(1)->seconds();
+        app(SlashCommands::class)->capture($thread, $line);
+    });
+});
 
 it('publishes the thread state when a co-owner request is decided', function () {
     $task = showChangedTask(['status' => TaskStatus::AwaitingCoOwner]);

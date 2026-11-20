@@ -22,6 +22,7 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\QueuedMessageRunner;
@@ -234,4 +235,14 @@ it('starts the queued turn for a run without a finisher', function () {
     (new DispatchAfterTurnWork)->handle(new TurnCompleted($run->refresh()));
 
     expect(newRunsOf($thread, $run))->toBe(1);
+});
+
+it('lets the person who queued the message drive the turn it starts', function () {
+    [$thread, $run, , $message] = completedTurnWithQueuedMessage();
+    $author = User::factory()->create();
+    $message->forceFill(['author_user_id' => $author->id])->save();
+
+    $started = app(QueuedMessageRunner::class)->afterTurn($run);
+
+    expect($started->driver_user_id)->toBe($author->id);
 });

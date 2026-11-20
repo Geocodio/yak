@@ -21,7 +21,7 @@ export function GuardStopCard({ notice, threadId, readonly }: { notice: ThreadNo
                             onClick={() => router.post(continueMethod.url(threadId), {}, { preserveScroll: true })}
                             className="mt-3 rounded-card bg-accent px-3 py-1.5 text-[13px] font-medium text-white"
                         >
-                            Continue
+                            Keep going
                         </button>
                     )}
                 </div>

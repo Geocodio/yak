@@ -32,6 +32,14 @@ test('system prompt contains all required rules', function () {
         ->toContain('NO SECRETS');
 });
 
+test('system prompt sends same-branch parallel work to the Agent tool and separate work to sub-threads', function () {
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->toContain('use your own Agent tool')
+        ->toContain('its own branch, another repository, its own pull request or its own preview');
+});
+
 test('system prompt includes task id in commit format rule', function () {
     $task = YakTask::factory()->pending()->create(['external_id' => 'YAK-42']);
 
@@ -459,6 +467,7 @@ test('research prompt carries the house report template and visuals rules', func
 */
 
 test('slack fix prompt includes description, requester name, and ambiguity check preamble', function () {
+    config(['yak.threads.ask_user_question' => false]);
     $task = YakTask::factory()->pending()->create([
         'source' => 'slack',
         'description' => 'The checkout page is broken',
@@ -646,6 +655,7 @@ test('retry prompt leaves out the wrong-repository instructions when there is no
 });
 
 it('renders answers, other text, skipped questions and the note', function () {
+    config(['yak.threads.ask_user_question' => false]);
     $task = YakTask::factory()->withClarificationQuestions()->create(['description' => 'Add the credit email']);
     $task->recordClarificationAnswers([
         'scope' => ['choices' => ['Small'], 'other' => 'Only PAYG for now'],
@@ -680,6 +690,7 @@ it('tells the agent not to ask again on the third round', function () {
 });
 
 it('tells the agent to skip summary sections when it ends with questions', function () {
+    config(['yak.threads.ask_user_question' => false]);
     $task = YakTask::factory()->create(['source' => 'linear', 'description' => 'Do a thing']);
 
     expect(YakPromptBuilder::taskPrompt($task, []))->toContain('skip any summary sections');

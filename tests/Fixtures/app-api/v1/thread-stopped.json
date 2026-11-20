@@ -99,7 +99,8 @@
             }
         ],
         "nextAttachmentNumber": 1,
-        "state": "stopped"
+        "state": "stopped",
+        "turn": null
     },
     "diffTotals": null,
     "earlierWalkthroughs": [],

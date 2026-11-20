@@ -315,3 +315,127 @@ test('it skips SIGKILL for a pid whose start time changed', async () => {
   assert.deepEqual(sweeping.kills, [[900, 'SIGTERM']]);
   await finish(run);
 });
+
+const backgroundTasks = (count) => ({ type: 'system', subtype: 'background_tasks_changed', tasks: Array.from({ length: count }, (_, index) => ({ task_id: `a${index}` })) });
+
+test('it does not sweep while background tasks run and sweeps again once they are over', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, backgroundTasks(1), endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, []);
+  assert.equal(run.lines().some((line) => line.event === 'swept'), false);
+  await finish(run);
+
+  const later = sweepOptions();
+  const second = createHarness({ messages: [toolUse, backgroundTasks(1), backgroundTasks(0), endTurn], runnerOptions: later.options });
+  second.send(start());
+  await second.tick();
+  later.timers[0].callback();
+  assert.deepEqual(later.kills, [[900, 'SIGTERM']]);
+  await finish(second);
+});
+
+test('it cancels the sweep when the session reports idle', async () => {
+  const sweeping = sweepOptions();
+  const idle = { type: 'system', subtype: 'session_state_changed', state: 'idle' };
+  const run = createHarness({ messages: [toolUse, endTurn, idle], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers[0].cleared, true);
+  await finish(run);
+});
+
+test('it does not arm the sweep for an agent line that has no parent tool use', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, { ...endTurn, agent_id: 'a1' }], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  assert.equal(sweeping.timers.length, 0);
+  await finish(run);
+});
+
+test('it stops one agent with stopTask and reports it', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'stop_agent', taskId: 'a1b2' });
+  await run.tick();
+  assert.deepEqual(run.calls.stopTask, ['a1b2']);
+  assert.deepEqual(run.lines().find((line) => line.event === 'agent_stopped'), { type: 'runner', event: 'agent_stopped', taskId: 'a1b2' });
+  await finish(run);
+});
+
+test('it reports a stop that fails, an unknown id and a missing id', async () => {
+  const run = createHarness({ stopTask: async (taskId) => { if (taskId === 'gone') throw new Error('No such task'); } });
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'stop_agent', taskId: 'gone' });
+  run.send({ type: 'stop_agent' });
+  await run.tick();
+  const failures = run.lines().filter((line) => line.event === 'agent_stop_failed');
+  assert.equal(failures.length, 2);
+  assert.match(failures.find((line) => line.taskId === 'gone').error, /No such task/);
+  assert.equal(failures.some((line) => line.taskId === null), true);
+  await finish(run);
+});
+
+test('it reports a stop that never answers as failed after the timeout', async () => {
+  const timers = [];
+  const run = createHarness({ stopTask: () => new Promise(() => {}), runnerOptions: { setTimer: (callback, delay) => { timers.push({ callback, delay }); return timers.length; }, clearTimer: () => {} } });
+  run.send(start());
+  await run.tick();
+  run.send({ type: 'stop_agent', taskId: 'slow' });
+  await run.tick();
+  const stopTimer = timers.find((timer) => timer.delay === 15_000);
+  stopTimer.callback();
+  await run.tick();
+  assert.match(run.lines().find((line) => line.event === 'agent_stop_failed').error, /timed out/);
+  await finish(run);
+});
+
+test('it arms the sweep again when the last background task ends after the final answer', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, backgroundTasks(1), endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+
+  const again = sweepOptions();
+  const second = createHarness({ messages: [toolUse, backgroundTasks(1), endTurn], runnerOptions: again.options });
+  second.send(start());
+  await second.tick();
+  again.timers[0].callback();
+  assert.deepEqual(again.kills, []);
+  second.push(backgroundTasks(0));
+  await second.tick();
+  assert.equal(again.timers[1].delay, 60_000);
+  again.timers[1].callback();
+  assert.deepEqual(again.kills, [[900, 'SIGTERM']]);
+  await finish(second);
+});
+
+test('it reports the slash commands with their descriptions when the session starts', async () => {
+  const init = { type: 'system', subtype: 'init', session_id: 's1', skills: ['greet'], terminal_slash_commands: ['doctor'] };
+  const supportedCommands = [
+    { name: 'greet', description: 'Say hello', argumentHint: '<who>' },
+    { name: 'doctor', description: 'Diagnose', argumentHint: '', builtin: true },
+  ];
+  const run = createHarness({ messages: [init], supportedCommands });
+  run.send(start());
+  await run.tick();
+  assert.deepEqual(run.lines().find((line) => line.event === 'commands'), {
+    type: 'runner',
+    event: 'commands',
+    commands: [
+      { name: 'greet', description: 'Say hello', argumentHint: '<who>', builtin: false },
+      { name: 'doctor', description: 'Diagnose', argumentHint: null, builtin: true },
+    ],
+    skills: ['greet'],
+    terminal: ['doctor'],
+  });
+  await finish(run);
+});

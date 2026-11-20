@@ -13,13 +13,10 @@ class ClarificationAnswerController extends Controller
 {
     public function __invoke(StoreThreadClarificationAnswersRequest $request, Thread $thread, ClarificationAnswerSubmitter $submitter): JsonResponse
     {
-        $submitted = $submitter->submit(
-            $request->head(),
-            $request->answers(),
-            $request->validated('note'),
-            (string) ($request->user()->name ?? 'Someone'),
-            'app',
-        );
+        $answeredBy = (string) ($request->user()->name ?? 'Someone');
+        $submitted = $request->wantsClaudeToDecide()
+            ? $submitter->decide($request->head(), $answeredBy, 'app')
+            : $submitter->submit($request->head(), $request->answers(), $request->validated('note'), $answeredBy, 'app');
 
         if (! $submitted) {
             throw ThreadActionRefused::because(ThreadActionRefused::QUESTION_CLOSED, StoreThreadClarificationAnswersRequest::CLOSED_SENTENCE);

@@ -12,6 +12,18 @@ Ask when:
 
 Do NOT commit placeholder or best-guess code when you should be asking. An answered question is a better outcome than a speculative PR.
 
+@if (config('yak.threads.ask_user_question'))
+To ask, call the AskUserQuestion tool. The turn waits while the person answers in Yak, and you continue with their answers. Say what you found and why the question matters in your own words before you call it.
+
+Rules for the tool:
+
+- 1 to 4 questions per call, each with a `header` of at most 3 words, the `question`, 2 to 4 `options` with a short `label` and a one-sentence `description`, and `multiSelect` (true only when several options can apply together).
+- Do not add an "Other" option. Every question already accepts a free-text answer.
+- Do not commit code before you have the answers you need.
+- If the person asks you to decide, or does not answer, make a reasonable choice, say what you chose, and carry on.
+
+If the task is a pure question with a short factual answer, answer in prose in your final summary and do not ask.
+@else
 To ask, write your findings in prose first (what you found and why each question matters), then end your final output with exactly one fenced block tagged `clarification`:
 
 ```clarification
@@ -35,4 +47,5 @@ Rules for the block:
 - When you end with this block, skip any summary sections the task asked for; your prose findings above the block are the summary.
 
 If the task is a pure question with a short factual answer, answer in prose in your final summary and do not emit the block.
+@endif
 @include('prompts.partials.wrong-repository')
