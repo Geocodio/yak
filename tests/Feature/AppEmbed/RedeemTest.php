@@ -131,7 +131,7 @@ it('accepts a post with no Sec-Fetch-Site, none or same-origin', function (?stri
     redeemEmbedCode(mintEmbedCode($headers), $site === null ? [] : ['Sec-Fetch-Site' => $site])->assertStatus(303);
 })->with([null, 'none', 'same-origin']);
 
-it('throttles failed redeems per address', function () {
+it('throttles failed redeems per address but never refuses a valid code', function () {
     foreach (range(1, 10) as $ignored) {
         redeemEmbedCode('yakweb_' . str_repeat('a', 48))->assertForbidden();
     }
@@ -139,7 +139,7 @@ it('throttles failed redeems per address', function () {
     redeemEmbedCode('yakweb_' . str_repeat('a', 48))->assertStatus(429);
 
     [, , $headers] = embedPhone();
-    redeemEmbedCode(mintEmbedCode($headers))->assertStatus(429);
+    redeemEmbedCode(mintEmbedCode($headers))->assertStatus(303);
 });
 
 it('answers every refusal with the same plain 403', function () {

@@ -30,17 +30,16 @@ class SessionController extends Controller
     {
         $failureKey = 'app-embed-failures:' . $request->ip();
 
-        if (RateLimiter::tooManyAttempts($failureKey, self::FAILURES_PER_MINUTE)) {
-            return $this->plain(429, 'Too Many Attempts.');
-        }
-
+        // The code is checked first: a valid code is never refused by the failure counter, so bad codes from a shared
+        // address cannot lock real phones out. Only failed redeems are counted, and past the limit they answer 429.
         $result = $this->redeem($request);
 
         if (is_string($result)) {
+            $isLimited = RateLimiter::tooManyAttempts($failureKey, self::FAILURES_PER_MINUTE);
             RateLimiter::hit($failureKey);
             AppEmbedAudit::log('app_embed.refused', $request, ['reason' => $result]);
 
-            return $this->plain(403, 'Forbidden.');
+            return $isLimited ? $this->plain(429, 'Too Many Attempts.') : $this->plain(403, 'Forbidden.');
         }
 
         return $result;
