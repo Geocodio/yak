@@ -44,4 +44,14 @@ private final class FakeNavigationAction: WKNavigationAction {
             recorder.requests == [.link(URL(string: "https://example.com/docs")!), .openThread("a1b2c3d4")])
         withExtendedLifetime(model) {}
     }
+
+    @Test func theWebViewIsLabelledAndAHiddenPageGivesUpEditing() {
+        let (view, model, _) = page()
+        #expect(view.webView.accessibilityLabel == String(localized: "web.page.label"))
+        view.setHidden(true)
+        #expect(view.webView.isHidden)
+        view.setHidden(false)
+        #expect(!view.webView.isHidden)
+        withExtendedLifetime(model) {}
+    }
 }

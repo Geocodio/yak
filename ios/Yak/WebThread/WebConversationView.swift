@@ -94,6 +94,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         webView.scrollView.backgroundColor = color
         webView.underPageBackgroundColor = color
         webView.accessibilityIdentifier = "thread.web.page"
+        webView.accessibilityLabel = String(localized: "web.page.label")
     }
 
     func applyZoom(for category: UIContentSizeCategory) {
@@ -113,7 +114,15 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
 
     func quickLook(url: URL, name: String) { quickLook.start(url: url, name: name, in: webView) }
 
-    func setHidden(_ isHidden: Bool) { webView.isHidden = isHidden }
+    /// A hidden page also gives up focus, so a field of the page cannot take keystrokes under the lock cover.
+    func setHidden(_ isHidden: Bool) {
+        webView.isHidden = isHidden
+        guard isHidden else { return }
+        webView.endEditing(true)
+        webView.callAsyncJavaScript(
+            "document.activeElement?.blur?.()", arguments: [:], in: nil, in: .page
+        ) { _ in }
+    }
 
     // MARK: Messages
 
