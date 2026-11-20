@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Threads\ThreadSharing;
 use App\Support\AppEmbedRoutes;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia;
 
@@ -68,14 +69,38 @@ it('renders the thread page for the phone user on the embed guard', function () 
     expect(Auth::getDefaultDriver())->toBe('web');
 });
 
-it('opens broadcasting auth', function () {
+/** The null broadcaster answers 200 to any channel, so these tests run on the real reverb signing path. */
+function useRealBroadcaster(): void
+{
+    config([
+        'broadcasting.default' => 'reverb',
+        'broadcasting.connections.reverb.key' => 'test-key',
+        'broadcasting.connections.reverb.secret' => 'test-secret',
+        'broadcasting.connections.reverb.app_id' => 'test-app',
+    ]);
+    Broadcast::purge();
+    require base_path('routes/channels.php');
+}
+
+it('authorizes the own thread channels of an embed session', function (string $channelPrefix) {
+    useRealBroadcaster();
     ['thread' => $thread, 'session' => $session] = embedWorld();
+    $channel = $channelPrefix . $thread->public_id;
 
     actingAsEmbed($session);
-    $response = $this->post('/broadcasting/auth', ['socket_id' => '1234.5678', 'channel_name' => 'private-thread.' . $thread->public_id]);
+    $response = $this->post('/broadcasting/auth', ['socket_id' => '1234.5678', 'channel_name' => $channel])->assertOk();
 
-    expect($response->status())->not->toBe(404)->not->toBe(401)->not->toBe(403);
-});
+    expect($response->json('auth'))->toStartWith('test-key:');
+})->with(['private-thread.', 'presence-thread-presence.']);
+
+it('refuses a thread hidden from the embed user on its channels', function (string $channelPrefix) {
+    useRealBroadcaster();
+    ['session' => $session] = embedWorld();
+    $hidden = privateThreadOf(User::factory()->create());
+
+    actingAsEmbed($session);
+    $this->post('/broadcasting/auth', ['socket_id' => '1234.5678', 'channel_name' => $channelPrefix . $hidden->public_id])->assertForbidden();
+})->with(['private-thread.', 'presence-thread-presence.']);
 
 it('runs card actions with drive rights', function (string $name, string $method, string $template, array $payload) {
     ['user' => $user, 'thread' => $thread, 'session' => $session] = embedWorld();
