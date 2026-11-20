@@ -90,7 +90,9 @@ struct ComposerBar: View {
             : (isSteering
                 ? "composer.steer"
                 : (isRetrying ? "composer.retry" : (isContinuing ? "composer.continue" : "composer.message")))
+        // A vertical text field keeps the height of the largest text size it has seen, so each text size gets a new one.
         return TextField(placeholder, text: text, axis: .vertical)
+            .id(dynamicTypeSize)
             .lineLimit(isCollapsed ? 1...1 : 1...6)
             .focused($isFocused)
             .textInputAutocapitalization(.sentences)
