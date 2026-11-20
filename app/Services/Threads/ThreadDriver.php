@@ -462,7 +462,7 @@ class ThreadDriver
 
         // Claude is already replying, so this turn cannot wait for the checks that start one. A thread that is
         // blocked or no longer Yak's records the reply as failed and says nothing: the person has already been told why.
-        $isRefused = $thread->blocked_reason !== null || ! app(ThreadOwnership::class)->yakMayRunTurns($thread) || ! $thread->isOpen();
+        $isRefused = $thread->blocked_reason !== null || ! app(ThreadOwnership::class)->yakMayFinishReply($thread) || ! $thread->isOpen();
         $now = now();
 
         $run = TaskRun::query()->create([
