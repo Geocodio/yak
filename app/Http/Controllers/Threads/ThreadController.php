@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Threads;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ThreadAgentsData;
 use App\Http\Resources\ThreadCardsData;
 use App\Http\Resources\ThreadPageData;
 use App\Http\Resources\ThreadQueuedMessagesData;
@@ -11,6 +12,7 @@ use App\Http\Resources\ThreadRunLogData;
 use App\Http\Resources\ThreadShowData;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Services\Threads\SlashCommands;
 use App\Services\Threads\ThreadTasks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +40,8 @@ class ThreadController extends Controller
             'isExpiredCoOwnerStop' => ! $thread->is_legacy && ($head = ThreadTasks::head($thread)) !== null && ThreadCardsData::isExpiredCoOwnerStop($head),
             'queuedMessages' => ThreadQueuedMessagesData::for($thread, $request->user()),
             'runs' => ThreadRunLogData::runs($thread),
+            'agents' => ThreadAgentsData::for($thread),
+            'slashCommands' => app(SlashCommands::class)->forThread($thread),
             'openLog' => (is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null) ?? $this->openRun($request, $thread),
         ]);
     }

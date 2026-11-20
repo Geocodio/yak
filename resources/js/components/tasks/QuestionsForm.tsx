@@ -7,11 +7,12 @@ import type { QuestionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
 
-export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak continues the task with your answers. Skipped questions are left to its judgment.' }: { threadId: string; questions: QuestionData[]; who?: string; footer?: string }) {
+export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak continues the task with your answers. Skipped questions are left to its judgment.', isLive = false }: { threadId: string; questions: QuestionData[]; who?: string; footer?: string; isLive?: boolean }) {
     const form = useForm<{ answers: Record<string, { choices: string[]; other: string | null }>; note: string }>({ answers: {}, note: '' });
     const [answers, setAnswers] = useState<Record<string, Answer>>(() =>
         Object.fromEntries(questions.map((question) => [question.id, { choices: [], other: null, otherOpen: false }])),
     );
+    const [isDeciding, setIsDeciding] = useState(false);
     const errors = form.errors as Record<string, string | undefined>;
 
     const isAnswered = (answer: Answer) => answer.choices.length > 0 || (answer.otherOpen && (answer.other ?? '').trim() !== '');
@@ -43,13 +44,27 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
         form.post(storeThreadAnswers.url(threadId), { preserveScroll: true });
     };
 
+    // Claude is mid-turn and waiting: the person can hand the choice back instead of answering.
+    const letClaudeDecide = () => {
+        setIsDeciding(true);
+        form.transform(() => ({ decide: true }));
+        form.post(storeThreadAnswers.url(threadId), { preserveScroll: true, onFinish: () => setIsDeciding(false) });
+    };
+
     const title = questions.length === 1 ? `${who} has a question before it can continue` : `${who} has ${questions.length} questions before it can continue`;
 
     return (
         <section id="card-question" aria-labelledby="questions-title" className="rounded-card border border-hair-strong bg-panel shadow-card" data-testid="questions-form">
             <div className="flex items-center justify-between gap-4 border-b border-hair px-6 py-4">
                 <div>
-                    <h2 id="questions-title" className="text-[15px] font-semibold">{title}</h2>
+                    {isLive ? (
+                        <h2 id="questions-title" className="flex items-center gap-2 text-[14px] font-semibold" data-testid="questions-live">
+                            <span aria-hidden className="size-2 flex-none rounded-full bg-warn" />
+                            {who} is waiting for your answer · {questions.length} {questions.length === 1 ? 'question' : 'questions'}
+                        </h2>
+                    ) : (
+                        <h2 id="questions-title" className="text-[15px] font-semibold">{title}</h2>
+                    )}
                     <p className="text-[12px] text-muted">Pick an answer, write your own, or skip a question.</p>
                 </div>
                 <span className="whitespace-nowrap text-[12px] text-muted">{answeredCount} of {questions.length} answered</span>
@@ -98,17 +113,24 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                 </fieldset>
             ))}
 
-            <div className="flex flex-col gap-1.5 border-b border-hair px-6 py-5">
+            {!isLive && <div className="flex flex-col gap-1.5 border-b border-hair px-6 py-5">
                 <label htmlFor="questions-note" className="text-[13px] font-semibold">Anything else? <span className="font-normal text-muted">(optional)</span></label>
                 <Textarea id="questions-note" rows={2} maxLength={2000} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} data-testid="questions-note" />
                 {errors.note && <p role="alert" className="text-[12px] text-fail">{errors.note}</p>}
-            </div>
+            </div>}
 
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-b-card bg-app px-6 py-3.5">
                 <span className="text-[12px] text-muted">{footer}</span>
-                <Button variant="primary" onClick={submit} pending={form.processing} disabled={answeredCount === 0} data-testid="questions-submit">
-                    Send answers
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {isLive && (
+                        <Button variant="secondary" onClick={letClaudeDecide} pending={form.processing && isDeciding} disabled={form.processing} data-testid="questions-decide">
+                            Let Claude decide
+                        </Button>
+                    )}
+                    <Button variant="primary" onClick={submit} pending={form.processing && !isDeciding} disabled={answeredCount === 0 || form.processing} data-testid="questions-submit">
+                        Send answers
+                    </Button>
+                </div>
             </div>
         </section>
     );

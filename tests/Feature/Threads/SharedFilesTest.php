@@ -174,6 +174,58 @@ describe('pruning', function () {
     });
 });
 
+describe('versions', function () {
+    it('records a version at the event the content changed and keeps the link', function () {
+        ThreadEvent::factory()->create(['thread_id' => $this->thread->id, 'sequence' => 3]);
+        queueSandboxFolder($this->sandboxes, ['shared/report.html' => '<h1>One</h1>']);
+        app(ThreadArtifacts::class)->collect($this->thread);
+        $file = $this->task->artifacts()->shared()->sole();
+
+        ThreadEvent::factory()->create(['thread_id' => $this->thread->id, 'sequence' => 9]);
+        queueSandboxFolder($this->sandboxes, ['shared/report.html' => '<h1>Two, longer</h1>']);
+        app(ThreadArtifacts::class)->collect($this->thread);
+
+        $file->refresh();
+        $version = $file->versions()->sole();
+        expect($this->task->artifacts()->shared()->count())->toBe(1)
+            ->and($file->anchor_sequence)->toBe(3)
+            ->and($version->version)->toBe(2)
+            ->and($version->anchor_sequence)->toBe(9)
+            ->and(Storage::disk('artifacts')->get($file->disk_path))->toBe('<h1>Two, longer</h1>');
+
+        $this->actingAs($this->owner)->get(route('threads.show', $this->thread))->assertInertia(fn (Assert $page) => $page
+            ->where('sharedFiles.0.id', $file->public_id)
+            ->where('sharedFiles.0.versions.0.version', 2)
+            ->where('sharedFiles.0.versions.0.anchorSequence', 9)
+            ->where('sharedFiles.0.updatedAt', fn ($at) => $at !== null));
+    });
+
+    it('numbers each change and records nothing when a file is saved again unchanged', function () {
+        foreach (['a', 'a', 'b', 'b', 'c'] as $content) {
+            queueSandboxFolder($this->sandboxes, ['shared/data.csv' => $content]);
+            app(ThreadArtifacts::class)->collect($this->thread);
+        }
+
+        $file = $this->task->artifacts()->shared()->sole();
+        expect($file->versions()->pluck('version')->all())->toBe([2, 3]);
+    });
+
+    it('adds a file hash to a file saved before hashes existed without calling it a change', function () {
+        $file = putSharedFile($this->task, 'old.csv', 'x');
+        queueSandboxFolder($this->sandboxes, ['shared/old.csv' => 'x']);
+        app(ThreadArtifacts::class)->collect($this->thread);
+
+        expect($file->refresh()->content_hash)->toBe(md5('x'))->and($file->versions()->count())->toBe(0);
+    });
+
+    it('leaves the shared folder in the sandbox and clears the other capture folders', function () {
+        queueSandboxFolder($this->sandboxes, ['shared/report.html' => '<h1>One</h1>']);
+        app(ThreadArtifacts::class)->collect($this->thread);
+
+        expect(collect($this->sandboxes->calls)->pluck('arguments.command.2')->last())->toContain("find '/workspace/.yak-artifacts' -mindepth 1 -maxdepth 1 ! -name shared");
+    });
+});
+
 describe('access to files/{publicId}', function () {
     beforeEach(function () {
         $this->file = putSharedFile($this->task, 'report.html', '<h1>Report</h1>');
@@ -182,7 +234,22 @@ describe('access to files/{publicId}', function () {
 
     it('lets a thread reader open the file when it is not shared', function () {
         $this->actingAs($this->owner)->get("/files/{$this->file->public_id}")->assertOk()->assertSee('report.html');
-        $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->assertHeader('Content-Security-Policy', 'sandbox');
+        $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->assertHeader('Content-Security-Policy', 'sandbox allow-scripts');
+    });
+
+    it('runs report scripts in an opaque origin', function () {
+        $raw = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw");
+        $viewer = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}");
+
+        expect($raw->headers->get('Content-Security-Policy'))->not->toContain('allow-same-origin')
+            ->and($viewer->getContent())->toContain('sandbox="allow-scripts"')
+            ->and($viewer->getContent())->not->toContain('allow-same-origin');
+    });
+
+    it('makes the browser check for a newer version every time it opens the file', function () {
+        $header = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->headers->get('Cache-Control');
+
+        expect($header)->toContain('no-cache');
     });
 
     it('lets a person the private thread is shared with open it', function () {
@@ -283,5 +350,5 @@ describe('team share toggle', function () {
 it('tells Claude where to save shared files', function () {
     $prompt = YakPromptBuilder::threadSystemPrompt($this->task, $this->thread);
 
-    expect($prompt)->toContain('SHARED FILES')->toContain('.yak-artifacts/shared/')->toContain('Do not mention the folder path');
+    expect($prompt)->toContain('SHARED FILES')->toContain('.yak-artifacts/shared/')->toContain('Do not mention the folder path')->toContain('900px')->toContain('no localStorage');
 });

@@ -6,7 +6,8 @@ export const DEFAULT_DISALLOWED_TOOLS = ['ScheduleWakeup', 'CronCreate', 'CronDe
 
 export const ENVIRONMENT_NOTE_HOOK_COMMAND = 'node /opt/yak-runner/hooks/environment-note.mjs';
 
-export function buildOptions(start, environment, extraMcpServers = {}) {
+// canUseTool is what makes the SDK offer AskUserQuestion; without it the tool does not exist for the agent.
+export function buildOptions(start, environment, extraMcpServers = {}, canUseTool = undefined) {
   const options = {
     cwd: start.cwd || '/workspace',
     model: start.model,
@@ -18,6 +19,15 @@ export function buildOptions(start, environment, extraMcpServers = {}) {
     settings: buildSettings(start),
   };
   if (start.effort) options.effort = start.effort;
+  if (canUseTool) options.canUseTool = canUseTool;
+  if (start.subagents) {
+    // A stop of Claude's reply spares background agents; each one stops through stopTask.
+    options.perTaskStopAffordance = true;
+    options.forwardSubagentText = true;
+    options.agentProgressSummaries = true;
+    // Undocumented in the SDK typings, so Yak can turn it off if a CLI update removes it.
+    if (start.forwardNestedSubagentToolCalls) options.forwardNestedSubagentToolCalls = true;
+  }
   if (options.permissionMode === 'bypassPermissions') options.allowDangerouslySkipPermissions = true;
   if (start.appendSystemPrompt) {
     options.systemPrompt = { type: 'preset', preset: 'claude_code', append: start.appendSystemPrompt };

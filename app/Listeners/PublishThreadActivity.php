@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Enums\TurnMessageKind;
 use App\Events\ThreadActivity;
+use App\Models\ThreadAgent;
 use App\Models\ThreadTurnMessage;
 use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadEventProjector;
@@ -36,7 +37,7 @@ class PublishThreadActivity
             return;
         }
 
-        $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId));
+        $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
 
         if ($projected === []) {
             return;

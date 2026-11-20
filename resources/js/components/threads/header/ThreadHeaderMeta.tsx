@@ -1,6 +1,8 @@
 import { GitBranch, Layers } from 'lucide-react';
 import { SourceLink } from '@/components/threads/header/SourceLink';
 import { RepositoryAvatar } from '@/components/threads/RepositoryAvatar';
+import { useAgents } from '@/threads/panels/agents/AgentsContext';
+import { SUB_THREAD_DEFINITION } from '@/threads/panels/agents/words';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
@@ -19,6 +21,7 @@ const CHANNEL_SOURCES = ['slack', 'linear', 'sentry', 'github', 'email'];
 
 /** The repo line of the header: repository, branch, a diff count that opens Changes, and a sub-thread count. */
 export function ThreadHeaderMeta({ thread, diffTotals, subThreadCount, source, onOpenChanges, onOpenOverview }: Props) {
+    const agents = useAgents();
     if (!thread.hasRepository) {
         return (
             <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[12.5px] text-muted" data-testid="thread-header-meta">
@@ -58,7 +61,7 @@ export function ThreadHeaderMeta({ thread, diffTotals, subThreadCount, source, o
                 </span>
             )}
             {subThreadCount > 0 && (
-                <button type="button" onClick={onOpenOverview} className="inline-flex h-5 shrink-0 cursor-pointer items-center gap-1.5 rounded-pill bg-panel-2 px-2 text-[11.5px] font-medium text-muted hover:text-body" data-testid="thread-header-subthreads">
+                <button type="button" onClick={() => (agents === null ? onOpenOverview() : agents.openPanel())} title={SUB_THREAD_DEFINITION} className="inline-flex h-5 shrink-0 cursor-pointer items-center gap-1.5 rounded-pill bg-panel-2 px-2 text-[11.5px] font-medium text-muted hover:text-body" data-testid="thread-header-subthreads">
                     <Layers size={11} aria-hidden />
                     {subThreadCount} {subThreadCount === 1 ? 'sub-thread' : 'sub-threads'}
                 </button>

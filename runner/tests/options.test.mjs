@@ -65,3 +65,14 @@ test('it merges caller settings with the hook instead of replacing them', () => 
   assert.equal(settings.hooks.SessionStart[0].matcher, 'resume');
   assert.deepEqual(settings.hooks.SessionStart[1], callerHook);
 });
+
+test('it turns the agent options on only with subagents', () => {
+  const off = buildOptions(start(), {});
+  for (const name of ['perTaskStopAffordance', 'forwardSubagentText', 'agentProgressSummaries', 'forwardNestedSubagentToolCalls']) assert.equal(name in off, false);
+  const on = buildOptions(start({ subagents: true }), {});
+  assert.equal(on.perTaskStopAffordance, true);
+  assert.equal(on.forwardSubagentText, true);
+  assert.equal(on.agentProgressSummaries, true);
+  assert.equal('forwardNestedSubagentToolCalls' in on, false);
+  assert.equal(buildOptions(start({ subagents: true, forwardNestedSubagentToolCalls: true }), {}).forwardNestedSubagentToolCalls, true);
+});

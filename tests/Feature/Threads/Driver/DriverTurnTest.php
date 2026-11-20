@@ -73,6 +73,16 @@ it('adds cost per result and counts assistant turns', function () {
         ->and($run->turn_state)->toBe(TurnState::Running);
 });
 
+it('does not count a sub-agent message as a step of the turn', function () {
+    [$thread, $run] = runningTurnFor();
+
+    pushRunnerLine($thread, 1, ['type' => 'assistant', 'message' => ['content' => []]]);
+    pushRunnerLine($thread, 2, ['type' => 'assistant', 'parent_tool_use_id' => 'toolu_1', 'message' => ['content' => []]]);
+    pushRunnerLine($thread, 3, ['type' => 'assistant', 'parent_tool_use_id' => 'toolu_1', 'message' => ['content' => []]]);
+
+    expect($run->refresh()->assistant_turns)->toBe(1);
+});
+
 it('keeps tracker state as json on the run', function () {
     [$thread, $run] = runningTurnFor();
 

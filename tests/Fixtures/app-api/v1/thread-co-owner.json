@@ -147,7 +147,8 @@
             }
         ],
         "nextAttachmentNumber": 1,
-        "state": "idle"
+        "state": "idle",
+        "turn": null
     },
     "diffTotals": null,
     "earlierWalkthroughs": [],

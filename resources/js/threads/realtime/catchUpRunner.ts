@@ -37,13 +37,33 @@ export function createCatchUpRunner(options: {
     let inFlight: Promise<void> | null = null;
     let rerunRequested = false;
 
+    // A response holds one page of events. Until the last page, the feed only advances to the newest event it
+    // received, because advancing to `latestSequence` would skip every event on the pages not fetched yet.
+    const fetchAllPages = async (): Promise<void> => {
+        let after = options.getLastSequence();
+
+        for (;;) {
+            const result = await options.fetchAfter(after);
+            const newest = result.events.at(-1)?.sequence ?? after;
+            const hasMore = result.events.length > 0 && newest < result.latestSequence;
+
+            options.onResult(hasMore ? { events: result.events, latestSequence: newest } : result);
+
+            if (!hasMore) {
+                return;
+            }
+
+            after = newest;
+        }
+    };
+
     const run = async (): Promise<void> => {
         do {
             rerunRequested = false;
             options.onStatus('catching-up');
 
             try {
-                options.onResult(await options.fetchAfter(options.getLastSequence()));
+                await fetchAllPages();
                 options.onStatus('live');
             } catch {
                 options.onStatus('offline');

@@ -1,3 +1,4 @@
+import { toast } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
 import { useSyncExternalStore } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
@@ -41,7 +42,11 @@ async function post(threadId: string, message: UnsentMessage, signal: AbortSigna
     });
 
     if (response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { redirect?: string };
+        const body = (await response.json().catch(() => ({}))) as { redirect?: string; status?: string; notice?: string };
+
+        if (body.status === 'queued' && body.notice) {
+            toast.info(body.notice);
+        }
 
         return { kind: 'sent', redirect: body.redirect };
     }

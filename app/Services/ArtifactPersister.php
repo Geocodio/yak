@@ -290,8 +290,15 @@ class ArtifactPersister
          */
         if (self::alreadyPersisted($task, $storagePath)) {
             if ($role === Artifact::SHARED_ROLE) {
-                Artifact::where('yak_task_id', $task->id)->where('disk_path', $storagePath)
-                    ->update(['size_bytes' => Storage::disk('artifacts')->size($storagePath)]);
+                $existing = Artifact::where('yak_task_id', $task->id)->where('disk_path', $storagePath)->first();
+                $hash = md5_file(Storage::disk('artifacts')->path($storagePath));
+
+                // A file saved before hashes existed gets its first hash without counting as a change.
+                if ($existing !== null && $existing->content_hash !== null && $existing->content_hash !== $hash) {
+                    $existing->versions()->create(['version' => max(1, (int) $existing->versions()->max('version')) + 1, 'content_hash' => $hash, 'size_bytes' => Storage::disk('artifacts')->size($storagePath)]);
+                }
+
+                $existing?->update(['size_bytes' => Storage::disk('artifacts')->size($storagePath), 'content_hash' => $hash]);
             }
 
             return null;
@@ -342,6 +349,7 @@ class ArtifactPersister
             'size_bytes' => Storage::disk('artifacts')->size($storagePath),
             'dhash' => $dhash,
             'caption' => $caption,
+            'content_hash' => $role === Artifact::SHARED_ROLE ? md5_file($fullPath) : null,
         ]);
 
         if ($type === 'video' && ! $isV3) {

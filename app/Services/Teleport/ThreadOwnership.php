@@ -20,6 +20,16 @@ class ThreadOwnership
     }
 
     /**
+     * A reply Claude has already started must be tracked until it ends, so a teleport down that has not yet
+     * copied the session waits for it or stops it. Once the teleport is ready the session is copied and the reply is refused.
+     */
+    public function yakMayFinishReply(Thread $thread): bool
+    {
+        return $thread->owner_side === ThreadOwnerSide::Yak
+            && ! Teleport::query()->where('thread_id', $thread->id)->where('state', TeleportState::Ready)->exists();
+    }
+
+    /**
      * @throws ThreadNotOwnedByYak
      */
     public function assertYakMayRunTurns(Thread $thread): void

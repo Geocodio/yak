@@ -5,6 +5,7 @@ namespace App\Http\Requests\Tasks;
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Models\YakTask;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreClarificationAnswersRequest extends FormRequest
@@ -20,7 +21,8 @@ class StoreClarificationAnswersRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'answers' => ['required', 'array', 'max:10'],
+            'decide' => ['sometimes', 'boolean'],
+            'answers' => [Rule::requiredIf(! $this->boolean('decide')), 'array', 'max:10'],
             'answers.*' => ['array'],
             'answers.*.choices' => ['present', 'array', 'max:' . ClarificationQuestion::MAX_OPTIONS],
             'answers.*.choices.*' => ['string', 'max:500'],
@@ -35,7 +37,7 @@ class StoreClarificationAnswersRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            if ($validator->errors()->isNotEmpty()) {
+            if ($validator->errors()->isNotEmpty() || $this->wantsClaudeToDecide()) {
                 return;
             }
 
@@ -78,6 +80,14 @@ class StoreClarificationAnswersRequest extends FormRequest
     }
 
     /**
+     * "Let Claude decide": the person answers nothing and tells a waiting Claude to choose.
+     */
+    public function wantsClaudeToDecide(): bool
+    {
+        return $this->boolean('decide');
+    }
+
+    /**
      * The task in the conversation that is waiting on answers.
      */
     public function head(): YakTask
@@ -95,7 +105,7 @@ class StoreClarificationAnswersRequest extends FormRequest
      */
     public function answers(): array
     {
-        return collect((array) $this->validated('answers'))
+        return collect((array) ($this->validated('answers') ?? []))
             ->map(fn (array $answer): array => [
                 'choices' => array_values((array) ($answer['choices'] ?? [])),
                 'other' => trim((string) ($answer['other'] ?? '')) !== '' ? trim((string) $answer['other']) : null,

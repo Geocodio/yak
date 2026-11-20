@@ -7,5 +7,6 @@ import './context';
 import './stack';
 import './preview';
 import '@/threads/panels/terminal';
+import './agents';
 import './files';
 import './shared-files';

@@ -91,7 +91,7 @@ class ThreadTurns
 
         return is_array($state) && $state !== []
             ? TurnTracker::fromState($state)
-            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds')]);
+            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds'), 'ignoresAgentTasks' => (bool) config('yak.threads.subagents')]);
     }
 
     /**
@@ -268,6 +268,8 @@ class ThreadTurns
         }
 
         if ($thread->runner_state === RunnerState::None) {
+            // Agents of the runner that is gone never report back; the new runner starts without them.
+            app(ThreadAgents::class)->failAll($thread);
             $account = ClaudeAccount::query()->findOrFail($run->claude_account_id);
             $this->commands->startRunner(
                 $thread,
@@ -420,11 +422,20 @@ class ThreadTurns
         $finisher->dispatch($events);
     }
 
-    private function cancelMessages(TaskRun $run): void
+    /**
+     * Ends the messages of a stopped turn: the ones Claude never read are cancelled, the ones it already
+     * started on stay in the conversation as done.
+     */
+    public function cancelMessages(TaskRun $run): void
     {
         ThreadTurnMessage::query()
             ->where('task_run_id', $run->id)
-            ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued, TurnMessageState::Started])
+            ->where('state', TurnMessageState::Started)
+            ->update(['state' => TurnMessageState::Completed]);
+
+        ThreadTurnMessage::query()
+            ->where('task_run_id', $run->id)
+            ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued])
             ->update(['state' => TurnMessageState::Cancelled]);
     }
 
