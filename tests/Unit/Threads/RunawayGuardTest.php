@@ -16,6 +16,7 @@ function runStartedAt(?CarbonImmutable $startedAt): TaskRun
 {
     $run = new TaskRun;
     $run->agent_started_at = $startedAt;
+    $run->source = 'sentry';
 
     return $run;
 }
@@ -68,7 +69,28 @@ it('trips wall clock for a run whose agent_started_at is a mutable Carbon', func
     expect((new RunawayGuard)->check($run, $now, 0))->toBe(RunawayGuard::WALL_CLOCK);
 
     $run = new TaskRun;
+    $run->source = 'sentry';
     $run->agent_started_at = now()->subMinutes(239);
     expect((new RunawayGuard)->check($run, $now, 0))->toBeNull();
     expect((new RunawayGuard)->check($run, $now, (int) config('yak.max_turns')))->toBe(RunawayGuard::ASSISTANT_TURNS);
 });
+
+it('has no turn limit for a turn a person started or drives', function (?string $source, ?int $driverUserId) {
+    $run = runStartedAt($this->now);
+    $run->source = $source;
+    $run->driver_user_id = $driverUserId;
+
+    expect((new RunawayGuard)->check($run, $this->now, 5000))->toBeNull();
+})->with([
+    'dashboard thread' => ['dashboard', null],
+    'slack thread' => ['slack', null],
+    'linear thread' => ['linear', null],
+    'person replies in a sentry thread' => ['sentry', 7],
+]);
+
+it('keeps the turn limit for work Yak started by itself', function (string $source) {
+    $run = runStartedAt($this->now);
+    $run->source = $source;
+
+    expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
+})->with(['sentry', 'flaky-test', 'preview-repair']);

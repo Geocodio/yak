@@ -79,7 +79,7 @@ class SharedFileController extends Controller
             'csv' => 'text/csv',
             'pdf' => 'application/pdf',
             default => 'application/octet-stream',
-        }, 'X-Content-Type-Options' => 'nosniff'];
+        }, 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-cache, private'];
 
         if ($extension === 'html') {
             $headers['Content-Security-Policy'] = 'sandbox';

@@ -108,3 +108,14 @@ it('leaves the turn stopped when the notifier fails', function () {
 
     expect($run->refresh()->turn_state)->toBe(TurnState::StoppedByGuard);
 });
+
+it('stores how long a turn ran and how many steps it took when it ends', function () {
+    $this->freezeSecond();
+    [, $run] = runningTurnFor(['assistant_turns' => 42, 'agent_started_at' => now(), 'total_ms' => null, 'num_turns' => 0]);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->total_ms)->toBe(241 * 60_000)
+        ->and($run->num_turns)->toBe(42);
+});

@@ -185,6 +185,12 @@ describe('access to files/{publicId}', function () {
         $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->assertHeader('Content-Security-Policy', 'sandbox');
     });
 
+    it('makes the browser check for a newer version every time it opens the file', function () {
+        $header = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->headers->get('Cache-Control');
+
+        expect($header)->toContain('no-cache');
+    });
+
     it('lets a person the private thread is shared with open it', function () {
         $reader = User::factory()->create();
         ThreadShare::factory()->create(['thread_id' => $this->thread->id, 'user_id' => $reader->id]);
