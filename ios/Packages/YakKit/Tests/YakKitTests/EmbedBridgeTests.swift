@@ -38,7 +38,7 @@ private func typeName(of message: EmbedPageMessage) -> String {
     }
 }
 
-/// Exact values for the fixtures known by name; every other page fixture is checked for its case only.
+/// Exact values for every page fixture; a fixture missing here is checked for its case only.
 private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-ready": .ready(
         threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 42,
@@ -56,6 +56,14 @@ private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-unsentAction": .unsentAction(key: UUID(uuidString: "6f1c2f9e-3b1d-4c55-9a53-0d4b5c8f7a10")!, action: .retry),
     "page-auth": .authExpired,
     "page-error": .error(kind: .http, status: 503),
+    "page-cardAnswered-failed": .cardAnswered(card: .question, action: "answer", isOK: false),
+    "page-error-network": .error(kind: .network, status: nil),
+    "page-error-script": .error(kind: .script, status: nil),
+    "page-quickLook-without-mime": .quickLook(
+        url: URL(string: "https://yak.example.com/threads/d0e515ef/attachments/4")!, name: "notes.zip", mimeType: nil),
+    "page-openPane-files-without-path": .openPane(.files(mode: .everything, path: nil)),
+    "page-openPane-overview-without-section": .openPane(.overview(section: nil)),
+    "page-openPane-preview-without-url": .openPane(.preview(url: nil)),
 ]
 
 @Test func everyPageFixtureInTheFolderDecodesToItsCase() throws {
