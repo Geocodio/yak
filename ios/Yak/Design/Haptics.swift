@@ -38,6 +38,7 @@ enum Haptic: CaseIterable {
 
     /// Plays the haptic from code that has no view, such as a model.
     @MainActor func play() {
+        guard !StillMotion.isTestMode else { return }
         switch style {
         case .softImpact: UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         case .selection: UISelectionFeedbackGenerator().selectionChanged()
@@ -47,16 +48,19 @@ enum Haptic: CaseIterable {
 }
 
 extension View {
-    /// Plays `haptic` when `trigger` changes.
+    /// Plays `haptic` when `trigger` changes. A UI test plays none: the simulator has nothing to feel, and a haptic
+    /// request must never hold up the main thread the test is waiting on.
     func haptic<Trigger: Equatable>(_ haptic: Haptic, trigger: Trigger) -> some View {
-        sensoryFeedback(haptic.feedback, trigger: trigger)
+        sensoryFeedback(trigger: trigger) { _, _ in StillMotion.isTestMode ? nil : haptic.feedback }
     }
 
     /// Plays `haptic` when `trigger` changes and `condition` accepts the change.
     func haptic<Trigger: Equatable>(
         _ haptic: Haptic, trigger: Trigger, where condition: @escaping (Trigger, Trigger) -> Bool
     ) -> some View {
-        sensoryFeedback(haptic.feedback, trigger: trigger, condition: condition)
+        sensoryFeedback(trigger: trigger) { old, new in
+            !StillMotion.isTestMode && condition(old, new) ? haptic.feedback : nil
+        }
     }
 }
 
