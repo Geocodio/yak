@@ -28,6 +28,8 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   let killTimer = null;
   // Tasks (agents, workflows, background commands) the CLI reports as running; their processes belong to the session.
   let backgroundTaskCount = 0;
+  // The reply's final text came and no result has followed: the sweep is owed once nothing runs in the background.
+  let sweepOwed = false;
 
   const wakeUp = () => { const resolve = wake; wake = null; resolve?.(); };
   const write = (object) => output.write(redactor.redactText(JSON.stringify(object)) + '\n');
@@ -73,17 +75,26 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   }
 
   function trackTurn(message) {
-    if (message.type === 'system' && message.subtype === 'background_tasks_changed') { backgroundTaskCount = Array.isArray(message.tasks) ? message.tasks.length : 0; return; }
+    if (message.type === 'system' && message.subtype === 'background_tasks_changed') {
+      backgroundTaskCount = Array.isArray(message.tasks) ? message.tasks.length : 0;
+      // The sweep that was skipped for running tasks is armed again when the last one is over.
+      if (backgroundTaskCount === 0 && sweepOwed && sweepTimer === null) sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+      return;
+    }
     // The CLI reports idle only when the reply and every background task are over, so nothing is left to sweep.
-    if (message.type === 'system' && message.subtype === 'session_state_changed' && message.state === 'idle') { cancelSweep(); turnStartedAtMs = null; return; }
-    if (message.type === 'result') { cancelSweep(); return; }
+    if (message.type === 'system' && message.subtype === 'session_state_changed' && message.state === 'idle') { cancelSweep(); sweepOwed = false; turnStartedAtMs = null; return; }
+    if (message.type === 'result') { cancelSweep(); sweepOwed = false; return; }
     // Subagent messages carry parent_tool_use_id and agent_id; only the main agent's answer ends the turn.
     if (message.type !== 'assistant' || message.parent_tool_use_id || message.agent_id) return;
     const blocks = Array.isArray(message.message?.content) ? message.message.content : [];
     if (turnStartedAtMs === null && blocks.some((block) => block?.type === 'tool_use')) turnStartedAtMs = now();
     cancelSweep();
+    sweepOwed = false;
     // The final answer is a text-only message; the stream reports its stop_reason as null.
-    if (blocks.some((block) => block?.type === 'text') && !blocks.some((block) => block?.type === 'tool_use')) sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+    if (blocks.some((block) => block?.type === 'text') && !blocks.some((block) => block?.type === 'tool_use')) {
+      sweepOwed = true;
+      sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+    }
   }
 
   async function* promptStream() {
@@ -131,6 +142,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       if (!command.uuid) { runnerLine('bad_line', { error: 'user line requires uuid' }); return; }
       turnStartedAtMs = null;
       cancelSweep();
+      sweepOwed = false;
       queue.push({
         type: 'user',
         message: { role: 'user', content: command.text },

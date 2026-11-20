@@ -27,7 +27,11 @@ export function createHarness({ messages = [], throwAfter = null, stopTask = asy
   const output = { write: (chunk) => written.push(chunk) };
   const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0, stopTask: [] };
   let release;
-  const gate = new Promise((resolve) => { release = resolve; });
+  let released = false;
+  const gate = new Promise((resolve) => { release = () => { released = true; wakeLater?.(); resolve(); }; });
+  // Messages a test sends after the run began, to interleave them with timers.
+  const later = [];
+  let wakeLater = null;
 
   const query = ({ prompt, options }) => {
     calls.options = options;
@@ -35,7 +39,10 @@ export function createHarness({ messages = [], throwAfter = null, stopTask = asy
       (async () => { for await (const line of prompt) calls.prompts.push(line); })();
       for (const message of messages) yield message;
       if (throwAfter) throw new Error(throwAfter);
-      await gate;
+      while (!released) {
+        if (later.length) { yield later.shift(); continue; }
+        await new Promise((resolve) => { wakeLater = resolve; });
+      }
     })();
     generator.setModel = async (model) => { calls.setModel.push(model); };
     generator.applyFlagSettings = async (settings) => { calls.applyFlagSettings.push(settings); };
@@ -51,5 +58,7 @@ export function createHarness({ messages = [], throwAfter = null, stopTask = asy
   const lines = () => written.join('').split('\n').filter(Boolean).map((line) => JSON.parse(line));
   const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-  return { send, lines, exited, calls, tick, release, input, written };
+  const push = (message) => { later.push(message); wakeLater?.(); };
+
+  return { send, lines, exited, calls, tick, release, input, written, push };
 }
