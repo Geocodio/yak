@@ -79,6 +79,7 @@ enum StubFeatures {
         StubQuestions(),
         // Before the changes feature too: its scenarios answer the thread's show from their own files.
         StubThreadWork(),
+        StubEmbedWaiting(),
         StubChanges(),
         StubTerminalFeature.shared,
         StubFilesControl(),

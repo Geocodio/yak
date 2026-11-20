@@ -3,13 +3,17 @@ import Foundation
 /// The embedded thread page of the app: the mint (`POST web-session`), the redeem (`POST /app/embed/session`) and a
 /// fixture page that speaks the script bridge. The scenarios play `paired` underneath:
 /// `embed-basic` works, `embed-expired-once` answers the first page load with 401, `embed-slow` posts `ready` after
-/// 12 seconds, `embed-failed` refuses every mint with a 503, and `embed-unsupported` has a `me` without `web` and no
+/// 12 seconds, `embed-working` is `embed-basic` over a thread whose turn stays open, where a message sent while the
+/// turn runs is saved as a waiting (queued) message that the thread's show lists until it is changed or withdrawn,
+/// `embed-failed` refuses every mint with a 503, and `embed-unsupported` has a `me` without `web` and no
 /// mint.
 /// Every scenario, not only these, serves the routes, so a test of another screen can open the page; only the
 /// embed scenarios (but `embed-unsupported`) put `web` in `me`.
 final class StubEmbed: StubFeature, @unchecked Sendable {
     let name = "embed"
-    let scenarios = ["embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed"]
+    let scenarios = [
+        "embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed", "embed-working",
+    ]
 
     /// How long `embed-slow` waits before the page posts `ready`.
     static let slowReadyDelay = Duration.seconds(12)
@@ -27,7 +31,11 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     private var expiresNextLoad = false
     private var isOnline = true
 
-    func coreScenario(for scenario: String) -> String? { Scenario.paired.rawValue }
+    func coreScenario(for scenario: String) -> String? {
+        scenario == Self.workingScenario ? Scenario.oneThreadHeld.rawValue : Scenario.paired.rawValue
+    }
+
+    static let workingScenario = "embed-working"
 
     func reset() {
         lock.withLock {
@@ -58,7 +66,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     /// Only the embed scenarios announce the embedded thread page; every other scenario keeps the native conversation
     /// that its tests were written against.
     static func offersEmbeddedThread(_ scenario: String) -> Bool {
-        ["embed-basic", "embed-expired-once", "embed-slow", "embed-failed"].contains(scenario)
+        ["embed-basic", "embed-expired-once", "embed-slow", "embed-failed", workingScenario].contains(scenario)
     }
 
     private func withoutWeb(_ context: StubContext) -> StubReply? {

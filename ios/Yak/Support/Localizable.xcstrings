@@ -10814,6 +10814,106 @@
         }
       }
     },
+    "queued.attached %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld attached"
+          }
+        }
+      }
+    },
+    "queued.collapse.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows less of the message"
+          }
+        }
+      }
+    },
+    "queued.expand.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the whole message"
+          }
+        }
+      }
+    },
+    "queued.fewer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show fewer"
+          }
+        }
+      }
+    },
+    "queued.list.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting messages"
+          }
+        }
+      }
+    },
+    "queued.mode.queued" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queued"
+          }
+        }
+      }
+    },
+    "queued.mode.steering" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steering"
+          }
+        }
+      }
+    },
+    "queued.more %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld more"
+          }
+        }
+      }
+    },
+    "queued.sending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating the message"
+          }
+        }
+      }
+    },
+    "queued.via %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "via %@"
+          }
+        }
+      }
+    },
     "quickAction.newThread" : {
       "localizations" : {
         "en" : {

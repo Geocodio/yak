@@ -26,6 +26,8 @@ struct ComposerBar: View {
     var body: some View {
         @Bindable var composer = composer
         VStack(alignment: .leading, spacing: 6) {
+            // The page leaves waiting messages out of its list, so they sit here, above the field.
+            if web?.mode == .web { QueuedChipsView(thread: thread) }
             if let problem = composer.problem {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: "exclamationmark.circle").foregroundStyle(Color.yakDanger)

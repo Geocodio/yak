@@ -150,6 +150,41 @@ import XCTest
             timeout: Wait.appear)
     }
 
+    // MARK: Waiting messages
+
+    private var queuedList: XCUIElement { app.descendants(matching: .any)["queued.list"] }
+
+    /// A message sent while Yak works is saved as a waiting message; the page leaves it out, so a chip above the
+    /// composer shows it, and withdrawing it removes the chip.
+    func testAMessageSentWhileYakWorksShowsAChipThatCanBeWithdrawn() throws {
+        try launch(scenario: "embed-working")
+        try stub.setPlaybackMilliseconds(1000)
+        defer { try? stub.setPlaybackMilliseconds(400) }
+        openThread()
+        waitForPage()
+        XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: Wait.appear), "the turn never started")
+        try stub.setPlaybackMilliseconds(600_000)
+        XCTAssertFalse(queuedList.exists)
+        let field = app.textFields["composer.field"]
+        field.tap()
+        field.typeText("Also cover the empty file case")
+        app.buttons["composer.send"].tap()
+        XCTAssertTrue(queuedList.waitForExistence(timeout: Wait.appear))
+        let text = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "queued.text.")).firstMatch
+        XCTAssertTrue(text.exists)
+        XCTAssertEqual(text.label, "Also cover the empty file case")
+        XCTAssertTrue(app.staticTexts["Steering"].exists)
+        try audit()
+        let menu = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "queued.menu.")).firstMatch
+        menu.tap()
+        let remove = app.buttons["Remove"]
+        XCTAssertTrue(remove.waitForExistence(timeout: Wait.appear))
+        remove.tap()
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: queuedList)],
+            timeout: Wait.appear)
+    }
+
     private func audit() throws {
         try auditTwice(app) { [app] in
             let auditBars = AuditRules.Bars(app)
