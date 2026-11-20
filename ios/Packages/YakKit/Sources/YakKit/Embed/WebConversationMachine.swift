@@ -1,5 +1,8 @@
 import Foundation
 
+/// A point on the monotonic clock, so a change of the wall clock cannot stretch or shrink a deadline.
+public typealias WebConversationInstant = ContinuousClock.Instant
+
 /// What the web conversation of a thread is doing, as pure logic. The view feeds it events (a mint result, what the
 /// web view's navigation did, messages from the page, connectivity, time) and carries out the effects it returns.
 public struct WebConversationMachine: Equatable, Sendable {
@@ -105,8 +108,8 @@ public struct WebConversationMachine: Equatable, Sendable {
     public let timing: Timing
     private var hasOfflineCopy: Bool
     private var isOnline = true
-    private var waitingSince: Date?
-    private var lastReMintAt: Date?
+    private var waitingSince: WebConversationInstant?
+    private var lastReMintAt: WebConversationInstant?
 
     public init(supportsEmbeddedThread: Bool, hasOfflineCopy: Bool = false, timing: Timing = Timing()) {
         phase = supportsEmbeddedThread ? .loading(.minting) : .unsupported
@@ -115,16 +118,16 @@ public struct WebConversationMachine: Equatable, Sendable {
     }
 
     /// When the view should send `tick` next; nil when time changes nothing.
-    public var nextDeadline: Date? {
+    public var nextDeadline: WebConversationInstant? {
         guard let waitingSince else { return nil }
         switch phase {
-        case .loading(.waitingForReady): return waitingSince.addingTimeInterval(timing.slowAfter.seconds)
-        case .slow: return waitingSince.addingTimeInterval(timing.failAfter.seconds)
+        case .loading(.waitingForReady): return waitingSince + timing.slowAfter
+        case .slow: return waitingSince + timing.failAfter
         default: return nil
         }
     }
 
-    public mutating func handle(_ event: Event, at now: Date) -> [Effect] {
+    public mutating func handle(_ event: Event, at now: WebConversationInstant) -> [Effect] {
         switch event {
         case .begin:
             guard phase != .unsupported else { return [] }
@@ -155,12 +158,12 @@ public struct WebConversationMachine: Equatable, Sendable {
             return []
         case .tick:
             guard let waitingSince else { return [] }
-            let waited = now.timeIntervalSince(waitingSince)
+            let waited = waitingSince.duration(to: now)
             switch phase {
             case .loading(.waitingForReady), .slow:
-                if waited >= timing.failAfter.seconds {
+                if waited >= timing.failAfter {
                     phase = .failed(.timeout)
-                } else if waited >= timing.slowAfter.seconds {
+                } else if waited >= timing.slowAfter {
                     phase = .slow
                 }
             default: break
@@ -197,8 +200,8 @@ public struct WebConversationMachine: Equatable, Sendable {
 
     /// The session ended, as a 401 on a navigation or an `auth` message from the page. One new code is minted, and none
     /// again within `Timing.reMintInterval`, so a server that keeps refusing the session cannot start a loop.
-    private mutating func sessionExpired(at now: Date, fromPage: Bool) -> [Effect] {
-        if let lastReMintAt, now.timeIntervalSince(lastReMintAt) < timing.reMintInterval.seconds {
+    private mutating func sessionExpired(at now: WebConversationInstant, fromPage: Bool) -> [Effect] {
+        if let lastReMintAt, lastReMintAt.duration(to: now) < timing.reMintInterval {
             phase = .failed(.sessionExpired)
             waitingSince = nil
             return []
@@ -216,7 +219,7 @@ public struct WebConversationMachine: Equatable, Sendable {
         }
     }
 
-    private mutating func navigated(_ outcome: NavigationOutcome, at now: Date) -> [Effect] {
+    private mutating func navigated(_ outcome: NavigationOutcome, at now: WebConversationInstant) -> [Effect] {
         switch outcome {
         case .committed:
             guard phase == .loading(.redeeming) else { return [] }
@@ -243,7 +246,7 @@ public struct WebConversationMachine: Equatable, Sendable {
     /// `auth` can arrive at any time (a background fetch or a live reload that got 401 or 419); it is ignored while a
     /// new code is being minted or redeemed and while nothing is shown. `error` is acted on only before the page
     /// is ready, because a ready page shows its own errors.
-    private mutating func received(_ message: EmbedPageMessage, at now: Date) -> [Effect] {
+    private mutating func received(_ message: EmbedPageMessage, at now: WebConversationInstant) -> [Effect] {
         switch message {
         case .ready:
             switch phase {
@@ -269,12 +272,5 @@ public struct WebConversationMachine: Equatable, Sendable {
         default:
             return []
         }
-    }
-}
-
-extension Duration {
-    fileprivate var seconds: TimeInterval {
-        let parts = components
-        return TimeInterval(parts.seconds) + TimeInterval(parts.attoseconds) / 1e18
     }
 }

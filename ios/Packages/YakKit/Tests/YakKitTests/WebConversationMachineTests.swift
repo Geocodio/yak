@@ -5,9 +5,9 @@ import Testing
 
 typealias Machine = WebConversationMachine
 
-private let start = Date(timeIntervalSince1970: 1_800_000_000)
+private let start = ContinuousClock.now
 
-private func later(_ seconds: TimeInterval) -> Date { start.addingTimeInterval(seconds) }
+private func later(_ seconds: Double) -> ContinuousClock.Instant { start + .seconds(seconds) }
 
 private let ready = EmbedPageMessage.ready(
     threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 1, title: "t")
