@@ -2,12 +2,17 @@
 
 use App\Http\Middleware\AppEmbedSession;
 use App\Support\AppEmbedRoutes;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 
-beforeEach(fn () => $this->withoutVite());
+beforeEach(function () {
+    $this->withoutVite();
+    // The HTTP kernel copies the web group onto the router when it is built; with telemetry off nothing built it yet.
+    app(Kernel::class);
+});
 
 /**
  * A concrete request path for the route: each placeholder gets a value for which the router still picks this
