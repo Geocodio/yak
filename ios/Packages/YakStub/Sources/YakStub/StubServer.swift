@@ -226,10 +226,17 @@ final class StubServer: Sendable {
         if !online.get(), isAPI { return StubReply(answer: .drop) }
         let host = request.headers["host"] ?? "127.0.0.1"
         let core: @Sendable () -> StubReply = { [self] in coreReply(to: request, baseURL: "http://\(host)") }
-        if isAPI, !features.isEmpty {
+        let isEmbedPage = request.path.hasPrefix("/app/embed/")
+        if isAPI || isEmbedPage, !features.isEmpty {
             let context = StubContext(
                 scenario: featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue,
                 baseURL: "http://\(host)", fixtures: fixtures, threads: threads, core: { core().answer })
+            if isEmbedPage {
+                for feature in features {
+                    if let reply = feature.web(request, context: context) { return reply }
+                }
+                return core()
+            }
             let route = "\(request.method) \(request.path.dropFirst(Scenario.apiPrefix.count))"
             for feature in features {
                 if let reply = feature.answer(route: route, request: request, context: context) { return reply }

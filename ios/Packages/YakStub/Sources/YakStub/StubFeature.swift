@@ -30,6 +30,9 @@ protocol StubFeature: Sendable {
     /// Called for every API request in every scenario, before the core routes. `route` is the method and the path
     /// after the API prefix ("GET threads/abc"). Nil: not this feature's (the feature may still note the request).
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply?
+    /// Called for every request under `/app/embed/`, which is the instance's own web pages rather than the API. `context`
+    /// is the same as for `answer`. Nil: not this feature's.
+    func web(_ request: StubRequest, context: StubContext) -> StubReply?
     /// `/__stub/<name>` and `/__stub/<name>/...` control routes.
     func control(_ request: StubRequest) -> StubReply?
     /// Extra listeners (the preview pages host, the fake terminal bridge). Bounded: throws within 5 seconds.
@@ -54,6 +57,7 @@ extension StubFeature {
     var fixturePairs: [StubFixturePair] { [] }
     var scenarioDataNames: [String] { [] }
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? { nil }
+    func web(_ request: StubRequest, context: StubContext) -> StubReply? { nil }
     func control(_ request: StubRequest) -> StubReply? { nil }
     func start() async throws {}
     func reset() {}
@@ -80,6 +84,7 @@ enum StubFeatures {
         StubFilesControl(),
         StubOverview(),
         StubLayout(),
+        StubEmbed(),
     ]
 }
 
