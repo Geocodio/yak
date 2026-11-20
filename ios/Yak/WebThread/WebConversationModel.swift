@@ -76,6 +76,7 @@ final class WebConversationModel {
     @ObservationIgnored private var redeemRequest: URLRequest?
     @ObservationIgnored private var openedThreadID: String?
     @ObservationIgnored private var lastOutbox: EmbedAppMessage?
+    @ObservationIgnored private var lastProcessEndAt: WebConversationInstant?
     @ObservationIgnored private var hasBegun = false
     @ObservationIgnored private var isPageHidden = false
 
@@ -261,8 +262,21 @@ final class WebConversationModel {
 
     func navigationFailed(_ outcome: WebConversationMachine.NavigationOutcome) { apply(.navigation(outcome)) }
 
-    /// The web view's page process ended; a new session loads the page again.
-    func pageProcessEnded() { restart() }
+    /// The web view's page process ended; a new session loads the page again, unless it also ended within the
+    /// re-mint interval before, which fails with Retry instead of looping.
+    func pageProcessEnded() {
+        let at = now()
+        let previous = lastProcessEndAt
+        lastProcessEndAt = at
+        guard mode == .web else { return }
+        if let previous, previous.duration(to: at) < machine.timing.reMintInterval {
+            mintTask?.cancel()
+            switchTask?.cancel()
+            apply(.pageCrashLoop)
+        } else {
+            restart()
+        }
+    }
 
     func connectivityChanged(isOnline: Bool) {
         guard self.isOnline != isOnline else { return }
@@ -362,8 +376,10 @@ final class WebConversationModel {
         case .network: isOnline ? .serverError(message: String(localized: "web.failed.network")) : .offlineWithoutCopy
         case .server: .serverError(message: String(localized: "web.failed.server"))
         case .timeout: .serverError(message: String(localized: "web.failed.timeout"))
-        case .sessionExpired, .forbidden, .deviceUnauthorized, .mintRejected:
+        case .sessionExpired, .forbidden, .mintRejected:
             .serverError(message: String(localized: "web.failed.session"))
+        case .deviceUnauthorized: .sessionOwns
+        case .pageCrashed: .serverError(message: String(localized: "web.failed.crashed"))
         }
     }
 

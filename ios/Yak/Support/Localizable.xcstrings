@@ -14972,6 +14972,16 @@
         }
       }
     },
+    "web.failed.crashed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation page stopped working. Try again."
+          }
+        }
+      }
+    },
     "web.failed.network" : {
       "localizations" : {
         "en" : {

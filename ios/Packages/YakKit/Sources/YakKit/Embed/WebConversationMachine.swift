@@ -35,6 +35,8 @@ public struct WebConversationMachine: Equatable, Sendable {
         case deviceUnauthorized
         /// The server refused to mint a code.
         case mintRejected
+        /// The page's process ended again within `Timing.reMintInterval` of the last time.
+        case pageCrashed
 
         public var isRetryable: Bool {
             switch self {
@@ -84,6 +86,8 @@ public struct WebConversationMachine: Equatable, Sendable {
         case tick
         /// The person asked to try again.
         case retry
+        /// The web view's process ended a second time within `Timing.reMintInterval`: loading again would loop.
+        case pageCrashLoop
         /// The page switched to another thread by itself (its `open` message). The loaded page stays; the machine
         /// waits for that thread's `ready`. No new code is minted.
         case opened(threadID: String)
@@ -194,6 +198,11 @@ public struct WebConversationMachine: Equatable, Sendable {
                 return startMinting(at: now)
             default: return []
             }
+        case .pageCrashLoop:
+            guard phase != .unsupported else { return [] }
+            phase = .failed(.pageCrashed)
+            waitingSince = nil
+            return []
         case .opened(let newThreadID):
             switch phase {
             case .ready, .slow, .loading(.waitingForReady):

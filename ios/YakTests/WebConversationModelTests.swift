@@ -221,6 +221,35 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         #expect(await harness.waitForRedeems(2))
     }
 
+    @Test func aPageThatKeepsCrashingEndsInAFailureWithRetryInsteadOfLooping() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.model.pageProcessEnded()
+        #expect(await harness.waitForRedeems(2))
+        harness.now = harness.now.advanced(by: .seconds(5))
+        harness.model.pageProcessEnded()
+        #expect(harness.model.phase == .failed(.pageCrashed))
+        #expect(harness.model.loadPresentation == .serverError(message: String(localized: "web.failed.crashed")))
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(harness.paths.count == 2 && harness.page.redeems.count == 2)
+        harness.model.retry()
+        #expect(await harness.waitForRedeems(3))
+    }
+
+    @Test func aCrashLongAfterTheLastOneLoadsThePageAgain() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.model.pageProcessEnded()
+        #expect(await harness.waitForRedeems(2))
+        harness.now = harness.now.advanced(by: .seconds(31))
+        harness.model.pageProcessEnded()
+        #expect(await harness.waitForRedeems(3))
+    }
+
+    @Test func aDeviceThatIsNoLongerAuthorizedLeavesTheScreenToTheSession() {
+        #expect(WebConversationModel.presentation(of: .deviceUnauthorized, isOnline: true) == .sessionOwns)
+    }
+
     @Test func theOutboxReachesThePageOnlyWhenItChangesAndIsReady() async {
         let harness = Harness()
         let item = harness.outboxItem("Write tests")
