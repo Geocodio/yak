@@ -47,6 +47,8 @@ class AppEmbedSession
 
         abort_unless($this->isAllowed($request), 404);
 
+        // The default guard is restored before the session is saved, so a database session row of an embed session
+        // has a null `user_id`. The user is found through the `app-embed` login key inside the session payload.
         $previousGuard = Auth::getDefaultDriver();
         Auth::shouldUse(self::GUARD);
 
