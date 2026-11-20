@@ -12,11 +12,15 @@ export type ThreadAgent = {
     depth: number;
     agentType: string | null;
     description: string | null;
+    /** The task Claude gave the agent. */
+    prompt: string | null;
     workflowName: string | null;
     model: string | null;
     isBackground: boolean;
     status: ThreadAgentStatus;
     lastTool: string | null;
+    /** The file, command, pattern or url of the agent's latest tool call. */
+    lastToolTarget: string | null;
     summary: string | null;
     totalTokens: number;
     toolUses: number;

@@ -7,6 +7,7 @@ import type { MediaItem } from '@/types/tasks';
 import type { EarlierWalkthrough, ThreadPageData, LocalTurnsData, SharedFile, ThreadMessage, ThreadMilestone, ThreadNotice as ThreadNoticeData, ThreadRunSummary, ThreadWalkthrough } from '@/types/threads';
 import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
+import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
@@ -34,6 +35,10 @@ import { placeWalkthroughs } from './placeWalkthroughs';
 import { SharedFilesCard, SharedFileUpdate } from './SharedFilesCard';
 import { placeFileUpdates, placeSharedFiles } from '@/components/threads/files/sharedFiles';
 import type { ConversationItem } from './conversationItem';
+import { placeContinuedRows } from './placeContinuedRows';
+import { useAgents } from '@/threads/panels/agents/AgentsContext';
+import { continuedByRun } from '@/threads/panels/agents/agentsState';
+import type { ThreadAgent } from '@/types/thread-agents';
 
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
@@ -57,6 +62,10 @@ function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges
                 onMakeContextOnly={canAct ? () => send('patch', '', { role: 'context' }) : undefined}
             />
         );
+    }
+
+    if (item.kind === 'agent' && item.toolUseId !== undefined) {
+        return <AgentItemCard toolUseId={item.toolUseId} fallbackTitle={item.text ?? 'Agent'} />;
     }
 
     if (item.kind === 'tools') {
@@ -86,14 +95,16 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
-    const { entries, lastSequence, connection, link } = useConversation(threadId, messages);
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+    const { entries, lastSequence, connection, link, agents: liveAgents } = useConversation(threadId, messages);
+    const agents = useAgents();
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
     const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
+    useEffect(() => onAgentsChange?.(liveAgents), [liveAgents, onAgentsChange]);
     // The person's own message always comes into view, also after they scrolled up.
     useEffect(() => {
         if (unsent.length > 0) {
@@ -129,6 +140,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const renderUpdate = ({ file, version }: { file: SharedFile; version: SharedFile['versions'][number] }) => (
         <SharedFileUpdate key={`${file.id}-v${version.version}`} file={file} version={version} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
     );
+    const continuedBefore = placeContinuedRows(entries, runs, continuedByRun(agents?.rows ?? []));
     const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs);
     const retryNumbers = new Map<string, number>();
     runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
@@ -173,6 +185,9 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                         return (
                             <Fragment key={entry.item.key}>
                                 {before}
+                                {(continuedBefore.get(index) ?? []).map((agent) => (
+                                    <AgentContinuedRow key={`agent-continued-${agent.id}`} agent={agent} />
+                                ))}
                                 <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
                                 {(footersAfter.get(index) ?? []).map((run) => (
                                     <RunFooter key={`run-footer-${run.runId}`} modelLabels={modelLabels} summary={run} retryNumber={retryNumbers.get(run.runId) ?? null} milestones={milestones.filter((milestone) => milestone.runId === run.runId)} onOpenLog={() => onOpenRunLog?.(run.runId)} />

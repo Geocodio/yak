@@ -17,6 +17,7 @@ import { destroy as destroyQueued, update as updateQueued } from '@/routes/threa
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice, ThreadRequest } from '@/types/threads';
 import { channelHint, composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
+import { AgentsBar } from './AgentsBar';
 import { ContextRing } from './ContextRing';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
@@ -154,6 +155,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
             <div className="mx-auto max-w-[820px]">
                 <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent max-sm:flex max-sm:flex-wrap max-sm:items-center" onFocus={() => setHasToolsOpened(true)} {...draft.dropzoneProps}>
                     <AttachmentDropOverlay draft={draft} />
+                    <AgentsBar />
                     <QueuedMessages
                         messages={queued}
                         updateUrl={(message) => updateQueued.url({ thread: thread.id, message: message.id })}

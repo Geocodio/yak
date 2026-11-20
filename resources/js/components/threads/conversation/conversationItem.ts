@@ -2,7 +2,7 @@ import type { StepView } from '@/components/activity/types';
 import type { ChildCardData, RepositoryCardData } from '@/types/thread-events';
 
 export type ConversationItem = {
-    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'repository';
+    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'repository' | 'agent';
     key: string;
     sequence: number;
     role: 'assistant';
@@ -24,4 +24,6 @@ export type ConversationItem = {
     removed?: number;
     child?: ChildCardData;
     repository?: RepositoryCardData;
+    /** The tool call of an `agent` item; the agent started by it carries the same id. */
+    toolUseId?: string;
 };
