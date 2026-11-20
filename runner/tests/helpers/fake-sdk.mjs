@@ -21,11 +21,11 @@ export const start = (extra = {}) => ({
 export const fakeTool = (name, description, shape, handler) => ({ name, description, schema: z.object(shape), handler });
 export const fakeCreateSdkMcpServer = ({ name, tools }) => ({ type: 'sdk', name, instance: { tools } });
 
-export function createHarness({ messages = [], throwAfter = null, environment = { GH_TOKEN: SECRET }, yakTools, runnerOptions = {} } = {}) {
+export function createHarness({ messages = [], throwAfter = null, stopTask = async () => {}, environment = { GH_TOKEN: SECRET }, yakTools, runnerOptions = {} } = {}) {
   const input = new PassThrough();
   const written = [];
   const output = { write: (chunk) => written.push(chunk) };
-  const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0 };
+  const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0, stopTask: [] };
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
 
@@ -40,6 +40,7 @@ export function createHarness({ messages = [], throwAfter = null, environment = 
     generator.setModel = async (model) => { calls.setModel.push(model); };
     generator.applyFlagSettings = async (settings) => { calls.applyFlagSettings.push(settings); };
     generator.interrupt = async () => { calls.interrupts += 1; };
+    generator.stopTask = async (taskId) => { calls.stopTask.push(taskId); return stopTask(taskId); };
     return generator;
   };
 
