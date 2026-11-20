@@ -4,11 +4,13 @@ namespace App\Services\Threads;
 
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadAgentStatus;
 use App\Enums\ThreadStatus;
 use App\Enums\TurnState;
 use App\Models\CoOwnerRequest;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -84,7 +86,7 @@ final class ThreadRequestStatus
         return match (true) {
             $head?->status === TaskStatus::AwaitingClarification, ! $thread->hasRepository() => 'needs_you',
             in_array($head?->status, self::STOPPED_TASK_STATUSES, true), ($latestRun?->turn_state === TurnState::StoppedByGuard && ThreadTurns::activeTurn($thread) === null) => 'stopped',
-            in_array($head?->status, self::WORKING_TASK_STATUSES, true), ThreadTurns::activeTurn($thread) !== null => 'working',
+            in_array($head?->status, self::WORKING_TASK_STATUSES, true), ThreadTurns::activeTurn($thread) !== null, ThreadAgent::hasRunning($thread->id) => 'working',
             default => 'done',
         };
     }
@@ -125,7 +127,11 @@ final class ThreadRequestStatus
                     ->whereNot($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false)))),
             'working' => fn (Builder $threads) => $threads->where(fn (Builder $any) => $any
                 ->where($headStatusIn(self::WORKING_TASK_STATUSES))
-                ->orWhere($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false))),
+                ->orWhere($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false))
+                // Agents run on after Claude's reply, so the thread keeps working.
+                ->orWhereExists(fn ($agent) => $agent->from('thread_agents')->selectRaw('1')
+                    ->whereColumn('thread_agents.thread_id', 'threads.id')
+                    ->where('thread_agents.status', ThreadAgentStatus::Running->value))),
         ];
     }
 

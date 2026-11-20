@@ -8,7 +8,9 @@ use App\DataTransferObjects\TurnTrackerChange;
 use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
 use App\Enums\RunnerState;
+use App\Enums\TaskRunKind;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\TurnMessageKind;
@@ -22,6 +24,7 @@ use App\Events\TurnStarted;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
 use App\Services\ClaudeAccounts\AccountFailure;
@@ -125,6 +128,7 @@ class ThreadDriver
             ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
 
         $this->isolated(fn () => $this->recovery->recoverDue());
+        $this->isolated(fn () => app(ThreadAgents::class)->failOrphans());
         $this->isolated(function (): void {
             app(ThreadBlockClearer::class)->clearResolved();
         });
@@ -262,6 +266,9 @@ class ThreadDriver
             return;
         }
 
+        app(ThreadAgents::class)->apply($thread, $run, $line, $events);
+        $run ??= $this->openAgentFollowUp($thread, $line, $events);
+
         if ($run !== null && $run->task !== null) {
             ($this->handlers[$run->id] ??= new StreamEventHandler($run->task))->handle($line);
         }
@@ -285,6 +292,11 @@ class ThreadDriver
             $this->recoverLostRunner($thread, $entry, $line, $events);
         }
 
+        // A runner that is gone takes its agents with it and will never report them finished.
+        if (in_array($event, ['broker_started', 'restarted'], true) || ($event === 'no_runner' && $entry->generation >= $thread->runner_generation)) {
+            app(ThreadAgents::class)->failRunning($thread, $events);
+        }
+
         if ($event === 'line_dropped') {
             $task = ThreadTurns::activeTurn($thread)?->task;
 
@@ -305,6 +317,7 @@ class ThreadDriver
 
             $thread->forceFill(['runner_state' => RunnerState::None]);
             $this->commands->revokePlaceholder($thread);
+            app(ThreadAgents::class)->failRunning($thread, $events);
 
             if (! $endedForGood) {
                 $this->recovery->recover($thread, $events);
@@ -417,6 +430,61 @@ class ThreadDriver
     }
 
     /**
+     * Claude takes a turn by itself when an agent or workflow finishes: the first line of its reply, with no
+     * turn active and an agent waiting to be answered, opens a run of kind AgentFollowUp. Nobody wrote a prompt
+     * for it, so it has no message; it ends like any other turn, when its result and the grace window have passed.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function openAgentFollowUp(Thread $thread, array $line, array &$events): ?TaskRun
+    {
+        $type = $line['type'] ?? null;
+        $isMain = ($line['parent_tool_use_id'] ?? null) === null && ($line['agent_id'] ?? null) === null;
+        $startsReply = $isMain && ($type === 'assistant' || ($type === 'system' && ($line['subtype'] ?? null) === 'init'));
+
+        if (! $startsReply) {
+            return null;
+        }
+
+        $agents = app(ThreadAgents::class)->unclaimed($thread);
+        $origin = $agents->isEmpty() ? null : (TaskRun::query()->find($agents->first()->task_run_id) ?? TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first());
+
+        if ($origin === null) {
+            return null;
+        }
+
+        $run = TaskRun::query()->create([
+            'yak_task_id' => $origin->yak_task_id,
+            'kind' => TaskRunKind::AgentFollowUp,
+            'repo' => $origin->repo,
+            'source' => $origin->source,
+            'mode' => $origin->mode,
+            'thread_id' => $thread->id,
+            'claude_account_id' => $thread->claude_account_id,
+            'driver_user_id' => $origin->driver_user_id,
+            'model' => $thread->model,
+            'effort' => $thread->effort,
+            'turn_state' => TurnState::Running,
+            'started_at' => now(),
+            'agent_started_at' => now(),
+            'account_slot_held_at' => now(),
+        ]);
+
+        ThreadAgent::query()->whereKey($agents->modelKeys())->update(['follow_up_run_id' => $run->id]);
+
+        $thread->forceFill([
+            'runner_state' => RunnerState::Busy,
+            'lock_holder' => ThreadLockHolder::Sandbox,
+            'lock_turn_id' => (string) $run->id,
+            'lock_acquired_at' => now(),
+        ]);
+        $events[] = new TurnStarted($run);
+
+        return $run;
+    }
+
+    /**
      * Feeds one runner line to the turn's tracker and applies what it reports.
      *
      * @param  array<string, mixed>  $line
@@ -428,7 +496,7 @@ class ThreadDriver
         $type = $line['type'] ?? null;
 
         // A sub-agent's messages belong to its own run of steps and do not count towards the turn's.
-        if ($type === 'assistant' && ($line['parent_tool_use_id'] ?? null) === null) {
+        if ($type === 'assistant' && ($line['parent_tool_use_id'] ?? null) === null && ($line['agent_id'] ?? null) === null) {
             $run->setAttribute('assistant_turns', (int) $run->getAttribute('assistant_turns') + 1);
         }
 
@@ -463,7 +531,7 @@ class ThreadDriver
         $usage = $line['message']['usage'] ?? null;
         $sessionId = (string) ($line['session_id'] ?? $run->getAttribute('session_id'));
 
-        if (! is_array($usage) || ($line['parent_tool_use_id'] ?? null) !== null || $sessionId === '') {
+        if (! is_array($usage) || ($line['parent_tool_use_id'] ?? null) !== null || ($line['agent_id'] ?? null) !== null || $sessionId === '') {
             return;
         }
 

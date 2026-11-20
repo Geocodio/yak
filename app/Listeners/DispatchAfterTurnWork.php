@@ -16,12 +16,14 @@ use App\Jobs\AfterTurn\FinishThreadTurnJob;
 use App\Models\TaskRun;
 use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Threads\QueuedMessageRunner;
+use App\Services\Threads\ThreadAgents;
 
 /**
  * Queues the after-turn job for a turn that ended. A turn the runaway guard
  * stopped or a person interrupted is skipped, since nothing is pushed for it,
  * and so is a turn whose work was already queued, so a repeated event does
- * the work once. Review and setup turns have no finisher.
+ * the work once. Review and setup turns have no finisher. Claude's reply to a finished agent waits for
+ * the last agent: while others still run, nothing is dispatched for it.
  */
 class DispatchAfterTurnWork
 {
@@ -33,12 +35,20 @@ class DispatchAfterTurnWork
         'retry' => FinishRetryTurnJob::class,
         'research' => FinishResearchTurnJob::class,
         'repository_event' => FinishRepositoryTurnJob::class,
+        'agent_follow_up' => FinishFollowUpTurnJob::class,
     ];
 
     public function handle(TurnCompleted|TurnFailed $event): void
     {
         $run = $event->run;
         $finisher = self::FINISHERS[$run->kind->value] ?? null;
+
+        // Claude's reply to one finished agent while others still run is not announced; the last reply is.
+        if (ThreadAgents::isQuietTurn($run)) {
+            app(QueuedMessageRunner::class)->afterTurn($run);
+
+            return;
+        }
 
         if ($finisher === FinishFollowUpTurnJob::class && $run->task?->mode === TaskMode::Research) {
             $finisher = FinishResearchFollowUpTurnJob::class;

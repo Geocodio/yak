@@ -44,7 +44,11 @@ class TurnTracker
 
     private bool $runnerExited = false;
 
-    public function __construct(private readonly int $graceSeconds) {}
+    /**
+     * With `$ignoresAgentTasks` the agents and workflows Claude runs in the background do not hold the turn
+     * open: they are tracked on their own, and a reply ends when its own work is over.
+     */
+    public function __construct(private readonly int $graceSeconds, private readonly bool $ignoresAgentTasks = false) {}
 
     public function track(string $uuid): void
     {
@@ -90,7 +94,7 @@ class TurnTracker
                 $moved = $this->advance((string) ($line['command_uuid'] ?? ''), TurnMessageState::tryFrom((string) ($line['state'] ?? '')));
                 break;
             case $type === 'system' && ($line['subtype'] ?? null) === 'background_tasks_changed':
-                $this->backgroundTaskCount = count($line['tasks'] ?? []);
+                $this->backgroundTaskCount = count(array_filter((array) ($line['tasks'] ?? []), fn (mixed $task): bool => ! $this->ignoresAgentTasks || ! in_array($task['task_type'] ?? null, ['local_agent', 'local_workflow'], true)));
                 $this->lastActivityAt = $at;
                 break;
             case $type === 'assistant':
@@ -178,6 +182,7 @@ class TurnTracker
     {
         return [
             'grace_seconds' => $this->graceSeconds,
+            'ignores_agent_tasks' => $this->ignoresAgentTasks,
             'uuids' => array_map(fn (TurnMessageState $state) => $state->value, $this->uuids),
             'background_task_count' => $this->backgroundTaskCount,
             'open_tool_uses' => array_keys($this->openToolUses),
@@ -203,7 +208,7 @@ class TurnTracker
      */
     public static function fromState(array $state): self
     {
-        $tracker = new self((int) $state['grace_seconds']);
+        $tracker = new self((int) $state['grace_seconds'], (bool) ($state['ignores_agent_tasks'] ?? false));
         $tracker->uuids = array_map(fn (string $value) => TurnMessageState::from($value), $state['uuids'] ?? []);
         $tracker->backgroundTaskCount = (int) ($state['background_task_count'] ?? 0);
         $tracker->openToolUses = array_fill_keys($state['open_tool_uses'] ?? [], true);
