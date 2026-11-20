@@ -51,6 +51,7 @@ class SlashCommands
         Thread::query()->whereKey($thread->id)->update(self::asJson($attributes));
         $thread->forceFill($attributes)->syncOriginal();
         Repository::query()->where('slug', $thread->repo)->update(self::asJson($attributes));
+        ThreadShowChanged::publish($thread->id);
     }
 
     /**
