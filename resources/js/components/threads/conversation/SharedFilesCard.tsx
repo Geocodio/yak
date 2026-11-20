@@ -1,9 +1,12 @@
+import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { CopyLinkButton, OpenFileButton, ShareButton, ShareDialog, TeamBadge } from '@/components/threads/files/SharedFileActions';
 import { SharedFileThumb } from '@/components/threads/files/SharedFileThumb';
 import { kindLabel } from '@/components/threads/files/sharedFiles';
 import { formatBytes } from '@/lib/format';
 import type { SharedFile } from '@/types/threads';
+
+const formatTime = (iso: string): string => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 function FileRow({ file, threadId, canShare, isTeamThread }: { file: SharedFile; threadId: string; canShare: boolean; isTeamThread: boolean }) {
     const [isSharing, setIsSharing] = useState(false);
@@ -17,6 +20,7 @@ function FileRow({ file, threadId, canShare, isTeamThread }: { file: SharedFile;
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
                         <span>{kindLabel(file)}</span>
                         <span>{formatBytes(file.sizeBytes)}</span>
+                        {file.updatedAt !== null && <span data-testid="shared-file-updated">Updated {formatTime(file.updatedAt)}</span>}
                         {file.sharedWithTeam && <TeamBadge />}
                     </div>
                 </div>
@@ -48,6 +52,20 @@ export function SharedFilesCard({ files, threadId, canShare, isTeamThread }: { f
                     ))}
                 </div>
             </div>
+        </div>
+    );
+}
+
+/** Claude saved a shared file again under the same name: a small row saying so, then the card with the same link. */
+export function SharedFileUpdate({ file, version, threadId, canShare, isTeamThread }: { file: SharedFile; version: SharedFile['versions'][number]; threadId: string; canShare: boolean; isTeamThread: boolean }) {
+    return (
+        <div className="flex flex-col gap-2" data-testid="shared-file-update" data-file-name={file.name} data-version={version.version}>
+            <div className="ml-9 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+                <RefreshCw size={14} aria-hidden />
+                <span>Updated <span className="font-medium text-body">{file.name}</span></span>
+                <span className="rounded-pill bg-panel-2 px-2 py-px text-[12px] text-body">Version {version.version}</span>
+            </div>
+            <SharedFilesCard files={[file]} threadId={threadId} canShare={canShare} isTeamThread={isTeamThread} />
         </div>
     );
 }

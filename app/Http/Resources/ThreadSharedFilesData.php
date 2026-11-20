@@ -25,6 +25,17 @@ final class ThreadSharedFilesData
         $shared = [];
 
         foreach ($files as $file) {
+            $versions = [];
+
+            foreach ($file->versions as $version) {
+                $versions[] = [
+                    'version' => (int) $version->version,
+                    'anchorSequence' => $version->anchor_sequence === null ? null : (int) $version->anchor_sequence,
+                    'createdAt' => $version->created_at?->toIso8601String() ?? '',
+                    'sizeBytes' => (int) $version->size_bytes,
+                ];
+            }
+
             $shared[] = [
                 'id' => (string) $file->public_id,
                 'name' => $file->filename,
@@ -35,12 +46,7 @@ final class ThreadSharedFilesData
                 'anchorSequence' => $file->anchor_sequence === null ? null : (int) $file->anchor_sequence,
                 'createdAt' => $file->created_at?->toIso8601String() ?? '',
                 'updatedAt' => $file->versions->last()?->created_at?->toIso8601String(),
-                'versions' => $file->versions->map(fn ($version): array => [
-                    'version' => (int) $version->version,
-                    'anchorSequence' => $version->anchor_sequence === null ? null : (int) $version->anchor_sequence,
-                    'createdAt' => $version->created_at?->toIso8601String() ?? '',
-                    'sizeBytes' => (int) $version->size_bytes,
-                ])->all(),
+                'versions' => $versions,
             ];
         }
 

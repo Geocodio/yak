@@ -1,12 +1,12 @@
 <?php
 
+use App\Enums\ThreadVisibility;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadComposerData;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Enums\ThreadVisibility;
 use App\Services\Threads\RunawayGuard;
 use Carbon\CarbonImmutable;
 

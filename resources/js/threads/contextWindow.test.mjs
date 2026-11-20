@@ -31,3 +31,12 @@ test('picks the window of the selected model and falls back to the default', () 
     assert.equal(windowFor(windows, 'unknown'), 200_000);
     assert.equal(windowFor(windows, null), 200_000);
 });
+
+import { stepMeter } from './contextWindow.ts';
+
+test('stepMeter reads a turn with no limit and one near its limit', () => {
+    assert.equal(stepMeter(null), null);
+    assert.deepEqual(stepMeter({ steps: 142, limit: null, canAddSteps: false, stepsToAdd: 300 }), { steps: 142, limit: null, percent: null, label: '142 steps', tone: 'normal' });
+    assert.equal(stepMeter({ steps: 239, limit: 300, canAddSteps: true, stepsToAdd: 300 }).tone, 'normal');
+    assert.deepEqual(stepMeter({ steps: 262, limit: 300, canAddSteps: true, stepsToAdd: 300 }), { steps: 262, limit: 300, percent: 87, label: '262 / 300 steps', tone: 'near' });
+});
