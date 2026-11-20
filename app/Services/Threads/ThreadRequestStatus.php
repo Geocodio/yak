@@ -129,9 +129,9 @@ final class ThreadRequestStatus
                 ->where($headStatusIn(self::WORKING_TASK_STATUSES))
                 ->orWhere($hasTurnIn([...ThreadTurns::WAITING_STATES, TurnState::Running], false))
                 // Agents run on after Claude's reply, so the thread keeps working.
-                ->orWhereExists(fn ($agent) => $agent->from('thread_agents')->selectRaw('1')
+                ->when(ThreadAgent::isEnabled(), fn (Builder $query) => $query->orWhereExists(fn ($agent) => $agent->from('thread_agents')->selectRaw('1')
                     ->whereColumn('thread_agents.thread_id', 'threads.id')
-                    ->where('thread_agents.status', ThreadAgentStatus::Running->value))),
+                    ->where('thread_agents.status', ThreadAgentStatus::Running->value)))),
         ];
     }
 

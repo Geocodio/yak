@@ -84,7 +84,7 @@ class ThreadList
             ->get(['id', 'thread_id', 'turn_state', 'finished_at', 'updated_at'])
             ->keyBy('id');
         // Agents run on after Claude's reply: a thread with one still working shows as running.
-        $withAgents = ThreadAgent::query()->running()->whereIn('thread_id', $all->pluck('id')->all())->distinct()->pluck('thread_id')->flip();
+        $withAgents = ! ThreadAgent::isEnabled() ? collect() : ThreadAgent::query()->running()->whereIn('thread_id', $all->pluck('id')->all())->distinct()->pluck('thread_id')->flip();
         $all->each(fn (Thread $thread) => $thread->setAttribute('has_running_agents', $withAgents->has($thread->id)));
         $seen = ThreadView::query()
             ->where('user_id', $user->id)

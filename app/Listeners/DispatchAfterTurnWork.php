@@ -45,9 +45,16 @@ class DispatchAfterTurnWork
 
         // Claude's reply to one finished agent while others still run is not announced; the last reply is.
         if (ThreadAgents::isQuietTurn($run)) {
+            // Remembered so the last agent's end can announce it if no later reply comes.
+            TaskRun::query()->whereKey($run->id)->update(['quiet_unannounced_at' => now()]);
             app(QueuedMessageRunner::class)->afterTurn($run);
 
             return;
+        }
+
+        // This turn speaks for the quiet ones before it.
+        if ($run->thread_id !== null) {
+            TaskRun::query()->where('thread_id', $run->thread_id)->where('id', '<', $run->id)->whereNotNull('quiet_unannounced_at')->update(['quiet_unannounced_at' => null]);
         }
 
         if ($finisher === FinishFollowUpTurnJob::class && $run->task?->mode === TaskMode::Research) {

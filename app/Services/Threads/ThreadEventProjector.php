@@ -16,15 +16,16 @@ class ThreadEventProjector
     /**
      * @param  array<string, mixed>  $line
      * @param  bool  $hasOpenBlock  whether a streaming block is open when the line arrives
+     * @param  bool  $tagsAgents  whether a line an agent wrote is tagged with its agentId
      * @return list<array{type: string, data: array<string, mixed>}>
      */
-    public function project(array $line, bool $hasOpenBlock = false): array
+    public function project(array $line, bool $hasOpenBlock = false, bool $tagsAgents = true): array
     {
         $entries = $this->projectLine($line, $hasOpenBlock);
         $agentId = $line['agent_id'] ?? $line['parent_tool_use_id'] ?? null;
 
         // A line an agent wrote is tagged with the agent, so Claude's own transcript can leave it out.
-        if (! is_string($agentId) || $agentId === '' || ! in_array($line['type'] ?? null, ['assistant', 'user'], true)) {
+        if (! $tagsAgents || ! is_string($agentId) || $agentId === '' || ! in_array($line['type'] ?? null, ['assistant', 'user'], true)) {
             return $entries;
         }
 

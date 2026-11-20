@@ -27,9 +27,11 @@ use App\Models\Thread;
 use App\Models\ThreadAgent;
 use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
+use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\AccountFailure;
 use App\Services\ClaudeAccounts\AccountFailureKind;
 use App\Services\TaskLogger;
+use App\Services\Teleport\ThreadOwnership;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Support\SecretRedactor;
 use Carbon\CarbonImmutable;
@@ -447,12 +449,21 @@ class ThreadDriver
             return null;
         }
 
+        if (! ThreadAgent::isEnabled()) {
+            return null;
+        }
+
         $agents = app(ThreadAgents::class)->unclaimed($thread);
         $origin = $agents->isEmpty() ? null : (TaskRun::query()->find($agents->first()->task_run_id) ?? TaskRun::query()->where('thread_id', $thread->id)->latest('id')->first());
 
         if ($origin === null) {
             return null;
         }
+
+        // Claude is already replying, so this turn cannot wait for the checks that start one. A thread that is
+        // blocked or no longer Yak's records the reply as failed and says nothing: the person has already been told why.
+        $isRefused = $thread->blocked_reason !== null || ! app(ThreadOwnership::class)->yakMayRunTurns($thread) || ! $thread->isOpen();
+        $now = now();
 
         $run = TaskRun::query()->create([
             'yak_task_id' => $origin->yak_task_id,
@@ -465,20 +476,27 @@ class ThreadDriver
             'driver_user_id' => $origin->driver_user_id,
             'model' => $thread->model,
             'effort' => $thread->effort,
-            'turn_state' => TurnState::Running,
-            'started_at' => now(),
-            'agent_started_at' => now(),
-            'account_slot_held_at' => now(),
-        ]);
+            'turn_state' => $isRefused ? TurnState::Failed : TurnState::Running,
+            'started_at' => $now,
+            'agent_started_at' => $now,
+        ] + ($isRefused ? ['finished_at' => $now, 'completion_event_emitted_at' => $now, 'completion_dispatched_at' => $now] : []));
 
         ThreadAgent::query()->whereKey($agents->modelKeys())->update(['follow_up_run_id' => $run->id]);
 
-        $thread->forceFill([
-            'runner_state' => RunnerState::Busy,
+        if ($isRefused) {
+            return null;
+        }
+
+        // The slot is taken through the account's own lock. A full account does not turn a reply that is already running into a waiting one.
+        if ($run->claudeAccount !== null && ! app(AccountConcurrency::class)->acquire($run->claudeAccount, $run)) {
+            $run->forceFill(['turn_state' => TurnState::Running, 'account_slot_held_at' => $now])->save();
+        }
+
+        $thread->forceFill(['runner_state' => RunnerState::Busy] + ($thread->lock_holder === ThreadLockHolder::None ? [
             'lock_holder' => ThreadLockHolder::Sandbox,
             'lock_turn_id' => (string) $run->id,
-            'lock_acquired_at' => now(),
-        ]);
+            'lock_acquired_at' => $now,
+        ] : []));
         $events[] = new TurnStarted($run);
 
         return $run;
