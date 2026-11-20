@@ -127,7 +127,7 @@ struct PullRequestCardSheet: View {
                 }
             }
         }
-        .refreshable { await model.reload() }
+        .refreshableWithHaptic { await model.reload() }
     }
 
     /// The open pull requests in merge order with the system's reorder handles.

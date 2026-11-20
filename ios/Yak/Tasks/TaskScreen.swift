@@ -84,7 +84,7 @@ struct TaskScreen: View {
                 .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.medium)
                 .frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
             }
-            .refreshable { await model.retry() }
+            .refreshableWithHaptic { await model.retry() }
         } else {
             switch model.load {
             case .failed(.notFound):

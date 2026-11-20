@@ -6,7 +6,6 @@ struct ModelPicker: View {
     let composer: ComposerModel
     @Environment(\.dismiss) private var dismiss
     @State private var expanded: Set<String> = []
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var selected: String? {
         let value = composer.effectiveModel
@@ -33,7 +32,7 @@ struct ModelPicker: View {
                 }
             }
         }
-        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+        .shortSheetDetents()
         .presentationBackground(Color.yakBackground)
         .accessibilityIdentifier("model.picker")
     }
@@ -44,7 +43,7 @@ struct ModelPicker: View {
                 ForEach(ModelChoices.rows(families: composer.modelFamilies, selected: selected, expanded: expanded)) {
                     row in
                     ModelRow(row: row, isExpanded: expanded.contains(familyName(of: row))) {
-                        withAnimation(.smooth(duration: 0.25)) { toggle(familyName(of: row)) }
+                        withAnimation(Motion.content) { toggle(familyName(of: row)) }
                     } pick: {
                         composer.selectModel(row.id)
                     }

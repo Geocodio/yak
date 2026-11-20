@@ -79,7 +79,7 @@ struct ObservationsScreen: View {
             }
         }
         .listStyle(.plain)
-        .refreshable { await model.reload() }
+        .refreshableWithHaptic { await model.reload() }
     }
 
     @ViewBuilder private func rowView(_ row: ObservationRow) -> some View {

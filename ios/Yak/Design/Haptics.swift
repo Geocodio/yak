@@ -58,3 +58,13 @@ extension View {
         sensoryFeedback(haptic.feedback, trigger: trigger, condition: condition)
     }
 }
+
+extension View {
+    /// Pull to refresh that ticks when the refresh has finished.
+    func refreshableWithHaptic(_ action: @escaping @Sendable () async -> Void) -> some View {
+        refreshable {
+            await action()
+            Haptic.refreshed.play()
+        }
+    }
+}
