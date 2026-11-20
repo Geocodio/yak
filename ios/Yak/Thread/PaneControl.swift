@@ -203,7 +203,7 @@ private struct PaneRowButton: View {
             .contentShape(.rect)
             .hoverEffect(.highlight)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .secondPaneContextMenu(for: descriptor.id)
         .accessibilityLabel(Text(descriptor.name))
         .accessibilityValue(valueText)

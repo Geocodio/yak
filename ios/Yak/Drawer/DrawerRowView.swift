@@ -10,6 +10,8 @@ struct DrawerRowView: View {
     let toggle: () -> Void
     /// True while an action runs on this sub-thread.
     var isRunning = false
+    /// True for the thread the window shows.
+    var isSelected = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var indicatorSize = 22.0
@@ -56,7 +58,7 @@ struct DrawerRowView: View {
                 .frame(minHeight: isLarge ? 44 : Design.Size.row)
                 .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowButtonStyle(isSelected: isSelected))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityIdentifier("drawer.row.\(row.id)")
@@ -67,7 +69,7 @@ struct DrawerRowView: View {
                         .rotationEffect(.degrees(row.isExpanded ? 90 : 0))
                         .frame(width: 44, height: 44).contentShape(.rect)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .padding(.trailing, 8)
                 .accessibilityLabel(row.isExpanded ? "drawer.hideChildren" : "drawer.showChildren")
                 .accessibilityIdentifier("drawer.toggle.\(row.id)")
