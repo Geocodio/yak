@@ -10,6 +10,7 @@ use Carbon\CarbonInterface;
  * Decides whether a running turn has gone on too long. A turn has no budget;
  * it is bounded by its wall-clock time and, when Yak started it on its own
  * (a Sentry alert, a flaky test, a CI failure, a preview repair), by its assistant turn count.
+ * A one-shot run outside a thread (setup, research, a review) keeps the turn limit.
  * A turn a person started or sent a message into has no turn limit.
  */
 class RunawayGuard
@@ -39,6 +40,10 @@ class RunawayGuard
 
     public static function hasTurnLimit(TaskRun $run): bool
     {
+        if ($run->thread_id === null) {
+            return true;
+        }
+
         return $run->driver_user_id === null && in_array($run->source, self::SELF_STARTED_SOURCES, true);
     }
 

@@ -97,7 +97,8 @@
             }
         ],
         "nextAttachmentNumber": 1,
-        "state": "idle"
+        "state": "idle",
+        "turn": null
     },
     "diffTotals": {
         "additions": 12,
