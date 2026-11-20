@@ -218,7 +218,10 @@ import Testing
         let other = StubRequest(method: "GET", path: "/app/embed/other")
         #expect(feature.web(other, context: try context("embed-basic")) == nil)
         #expect(feature.coreScenario(for: "embed-slow") == "paired")
-        #expect(feature.scenarios == ["embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported"])
+        #expect(
+            feature.scenarios == [
+                "embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed",
+            ])
     }
 
     @Test func theEmbedFeatureIsRegistered() {
