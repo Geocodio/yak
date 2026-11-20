@@ -18,6 +18,36 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     func setHidden(_ isHidden: Bool) { self.isHidden = isHidden }
 }
 
+/// A sleep the test releases by hand: no real time passes, and a cancelled sleep ends at once.
+private actor SleepGate {
+    private var waiters: [Int: (duration: Duration, continuation: CheckedContinuation<Void, any Error>)] = [:]
+    private var next = 0
+
+    func sleep(_ duration: Duration) async throws {
+        let id = next
+        next += 1
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { waiters[id] = (duration, $0) }
+        } onCancel: {
+            Task { await self.cancel(id) }
+        }
+    }
+
+    private func cancel(_ id: Int) {
+        waiters.removeValue(forKey: id)?.continuation.resume(throwing: CancellationError())
+    }
+
+    func isWaiting(for duration: Duration) -> Bool { waiters.values.contains { $0.duration == duration } }
+
+    /// Ends every sleep of `duration`, as if that long had passed.
+    func release(_ duration: Duration) {
+        for (id, waiter) in waiters where waiter.duration == duration {
+            waiters.removeValue(forKey: id)
+            waiter.continuation.resume()
+        }
+    }
+}
+
 @MainActor private final class Harness {
     var paths: [String] = []
     var outcomes: [WebConversationModel.MintOutcome] = []
@@ -33,7 +63,10 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         )
     }
 
-    init(supports: Bool = true, attachesPage: Bool = true) {
+    init(
+        supports: Bool = true, attachesPage: Bool = true,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { _ in try await Task.sleep(for: .seconds(3600)) }
+    ) {
         var box: Harness?
         model = WebConversationModel(
             instanceURL: instanceURL, allowsLoopbackHTTP: false,
@@ -42,7 +75,7 @@ private let instanceURL = URL(string: "https://yak.example.com")!
                 harness.paths.append(path)
                 return harness.outcomes.isEmpty ? .minted(Self.session()) : harness.outcomes.removeFirst()
             },
-            now: { box?.now ?? ContinuousClock.now }, sleep: { _ in try await Task.sleep(for: .seconds(3600)) })
+            now: { box?.now ?? ContinuousClock.now }, sleep: sleep)
         box = self
         if attachesPage { model.attach(page) }
         model.handleRequest = { [unowned self] in requests.append($0) }
@@ -228,6 +261,52 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         #expect(harness.requests == [.threadChanged(threadID: "a1b2c3d4")])
     }
 
+    @Test func aSwitchThePageDoesNotAnswerWithinTheTimeoutStartsTheSessionOver() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        await harness.open("d0e515ef")
+        harness.model.show(thread: "a1b2c3d4")
+        #expect(harness.page.messages == [.open(threadID: "a1b2c3d4", fragment: nil)])
+        #expect(await TestTimeScale.poll { await gate.isWaiting(for: WebConversationModel.switchTimeout) })
+        await gate.release(WebConversationModel.switchTimeout)
+        #expect(await harness.waitForRedeems(2))
+        #expect(harness.paths == ["/app/embed/threads/d0e515ef", "/app/embed/threads/a1b2c3d4"])
+    }
+
+    @Test func aSwitchThePageAnswersInTimeIsNotStartedOverAndItsTimerIsCancelled() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        await harness.open("d0e515ef")
+        harness.model.show(thread: "a1b2c3d4")
+        harness.model.receive(.threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"))
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        #expect(await TestTimeScale.poll { await !gate.isWaiting(for: WebConversationModel.switchTimeout) })
+        await gate.release(WebConversationModel.switchTimeout)
+        await Task.yield()
+        #expect(harness.page.redeems.count == 1 && harness.paths.count == 1)
+    }
+
+    @Test func aFastSwitchFromAToBAndBackEndsOnAWithoutAMint() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        await harness.open("d0e515ef")
+        harness.model.show(thread: "a1b2c3d4")
+        harness.model.show(thread: "d0e515ef")
+        // The page answers the first ask late, and the app asks for A again.
+        harness.model.receive(.threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"))
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        #expect(
+            harness.page.messages.suffix(2) == [
+                .open(threadID: "a1b2c3d4", fragment: nil), .open(threadID: "d0e515ef", fragment: nil),
+            ])
+        #expect(harness.model.loadPresentation == .loading)
+        harness.model.receive(.threadChanged(threadID: "d0e515ef", previousThreadID: "a1b2c3d4"))
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(harness.model.loadPresentation == .conversation)
+        #expect(harness.paths.count == 1 && harness.page.redeems.count == 1)
+        #expect(harness.requests.isEmpty)
+    }
+
     @Test func aFailedPageStartsOverWhenAnotherThreadIsShown() async {
         let harness = Harness()
         harness.outcomes = [.failed(.network)]
@@ -399,14 +478,10 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     }
 
     @Test func aNoticeShowsAndGoesAwayByItself() async {
-        var release: CheckedContinuation<Void, Error>?
         let model = WebConversationModel(
-            instanceURL: instanceURL, allowsLoopbackHTTP: false, mint: { _ in .failed(.network) },
-            sleep: { _ in try await withCheckedThrowingContinuation { release = $0 } })
+            instanceURL: instanceURL, allowsLoopbackHTTP: false, mint: { _ in .failed(.network) }, sleep: { _ in })
         model.showNotice("The file could not be opened.")
         #expect(model.noticeLine == "The file could not be opened.")
-        #expect(await TestTimeScale.poll { release != nil })
-        release?.resume()
         #expect(await TestTimeScale.poll { model.noticeLine == nil })
     }
 

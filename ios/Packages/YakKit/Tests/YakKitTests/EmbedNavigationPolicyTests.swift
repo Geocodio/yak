@@ -101,7 +101,9 @@ import Testing
             url: "https://yak.example.com:443/app/embed/threads/d0e515ef", method: "GET", isMainFrame: true,
             isUserInitiated: false, expected: .allow),
         // Addresses that are not web pages, a user name in front of the host, and encoded dots.
-        Case(url: "blob:https://yak.example.com/1b2c", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
+        Case(
+            url: "blob:https://yak.example.com/1b2c", method: "GET", isMainFrame: true, isUserInitiated: true,
+            expected: .cancel),
         Case(url: "file:///etc/passwd", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
         Case(url: "yak://thread/d0e515ef", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
         Case(url: "about:blank", method: "GET", isMainFrame: true, isUserInitiated: true, expected: .cancel),
@@ -208,7 +210,9 @@ import Testing
         #expect(QuickLookFile.mustCancel(receivedBytes: QuickLookFile.maximumBytes + 1))
     }
 
-    @Test(arguments: ["a.pdf", "A.PDF", "x.docx", "sheet.xlsx", "n.txt", "log.log", "d.csv", "d.json", "p.png", "p.JPG", "n.md"])
+    @Test(arguments: [
+        "a.pdf", "A.PDF", "x.docx", "sheet.xlsx", "n.txt", "log.log", "d.csv", "d.json", "p.png", "p.JPG", "n.md",
+    ])
     func previewsOnlyAllowListedTypes(name: String) {
         #expect(QuickLookFile.presentation(forFileName: name) == .preview)
     }

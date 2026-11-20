@@ -38,6 +38,7 @@ import XCTest
         try launch(scenario: "embed-basic")
         openThread()
         waitForPage()
+        XCTAssertTrue(app.webViews["thread.web.page"].exists, "the conversation is not a web view")
         XCTAssertTrue(app.textFields["composer.field"].waitForExistence(timeout: Wait.appear))
         let gone = NSPredicate(format: "exists == false")
         for identifier in ["thread.loading", "thread.slow", "thread.error"] {
@@ -108,7 +109,8 @@ import XCTest
         openThread()
         XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.firstLoad))
         XCTAssertTrue(app.textFields["composer.field"].waitForExistence(timeout: Wait.appear))
-        XCTAssertFalse(app.otherElements["thread.web"].exists)
+        // Only the web page has a web view and the stub page's text.
+        XCTAssertFalse(app.webViews["thread.web.page"].exists)
         XCTAssertFalse(page("Stub conversation d0e515ef").exists)
         XCTAssertTrue(try embedState().contains("mints=0"))
     }
@@ -140,11 +142,18 @@ import XCTest
         let pageView = app.webViews["thread.web.page"]
         XCTAssertTrue(pageView.isHittable)
         XCUIDevice.shared.press(.home)
+        let isBackgrounded = NSPredicate(format: "state != %d", XCUIApplication.State.runningForeground.rawValue)
+        wait(for: [XCTNSPredicateExpectation(predicate: isBackgrounded, object: app)], timeout: Wait.appear)
         app.activate()
         XCTAssertTrue(lock.waitForExistence(timeout: Wait.appear))
-        XCTAssertFalse(pageView.isHittable)
+        // The page is hidden, not only covered: none of its content is in the accessibility tree while locked.
+        let gone = NSPredicate(format: "exists == false")
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: gone, object: page("Stub conversation d0e515ef"))],
+            timeout: Wait.appear)
+        XCTAssertFalse(pageView.exists)
         app.buttons["lock.unlock"].tap()
-        XCTAssertTrue(pageView.waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(page("Stub conversation d0e515ef").waitForExistence(timeout: Wait.appear))
         wait(
             for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: pageView)],
             timeout: Wait.appear)
@@ -185,21 +194,5 @@ import XCTest
             timeout: Wait.appear)
     }
 
-    private func audit() throws {
-        try auditTwice(app) { [app] in
-            let auditBars = AuditRules.Bars(app)
-            return { issue in
-                let bars = app.navigationBars.allElementsBoundByIndex + app.toolbars.allElementsBoundByIndex
-                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }) {
-                    if [.dynamicType, .textClipped].contains(issue.auditType) { return true }
-                    if issue.auditType == .contrast, element.label.wholeMatch(of: /\d+/) != nil { return true }
-                }
-                if issue.auditType == .contrast, issue.element == nil { return true }
-                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
-                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
-                if issue.auditType == .textClipped, issue.element?.elementType == .textField { return true }
-                return false
-            }
-        }
-    }
+    private func audit() throws { try auditThreadScreen(app) }
 }

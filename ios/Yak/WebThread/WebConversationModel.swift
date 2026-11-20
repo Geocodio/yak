@@ -206,7 +206,7 @@ final class WebConversationModel {
         switchTask?.cancel()
         switchTask = Task { [weak self, sleep] in
             do { try await sleep(Self.switchTimeout) } catch { return }
-            guard let self, self.pageThreadID != self.threadID else { return }
+            guard !Task.isCancelled, let self, self.pageThreadID != self.threadID else { return }
             self.restart()
         }
     }
@@ -280,6 +280,7 @@ final class WebConversationModel {
         let wait = max(.zero, now().duration(to: deadline))
         tickTask = Task { [weak self, sleep] in
             do { try await sleep(wait) } catch { return }
+            guard !Task.isCancelled else { return }
             self?.timePassed()
         }
     }
