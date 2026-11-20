@@ -21,7 +21,19 @@ extension View {
 /// The plain button with a designed press: for tappable text, icons, cards and bar buttons.
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.pressFeedback(configuration.isPressed)
+        Label(configuration: configuration)
+    }
+
+    /// A separate view, because a style reads `isEnabled` only from inside its label.
+    private struct Label: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .opacity(isEnabled ? 1 : Design.disabledOpacity)
+                .pressFeedback(configuration.isPressed)
+        }
     }
 }
 
