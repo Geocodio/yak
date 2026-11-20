@@ -269,6 +269,11 @@ class ThreadDriver
         }
 
         app(ThreadAgents::class)->apply($thread, $run, $line, $events);
+
+        if (($line['type'] ?? null) === 'runner' && ($line['event'] ?? null) === 'commands') {
+            app(SlashCommands::class)->capture($thread, $line);
+        }
+
         $run ??= $this->openAgentFollowUp($thread, $line, $events);
 
         if ($run !== null && $run->task !== null) {

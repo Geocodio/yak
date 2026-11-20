@@ -12,6 +12,7 @@ use App\Http\Resources\ThreadRunLogData;
 use App\Http\Resources\ThreadShowData;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Services\Threads\SlashCommands;
 use App\Services\Threads\ThreadTasks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -40,6 +41,7 @@ class ThreadController extends Controller
             'queuedMessages' => ThreadQueuedMessagesData::for($thread, $request->user()),
             'runs' => ThreadRunLogData::runs($thread),
             'agents' => ThreadAgentsData::for($thread),
+            'slashCommands' => app(SlashCommands::class)->forThread($thread),
             'openLog' => (is_string($entryId) && ctype_digit($entryId) ? ThreadRunLogData::locate($thread, (int) $entryId) : null) ?? $this->openRun($request, $thread),
         ]);
     }

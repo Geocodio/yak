@@ -37,6 +37,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $name
  * @property string $title
  * @property string $repo
+ * @property list<array{name: string, description: string, argumentHint: ?string, kind: 'skill'|'command'}>|null $slash_commands
+ * @property CarbonImmutable|null $slash_commands_captured_at
  * @property ThreadStatus $status
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
@@ -139,6 +141,8 @@ class Thread extends Model
             'blocked_reason' => ThreadBlockReason::class,
             'destroy_after_hours' => 'integer',
             'fresh_session_pending' => 'boolean',
+            'slash_commands' => 'array',
+            'slash_commands_captured_at' => 'immutable_datetime',
             'is_legacy' => 'boolean',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',

@@ -38,6 +38,8 @@ use InvalidArgumentException;
  * @property bool $is_default
  * @property bool $is_active
  * @property bool $pr_review_enabled
+ * @property list<array{name: string, description: string, argumentHint: ?string, kind: 'skill'|'command'}>|null $slash_commands
+ * @property CarbonImmutable|null $slash_commands_captured_at
  * @property array<string, mixed>|null $pr_review_policy
  * @property bool $deployments_enabled
  * @property string|null $public_site_url
@@ -109,6 +111,8 @@ class Repository extends Model
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
             'pr_review_enabled' => 'boolean',
+            'slash_commands' => 'array',
+            'slash_commands_captured_at' => 'immutable_datetime',
             'pr_review_path_excludes' => 'array',
             'pr_review_policy' => 'array',
             'deployments_enabled' => 'boolean',
