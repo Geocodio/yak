@@ -79,7 +79,8 @@ private func appMessage(from object: Any) throws -> EmbedAppMessage {
     let fields = try #require(object as? [String: Any])
     let formatter = ISO8601DateFormatter()
     switch fields["type"] as? String {
-    case "open": return .open(threadID: try #require(fields["threadId"] as? String), fragment: fields["fragment"] as? String)
+    case "open":
+        return .open(threadID: try #require(fields["threadId"] as? String), fragment: fields["fragment"] as? String)
     case "focus": return .focus(fragment: try #require(fields["fragment"] as? String))
     case "scrollToBottom": return .scrollToBottom
     case "refresh": return .refresh
@@ -219,7 +220,9 @@ func aMalformedPayloadIsRefused(json: String) throws {
 ])
 func aLinkGoesThroughTheLinkRule(url: String) {
     let escaped = url.replacingOccurrences(of: "\"", with: "\\\"")
-    #expect(throws: EmbedMessageProblem.malformed(type: "link")) { try page(#"{"v":1,"type":"link","url":"\#(escaped)"}"#) }
+    #expect(throws: EmbedMessageProblem.malformed(type: "link")) {
+        try page(#"{"v":1,"type":"link","url":"\#(escaped)"}"#)
+    }
 }
 
 @Test func aLinkLongerThanTheLimitIsRefused() {
@@ -250,7 +253,8 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
 }
 
 @Test func aBadMimeTypeIsDroppedButTheMessageStays() throws {
-    let message = try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"a","mime":"text csv"}"#)
+    let message = try page(
+        #"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"a","mime":"text csv"}"#)
     #expect(message == .quickLook(url: URL(string: "https://yak.example.com/f")!, name: "a", mimeType: nil))
     let upper = try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"a","mime":"Text/CSV"}"#)
     #expect(upper == .quickLook(url: URL(string: "https://yak.example.com/f")!, name: "a", mimeType: "text/csv"))
@@ -307,7 +311,8 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
 
 @Test func theEncodedDictionaryIsJSONSafe() throws {
     let item = EmbedOutboxItem(
-        key: "k", text: "Line\n\"quoted\" </script>", status: .queued, reason: nil, createdAt: Date(timeIntervalSince1970: 0),
+        key: "k", text: "Line\n\"quoted\" </script>", status: .queued, reason: nil,
+        createdAt: Date(timeIntervalSince1970: 0),
         attachmentCount: 2)
     let dictionary = try #require(EmbedAppMessage.outbox(threadID: "d0e515ef", items: [item]).dictionary())
     #expect(JSONSerialization.isValidJSONObject(dictionary))

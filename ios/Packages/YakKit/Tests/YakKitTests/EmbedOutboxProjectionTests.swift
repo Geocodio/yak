@@ -25,7 +25,6 @@ private func rows(_ items: [OutboxItem]) throws -> [EmbedOutboxItem] {
     return rows
 }
 
-
 @Test(arguments: [
     (OutboxState.queued, EmbedOutboxItem.Status.queued), (.sending, .sending), (.slow, .slow), (.waiting, .waiting),
 ])

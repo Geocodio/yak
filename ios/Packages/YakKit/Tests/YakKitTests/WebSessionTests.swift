@@ -96,8 +96,10 @@ func aCodeThatCouldChangeTheFormIsRefused(code: String) {
     #expect(EmbedRedeem.redeemRequest(for: session(code: code), instanceURL: instanceURL) == nil)
 }
 
-@Test(arguments: [("d0e515ef", true), ("A1b2C3d4", true), ("d0e515e", false), ("d0e515efg", false), ("d0e5/5ef", false),
-    ("../../x", false), ("", false), ("d0e515é", false)])
+@Test(arguments: [
+    ("d0e515ef", true), ("A1b2C3d4", true), ("d0e515e", false), ("d0e515efg", false), ("d0e5/5ef", false),
+    ("../../x", false), ("", false), ("d0e515é", false),
+])
 func theThreadPathNeedsAnEightCharacterID(id: String, isValid: Bool) {
     #expect((EmbedRedeem.threadPath(id) != nil) == isValid)
     if isValid { #expect(EmbedRedeem.threadPath(id) == "/app/embed/threads/\(id)") }

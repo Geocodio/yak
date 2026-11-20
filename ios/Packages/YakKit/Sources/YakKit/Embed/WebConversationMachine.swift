@@ -91,7 +91,10 @@ public struct WebConversationMachine: Equatable, Sendable {
         /// A session that ends again within this long after a re-mint is not minted for again.
         public var reMintInterval: Duration
 
-        public init(slowAfter: Duration = .seconds(8), failAfter: Duration = .seconds(30), reMintInterval: Duration = .seconds(30)) {
+        public init(
+            slowAfter: Duration = .seconds(8), failAfter: Duration = .seconds(30),
+            reMintInterval: Duration = .seconds(30)
+        ) {
             self.slowAfter = slowAfter
             self.failAfter = failAfter
             self.reMintInterval = reMintInterval

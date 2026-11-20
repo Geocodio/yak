@@ -174,7 +174,8 @@ import Testing
         let session = try signedIn(feature)
         feature.setOnline(false)
         let request = StubRequest(
-            method: "GET", path: StubEmbed.threadPrefix + thread, headers: ["cookie": "\(StubEmbed.cookieName)=\(session)"])
+            method: "GET", path: StubEmbed.threadPrefix + thread,
+            headers: ["cookie": "\(StubEmbed.cookieName)=\(session)"])
         #expect(try #require(feature.web(request, context: context("embed-basic"))).answer == .drop)
         feature.setOnline(true)
         #expect(try load(feature, cookie: session).status == 200)
@@ -195,12 +196,23 @@ import Testing
     }
 }
 
+/// Keeps the 303 of the redeem as the answer, so the test reads its cookie and location.
+private final class StopAtRedirect: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
 @Suite struct EmbedServerTests {
     @Test func theWholeHandOffWorksOverHTTP() async throws {
         var directory = URL(fileURLWithPath: #filePath)
         while directory.lastPathComponent != "ios" { directory.deleteLastPathComponent() }
         let fixtures = try StubFixtures(directory: directory.appendingPathComponent("fixtures"))
-        let server = try StubServer(port: 0, fixtures: fixtures, scenario: .paired)
+        // An own feature, because the shared one also hears the other tests' servers go offline.
+        let server = try StubServer(port: 0, fixtures: fixtures, scenario: .paired, features: [StubEmbed()])
         let port = try await server.start()
         let base = "http://127.0.0.1:\(port)"
         let configuration = URLSessionConfiguration.ephemeral
@@ -225,15 +237,25 @@ import Testing
         redeem.httpMethod = "POST"
         redeem.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         redeem.httpBody = Data("code=\(code)".utf8)
-        let (page, pageResponse) = try await session.data(for: redeem)
-        let final = try #require(pageResponse as? HTTPURLResponse)
-        #expect(final.statusCode == 200 && final.url?.path == "/app/embed/threads/d0e515ef")
-        #expect(String(decoding: page, as: UTF8.self).contains("window.__yakEmbed"))
+        let (_, redeemResponse) = try await session.data(for: redeem, delegate: StopAtRedirect())
+        let redirect = try #require(redeemResponse as? HTTPURLResponse)
+        #expect(
+            redirect.statusCode == 303
+                && redirect.value(forHTTPHeaderField: "Location") == "/app/embed/threads/d0e515ef")
+        let setCookie = try #require(redirect.value(forHTTPHeaderField: "Set-Cookie"))
+        let cookie = String(try #require(setCookie.split(separator: ";").first))
 
-        // The cookie from the redeem opens another thread's page too, and the code does not work twice.
-        let (_, second) = try await session.data(from: URL(string: base + "/app/embed/threads/a1b2c3d4")!)
-        #expect((second as? HTTPURLResponse)?.statusCode == 200)
-        let (_, again) = try await session.data(for: redeem)
+        func get(_ path: String) async throws -> (Int, String) {
+            var request = URLRequest(url: URL(string: base + path)!)
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
+            let (data, response) = try await session.data(for: request)
+            return ((response as! HTTPURLResponse).statusCode, String(decoding: data, as: UTF8.self))
+        }
+        let page = try await get("/app/embed/threads/d0e515ef")
+        #expect(page.0 == 200 && page.1.contains("window.__yakEmbed"))
+        // The cookie opens another thread's page too, and the code does not work twice.
+        #expect(try await get("/app/embed/threads/a1b2c3d4").0 == 200)
+        let (_, again) = try await session.data(for: redeem, delegate: StopAtRedirect())
         #expect((again as? HTTPURLResponse)?.statusCode == 403)
         server.stop()
     }

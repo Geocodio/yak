@@ -181,7 +181,9 @@ public actor OfflineCopyStore {
     private func archivePath(_ threadID: String) -> String { "\(folder)/\(threadID)\(Self.archiveSuffix)" }
 
     private func removeArchive(_ threadID: String) {
-        do { try files.remove(archivePath(threadID)) } catch { logFailure("An offline copy could not be removed: \(error)") }
+        do { try files.remove(archivePath(threadID)) } catch {
+            logFailure("An offline copy could not be removed: \(error)")
+        }
     }
 
     private func writeIndex(_ value: OfflineCopyIndex) throws(FileStoreError) {

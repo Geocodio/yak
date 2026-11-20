@@ -74,7 +74,8 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         else {
             return StubReply(answer: Scenario.error(422, "validation_failed", "The path is not an embed thread page."))
         }
-        let code = "yakweb_" + (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "").prefix(48)
+        let code =
+            "yakweb_" + (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "").prefix(48)
         lock.withLock {
             codes[String(code)] = path
             mints += 1
@@ -165,7 +166,9 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         let id = String(path.dropFirst(threadPrefix.count))
         let isValid =
             id.utf8.count == 8
-            && id.utf8.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A) }
+            && id.utf8.allSatisfy {
+                ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A)
+            }
         return isValid ? id : nil
     }
 

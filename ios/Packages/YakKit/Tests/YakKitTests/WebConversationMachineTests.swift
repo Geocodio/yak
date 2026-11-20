@@ -9,7 +9,8 @@ private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
 private func later(_ seconds: TimeInterval) -> Date { start.addingTimeInterval(seconds) }
 
-private let ready = EmbedPageMessage.ready(threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 1, title: "t")
+private let ready = EmbedPageMessage.ready(
+    threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 1, title: "t")
 
 /// A machine that is on its way: minted, redeemed and committed at `start`, so it waits for `ready`.
 private func waiting(hasCopy: Bool = false) -> Machine {
