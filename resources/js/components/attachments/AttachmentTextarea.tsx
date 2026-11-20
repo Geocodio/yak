@@ -56,6 +56,8 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'>
     ref?: Ref<AttachmentTextareaHandle>;
     /** Receives the underlying `<textarea>`, e.g. for a dialog's initial focus. */
     inputRef?: RefObject<HTMLTextAreaElement | null>;
+    /** Ranges drawn as repository pills, e.g. `@atlas`; Backspace and Delete take a whole pill. */
+    mentions?: { start: number; end: number }[];
 };
 
 /**
@@ -67,7 +69,7 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'>
  * token removes its attachment and vice versa. Hovering a token highlights
  * its attachment (and the attachment's tile highlights the token).
  */
-export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassName, className, ref, inputRef, ...rest }: Props) {
+export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassName, className, ref, inputRef, mentions = [], ...rest }: Props) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mirrorRef = useRef<HTMLDivElement>(null);
     const valueRef = useRef(value);
@@ -79,6 +81,8 @@ export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassNa
     const liveRefs = useMemo(() => new Set(draft.refs), [draft.refs]);
     const liveRefsRef = useRef(liveRefs);
     liveRefsRef.current = liveRefs;
+    const mentionsRef = useRef(mentions);
+    mentionsRef.current = mentions;
 
     const setCaret = (position: number) => {
         requestAnimationFrame(() => textareaRef.current?.setSelectionRange(position, position));
@@ -276,7 +280,7 @@ export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassNa
             return;
         }
 
-        const tokens = findTokens(valueRef.current, liveRefsRef.current);
+        const tokens = [...findTokens(valueRef.current, liveRefsRef.current), ...mentionsRef.current];
         const target =
             event.key === 'Backspace'
                 ? tokens.find((token) => token.start < selectionStart && selectionStart <= token.end)
@@ -442,17 +446,27 @@ export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassNa
 
     const segments: ReactNode[] = [];
     let cursor = 0;
-    for (const token of findTokens(value, liveRefs)) {
+    const pills = [...findTokens(value, liveRefs), ...mentions.map((mention) => ({ ...mention, ref: null }))].sort((a, b) => a.start - b.start);
+    for (const token of pills) {
+        if (token.start < cursor) {
+            continue;
+        }
         segments.push(value.slice(cursor, token.start));
         segments.push(
-            <span
-                key={token.start}
-                className="attachment-ref"
-                data-attachment-ref={token.ref}
-                data-highlighted={draft.highlighted === token.ref ? '' : undefined}
-            >
-                {value.slice(token.start, token.end)}
-            </span>,
+            token.ref === null ? (
+                <span key={token.start} className="repo-mention" data-testid="repo-mention">
+                    {value.slice(token.start, token.end)}
+                </span>
+            ) : (
+                <span
+                    key={token.start}
+                    className="attachment-ref"
+                    data-attachment-ref={token.ref}
+                    data-highlighted={draft.highlighted === token.ref ? '' : undefined}
+                >
+                    {value.slice(token.start, token.end)}
+                </span>
+            ),
         );
         cursor = token.end;
     }

@@ -27,6 +27,15 @@ it('starts a new turn after a guard stop', function () {
     $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('success');
 });
 
+it('shows the continue prompt as the message of the new turn', function () {
+    [$thread, $task, $user] = guardStoppedThread();
+    $this->mock(ThreadTurns::class)->shouldReceive('start')->once()
+        ->withArgs(fn (...$arguments) => ($arguments['shownText'] ?? $arguments[5] ?? null) === 'Continue.')
+        ->andReturn(new TaskRun);
+
+    $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('success');
+});
+
 it('does nothing and flashes an error when the last turn did not stop by the guard', function () {
     [$thread, , $user] = guardStoppedThread(TurnState::Completed);
     $this->mock(ThreadTurns::class)->shouldNotReceive('start');

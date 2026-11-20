@@ -11,6 +11,14 @@ export const MAX_REPOSITORIES = 6;
 /** An extra repository on the start form; `blocked` holds the reason Yak cannot reach it and is never sent. */
 export type PickerRepository = StartRepository & { blocked?: string };
 
+/** Asks the server whether Yak can use the repository, and returns it as an extra that makes changes. */
+export async function checkRepositoryAccess(repo: string): Promise<PickerRepository> {
+    const response = await fetch(repositoryAccess.url({ query: { repo } }), { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    const result: { allowed: boolean; reason: string | null } = await response.json();
+
+    return result.allowed ? { repo, role: 'changes' } : { repo, role: 'changes', blocked: result.reason ?? 'Yak has no access to this repository.' };
+}
+
 const CHIP = 'inline-flex h-7 items-center gap-1.5 rounded-lg border border-hair bg-panel pl-1 pr-1.5 text-[12.5px] font-medium text-body';
 /** The slug as owner and name, the owner muted and the name in medium weight. */
 function RepositoryName({ slug }: { slug: string }) {
@@ -69,9 +77,7 @@ export function RepositoryPicker({
         setError(null);
         setChecking(repo);
         try {
-            const response = await fetch(repositoryAccess.url({ query: { repo } }), { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-            const result: { allowed: boolean; reason: string | null } = await response.json();
-            onChange([...extras, result.allowed ? { repo, role: 'changes' } : { repo, role: 'changes', blocked: result.reason ?? 'Yak has no access to this repository.' }]);
+            onChange([...extras, await checkRepositoryAccess(repo)]);
         } catch {
             setError(`Could not check access to ${repo}. Try again.`);
         } finally {

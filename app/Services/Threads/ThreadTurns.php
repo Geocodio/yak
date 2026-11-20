@@ -420,7 +420,7 @@ class ThreadTurns
         $finisher->dispatch($events);
     }
 
-    private function cancelMessages(TaskRun $run): void
+    public function cancelMessages(TaskRun $run): void
     {
         ThreadTurnMessage::query()
             ->where('task_run_id', $run->id)

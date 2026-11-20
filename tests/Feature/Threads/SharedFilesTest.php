@@ -234,7 +234,16 @@ describe('access to files/{publicId}', function () {
 
     it('lets a thread reader open the file when it is not shared', function () {
         $this->actingAs($this->owner)->get("/files/{$this->file->public_id}")->assertOk()->assertSee('report.html');
-        $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->assertHeader('Content-Security-Policy', 'sandbox');
+        $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw")->assertOk()->assertHeader('Content-Security-Policy', 'sandbox allow-scripts');
+    });
+
+    it('runs report scripts in an opaque origin', function () {
+        $raw = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}/raw");
+        $viewer = $this->actingAs($this->owner)->get("/files/{$this->file->public_id}");
+
+        expect($raw->headers->get('Content-Security-Policy'))->not->toContain('allow-same-origin')
+            ->and($viewer->getContent())->toContain('sandbox="allow-scripts"')
+            ->and($viewer->getContent())->not->toContain('allow-same-origin');
     });
 
     it('makes the browser check for a newer version every time it opens the file', function () {
@@ -341,5 +350,5 @@ describe('team share toggle', function () {
 it('tells Claude where to save shared files', function () {
     $prompt = YakPromptBuilder::threadSystemPrompt($this->task, $this->thread);
 
-    expect($prompt)->toContain('SHARED FILES')->toContain('.yak-artifacts/shared/')->toContain('Do not mention the folder path');
+    expect($prompt)->toContain('SHARED FILES')->toContain('.yak-artifacts/shared/')->toContain('Do not mention the folder path')->toContain('900px')->toContain('no localStorage');
 });
