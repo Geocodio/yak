@@ -6,13 +6,15 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadSandbox;
 use RuntimeException;
 
 /**
  * A research child is a second runner in its parent's container: it works in
- * a read-only git worktree at the parent's HEAD, has its own config directory
+ * a read-only git worktree at the parent's HEAD (or a read-only clone of
+ * another repository when it was started for one), has its own config directory
  * and placeholder, and takes no awake slot of its own.
  */
 class ResearchChildRunner
@@ -25,6 +27,7 @@ class ResearchChildRunner
         private readonly ThreadSandbox $lifecycle,
         private readonly ThreadCommands $commands,
         private readonly SessionFileSync $sessions,
+        private readonly ThreadGitHubCredentials $credentials,
     ) {}
 
     public static function worktreePath(Thread $child): string
@@ -85,7 +88,7 @@ class ResearchChildRunner
         }
 
         $path = self::worktreePath($child);
-        $this->sandboxes->exec($parent, ['bash', '-c', 'chmod -R u+w "$1" 2>/dev/null; git worktree remove --force "$1"', 'bash', $path]);
+        $this->sandboxes->exec($parent, ['bash', '-c', 'chmod -R u+w "$1" 2>/dev/null; git worktree remove --force "$1"; rm -rf "$1"', 'bash', $path]);
         $this->mustRun($parent, ['git', 'worktree', 'prune']);
         $this->addWorktree($parent, $child);
         $this->mustRun($parent, ['mkdir', '-p', $child->claude_config_dir]);
@@ -104,7 +107,30 @@ class ResearchChildRunner
     {
         $path = self::worktreePath($child);
 
+        if ($child->repo !== $parent->repo) {
+            $this->cloneOtherRepository($parent, $child, $path);
+
+            return;
+        }
+
         $this->mustRun($parent, ['bash', '-c', 'mkdir -p "$(dirname "$1")" && git worktree add --detach "$1" HEAD && chmod -R a-w "$1"', 'bash', $path]);
+    }
+
+    /**
+     * A read-only checkout of another repository, cloned with the sandbox's read-only `gh`
+     * token (widened first to cover this repository); the child gets no branch and can push nothing.
+     */
+    private function cloneOtherRepository(Thread $parent, Thread $child, string $path): void
+    {
+        $slug = (string) $child->repo;
+
+        $this->credentials->install($parent);
+
+        try {
+            $this->mustRun($parent, ['bash', '-c', 'rm -rf "$1" && mkdir -p "$(dirname "$1")" && gh repo clone "$2" "$1" -- --depth 1 && chmod -R a-w "$1"', 'bash', $path, $slug]);
+        } catch (RuntimeException $exception) {
+            throw new RuntimeException("Yak could not check out {$slug} read-only for this research sub-thread. Is the repository added to Yak's GitHub app? " . $exception->getMessage(), previous: $exception);
+        }
     }
 
     private function wake(Thread $parent): bool

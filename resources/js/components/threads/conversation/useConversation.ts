@@ -10,7 +10,7 @@ import { createReadTracker, mergeConversation, type ConversationEntry } from './
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: string, messages: ThreadMessage[], fallbackTurnStart = 0): { entries: ConversationEntry[]; liveSteps: number; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents'] } {
+export function useConversation(threadId: string, messages: ThreadMessage[], fallbackTurnStart = 0): { entries: ConversationEntry[]; liveSteps: number; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents']; children: ThreadEventState['children'] } {
     const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
@@ -21,5 +21,5 @@ export function useConversation(threadId: string, messages: ThreadMessage[], fal
 
     const liveSteps = useMemo(() => liveStepCount(events.entries, entrySequences, events.turnStartSequence ?? fallbackTurnStart), [events.entries, entrySequences, events.turnStartSequence, fallbackTurnStart]);
 
-    return { entries, liveSteps, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents };
+    return { entries, liveSteps, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents, children: events.children };
 }
