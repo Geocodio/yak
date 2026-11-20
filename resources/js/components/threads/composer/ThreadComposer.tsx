@@ -32,7 +32,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
 const MAX_MESSAGE_LENGTH = 20000;
 const NO_SLASH_COMMANDS: SlashCommandsData = { commands: [], capturedAt: null };
 
-export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread, isWaitingForRepository = false, slashCommands = NO_SLASH_COMMANDS }: { slashCommands?: SlashCommandsData; isWaitingForRepository?: boolean; queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
+export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread, isWaitingForRepository = false, slashCommands = NO_SLASH_COMMANDS, liveSteps = 0 }: { liveSteps?: number; slashCommands?: SlashCommandsData; isWaitingForRepository?: boolean; queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
     const form = useForm<{ message: string; model: string | null; effort: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -275,7 +275,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                             )}
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
-                            <ContextRing composer={composer} model={form.data.model} threadId={thread.id} />
+                            <ContextRing liveSteps={liveSteps} composer={composer} model={form.data.model} threadId={thread.id} />
                             <span className="text-[11px] text-faint sm:truncate max-sm:basis-full" data-testid="thread-composer-hint">
                                 {isQueuedCommand ? 'Sent as the next turn while Claude is working' : hint}
                             </span>
