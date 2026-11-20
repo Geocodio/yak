@@ -65,3 +65,7 @@ test('only same-origin urls go to the quick look', () => {
     assert.equal(sameOriginUrl('https://other.example/x', base), null);
     assert.equal(sameOriginUrl('//other.example/x', base), null);
 });
+
+test('a threadChanged without the previous thread is malformed', () => {
+    assert.equal(validatePageMessage({ v: 1, type: 'threadChanged', threadId: 'd0e515ef', previousThreadId: null }).kind, 'malformed');
+});

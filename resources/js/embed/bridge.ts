@@ -16,7 +16,7 @@ export type PanePayload =
 /** Page to app. */
 export type PageMessage =
     | { type: 'ready'; threadId: string; url: string; latestSequence: number; title: string }
-    | { type: 'threadChanged'; threadId: string; previousThreadId: string | null }
+    | { type: 'threadChanged'; threadId: string; previousThreadId: string }
     | { type: 'link'; url: string }
     | ({ type: 'openPane' } & PanePayload)
     | { type: 'quickLook'; url: string; name: string; mime?: string }
@@ -59,7 +59,7 @@ function isOutboxItem(value: unknown): value is OutboxItem {
 
 const pageChecks: Record<(typeof PAGE_MESSAGE_TYPES)[number], (message: Shape) => boolean> = {
     ready: (m) => isThreadId(m.threadId) && isNonEmpty(m.url) && isCount(m.latestSequence) && isString(m.title, 500),
-    threadChanged: (m) => isThreadId(m.threadId) && (m.previousThreadId === null || isThreadId(m.previousThreadId)),
+    threadChanged: (m) => isThreadId(m.threadId) && isThreadId(m.previousThreadId),
     link: (m) => isNonEmpty(m.url),
     openPane: (m) =>
         (m.pane === 'files' && isOneOf(m.mode, ['changed', 'everything'] as const) && isOptional(m.path, (path) => isNonEmpty(path))) ||
