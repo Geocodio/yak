@@ -24,6 +24,12 @@ use Illuminate\Support\Facades\Gate;
  */
 class ThreadAgentController extends Controller
 {
+    /** With the subagents flag off there are no agents to read, stop or message. */
+    public function __construct()
+    {
+        abort_unless(ThreadAgent::isEnabled(), 404);
+    }
+
     public function log(Request $request, Thread $thread, ThreadAgent $agent): JsonResponse
     {
         abort_unless(Gate::allows('view', $thread), 404);

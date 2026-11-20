@@ -11,9 +11,11 @@ use App\Exceptions\TeleportError;
 use App\Models\SessionFile;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Services\SessionStore\SessionSync;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
 use App\Services\Threads\WipPreserver;
@@ -76,7 +78,7 @@ class TeleportDownPreparer
         $active = ThreadTurns::activeTurn($thread);
 
         if ($active === null) {
-            return true;
+            return $this->settleAgents($teleport, $thread);
         }
 
         $isRunning = $active->getAttribute('turn_state') === TurnState::Running;
@@ -97,7 +99,24 @@ class TeleportDownPreparer
 
         $teleport->progressStep(TeleportStep::StopTurn, 'done');
 
-        return true;
+        return $this->settleAgents($teleport, $thread);
+    }
+
+    /**
+     * Claude's agents would keep changing the sandbox, and wake Claude when they finish, so they are stopped
+     * before the thread moves; the move waits until they have ended.
+     */
+    private function settleAgents(Teleport $teleport, Thread $thread): bool
+    {
+        if (! ThreadAgent::hasRunning($thread->id)) {
+            return true;
+        }
+
+        app(ThreadAgents::class)->stopAll($thread);
+        $teleport->forceFill(['state' => TeleportState::WaitingForTurn])->save();
+        $teleport->progressStep(TeleportStep::StopTurn, 'running');
+
+        return false;
     }
 
     private function wakeSandbox(Thread $thread): bool

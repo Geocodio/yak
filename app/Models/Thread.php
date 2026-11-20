@@ -453,7 +453,7 @@ class Thread extends Model
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
             ->exists()
-            || ThreadAgent::query()->running()->whereIn('thread_id', $sharing->select('id'))->exists();
+            || (ThreadAgent::isEnabled() && ThreadAgent::query()->running()->whereIn('thread_id', $sharing->select('id'))->exists());
     }
 
     /**

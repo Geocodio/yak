@@ -83,6 +83,12 @@ class TurnTracker
             return new TurnTrackerChange(resultCount: $this->resultCount);
         }
 
+        // An agent's own steps are not the turn's: its open tool calls would hold the turn open and its
+        // results would restart the grace window. A foreground agent stays covered by the Agent call that started it.
+        if ($this->ignoresAgentTasks && in_array($line['type'] ?? null, ['assistant', 'user'], true) && (isset($line['agent_id']) || isset($line['parent_tool_use_id']))) {
+            return new TurnTrackerChange(resultCount: $this->resultCount);
+        }
+
         $moved = [];
         $costDelta = 0.0;
         $failure = null;

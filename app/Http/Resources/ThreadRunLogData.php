@@ -196,7 +196,7 @@ final class ThreadRunLogData
     private static function runEvents(Thread $thread, array $bounds): Builder
     {
         return ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'entry')
-            ->whereNull('payload->agentId')
+            ->when(ThreadAgent::isEnabled(), fn (Builder $query) => $query->whereNull('payload->agentId'))
             ->where('sequence', '>', $bounds['start'])
             ->when($bounds['end'] !== null, fn (Builder $query) => $query->where('sequence', '<', $bounds['end']));
     }

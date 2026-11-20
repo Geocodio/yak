@@ -394,3 +394,26 @@ test('it reports a stop that never answers as failed after the timeout', async (
   assert.match(run.lines().find((line) => line.event === 'agent_stop_failed').error, /timed out/);
   await finish(run);
 });
+
+test('it arms the sweep again when the last background task ends after the final answer', async () => {
+  const sweeping = sweepOptions();
+  const run = createHarness({ messages: [toolUse, backgroundTasks(1), endTurn], runnerOptions: sweeping.options });
+  run.send(start());
+  await run.tick();
+  sweeping.timers[0].callback();
+  assert.deepEqual(sweeping.kills, []);
+  await finish(run);
+
+  const again = sweepOptions();
+  const second = createHarness({ messages: [toolUse, backgroundTasks(1), endTurn], runnerOptions: again.options });
+  second.send(start());
+  await second.tick();
+  again.timers[0].callback();
+  assert.deepEqual(again.kills, []);
+  second.push(backgroundTasks(0));
+  await second.tick();
+  assert.equal(again.timers[1].delay, 60_000);
+  again.timers[1].callback();
+  assert.deepEqual(again.kills, [[900, 'SIGTERM']]);
+  await finish(second);
+});

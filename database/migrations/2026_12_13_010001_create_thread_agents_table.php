@@ -23,6 +23,8 @@ return new class extends Migration
             $table->string('workflow_name', 191)->nullable();
             $table->string('model', 96)->nullable();
             $table->boolean('is_background')->default(false);
+            // False once Claude will never reply to this agent (its runner was lost), so it opens no follow-up turn.
+            $table->boolean('needs_follow_up')->default(true);
             $table->string('status', 16)->default('running');
             $table->string('last_tool', 96)->nullable();
             $table->text('summary')->nullable();
@@ -38,7 +40,13 @@ return new class extends Migration
 
             $table->unique(['thread_id', 'task_id']);
             $table->index(['thread_id', 'status']);
+            $table->index(['status', 'thread_id']);
             $table->index(['thread_id', 'follow_up_run_id', 'finished_at']);
+        });
+
+        Schema::table('task_runs', function (Blueprint $table) {
+            // Set when a reply to one agent ended while others still ran and nothing was announced yet.
+            $table->timestamp('quiet_unannounced_at')->nullable();
         });
 
         Schema::create('thread_agent_messages', function (Blueprint $table) {
@@ -54,6 +62,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('thread_agent_messages');
+
+        Schema::table('task_runs', function (Blueprint $table) {
+            $table->dropColumn('quiet_unannounced_at');
+        });
+
         Schema::dropIfExists('thread_agents');
     }
 };

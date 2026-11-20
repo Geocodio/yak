@@ -7,10 +7,15 @@ use App\Enums\TaskRunKind;
 use App\Enums\ThreadAgentKind;
 use App\Enums\ThreadAgentStatus;
 use App\Enums\TurnState;
+use App\Events\TurnCompleted;
 use App\Http\Resources\ThreadAgentsData;
+use App\Listeners\DispatchAfterTurnWork;
+use App\Listeners\PushTurnFinished;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadAgent;
+use App\Models\ThreadTurnMessage;
+use App\Services\Devices\ShortLockWait;
 use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +33,10 @@ class ThreadAgents
 
     public const RUNNER_LOST = 'The runner stopped before this agent reported back.';
 
+    public const SESSION_IDLE = 'The session went idle without this agent reporting back.';
+
+    public const LEFT_TASK_LIST = 'Claude no longer lists this agent as running.';
+
     public function __construct(
         private readonly ThreadCommands $commands,
         private readonly ThreadEventPublisher $publisher,
@@ -42,6 +51,10 @@ class ThreadAgents
     public function apply(Thread $thread, ?TaskRun $run, array $line, array &$events): void
     {
         $type = $line['type'] ?? null;
+
+        if (! ThreadAgent::isEnabled()) {
+            return;
+        }
 
         if ($type === 'assistant') {
             $this->markForwarded($thread, $line);
@@ -63,6 +76,8 @@ class ThreadAgents
             'task_started' => $this->started($thread, $run, $line, $events),
             'task_progress' => $this->progress($thread, $line, $events),
             'task_notification' => $this->finished($thread, $run, $line, $events),
+            'background_tasks_changed' => $this->reconcileBackground($thread, $line, $events),
+            'session_state_changed' => ($line['state'] ?? null) === 'idle' ? $this->failRunning($thread, $events, self::SESSION_IDLE) : null,
             default => null,
         };
     }
@@ -165,7 +180,12 @@ class ThreadAgents
      */
     public static function isQuietTurn(TaskRun $run): bool
     {
-        return $run->kind === TaskRunKind::AgentFollowUp && $run->turn_state === TurnState::Completed && $run->thread_id !== null && ThreadAgent::hasRunning($run->thread_id);
+        return $run->kind === TaskRunKind::AgentFollowUp
+            && $run->turn_state === TurnState::Completed
+            && $run->thread_id !== null
+            && ThreadAgent::hasRunning($run->thread_id)
+            // A person who wrote into the reply is waiting for it.
+            && ! ThreadTurnMessage::query()->where('task_run_id', $run->id)->exists();
     }
 
     /**
@@ -175,7 +195,7 @@ class ThreadAgents
      */
     public function unclaimed(Thread $thread): Collection
     {
-        return ThreadAgent::query()->where('thread_id', $thread->id)->where('depth', 1)
+        return ThreadAgent::query()->where('thread_id', $thread->id)->where('needs_follow_up', true)
             ->whereNull('follow_up_run_id')->whereNotNull('finished_at')->orderBy('finished_at')->orderBy('id')->get();
     }
 
@@ -317,21 +337,27 @@ class ThreadAgents
         $requested = [];
         $events = [];
 
-        foreach ($agents as $agent) {
-            if (! $agent->isRunning()) {
-                continue;
-            }
+        ShortLockWait::threadTransaction(function () use ($thread, $agents, &$requested, &$events): void {
+            $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($thread->id);
 
-            if ($thread->runner_state === RunnerState::None) {
-                $this->fail($thread->id, $agent, self::RUNNER_LOST, $events);
-            } else {
-                $this->commands->stopAgent($thread, $agent->task_id);
-                $agent->forceFill(['stop_requested_at' => now(), 'stop_error' => null])->save();
-                $this->publish($thread->id, 'agent.progress', $agent, $events, isStored: false);
-            }
+            foreach ($agents as $agent) {
+                $agent->refresh();
 
-            $requested[] = $agent;
-        }
+                if (! $agent->isRunning()) {
+                    continue;
+                }
+
+                if ($locked->runner_state === RunnerState::None) {
+                    $this->fail($locked->id, $agent, self::RUNNER_LOST, $events);
+                } else {
+                    $this->commands->stopAgent($locked, $agent->task_id);
+                    $agent->forceFill(['stop_requested_at' => now(), 'stop_error' => null])->save();
+                    $this->publish($locked->id, 'agent.progress', $agent, $events, isStored: false);
+                }
+
+                $requested[] = $agent;
+            }
+        });
 
         $this->flush($events);
 
@@ -343,8 +369,52 @@ class ThreadAgents
      */
     private function fail(int $threadId, ThreadAgent $agent, string $reason, array &$events): void
     {
-        $agent->forceFill(['status' => ThreadAgentStatus::Failed, 'finished_at' => now(), 'summary' => $agent->summary ?? $reason])->save();
+        // Claude was not told, so no reply to this agent will come.
+        $agent->forceFill(['status' => ThreadAgentStatus::Failed, 'finished_at' => now(), 'summary' => $agent->summary ?? $reason, 'needs_follow_up' => false])->save();
         $this->publish($threadId, 'agent.finished', $agent, $events);
+        $this->releaseQuietRun($threadId, $events);
+    }
+
+    /**
+     * The last agent ended with no reply of Claude's to come: the latest reply that was held back for
+     * running agents is announced now, once.
+     *
+     * @param  list<object>  $events
+     */
+    private function releaseQuietRun(int $threadId, array &$events): void
+    {
+        if (ThreadAgent::hasRunning($threadId)) {
+            return;
+        }
+
+        $run = TaskRun::query()->where('thread_id', $threadId)->whereNotNull('quiet_unannounced_at')->latest('id')->first();
+
+        if ($run === null || TaskRun::query()->whereKey($run->id)->whereNotNull('quiet_unannounced_at')->update(['quiet_unannounced_at' => null]) !== 1) {
+            return;
+        }
+
+        $events[] = function () use ($run): void {
+            $run->refresh();
+            app(PushTurnFinished::class)->handleCompleted(new TurnCompleted($run));
+            app(DispatchAfterTurnWork::class)->handle(new TurnCompleted($run));
+        };
+    }
+
+    /**
+     * A task list that no longer holds a background agent means it ended and its notification was missed.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function reconcileBackground(Thread $thread, array $line, array &$events): void
+    {
+        $listed = array_map(fn (mixed $task): string => (string) ($task['task_id'] ?? ''), (array) ($line['tasks'] ?? []));
+
+        foreach (ThreadAgent::query()->where('thread_id', $thread->id)->running()->where('is_background', true)->get() as $agent) {
+            if (! in_array($agent->task_id, $listed, true)) {
+                $this->fail($thread->id, $agent, self::LEFT_TASK_LIST, $events);
+            }
+        }
     }
 
     /**

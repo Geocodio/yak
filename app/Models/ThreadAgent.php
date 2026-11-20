@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $workflow_name
  * @property string|null $model
  * @property bool $is_background
+ * @property bool $needs_follow_up
  * @property ThreadAgentStatus $status
  * @property string|null $last_tool
  * @property string|null $summary
@@ -58,6 +59,7 @@ class ThreadAgent extends Model
             'kind' => ThreadAgentKind::class,
             'status' => ThreadAgentStatus::class,
             'is_background' => 'boolean',
+            'needs_follow_up' => 'boolean',
             'started_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
             'stop_requested_at' => 'immutable_datetime',
@@ -74,9 +76,17 @@ class ThreadAgent extends Model
         return $query->where('status', ThreadAgentStatus::Running->value);
     }
 
+    /**
+     * Agents are tracked only while the subagents flag is on; with it off nothing here may keep a thread busy.
+     */
+    public static function isEnabled(): bool
+    {
+        return (bool) config('yak.threads.subagents');
+    }
+
     public static function hasRunning(int $threadId): bool
     {
-        return self::query()->where('thread_id', $threadId)->running()->exists();
+        return self::isEnabled() && self::query()->where('thread_id', $threadId)->running()->exists();
     }
 
     /**
