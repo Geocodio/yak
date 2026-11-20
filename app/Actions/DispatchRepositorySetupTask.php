@@ -22,6 +22,11 @@ class DispatchRepositorySetupTask
 
     public function __invoke(Repository $repository, ?User $startedBy = null): YakTask
     {
+        // ponytail: check-then-create without a lock; two requests in the same instant can still both dispatch.
+        if (($inFlight = $repository->inFlightSetupTask()) !== null) {
+            return $inFlight;
+        }
+
         $task = YakTask::create([
             'repo' => $repository->slug,
             'external_id' => 'setup-' . Str::random(8),

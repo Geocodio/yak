@@ -1,4 +1,5 @@
 import { Badge, Button, Skeleton } from '@geocodio/console-ui';
+import { Link } from '@inertiajs/react';
 import { ExternalLink, FolderGit2, GitPullRequest, Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
@@ -177,6 +178,25 @@ export function YakConfigStrip({ config, slug, branch, setupDone, configUrl }: {
                         #{pullRequest.number} {pullRequest.title}
                     </a>
                     . The values below apply until it merges.
+                </p>
+            </Strip>
+        );
+    }
+
+    if (config.files.length === 0 && (config.setupStatus === 'pending' || config.setupStatus === 'running')) {
+        return (
+            <Strip
+                tone="neutral"
+                icon={<RefreshCw size={16} className="animate-spin text-muted" />}
+                title="Setup is running"
+                action={
+                    <Link href={repos.runs.index.url(slug)}>
+                        <Button data-testid="yak-config-view-setup">View run</Button>
+                    </Link>
+                }
+            >
+                <p className="text-[12px] text-muted">
+                    Yak is preparing the sandbox. When it finishes it opens a PR that adds <code>.yak/</code>. Settings apply once the PR merges.
                 </p>
             </Strip>
         );
