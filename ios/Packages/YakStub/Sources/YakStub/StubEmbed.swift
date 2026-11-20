@@ -3,11 +3,13 @@ import Foundation
 /// The embedded thread page of the app: the mint (`POST web-session`), the redeem (`POST /app/embed/session`) and a
 /// fixture page that speaks the script bridge. The scenarios play `paired` underneath:
 /// `embed-basic` works, `embed-expired-once` answers the first page load with 401, `embed-slow` posts `ready` after
-/// 12 seconds, and `embed-unsupported` has a `me` without `web` and no mint.
-/// Every scenario, not only these, serves the routes, so a test of another screen can open the page.
+/// 12 seconds, `embed-failed` refuses every mint with a 503, and `embed-unsupported` has a `me` without `web` and no
+/// mint.
+/// Every scenario, not only these, serves the routes, so a test of another screen can open the page; only the
+/// embed scenarios (but `embed-unsupported`) put `web` in `me`.
 final class StubEmbed: StubFeature, @unchecked Sendable {
     let name = "embed"
-    let scenarios = ["embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported"]
+    let scenarios = ["embed-basic", "embed-expired-once", "embed-slow", "embed-unsupported", "embed-failed"]
 
     /// How long `embed-slow` waits before the page posts `ready`.
     static let slowReadyDelay = Duration.seconds(12)
@@ -44,7 +46,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
 
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply? {
         switch route {
-        case "GET me" where context.scenario == "embed-unsupported":
+        case "GET me" where !Self.offersEmbeddedThread(context.scenario):
             return withoutWeb(context)
         case "POST web-session":
             return mint(request: request, context: context)
@@ -53,18 +55,43 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         }
     }
 
+    /// Only the embed scenarios announce the embedded thread page; every other scenario keeps the native conversation
+    /// that its tests were written against.
+    static func offersEmbeddedThread(_ scenario: String) -> Bool {
+        ["embed-basic", "embed-expired-once", "embed-slow", "embed-failed"].contains(scenario)
+    }
+
     private func withoutWeb(_ context: StubContext) -> StubReply? {
         guard case .reply(let status, let contentType, let body) = context.core(), status == 200,
-            var me = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+            let edited = Self.removingWeb(from: body)
         else { return nil }
-        me["web"] = nil
-        guard let edited = try? JSONSerialization.data(withJSONObject: me) else { return nil }
         return StubReply(answer: .reply(status: status, contentType: contentType, body: edited))
+    }
+
+    /// `me` without its `web` member; nil when `body` is not a JSON object.
+    static func removingWeb(from body: Data) -> Data? {
+        guard var me = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else { return nil }
+        me["web"] = nil
+        return try? JSONSerialization.data(withJSONObject: me)
+    }
+
+    /// The answer to `GET me` as the scenario plays it. Another feature may answer `me` before this one is asked, so the
+    /// server passes every `me` answer through here.
+    static func meReply(_ reply: StubReply, scenario: String) -> StubReply {
+        guard !offersEmbeddedThread(scenario), case .reply(200, let contentType, let body) = reply.answer,
+            let edited = removingWeb(from: body)
+        else { return reply }
+        var result = reply
+        result.answer = .reply(status: 200, contentType: contentType, body: edited)
+        return result
     }
 
     private func mint(request: StubRequest, context: StubContext) -> StubReply {
         guard context.scenario != "embed-unsupported" else {
             return StubReply(answer: Scenario.error(404, "not_found", "Not found."))
+        }
+        guard context.scenario != "embed-failed" else {
+            return StubReply(answer: Scenario.error(503, "unavailable", "The server is busy."))
         }
         guard request.headers["authorization"]?.hasPrefix("Bearer ") == true else {
             return StubReply(answer: Scenario.error(401, "invalid_token", "This device is not signed in."))
@@ -190,16 +217,22 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Stub conversation</title>
         <style>
-        :root { color-scheme: light dark; }
-        body { font: 17px -apple-system, sans-serif; margin: 16px; line-height: 1.4; }
-        button { font: inherit; min-height: 44px; padding: 0 16px; margin: 0 8px 8px 0; }
-        li { margin-bottom: 8px; }
+        :root { color-scheme: light dark; --page: #ffffff; --text: #1b1b1f; --muted: #4a4a52; --fill: #e9e9ee; --line: #6b6b75; }
+        @media (prefers-color-scheme: dark) { :root { --page: #1c1c1e; --text: #f4f4f6; --muted: #c4c4cc; --fill: #38383d; --line: #a0a0aa; } }
+        html { font-size: 100%; }
+        body { font: 1.0625rem -apple-system, sans-serif; margin: 1rem; line-height: 1.4; background: var(--page); color: var(--text); }
+        h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+        h2 { font-size: 1.125rem; margin: 1rem 0 0.5rem; }
+        p { color: var(--muted); margin: 0.25rem 0; }
+        button { font: inherit; color: var(--text); background: var(--fill); border: 1px solid var(--line); border-radius: 0.5rem; min-height: 2.75rem; padding: 0 1rem; margin: 0 0.5rem 0.5rem 0; }
+        ul { padding-left: 1.25rem; }
+        li { margin-bottom: 0.5rem; }
         </style>
         </head>
         <body>
         <main>
-        <h1 id="title" data-testid="embed-title"></h1>
-        <p id="status" data-testid="embed-status">Loading</p>
+        <h1 id="title" data-testid="embed-title" tabindex="-1"></h1>
+        <p id="status" data-testid="embed-status" role="status">Loading</p>
         <p id="connectivity" data-testid="embed-connectivity">Online</p>
         <p id="refreshes" data-testid="embed-refreshes">Refreshed 0 times</p>
         <div>
@@ -208,8 +241,10 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <button id="send-card" data-testid="embed-card">Answer the question</button>
         <button id="send-auth" data-testid="embed-auth">Expire the session</button>
         </div>
+        <h2>Messages</h2>
+        <ul id="messages" data-testid="embed-messages" aria-label="Messages"></ul>
         <h2>Unsent messages</h2>
-        <ul id="outbox" data-testid="embed-outbox"></ul>
+        <ul id="outbox" data-testid="embed-outbox" aria-label="Unsent messages"></ul>
         <p id="last" data-testid="embed-last"></p>
         </main>
         <script>
@@ -239,10 +274,34 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             post({ type: "cardAnswered", card: "question", action: "answer", ok: true });
           });
           el("send-auth").addEventListener("click", function () { post({ type: "auth", state: "expired" }); });
+          var outboxItems = [];
+          var sentKeys = {};
+          function renderMessages() {
+            var list = el("messages");
+            list.textContent = "";
+            Object.keys(sentKeys).forEach(function (key) {
+              var row = document.createElement("li");
+              row.setAttribute("data-testid", "embed-message");
+              row.textContent = sentKeys[key];
+              list.appendChild(row);
+            });
+          }
+          function loadSent() {
+            fetch("/__stub/last-message", { cache: "no-store" }).then(function (answer) { return answer.text(); }).then(function (text) {
+              var sent = JSON.parse(text);
+              var key = sent.send_key || sent.sendKey;
+              if (key && !sentKeys[key.toLowerCase()]) {
+                sentKeys[key.toLowerCase()] = sent.message || sent.text || "";
+                renderMessages();
+                renderOutbox(outboxItems);
+              }
+            }).catch(function () {});
+          }
           function renderOutbox(items) {
+            outboxItems = items;
             var list = el("outbox");
             list.textContent = "";
-            items.forEach(function (item) {
+            items.filter(function (item) { return !sentKeys[item.key]; }).forEach(function (item) {
               var row = document.createElement("li");
               row.setAttribute("data-testid", "embed-outbox-item");
               row.setAttribute("data-status", item.status);
@@ -281,6 +340,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
                 case "refresh":
                   refreshCount += 1;
                   el("refreshes").textContent = "Refreshed " + refreshCount + (refreshCount === 1 ? " time" : " times");
+                  loadSent();
                   break;
                 case "connectivity":
                   el("connectivity").textContent = message.online ? "Online" : "Offline";

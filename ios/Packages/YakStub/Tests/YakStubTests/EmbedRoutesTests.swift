@@ -97,6 +97,38 @@ import Testing
         #expect(feature.answer(route: "GET me", request: request, context: try context("embed-basic")) == nil)
     }
 
+    @Test func theFailingScenarioRefusesEveryMint() throws {
+        #expect(try mint(StubEmbed(), "embed-failed").status == 503)
+    }
+
+    @Test func theServerTakesWebOutOfAnyFeaturesMeUnlessTheScenarioOffersIt() {
+        let me = StubReply(
+            answer: .reply(
+                status: 200, contentType: "application/json", body: Data(#"{"web":{"embed":1},"user":{}}"#.utf8)))
+        func body(_ scenario: String) -> String {
+            guard case .reply(_, _, let data) = StubEmbed.meReply(me, scenario: scenario).answer else { return "" }
+            return String(decoding: data, as: UTF8.self)
+        }
+        #expect(!body("paired").contains("web") && body("paired").contains("user"))
+        #expect(!body("embed-unsupported").contains("web"))
+        #expect(body("embed-basic").contains("web"))
+        #expect(body("embed-slow").contains("web"))
+    }
+
+    @Test func onlyTheEmbedScenariosPutWebInMe() throws {
+        let feature = StubEmbed()
+        let request = StubRequest(method: "GET", path: "/api/app/v1/me", headers: bearer)
+        for scenario in ["paired", "question-open", "slow"] {
+            let me = try parts(feature.answer(route: "GET me", request: request, context: context(scenario)))
+            #expect(!me.body.contains("\"web\""), Comment(rawValue: scenario))
+        }
+        for scenario in ["embed-basic", "embed-expired-once", "embed-slow"] {
+            #expect(
+                feature.answer(route: "GET me", request: request, context: try context(scenario)) == nil,
+                Comment(rawValue: scenario))
+        }
+    }
+
     @Test func aCodeIsRedeemedOnceAndSetsACookieThenRedirectsToItsPath() throws {
         let feature = StubEmbed()
         let minted = try code(from: mint(feature).body)
