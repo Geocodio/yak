@@ -10,6 +10,11 @@ struct ComposerBar: View {
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.webConversation) private var web
+    @State private var isKeyboardUp = false
+
+    /// A field of the conversation page has the keyboard: the composer shrinks to one line so the page keeps its room.
+    private var isCollapsed: Bool { web?.mode == .web && isKeyboardUp && !isFocused }
 
     private var composer: ComposerModel { thread.composer }
 
@@ -55,6 +60,13 @@ struct ComposerBar: View {
         #if DEBUG
             .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
         #endif
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            // After this turn, so a tap on the composer has already given it focus.
+            Task { @MainActor in isKeyboardUp = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardUp = false
+        }
         .onChange(of: scene.composerFocusRequest) { takeFocusIfOpen() }
         .onChange(of: inputBlocked) { takeFocusIfOpen() }
         .task { takeFocusIfOpen() }
@@ -62,6 +74,7 @@ struct ComposerBar: View {
         .haptic(.sent, trigger: composer.acceptedSendCount)
         .motion(Motion.content, value: composer.bar)
         .motion(Motion.content, value: composer.attachments.count)
+        .motion(Motion.content, value: isCollapsed)
     }
 
     // MARK: Controls
@@ -78,7 +91,7 @@ struct ComposerBar: View {
                 ? "composer.steer"
                 : (isRetrying ? "composer.retry" : (isContinuing ? "composer.continue" : "composer.message")))
         return TextField(placeholder, text: text, axis: .vertical)
-            .lineLimit(1...6)
+            .lineLimit(isCollapsed ? 1...1 : 1...6)
             .focused($isFocused)
             .textInputAutocapitalization(.sentences)
             .padding(.horizontal, 14).padding(.vertical, 11)
