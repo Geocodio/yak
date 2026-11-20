@@ -21,13 +21,17 @@ export const start = (extra = {}) => ({
 export const fakeTool = (name, description, shape, handler) => ({ name, description, schema: z.object(shape), handler });
 export const fakeCreateSdkMcpServer = ({ name, tools }) => ({ type: 'sdk', name, instance: { tools } });
 
-export function createHarness({ messages = [], throwAfter = null, environment = { GH_TOKEN: SECRET }, yakTools, runnerOptions = {} } = {}) {
+export function createHarness({ messages = [], throwAfter = null, stopTask = async () => {}, supportedCommands = [], environment = { GH_TOKEN: SECRET }, yakTools, runnerOptions = {} } = {}) {
   const input = new PassThrough();
   const written = [];
   const output = { write: (chunk) => written.push(chunk) };
-  const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0 };
+  const calls = { options: null, prompts: [], setModel: [], applyFlagSettings: [], interrupts: 0, stopTask: [] };
   let release;
-  const gate = new Promise((resolve) => { release = resolve; });
+  let released = false;
+  const gate = new Promise((resolve) => { release = () => { released = true; wakeLater?.(); resolve(); }; });
+  // Messages a test sends after the run began, to interleave them with timers.
+  const later = [];
+  let wakeLater = null;
 
   const query = ({ prompt, options }) => {
     calls.options = options;
@@ -35,11 +39,16 @@ export function createHarness({ messages = [], throwAfter = null, environment = 
       (async () => { for await (const line of prompt) calls.prompts.push(line); })();
       for (const message of messages) yield message;
       if (throwAfter) throw new Error(throwAfter);
-      await gate;
+      while (!released) {
+        if (later.length) { yield later.shift(); continue; }
+        await new Promise((resolve) => { wakeLater = resolve; });
+      }
     })();
     generator.setModel = async (model) => { calls.setModel.push(model); };
     generator.applyFlagSettings = async (settings) => { calls.applyFlagSettings.push(settings); };
     generator.interrupt = async () => { calls.interrupts += 1; };
+    generator.supportedCommands = async () => supportedCommands;
+    generator.stopTask = async (taskId) => { calls.stopTask.push(taskId); return stopTask(taskId); };
     return generator;
   };
 
@@ -50,5 +59,7 @@ export function createHarness({ messages = [], throwAfter = null, environment = 
   const lines = () => written.join('').split('\n').filter(Boolean).map((line) => JSON.parse(line));
   const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-  return { send, lines, exited, calls, tick, release, input, written };
+  const push = (message) => { later.push(message); wakeLater?.(); };
+
+  return { send, lines, exited, calls, tick, release, input, written, push };
 }

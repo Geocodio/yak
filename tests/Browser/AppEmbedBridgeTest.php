@@ -1,11 +1,18 @@
 <?php
 
 use App\Enums\StopKind;
+use App\Enums\TurnMessageState;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /** Stands in for the app's script message handler; every message the page posts lands in `window.__sent`. */
 function stubAppHandler(mixed $page): void
@@ -107,4 +114,80 @@ it('shows the app outbox as unsent rows and ignores unknown messages', function 
         ->assertPresent('[data-testid="thread-message-unsent-discard"]');
     $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [] }); true");
     $page->assertMissing('[data-testid="thread-message-unsent"]')->assertNoJavaScriptErrors();
+});
+
+it('tells the app once when the session ends and a reload meets the 401', function () {
+    [$user, $device, $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $page = visitEmbedThread($thread, $headers);
+    stubAppHandler($page);
+    $device->delete();
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+
+    expect(sentOfType($page, 'auth', 'sent.length'))->toBe(1);
+
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+    $page->script('new Promise((resolve) => setTimeout(resolve, 1500))');
+
+    expect($page->script("window.__sent.filter((message) => message.type === 'auth').length"))->toBe(1);
+});
+
+it('does not show an outbox item twice when the server already queued it', function () {
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $root = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Start']);
+    PendingSteeringMessage::query()->create(['root_task_id' => $root->id, 'text' => 'Queued on the server', 'source' => 'thread', 'mode' => 'queue', 'uuid' => (string) Str::uuid(), 'send_key' => 'key-queued']);
+
+    $page = visitEmbedThread($thread, $headers);
+    $item = "{ key: 'key-queued', text: 'Queued on the server', status: 'waiting', reason: null, createdAt: '2026-11-20T10:15:00Z', attachmentCount: 0 }";
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [{$item}] }); true");
+    $page->script('new Promise((resolve) => setTimeout(resolve, 500))');
+
+    $page->assertMissing('[data-testid="thread-message-unsent"]')->assertNoJavaScriptErrors();
+});
+
+it('hands a message attachment download to the app, from the tile and from the chip', function () {
+    Storage::fake('artifacts');
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Read [File #1] first']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed]);
+    $attachment = TaskAttachment::factory()->create(['yak_task_id' => $task->id, 'original_name' => 'archive.zip', 'mime_type' => 'application/zip', 'reference' => 'File #1']);
+    Storage::disk('artifacts')->put($attachment->disk_path, 'notes');
+
+    $page = visitEmbedThread($thread, $headers);
+    stubAppHandler($page);
+    settled($page, "document.querySelector('[data-testid=\"sent-attachments\"] a') !== null", 'document.querySelectorAll("[data-attachment-ref]").length');
+    $page->script("document.querySelector('[data-testid=\"sent-attachments\"] a').click(); document.querySelector('[data-attachment-ref]').click(); true");
+
+    $sent = sentOfType($page, 'quickLook', 'sent.map((message) => message.name)');
+
+    expect($sent)->toBe(['archive.zip', 'archive.zip']);
+    $page->assertScript('location.pathname', "/app/embed/threads/{$thread->public_id}");
+});
+
+it('tells the app when a card was answered, even with a refresh during the post', function () {
+    [$thread, $headers] = embedQuestionThread();
+
+    $page = visitEmbedThread($thread, $headers)->wait(2);
+    stubAppHandler($page);
+    $page->click('[data-testid="question-scope"] >> text=Small')->click('[data-testid="questions-submit"]');
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+
+    expect(sentOfType($page, 'cardAnswered', 'sent.map(({ card, action, ok }) => ({ card, action, ok }))'))->toBe([['card' => 'question', 'action' => 'answer', 'ok' => true]]);
+});
+
+it('names the attachments of an unsent message without text and offers discard only where it is safe', function () {
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $page = visitEmbedThread($thread, $headers);
+    $item = "{ key: 'k2', text: '', status: 'sending', reason: null, createdAt: '2026-11-20T10:15:00Z', attachmentCount: 2 }";
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [{$item}] }); true");
+
+    $page->assertSeeIn('[data-testid="thread-message-unsent"]', '2 attachments')
+        ->assertMissing('[data-testid="thread-message-unsent-discard"]')
+        ->assertNoJavaScriptErrors();
 });

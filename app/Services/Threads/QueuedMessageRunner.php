@@ -10,6 +10,7 @@ use App\Jobs\AfterTurn\RetryQueuedMessageStartJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\User;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -107,7 +108,7 @@ class QueuedMessageRunner
         }
 
         try {
-            return $this->turns->start($head, '', null, $oldest->model, TaskRunKind::FollowUp, effort: $oldest->effort);
+            return $this->turns->start($head, '', $oldest->author_user_id === null ? null : User::query()->find($oldest->author_user_id), $oldest->model, TaskRunKind::FollowUp, effort: $oldest->effort);
         } catch (ThreadBusy|ThreadNotOwnedByYak) {
             return null;
         }

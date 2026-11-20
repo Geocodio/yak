@@ -43,7 +43,7 @@ export function UnsentMessage({ message, onRetry, onEdit, onDiscard }: { message
                     {status === 'refused' && <Action onClick={onRetry} testId="thread-message-unsent-retry">Retry</Action>}
                     {status === 'refused' && <Action onClick={onEdit} testId="thread-message-unsent-edit">Edit</Action>}
                     {(status === 'slow' || status === 'waiting') && <Action onClick={onEdit} testId="thread-message-unsent-edit">Cancel and edit</Action>}
-                    {onDiscard !== undefined && <Action onClick={onDiscard} testId="thread-message-unsent-discard">Discard</Action>}
+                    {onDiscard !== undefined && status !== 'queued' && status !== 'sending' && <Action onClick={onDiscard} testId="thread-message-unsent-discard">Discard</Action>}
                 </div>
             </div>
         </div>

@@ -10,7 +10,7 @@ final class BrokerLine
 {
     private const BROKER_EVENTS = ['runner_started', 'runner_exited', 'restarted', 'start_refused', 'kill_done', 'no_runner', 'broker_started', 'line_dropped'];
 
-    private const RUNNER_EVENTS = ['started', 'interrupted', 'error', 'exit_after_result', 'done', 'swept'];
+    private const RUNNER_EVENTS = ['started', 'interrupted', 'error', 'exit_after_result', 'done', 'swept', 'question', 'question_closed'];
 
     /**
      * @param  array<string, mixed>  $line

@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Download, FileAudio, X } from 'lucide-react'
 import { useEffect, useState, type MouseEvent } from 'react';
 import { CodeViewer } from '@/components/editor/CodeViewer';
 import { detectLanguage } from '@/components/editor/languageForFile';
-import { useEmbed } from '@/embed/useEmbed';
+import { postQuickLook, useEmbed } from '@/embed/useEmbed';
 import type { MediaItem } from '@/types/tasks';
 
 /** Text previews stop here; the rest of the file is a download away. */
@@ -162,9 +162,7 @@ export function MediaLightbox({
                             title="Download"
                             onClick={(event) => {
                                 // In the app a download opens in the system's quick look, which fetches with the session.
-                                const url = new URL(item.downloadUrl ?? item.url, window.location.href).href;
-
-                                if (embed?.post({ type: 'quickLook', url, name: item.downloadName ?? item.fileName ?? item.caption ?? 'file' })) {
+                                if (postQuickLook(embed, item.downloadUrl ?? item.url, item.downloadName ?? item.fileName ?? item.caption ?? 'file')) {
                                     event.preventDefault();
                                 }
                             }}

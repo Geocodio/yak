@@ -12,6 +12,8 @@ use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\Devices\ShortLockWait;
 use App\Services\Threads\QueuedMessages;
+use App\Services\Threads\ThreadLiveQuestions;
+use Closure;
 
 /**
  * The one way answers reach a waiting task, whatever surface they came from:
@@ -19,18 +21,18 @@ use App\Services\Threads\QueuedMessages;
  */
 class ClarificationAnswerSubmitter
 {
+    private const LIVE = 'live';
+
+    private const PARKED = 'parked';
+
+    private const TIMED_OUT = 'timed_out';
+
     /**
      * @param  array<string, array{choices: list<string>, other: string|null}>  $answers
      */
     public function submit(YakTask $task, array $answers, ?string $note, string $answeredBy, string $via): bool
     {
-        $claimed = ShortLockWait::transaction(function () use ($task, $answers, $note, $answeredBy): bool {
-            $locked = YakTask::whereKey($task->id)->lockForUpdate()->first();
-
-            if ($locked === null || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
-                return false;
-            }
-
+        $claimed = $this->claim($task, function (YakTask $locked) use ($answers, $note, $answeredBy): bool {
             $locked->recordClarificationAnswers($answers, $note, $answeredBy);
             $locked->update([
                 'status' => TaskStatus::Pending,
@@ -40,9 +42,9 @@ class ClarificationAnswerSubmitter
             ]);
 
             return true;
-        }, fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', QueuedMessages::BUSY_SENTENCE, [], 503));
+        }, fn (YakTask $locked): bool => app(ThreadLiveQuestions::class)->answer($locked, $answers, $note, $answeredBy));
 
-        if (! $claimed) {
+        if ($claimed === null) {
             return false;
         }
 
@@ -55,6 +57,21 @@ class ClarificationAnswerSubmitter
             'round' => $task->clarificationRoundCount(),
         ], task: $task);
 
+        // A live answer reaches the waiting runner; one given after the wait timed out is stored and the turn's end resumes with it.
+        if ($claimed === self::LIVE || $claimed === self::TIMED_OUT) {
+            return true;
+        }
+
+        $this->dispatchResume($task);
+
+        return true;
+    }
+
+    /**
+     * Continues a task whose answers are recorded: a progress note, then the job that resumes it.
+     */
+    public function dispatchResume(YakTask $task): void
+    {
         SendNotificationJob::dispatch($task, NotificationType::Progress, 'Got your answers, continuing.', personalize: false);
 
         $jobClass = $task->claimingJobClass();
@@ -64,8 +81,55 @@ class ClarificationAnswerSubmitter
         } else {
             app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
         }
+    }
+
+    /**
+     * Tells a waiting runner that the person wants Claude to choose. Only a live question has this: a parked
+     * one has no running turn to tell.
+     */
+    public function decide(YakTask $task, string $answeredBy, string $via): bool
+    {
+        $claimed = $this->claim($task, fn (): bool => false, fn (YakTask $locked): bool => app(ThreadLiveQuestions::class)->decide($locked, $answeredBy), requiresLive: true);
+
+        if ($claimed === null) {
+            return false;
+        }
+
+        TaskLogger::info($task->refresh(), 'Clarification answered', ['via' => $via, 'answered_by' => $answeredBy, 'decided_by_claude' => true]);
 
         return true;
+    }
+
+    /**
+     * Runs the live or the parked handler on the locked task, whichever question is open. Returns which one
+     * ran, or null when no question was open or the handler refused.
+     *
+     * @param  Closure(YakTask): bool  $parked
+     * @param  Closure(YakTask): bool  $live
+     */
+    private function claim(YakTask $task, Closure $parked, Closure $live, bool $requiresLive = false): ?string
+    {
+        return ShortLockWait::transaction(function () use ($task, $parked, $live, $requiresLive): ?string {
+            $locked = YakTask::whereKey($task->id)->lockForUpdate()->first();
+
+            if ($locked === null) {
+                return null;
+            }
+
+            if ($locked->liveClarificationRound() !== null) {
+                return $live($locked) ? self::LIVE : null;
+            }
+
+            if (ThreadLiveQuestions::isParkPending($locked)) {
+                return $live($locked) ? self::TIMED_OUT : null;
+            }
+
+            if ($requiresLive || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
+                return null;
+            }
+
+            return $parked($locked) ? self::PARKED : null;
+        }, fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', QueuedMessages::BUSY_SENTENCE, [], 503));
     }
 
     /**
@@ -77,7 +141,7 @@ class ClarificationAnswerSubmitter
      *
      * @return array<string, mixed>
      */
-    private static function claimResetFor(YakTask $task): array
+    public static function claimResetFor(YakTask $task): array
     {
         if ($task->agentJobClass() === RunFollowUpJob::class) {
             return [];
@@ -91,6 +155,10 @@ class ClarificationAnswerSubmitter
 
     public function submitReply(YakTask $task, string $replyText, string $answeredBy, string $via): bool
     {
+        if (ThreadLiveQuestions::isOpen($task)) {
+            return $this->claim($task, fn (): bool => false, fn (YakTask $locked): bool => app(ThreadLiveQuestions::class)->reply($locked, $replyText, $answeredBy), requiresLive: true) !== null;
+        }
+
         $questions = $task->pendingClarificationQuestions();
 
         if (count($questions) !== 1 || trim($replyText) === '') {

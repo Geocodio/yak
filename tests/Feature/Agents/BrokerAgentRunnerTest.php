@@ -265,7 +265,7 @@ it('stops a runaway run at the assistant turn limit', function () {
     $result = app(BrokerAgentRunner::class)->run(($this->makeRequest)());
 
     expect($result->isError)->toBeTrue()
-        ->and($result->resultSummary)->toContain('3 assistant turns')
+        ->and($result->resultSummary)->toContain('3 steps')
         ->and(array_column(($this->sentTo)($this->channel), 'type'))->toBe(['start_runner', 'turn', 'interrupt', 'kill', 'end'])
         ->and($this->run->fresh()->account_slot_held_at)->toBeNull();
 });

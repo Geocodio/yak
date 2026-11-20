@@ -17,7 +17,10 @@ import { destroy as destroyQueued, update as updateQueued } from '@/routes/threa
 import type { TeleportData, ThreadComposer as ThreadComposerData, ThreadData, ThreadNotice, ThreadRequest } from '@/types/threads';
 import { channelHint, composerCopy } from './composerCopy';
 import { ModelPicker } from '@/components/accounts/ModelPicker';
+import { AgentsBar } from './AgentsBar';
 import { ContextRing } from './ContextRing';
+import { SLASH_MENU_ID, SlashMenu, slashOptionId } from './SlashMenu';
+import { filterCommands, groupCommands, menuOrder, slashQuery, startsWithCommand, type SlashCommand, type SlashCommandsData } from './slashCommands';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     disabled_closed: 'This thread is closed.',
@@ -27,8 +30,9 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
 };
 
 const MAX_MESSAGE_LENGTH = 20000;
+const NO_SLASH_COMMANDS: SlashCommandsData = { commands: [], capturedAt: null };
 
-export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
+export function ThreadComposer({ queued = [], thread, composer, notice, teleportState, isOffline = false, restoredDraft = null, request = null, onAddSubThread, isWaitingForRepository = false, slashCommands = NO_SLASH_COMMANDS }: { slashCommands?: SlashCommandsData; isWaitingForRepository?: boolean; queued?: QueuedRow[]; request?: ThreadRequest | null; thread: ThreadData; composer: ThreadComposerData; notice: ThreadNotice | null; teleportState: TeleportData['state']; isOffline?: boolean; restoredDraft?: { text: string } | null; onAddSubThread?: () => void }) {
     const form = useForm<{ message: string; model: string | null; effort: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -41,6 +45,8 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     // been focused, and stay so, so a picker's popup taking focus does not fold the row away.
     const [hasToolsOpened, setHasToolsOpened] = useState(false);
     const [editingQueuedId, setEditingQueuedId] = useState<number | null>(null);
+    const [highlightedCommand, setHighlightedCommand] = useState<string | null>(null);
+    const [isMenuDismissed, setIsMenuDismissed] = useState(false);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
@@ -73,6 +79,27 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     useCommandPaletteActions(THREAD_GROUP, actions);
     const errors = form.errors as Record<string, string | undefined>;
     const empty = form.data.message.trim() === '';
+
+    const commandQuery = slashQuery(form.data.message);
+    const slashSections = useMemo(() => (commandQuery === null ? [] : groupCommands(filterCommands(slashCommands.commands, commandQuery))), [commandQuery, slashCommands.commands]);
+    const slashOrder = useMemo(() => menuOrder(slashSections), [slashSections]);
+    const isMenuOpen = !disabled && commandQuery !== null && !isMenuDismissed && (slashOrder.length > 0 || commandQuery !== '');
+    const activeCommand = isMenuOpen ? (slashOrder.find((command) => command.name === highlightedCommand) ?? slashOrder[0] ?? null) : null;
+    const messageCommand = startsWithCommand(form.data.message, slashCommands.commands);
+    // A Claude command runs as its own turn, so while Claude works it waits for the next one instead of steering.
+    const isQueuedCommand = working && messageCommand !== null && messageCommand.kind !== 'yak';
+
+    const completeCommand = (command: SlashCommand) => {
+        form.setData('message', `/${command.name} `);
+        setHighlightedCommand(null);
+        inputRef.current?.focus();
+    };
+
+    // A new query starts the highlight over at the first row, and a closed menu opens again when the text changes.
+    useEffect(() => {
+        setHighlightedCommand(null);
+        setIsMenuDismissed(false);
+    }, [form.data.message]);
 
     // A message taken back from the conversation returns to the box, ahead of anything typed since.
     useEffect(() => {
@@ -111,6 +138,41 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (isMenuOpen && !event.nativeEvent.isComposing) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setIsMenuDismissed(true);
+
+                return;
+            }
+
+            if (activeCommand !== null) {
+                const index = slashOrder.indexOf(activeCommand);
+
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setHighlightedCommand(slashOrder[(index + (event.key === 'ArrowDown' ? 1 : slashOrder.length - 1)) % slashOrder.length].name);
+
+                    return;
+                }
+
+                if (event.key === 'Tab' && !event.shiftKey) {
+                    event.preventDefault();
+                    completeCommand(activeCommand);
+
+                    return;
+                }
+
+                // Enter completes the highlighted row, and sends once the text already names a command.
+                if (event.key === 'Enter' && !event.shiftKey && !slashOrder.some((command) => form.data.message === `/${command.name}`)) {
+                    event.preventDefault();
+                    completeCommand(activeCommand);
+
+                    return;
+                }
+            }
+        }
+
         // Up in an empty box edits the newest waiting message, as it does in the task composer.
         if (event.key === 'ArrowUp' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey && !event.nativeEvent.isComposing && form.data.message === '' && draft.files.length === 0 && draft.refs.length === 0 && canManageQueued) {
             const latest = latestEditable(queued);
@@ -154,6 +216,8 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
             <div className="mx-auto max-w-[820px]">
                 <div className="@container relative rounded-card border border-hair bg-panel shadow-card focus-within:border-accent max-sm:flex max-sm:flex-wrap max-sm:items-center" onFocus={() => setHasToolsOpened(true)} {...draft.dropzoneProps}>
                     <AttachmentDropOverlay draft={draft} />
+                    {isMenuOpen && commandQuery !== null && <SlashMenu sections={slashSections} query={commandQuery} activeName={activeCommand?.name ?? null} onPick={completeCommand} />}
+                    <AgentsBar />
                     <QueuedMessages
                         messages={queued}
                         updateUrl={(message) => updateQueued.url({ thread: thread.id, message: message.id })}
@@ -180,6 +244,12 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                         disabled={disabled}
                         aria-label={waitsForRepository ? waitingPlaceholder : undefined}
                         aria-invalid={errors.message ? true : undefined}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-haspopup="listbox"
+                        aria-expanded={isMenuOpen && slashOrder.length > 0}
+                        aria-controls={isMenuOpen && slashOrder.length > 0 ? SLASH_MENU_ID : undefined}
+                        aria-activedescendant={activeCommand === null ? undefined : slashOptionId(activeCommand)}
                         className="w-full resize-none border-0 shadow-none focus:ring-0 max-sm:min-h-11"
                         data-testid="thread-composer-input"
                     />
@@ -205,9 +275,9 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                             )}
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
-                            <ContextRing composer={composer} model={form.data.model} />
+                            <ContextRing composer={composer} model={form.data.model} threadId={thread.id} />
                             <span className="text-[11px] text-faint sm:truncate max-sm:basis-full" data-testid="thread-composer-hint">
-                                {hint}
+                                {isQueuedCommand ? 'Sent as the next turn while Claude is working' : hint}
                             </span>
                         </div>
                         {!isPhone && sendControls}

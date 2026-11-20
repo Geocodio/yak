@@ -1,10 +1,15 @@
 import { cn } from '@geocodio/console-ui';
+import { useAgents } from '@/threads/panels/agents/AgentsContext';
+import { agentsTabCount } from '@/threads/panels/agents/agentsState';
 import { phoneTabs, type PhoneTabId } from './dockState';
 
 type Props = { registeredDockIds: string[]; active: PhoneTabId; isWorking: boolean; changesCount: number; onSelect: (id: PhoneTabId) => void };
 
 /** Chat, Preview, Files, Terminal and Overview as one tab row under `lg`; desktop shows the views side by side instead. */
 export function ThreadPhoneTabs({ registeredDockIds, active, isWorking, changesCount, onSelect }: Props) {
+    const agents = useAgents();
+    const agentsCount = agents === null ? 0 : agentsTabCount(agents.rows, agents.subThreads.length);
+
     return (
         <div role="tablist" aria-label="Thread views" className="flex shrink-0 overflow-x-auto border-b border-hair [scrollbar-width:none] lg:hidden" data-testid="thread-phone-tabs">
             {phoneTabs(registeredDockIds).map((tab) => (
@@ -19,6 +24,7 @@ export function ThreadPhoneTabs({ registeredDockIds, active, isWorking, changesC
                 >
                     {tab.label}
                     {tab.id === 'chat' && isWorking && <span className="size-1.5 animate-pulse rounded-pill bg-info motion-reduce:animate-none" data-testid="thread-phone-tab-chat-dot" aria-label="Claude is working" />}
+                    {tab.id === 'agents' && agentsCount > 0 && <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-pill bg-panel-2 px-1.5 text-[11px] font-medium tabular-nums text-muted" data-testid="thread-phone-tab-agents-count">{agentsCount}</span>}
                     {tab.id === 'files' && changesCount > 0 && <span className="inline-grid h-[17px] min-w-[17px] place-items-center rounded-pill bg-panel-2 px-1.5 text-[11px] font-medium tabular-nums text-muted">{changesCount}</span>}
                 </button>
             ))}

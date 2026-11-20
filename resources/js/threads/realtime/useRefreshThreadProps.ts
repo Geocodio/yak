@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { reportAuthIfExpired } from '@/embed/bridge';
 import { useEffect, useRef } from 'react';
 
 export { livePropsSignature } from './livePropsSignature';
@@ -20,6 +21,11 @@ router.on('finish', (event) => {
         mutationsInFlight--;
     }
 });
+
+/** True while a non-GET visit is running, so a reload of other props does not take its flash. */
+export function hasMutationsInFlight(): boolean {
+    return mutationsInFlight > 0;
+}
 
 /**
  * The status pill, the composer and the panels render server props. A turn or thread event means those
@@ -49,7 +55,11 @@ export function useRefreshThreadProps(signature: string): void {
                 return false;
             };
 
-            router.reload({ showProgress: false, onNetworkError: retry, onHttpException: () => false });
+            router.reload({ showProgress: false, onNetworkError: retry, onHttpException: (response) => {
+                    reportAuthIfExpired(response.status);
+
+                    return false;
+                } });
         }
 
         return () => window.clearTimeout(timer);

@@ -1,3 +1,5 @@
+import { reportAuthIfExpired } from '../embed/bridge.ts';
+
 /**
  * GETs a JSON endpoint and retries when the network drops the request or the server answers 5xx.
  * A 4xx answer is final (a hidden thread's 404 must not be retried into existence), and an
@@ -24,6 +26,8 @@ export async function fetchJsonWithRetry<T>(
             if (response.ok) {
                 return (await response.json()) as T;
             }
+
+            reportAuthIfExpired(response.status);
 
             if (response.status < 500 || attempt >= retryDelaysMs.length) {
                 throw new Error(`Request failed (${response.status})`);

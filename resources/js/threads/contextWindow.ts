@@ -41,3 +41,23 @@ export function contextMeter(context: ThreadComposer['context'], window: number)
 
     return { tokens: context.tokens, window, percent, label: `${formatTokens(context.tokens)} / ${formatTokens(window)}`, tone };
 }
+
+/** Amber from 80% of the step limit. */
+export const NEAR_STEP_PERCENT = 80;
+
+export type StepMeter = { steps: number; limit: number | null; percent: number | null; label: string; tone: 'normal' | 'near' };
+
+/** "142 steps", or "262 / 300 steps" for a limited turn. Null when no turn runs. */
+export function stepMeter(turn: ThreadComposer['turn']): StepMeter | null {
+    if (turn === null) {
+        return null;
+    }
+
+    if (turn.limit === null) {
+        return { steps: turn.steps, limit: null, percent: null, label: `${turn.steps} steps`, tone: 'normal' };
+    }
+
+    const percent = Math.min(100, Math.round((turn.steps / turn.limit) * 100));
+
+    return { steps: turn.steps, limit: turn.limit, percent, label: `${turn.steps} / ${turn.limit} steps`, tone: turn.steps / turn.limit >= NEAR_STEP_PERCENT / 100 ? 'near' : 'normal' };
+}

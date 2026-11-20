@@ -498,7 +498,7 @@ class WebhookController extends Controller
         }
 
         if ($status === TaskStatus::AwaitingClarification) {
-            if (ClarificationMessage::answersInline($task)) {
+            if (ClarificationMessage::acceptsReply($task)) {
                 app(ClarificationAnswerSubmitter::class)->submitReply($task, $message, (string) ($request->input('actor.name') ?? 'Linear user'), 'linear');
 
                 return response()->json(['ok' => true, 'handled' => 'clarification_reply']);

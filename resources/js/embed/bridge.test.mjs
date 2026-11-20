@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { APP_MESSAGE_TYPES, PAGE_MESSAGE_TYPES, validateAppMessage, validatePageMessage } from './bridge.ts';
+import { APP_MESSAGE_TYPES, PAGE_MESSAGE_TYPES, sameOriginUrl, validateAppMessage, validatePageMessage } from './bridge.ts';
 import { cardActionOf } from './cardActions.ts';
 import { visibleOutbox } from './outboxSource.ts';
 
@@ -55,4 +55,17 @@ test('it names the card action of a post', () => {
     assert.equal(cardActionOf('post', '/threads/d0e515ef/restore/retry'), 'restore-retry');
     assert.equal(cardActionOf('get', '/threads/d0e515ef/retry'), null);
     assert.equal(cardActionOf('post', '/threads/d0e515ef/messages'), null);
+});
+
+test('only same-origin urls go to the quick look', () => {
+    const base = 'https://yak.example/app/embed/threads/abcd1234';
+
+    assert.equal(sameOriginUrl('/threads/a/files/1', base), 'https://yak.example/threads/a/files/1');
+    assert.equal(sameOriginUrl('https://yak.example/x', base), 'https://yak.example/x');
+    assert.equal(sameOriginUrl('https://other.example/x', base), null);
+    assert.equal(sameOriginUrl('//other.example/x', base), null);
+});
+
+test('a threadChanged without the previous thread is malformed', () => {
+    assert.equal(validatePageMessage({ v: 1, type: 'threadChanged', threadId: 'd0e515ef', previousThreadId: null }).kind, 'malformed');
 });

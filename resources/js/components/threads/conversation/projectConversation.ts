@@ -7,6 +7,9 @@ type Source = Pick<ThreadEventState, 'entries' | 'streamingBlocks' | 'lastSequen
 
 const editTools = new Set(['Edit', 'MultiEdit', 'Write']);
 
+/** The tools that start an agent or a workflow; each draws its own card instead of a step row. */
+const agentTools = new Set(['Agent', 'Task', 'Workflow']);
+
 const toolVerbs: Record<string, [string, string, string]> = {
     Read: ['Read', 'file', 'files'],
     Bash: ['Ran', 'command', 'commands'],
@@ -116,6 +119,14 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
 
     entry.blocks.forEach((block, index) => {
         if (block.type === 'tool_use') {
+            if (agentTools.has(block.name)) {
+                closeRun();
+                const described = block.input.description ?? block.input.name ?? block.input.workflow;
+                items.push({ kind: 'agent', key: `agent:${block.id}`, sequence, role: 'assistant', toolUseId: block.id, text: typeof described === 'string' ? described : block.name });
+
+                return;
+            }
+
             if (editTools.has(block.name)) {
                 edits.push(block);
             } else {

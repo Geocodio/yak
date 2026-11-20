@@ -16,7 +16,7 @@ export type PanePayload =
 /** Page to app. */
 export type PageMessage =
     | { type: 'ready'; threadId: string; url: string; latestSequence: number; title: string }
-    | { type: 'threadChanged'; threadId: string; previousThreadId: string | null }
+    | { type: 'threadChanged'; threadId: string; previousThreadId: string }
     | { type: 'link'; url: string }
     | ({ type: 'openPane' } & PanePayload)
     | { type: 'quickLook'; url: string; name: string; mime?: string }
@@ -59,7 +59,7 @@ function isOutboxItem(value: unknown): value is OutboxItem {
 
 const pageChecks: Record<(typeof PAGE_MESSAGE_TYPES)[number], (message: Shape) => boolean> = {
     ready: (m) => isThreadId(m.threadId) && isNonEmpty(m.url) && isCount(m.latestSequence) && isString(m.title, 500),
-    threadChanged: (m) => isThreadId(m.threadId) && (m.previousThreadId === null || isThreadId(m.previousThreadId)),
+    threadChanged: (m) => isThreadId(m.threadId) && isThreadId(m.previousThreadId),
     link: (m) => isNonEmpty(m.url),
     openPane: (m) =>
         (m.pane === 'files' && isOneOf(m.mode, ['changed', 'everything'] as const) && isOptional(m.path, (path) => isNonEmpty(path))) ||
@@ -137,7 +137,7 @@ export function sendToApp(message: PageMessage): boolean {
 export function receiveFromApp(raw: unknown): void {
     const result = validateAppMessage(raw);
 
-    if (result.kind !== 'ok') {
+    if (result.kind !== 'ok' || !isActive) {
         return;
     }
 
@@ -160,4 +160,28 @@ export const isEmbedActive = (): boolean => isActive;
 
 export function installReceiver(): void {
     window.__yakEmbed = { receive: receiveFromApp };
+}
+
+/** The URL as the app should fetch it, or null when it leaves this origin (the session cookie must not travel there). */
+export function sameOriginUrl(href: string, base: string = window.location.href): string | null {
+    const url = new URL(href, base);
+
+    return url.origin === new URL(base).origin ? url.href : null;
+}
+
+let isAuthReported = false;
+
+/** Tells the app the session ended, once per page load, and only while an embed page is mounted. */
+export function reportAuthExpired(): void {
+    if (isActive && !isAuthReported) {
+        isAuthReported = true;
+        sendToApp({ type: 'auth', state: 'expired' });
+    }
+}
+
+/** Reports the session ending when a response says so (401 expired, 419 token mismatch). */
+export function reportAuthIfExpired(status: number): void {
+    if (status === 401 || status === 419) {
+        reportAuthExpired();
+    }
 }

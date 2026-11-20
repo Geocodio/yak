@@ -44,6 +44,9 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
+      - name: Script bridge contract
+        run: node --test resources/js/embed/bridge.test.mjs
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:

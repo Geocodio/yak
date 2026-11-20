@@ -53,9 +53,11 @@ class RepositoryActionController extends Controller
 
     public function rerunSetup(Request $request, Repository $repository, DispatchRepositorySetupTask $dispatchSetup): RedirectResponse
     {
+        $alreadyRunning = $repository->inFlightSetupTask() !== null;
         $task = $dispatchSetup($repository, $request->user());
 
-        return redirect()->route('repos.runs.show', [$repository, $task])->with('success', 'Setup task dispatched.');
+        return redirect()->route('repos.runs.show', [$repository, $task])
+            ->with('success', $alreadyRunning ? 'Setup is already running.' : 'Setup task dispatched.');
     }
 
     public function refreshConfig(Repository $repository, RepositoryConfig $config): RedirectResponse
