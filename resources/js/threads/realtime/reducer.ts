@@ -20,6 +20,7 @@ export function initialEventState(): ThreadEventState {
         questionOpen: null,
         children: {},
         repositories: {},
+        agents: {},
         viewers: [],
         connection: 'connecting',
         lastSequence: 0,
@@ -46,6 +47,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
         }
         case 'entry': {
             const entry = event.data as ThreadEventEnvelope<'entry'>['data'];
+
+            // An agent's own steps are read in its log, not in Claude's transcript.
+            if (entry.agentId !== undefined) {
+                return next;
+            }
 
             if (entry.role !== 'assistant') {
                 return { ...next, entries: [...state.entries, entry] };
@@ -77,6 +83,13 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const data = event.data as ThreadEventEnvelope<'repository'>['data'];
 
             return { ...next, repositories: { ...state.repositories, [data.repo]: { sequence: state.repositories[data.repo]?.sequence ?? event.sequence, data } } };
+        }
+        case 'agent.started':
+        case 'agent.progress':
+        case 'agent.finished': {
+            const data = event.data as ThreadEventEnvelope<'agent.started'>['data'];
+
+            return { ...next, agents: { ...state.agents, [data.id]: data } };
         }
         default:
             return next;

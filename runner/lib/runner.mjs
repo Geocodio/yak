@@ -1,5 +1,5 @@
 // Yak SDK runner: JSON lines on stdin, one JSON line per SDK message on stdout.
-// stdin:  {type:'start',...} first, then user | interrupt | set_model | set_effort | end | tool_result.
+// stdin:  {type:'start',...} first, then user | interrupt | stop_agent | set_model | set_effort | end | tool_result.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
 import readline from 'node:readline';
 import { sensitiveValues } from './environment.mjs';
@@ -10,6 +10,7 @@ import { listProcesses as listSystemProcesses, selectLeftovers } from './process
 
 const SWEEP_DELAY_MS = 60_000;
 const KILL_GRACE_MS = 5_000;
+const STOP_AGENT_TIMEOUT_MS = 15_000;
 // /proc start times have one-second resolution, so a process started right after the turn began can read slightly early.
 const START_TIME_TOLERANCE_MS = 1_000;
 
@@ -25,6 +26,10 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   let turnStartedAtMs = null;
   let sweepTimer = null;
   let killTimer = null;
+  // Tasks (agents, workflows, background commands) the CLI reports as running; their processes belong to the session.
+  let backgroundTaskCount = 0;
+  // The reply's final text came and no result has followed: the sweep is owed once nothing runs in the background.
+  let sweepOwed = false;
 
   const wakeUp = () => { const resolve = wake; wake = null; resolve?.(); };
   const write = (object) => output.write(redactor.redactText(JSON.stringify(object)) + '\n');
@@ -48,7 +53,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   function sweep() {
     sweepTimer = null;
     try {
-      if (turnStartedAtMs === null || agentUid === undefined) return;
+      if (turnStartedAtMs === null || agentUid === undefined || backgroundTaskCount > 0) return;
       const processes = listProcesses();
       // The runner protects itself and, through it, the CLI and every MCP server below it.
       const pids = selectLeftovers(processes, { agentUid, turnStartedAtMs: turnStartedAtMs - START_TIME_TOLERANCE_MS, protectedPids: new Set([process.pid]) });
@@ -70,14 +75,26 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
   }
 
   function trackTurn(message) {
-    if (message.type === 'result') { cancelSweep(); return; }
-    // Subagent messages carry parent_tool_use_id; only the main agent's answer ends the turn.
-    if (message.type !== 'assistant' || message.parent_tool_use_id) return;
+    if (message.type === 'system' && message.subtype === 'background_tasks_changed') {
+      backgroundTaskCount = Array.isArray(message.tasks) ? message.tasks.length : 0;
+      // The sweep that was skipped for running tasks is armed again when the last one is over.
+      if (backgroundTaskCount === 0 && sweepOwed && sweepTimer === null) sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+      return;
+    }
+    // The CLI reports idle only when the reply and every background task are over, so nothing is left to sweep.
+    if (message.type === 'system' && message.subtype === 'session_state_changed' && message.state === 'idle') { cancelSweep(); sweepOwed = false; turnStartedAtMs = null; return; }
+    if (message.type === 'result') { cancelSweep(); sweepOwed = false; return; }
+    // Subagent messages carry parent_tool_use_id and agent_id; only the main agent's answer ends the turn.
+    if (message.type !== 'assistant' || message.parent_tool_use_id || message.agent_id) return;
     const blocks = Array.isArray(message.message?.content) ? message.message.content : [];
     if (turnStartedAtMs === null && blocks.some((block) => block?.type === 'tool_use')) turnStartedAtMs = now();
     cancelSweep();
+    sweepOwed = false;
     // The final answer is a text-only message; the stream reports its stop_reason as null.
-    if (blocks.some((block) => block?.type === 'text') && !blocks.some((block) => block?.type === 'tool_use')) sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+    if (blocks.some((block) => block?.type === 'text') && !blocks.some((block) => block?.type === 'tool_use')) {
+      sweepOwed = true;
+      sweepTimer = setTimer(sweep, SWEEP_DELAY_MS);
+    }
   }
 
   async function* promptStream() {
@@ -109,11 +126,23 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
     runnerLine('done');
   }
 
+  // Stops one agent or workflow and answers with a runner line, so Yak never waits on a silent runner.
+  function stopAgent(taskId) {
+    if (typeof taskId !== 'string' || taskId === '') { runnerLine('agent_stop_failed', { taskId: null, error: 'stop_agent requires taskId' }); return; }
+    if (!activeQuery) { runnerLine('agent_stop_failed', { taskId, error: 'no active session' }); return; }
+    let timer = null;
+    const timedOut = new Promise((_, reject) => { timer = setTimer(() => reject(new Error('stopTask timed out')), STOP_AGENT_TIMEOUT_MS); });
+    Promise.race([activeQuery.stopTask(taskId), timedOut])
+      .then(() => runnerLine('agent_stopped', { taskId }), (error) => runnerLine('agent_stop_failed', { taskId, error: describe(error) }))
+      .finally(() => clearTimer(timer));
+  }
+
   function handle(command) {
     if (command.type === 'user') {
       if (!command.uuid) { runnerLine('bad_line', { error: 'user line requires uuid' }); return; }
       turnStartedAtMs = null;
       cancelSweep();
+      sweepOwed = false;
       queue.push({
         type: 'user',
         message: { role: 'user', content: command.text },
@@ -125,6 +154,8 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       wakeUp();
     } else if (command.type === 'interrupt') {
       activeQuery?.interrupt().then(() => runnerLine('interrupted'));
+    } else if (command.type === 'stop_agent') {
+      stopAgent(command.taskId);
     } else if (command.type === 'set_model') {
       activeQuery?.setModel(command.model).catch((error) => runnerLine('error', { error: describe(error) }));
     } else if (command.type === 'set_effort') {

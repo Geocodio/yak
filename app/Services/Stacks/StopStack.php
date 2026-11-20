@@ -5,6 +5,8 @@ namespace App\Services\Stacks;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
+use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Cache;
@@ -41,6 +43,12 @@ class StopStack
 
             if (ThreadTurns::activeTurn($thread) !== null) {
                 $this->turns->stop($thread);
+                $touched = true;
+            }
+
+            // A stopped stack has no agents left to wake a thread again when they finish.
+            if (ThreadAgent::hasRunning($thread->id)) {
+                app(ThreadAgents::class)->stopAll($thread);
                 $touched = true;
             }
 

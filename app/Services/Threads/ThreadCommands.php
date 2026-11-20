@@ -63,6 +63,8 @@ class ThreadCommands
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
                 'disallowedTools' => self::DISALLOWED_TOOLS,
                 'passthroughEnv' => IncusSandboxManager::passthroughNames(),
+                'subagents' => (bool) config('yak.threads.subagents'),
+                'forwardNestedSubagentToolCalls' => (bool) config('yak.threads.subagents_forward_nested'),
             ],
         ]);
 
@@ -102,6 +104,14 @@ class ThreadCommands
     public function interrupt(Thread $thread): void
     {
         $this->send($thread, ['type' => 'interrupt']);
+    }
+
+    /**
+     * Stops one agent or workflow by Claude's task id; the reply it is part of keeps going.
+     */
+    public function stopAgent(Thread $thread, string $taskId): void
+    {
+        $this->send($thread, ['type' => 'stop_agent', 'taskId' => $taskId]);
     }
 
     public function setModel(Thread $thread, string $model): void

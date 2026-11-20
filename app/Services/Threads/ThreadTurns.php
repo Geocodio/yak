@@ -91,7 +91,7 @@ class ThreadTurns
 
         return is_array($state) && $state !== []
             ? TurnTracker::fromState($state)
-            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds')]);
+            : app()->make(TurnTracker::class, ['graceSeconds' => (int) config('yak.threads.turn_grace_seconds'), 'ignoresAgentTasks' => (bool) config('yak.threads.subagents')]);
     }
 
     /**
@@ -268,6 +268,8 @@ class ThreadTurns
         }
 
         if ($thread->runner_state === RunnerState::None) {
+            // Agents of the runner that is gone never report back; the new runner starts without them.
+            app(ThreadAgents::class)->failAll($thread);
             $account = ClaudeAccount::query()->findOrFail($run->claude_account_id);
             $this->commands->startRunner(
                 $thread,

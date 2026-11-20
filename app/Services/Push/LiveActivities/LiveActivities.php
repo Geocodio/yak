@@ -18,6 +18,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\Push\Apns\ApnsConfig;
 use App\Services\Threads\ThreadAccess;
+use App\Services\Threads\ThreadAgents;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -103,7 +104,7 @@ class LiveActivities
     {
         $run = $run->fresh();
 
-        if ($run === null || $run->turn_state !== TurnState::Completed || $run->thread_id === null) {
+        if ($run === null || $run->turn_state !== TurnState::Completed || $run->thread_id === null || ThreadAgents::isQuietTurn($run)) {
             return;
         }
 

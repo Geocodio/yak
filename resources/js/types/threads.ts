@@ -2,6 +2,7 @@ import type { StepView } from '@/components/activity/types';
 import type { ModelFamily, PickerAccount } from '@/types/claudeAccounts';
 import type { AttachmentData, QuestionData } from '@/types/tasks';
 import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
+import type { ThreadAgentsData } from '@/types/thread-agents';
 export type ThreadRepositoryData = {
     repo: string;
     role: 'primary' | 'changes' | 'context';
@@ -261,6 +262,8 @@ export type ThreadPageData = {
     queuedMessages: ThreadQueuedMessage[];
     /** Web only: the runs of the thread, so each answer can offer its full log. */
     runs: ThreadRunSummary[];
+    /** Web only: Claude's agents and workflows and the sub-threads, for the Agents panel. */
+    agents: ThreadAgentsData;
     /** Web only: the run and entry a `?log=` link names, or null. */
     openLog: { runId: string; entryId: number | null } | null;
 };

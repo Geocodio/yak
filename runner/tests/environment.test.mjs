@@ -47,3 +47,10 @@ test('it forwards the operator variables named in the start command and redacts 
   assert.equal(environment.HOME, '/home/yak');
   assert.ok(sensitiveValues(processEnvironment, begin).includes('npm-secret'));
 });
+
+test('it lets background tasks run and asks for the session state when subagents are on', () => {
+  const environment = buildChildEnvironment(start({ subagents: true }), {});
+  assert.equal(environment.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, undefined);
+  assert.equal(environment.CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS, '1');
+  assert.equal(buildChildEnvironment(start(), {}).CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS, undefined);
+});

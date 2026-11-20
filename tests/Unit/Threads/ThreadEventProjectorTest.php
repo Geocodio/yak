@@ -89,3 +89,17 @@ it('adds html to stored assistant entries that lack it and keeps existing html',
         ->and($data['blocks'][1]['html'])->toBe('<p>kept</p>')
         ->and($data['blocks'][2])->toBe(['type' => 'thinking', 'text' => 'hm']);
 });
+
+it('tags an agent line with its agent and leaves the lines of Claude itself untagged', function () {
+    $projector = new ThreadEventProjector;
+    $assistant = ['type' => 'assistant', 'message' => ['id' => 'm1', 'content' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'Bash', 'input' => ['command' => 'ls']]]]];
+    $prompt = ['type' => 'user', 'uuid' => 'u-1', 'message' => ['content' => 'Run ls']];
+    $result = ['type' => 'user', 'message' => ['content' => [['type' => 'tool_result', 'tool_use_id' => 't1', 'content' => 'ok']]]];
+
+    expect($projector->project($assistant)[0]['data'])->not->toHaveKey('agentId')
+        ->and($projector->project([...$assistant, 'agent_id' => 'a1', 'parent_tool_use_id' => 'toolu_parent'])[0]['data']['agentId'])->toBe('a1')
+        ->and($projector->project([...$prompt, 'agent_id' => 'a1', 'parent_tool_use_id' => 'toolu_parent'])[0]['data'])->toMatchArray(['role' => 'user', 'agentId' => 'a1'])
+        ->and($projector->project([...$result, 'agent_id' => 'a1'])[0]['data']['agentId'])->toBe('a1')
+        ->and($projector->project([...$assistant, 'parent_tool_use_id' => 'toolu_parent'])[0]['data']['agentId'])->toBe('toolu_parent')
+        ->and($projector->project(['type' => 'result', 'subtype' => 'success', 'agent_id' => 'a1'])[0]['data'])->not->toHaveKey('agentId');
+});
