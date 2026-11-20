@@ -41,6 +41,10 @@ class RepositoryTemplateDrift
 
     public function invalidateAndSetUp(Repository $repository, string $reason = 'yak-base updated'): YakTask
     {
+        if (($inFlight = $repository->inFlightSetupTask()) !== null) {
+            return $inFlight;
+        }
+
         $this->sandbox->invalidateTemplate($repository);
 
         return $this->dispatchSetupTask($repository, $reason);
@@ -48,6 +52,10 @@ class RepositoryTemplateDrift
 
     public function dispatchSetupTask(Repository $repository, string $reason = 'yak-base updated'): YakTask
     {
+        if (($inFlight = $repository->inFlightSetupTask()) !== null) {
+            return $inFlight;
+        }
+
         $setupTask = YakTask::create([
             'repo' => $repository->slug,
             'external_id' => 'setup-' . Str::random(8),
