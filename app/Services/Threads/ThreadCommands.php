@@ -30,6 +30,7 @@ class ThreadCommands
         private readonly SandboxManager $sandbox,
         private readonly AuthProxyPlaceholders $placeholders,
         private readonly ClaudeModelCatalog $models,
+        private readonly RunnerDelivery $runnerDelivery,
     ) {}
 
     public function channel(Thread $thread): string
@@ -55,6 +56,11 @@ class ThreadCommands
     public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt, ?string $workingDirectory = null): void
     {
         $workingDirectory ??= self::WORKING_DIRECTORY;
+
+        if ($thread->sandbox_container !== null) {
+            $this->runnerDelivery->ensure($thread->sandbox_container);
+        }
+
         $placeholder = $this->placeholders->issue($thread, $account, $this->containerIp($thread));
 
         $this->send($thread, [
