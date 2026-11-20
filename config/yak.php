@@ -719,6 +719,10 @@ return [
         'subagents' => (bool) env('YAK_THREADS_SUBAGENTS', true),
         // Undocumented SDK option that forwards depth-2 agent tool calls; turn it off if a CLI update removes it.
         'subagents_forward_nested' => (bool) env('YAK_THREADS_SUBAGENTS_FORWARD_NESTED', true),
+        // Claude's AskUserQuestion tool: the turn waits for the person's answer. Off restores the text-fence questions.
+        'ask_user_question' => (bool) env('YAK_THREADS_ASK_USER_QUESTION', true),
+        // How long a live question holds the turn open before Claude is told to stop and wait for a reply.
+        'question_wait_minutes' => (int) env('YAK_THREADS_QUESTION_WAIT_MINUTES', 30),
         'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
         'diff_max_bytes' => (int) env('YAK_THREADS_DIFF_MAX_BYTES', 1048576),
 

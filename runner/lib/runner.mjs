@@ -1,11 +1,12 @@
 // Yak SDK runner: JSON lines on stdin, one JSON line per SDK message on stdout.
-// stdin:  {type:'start',...} first, then user | interrupt | stop_agent | set_model | set_effort | end | tool_result.
+// stdin:  {type:'start',...} first, then user | interrupt | stop_agent | set_model | set_effort | end | tool_result | answer_question | decline_question.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
 import readline from 'node:readline';
 import { sensitiveValues } from './environment.mjs';
 import { createRedactor } from './redaction.mjs';
 import { buildOptions } from './options.mjs';
 import { createYakTools } from './yak-tools.mjs';
+import { createQuestionBridge } from './questions.mjs';
 import { listProcesses as listSystemProcesses, selectLeftovers } from './process-sweep.mjs';
 
 const SWEEP_DELAY_MS = 60_000;
@@ -43,6 +44,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
     write(object);
   };
   const yak = createYakTools({ write, tool, createSdkMcpServer });
+  const questions = createQuestionBridge({ write });
   const runnerLine = (event, extra = {}) => emit({ type: 'runner', event, ...extra });
   const describe = (error) => String(error?.stack || error?.message || error);
 
@@ -109,7 +111,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
     const secrets = sensitiveValues(environment, start);
     redactor = createRedactor(secrets);
     hasSecrets = secrets.length > 0;
-    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, { yak: yak.server }) });
+    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, { yak: yak.server }, start.askUserQuestion ? questions.canUseTool : undefined) });
     runnerLine('started', { pid: process.pid });
     let sawResult = false;
     try {
@@ -168,6 +170,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       });
       wakeUp();
     } else if (command.type === 'interrupt') {
+      questions.rejectAll('The turn was interrupted before the person answered.', 'aborted');
       activeQuery?.interrupt().then(() => runnerLine('interrupted'));
     } else if (command.type === 'stop_agent') {
       stopAgent(command.taskId);
@@ -175,11 +178,16 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       activeQuery?.setModel(command.model).catch((error) => runnerLine('error', { error: describe(error) }));
     } else if (command.type === 'set_effort') {
       activeQuery?.applyFlagSettings({ effortLevel: command.effort ?? null }).catch((error) => runnerLine('error', { error: describe(error) }));
+    } else if (command.type === 'answer_question') {
+      questions.answer(command);
+    } else if (command.type === 'decline_question') {
+      questions.decline(command);
     } else if (command.type === 'tool_result') {
       yak.resolveToolResult(command);
     } else if (command.type === 'end') {
       ended = true;
       yak.rejectAll('The runner ended before Yak answered');
+      questions.rejectAll('The runner ended before the person answered.');
       wakeUp();
     }
   }
@@ -199,7 +207,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
     }
     handle(command);
   });
-  lines.on('close', () => { ended = true; yak.rejectAll('The runner ended before Yak answered'); wakeUp(); });
+  lines.on('close', () => { ended = true; yak.rejectAll('The runner ended before Yak answered'); questions.rejectAll('The runner ended before the person answered.'); wakeUp(); });
 
   return {
     shutdown() {
@@ -207,6 +215,7 @@ export function createRunner({ query, tool, createSdkMcpServer, input, output, e
       if (killTimer) clearTimer(killTimer);
       ended = true;
       yak.rejectAll('The runner shut down before Yak answered');
+      questions.rejectAll('The runner shut down before the person answered.');
       wakeUp();
       return Promise.resolve(activeQuery?.interrupt()).catch(() => {});
     },

@@ -53,6 +53,7 @@ class TurnFinisher
         }
 
         $run->refresh();
+        app(ThreadLiveQuestions::class)->settleAtTurnEnd($run, $to);
         $account = $run->claudeAccount;
         $wasRunning = $was === TurnState::Running;
 

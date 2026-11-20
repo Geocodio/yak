@@ -64,6 +64,7 @@ class ThreadCommands
                 'disallowedTools' => self::DISALLOWED_TOOLS,
                 'passthroughEnv' => IncusSandboxManager::passthroughNames(),
                 'subagents' => (bool) config('yak.threads.subagents'),
+                'askUserQuestion' => (bool) config('yak.threads.ask_user_question'),
                 'forwardNestedSubagentToolCalls' => (bool) config('yak.threads.subagents_forward_nested'),
             ],
         ]);
@@ -112,6 +113,24 @@ class ThreadCommands
     public function stopAgent(Thread $thread, string $taskId): void
     {
         $this->send($thread, ['type' => 'stop_agent', 'taskId' => $taskId]);
+    }
+
+    /**
+     * Answers Claude's open AskUserQuestion call; `$answers` maps each question's text to its answer.
+     *
+     * @param  array<string, string>  $answers
+     */
+    public function answerQuestion(Thread $thread, string $questionId, array $answers): void
+    {
+        $this->send($thread, ['type' => 'answer_question', 'id' => $questionId, 'answers' => (object) $answers]);
+    }
+
+    /**
+     * Refuses Claude's open AskUserQuestion call; Claude reads the message as the tool's result.
+     */
+    public function declineQuestion(Thread $thread, string $questionId, string $message): void
+    {
+        $this->send($thread, ['type' => 'decline_question', 'id' => $questionId, 'message' => $message]);
     }
 
     public function setModel(Thread $thread, string $model): void
