@@ -376,3 +376,9 @@ private func compactInputs() -> LayoutInputs {
     scene.focusSlot(.trailing)
     #expect(scene.panePickCount == 1)
 }
+
+@MainActor @Test func followingAClearRemembersTheThreadSoOnlyTheSendPlaysAHaptic() {
+    let scene = SceneModel(state: SceneState(threadID: "d0e515ef"))
+    scene.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
+    #expect(scene.followedReplacementID == "n3w7hr3d")
+}

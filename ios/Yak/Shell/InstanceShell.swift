@@ -165,7 +165,9 @@ struct InstanceShell: View {
 
     private var threadScreen: some View {
         threadScreenContent.motion(Motion.crossFade, value: screenIdentity)
-            .haptic(.threadSwitched, trigger: scene.state.threadID) { old, new in old != nil && new != nil }
+            .haptic(.threadSwitched, trigger: scene.state.threadID) { old, new in
+                old != nil && new != nil && new != scene.followedReplacementID
+            }
     }
 
     @ViewBuilder private var threadScreenContent: some View {

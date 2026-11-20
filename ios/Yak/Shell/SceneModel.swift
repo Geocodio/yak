@@ -75,6 +75,8 @@ final class SceneModel {
     /// How many times the person picked a pane, for the haptic. Rotation, the server and a tap into the other slot do
     /// not count.
     private(set) var panePickCount = 0
+    /// The thread the window followed a `/clear` to; the send already played its haptic, so opening it plays none.
+    private(set) var followedReplacementID: String?
     /// Shows "Signed in as <name>" in the drawer once after a pairing.
     var justPairedUserName: String?
     var newThreadPrefill: (repo: String?, text: String?)?
@@ -304,6 +306,7 @@ final class SceneModel {
     /// sent from; a person who moved on is not pulled away, and the drawer lists the new thread.
     func openReplacement(_ id: String, sentFrom threadID: String, isCompactWidth: Bool) {
         guard state.threadID == threadID else { return }
+        followedReplacementID = id
         open(thread: id, isCompactWidth: isCompactWidth)
     }
 
