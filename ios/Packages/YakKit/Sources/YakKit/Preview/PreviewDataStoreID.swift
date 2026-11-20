@@ -1,12 +1,32 @@
 import Foundation
 
-public enum PreviewDataStoreID {
-    private static let mask: [UInt8] = [
-        0x59, 0x61, 0x6B, 0x50, 0x72, 0x65, 0x76, 0x69, 0x65, 0x77, 0x53, 0x74, 0x6F, 0x72, 0x65, 0x31,
-    ]
+/// What a web data store of an instance is for. Each purpose has its own store, so a preview host (which may be a
+/// same-site subdomain running branch code) never shares cookies with the embedded dashboard session.
+public enum WebDataPurpose: CaseIterable, Sendable {
+    case preview
+    case embed
+}
 
-    /// Stable per instance: the instance id's bytes XOR a fixed constant, with the UUID version nibble 8 and the RFC 4122 variant.
-    public static func `for`(instanceID: UUID) -> UUID {
+public enum PreviewDataStoreID {
+    /// "YakPreviewStore1" and "YakEmbedStore001" as bytes. The preview constant must not change: stores of installed
+    /// apps are named by it.
+    private static func mask(_ purpose: WebDataPurpose) -> [UInt8] {
+        switch purpose {
+        case .preview:
+            [0x59, 0x61, 0x6B, 0x50, 0x72, 0x65, 0x76, 0x69, 0x65, 0x77, 0x53, 0x74, 0x6F, 0x72, 0x65, 0x31]
+        case .embed:
+            [0x59, 0x61, 0x6B, 0x45, 0x6D, 0x62, 0x65, 0x64, 0x53, 0x74, 0x6F, 0x72, 0x65, 0x30, 0x30, 0x31]
+        }
+    }
+
+    /// Every store an instance can have, one per purpose.
+    public static func allStores(for instanceID: UUID) -> [UUID] {
+        WebDataPurpose.allCases.map { Self.for(instanceID: instanceID, purpose: $0) }
+    }
+
+    /// Stable per instance and purpose: the instance id's bytes XOR a fixed constant, with the UUID version nibble 8 and the RFC 4122 variant.
+    public static func `for`(instanceID: UUID, purpose: WebDataPurpose = .preview) -> UUID {
+        let mask = mask(purpose)
         let source = instanceID.uuid
         var bytes = [
             source.0, source.1, source.2, source.3, source.4, source.5, source.6, source.7,
@@ -24,11 +44,11 @@ public enum PreviewDataStoreID {
 
     /// Stores to erase: of the existing stores that this feature handed out (`known`, store ids), every one that belongs to no
     /// kept instance, plus the stores of pending instances. A store not in `known` is never listed, whoever made it.
-    /// `keep` and `pending` are instance ids. In the order of `existing`, no repeats.
+    /// `keep` and `pending` are instance ids; an instance owns the store of every purpose. In the order of `existing`, no repeats.
     public static func toErase(existing: [UUID], known: [UUID], keep: [UUID], pending: [UUID]) -> [UUID] {
         let knownStores = Set(known)
-        let keptStores = Set(keep.map { Self.for(instanceID: $0) })
-        let pendingStores = Set(pending.map { Self.for(instanceID: $0) })
+        let keptStores = Set(keep.flatMap { Self.allStores(for: $0) })
+        let pendingStores = Set(pending.flatMap { Self.allStores(for: $0) })
         var seen = Set<UUID>()
         return existing.filter { store in
             guard knownStores.contains(store), !keptStores.contains(store) || pendingStores.contains(store) else {

@@ -6,8 +6,9 @@ import YakKit
     import os
 #endif
 
-/// The web data store of each instance's previews: one persistent store per instance, never the default one, erased
-/// when the instance is unpaired or revoked and swept at launch for instances that are gone.
+/// The web data stores of each instance: one persistent store per instance and purpose (previews, the embedded thread
+/// page), never the default one, erased together when the instance is unpaired or revoked and swept at launch for
+/// instances that are gone.
 @MainActor
 enum PreviewWebData {
     static let eraseLimit: Duration = .seconds(5)
@@ -16,9 +17,11 @@ enum PreviewWebData {
     /// Every store id `store(for:defaults:)` handed out and not yet erased; the sweep only looks at these.
     static let knownStoresKey = "yak.preview.knownStores"
 
-    /// The store for an instance's previews. Its id is recorded before the store is made.
-    static func store(for instanceID: UUID, defaults: any KeyValueStore) -> WKWebsiteDataStore {
-        let storeID = PreviewDataStoreID.for(instanceID: instanceID)
+    /// The store for an instance's previews, or for its embedded thread page. Its id is recorded before the store is made.
+    static func store(
+        for instanceID: UUID, purpose: WebDataPurpose = .preview, defaults: any KeyValueStore
+    ) -> WKWebsiteDataStore {
+        let storeID = PreviewDataStoreID.for(instanceID: instanceID, purpose: purpose)
         update(knownStoresKey, in: defaults) { $0.insert(storeID) }
         return WKWebsiteDataStore(forIdentifier: storeID)
     }
@@ -35,21 +38,29 @@ enum PreviewWebData {
     }
 
     private static func eraseNow(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
-        let storeID = PreviewDataStoreID.for(instanceID: instanceID)
-        // A store never handed out has nothing to erase.
-        let isKnown = (read(knownStoresKey, in: defaults) as Set<UUID>).contains(storeID)
+        let known = read(knownStoresKey, in: defaults) as Set<UUID>
         let isPending = (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID)
-        guard isKnown || isPending else { return true }
+        // A store never handed out has nothing to erase; a pending instance retries every store it can have, so an
+        // unreadable `known` record cannot leave one behind.
+        let doomed = PreviewDataStoreID.allStores(for: instanceID).filter { known.contains($0) || isPending }
+        guard !doomed.isEmpty else { return true }
         startWebKit()
-        let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
-        if isRemoved {
-            update(knownStoresKey, in: defaults) { $0.remove(storeID) }
+        var isEveryStoreRemoved = true
+        for storeID in doomed {
+            let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
+            if isRemoved {
+                update(knownStoresKey, in: defaults) { $0.remove(storeID) }
+            } else {
+                isEveryStoreRemoved = false
+            }
+        }
+        if isEveryStoreRemoved {
             update(pendingKey, in: defaults) { $0.remove(instanceID) }
         } else {
             update(pendingKey, in: defaults) { $0.insert(instanceID) }
-            log("A preview data store could not be erased")
+            log("A web data store could not be erased")
         }
-        return isRemoved
+        return isEveryStoreRemoved
     }
 
     /// At launch: erases the stores this feature handed out whose instance is gone, needs pairing or is pending.
@@ -93,7 +104,7 @@ enum PreviewWebData {
         // A known store that no longer exists needs no erase; a pending instance whose store is gone is done.
         update(knownStoresKey, in: defaults) { $0.formIntersection(existing) }
         update(pendingKey, in: defaults) { ids in
-            ids = ids.filter { existing.contains(PreviewDataStoreID.for(instanceID: $0)) }
+            ids = ids.filter { id in PreviewDataStoreID.allStores(for: id).contains { existing.contains($0) } }
         }
     }
 

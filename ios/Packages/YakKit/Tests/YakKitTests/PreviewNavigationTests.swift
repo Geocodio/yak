@@ -209,3 +209,56 @@ func addressesStayOnTheHost(typed: String, expected: String) {
     let upper = URL(string: "https://t-p7m4q2hx9z.yak.example.test/_YAK/Auth?ticket=s&to=%2Fp")!
     #expect(PreviewAddress.display(upper) == "/p")
 }
+
+@Test func eachPurposeHasItsOwnStableStorePerInstance() {
+    let first = UUID()
+    let second = UUID()
+    for purpose in WebDataPurpose.allCases {
+        #expect(
+            PreviewDataStoreID.for(instanceID: first, purpose: purpose)
+                == PreviewDataStoreID.for(instanceID: first, purpose: purpose))
+        #expect(
+            PreviewDataStoreID.for(instanceID: first, purpose: purpose)
+                != PreviewDataStoreID.for(instanceID: second, purpose: purpose))
+        let bytes = PreviewDataStoreID.for(instanceID: first, purpose: purpose).uuid
+        #expect(bytes.6 >> 4 == 8 && bytes.8 >> 6 == 0b10)
+    }
+    #expect(
+        PreviewDataStoreID.for(instanceID: first, purpose: .preview)
+            != PreviewDataStoreID.for(instanceID: first, purpose: .embed))
+    #expect(PreviewDataStoreID.for(instanceID: first) == PreviewDataStoreID.for(instanceID: first, purpose: .preview))
+    #expect(PreviewDataStoreID.allStores(for: first).count == 2)
+}
+
+@Test func thePreviewStoreIDKeepsItsValue() {
+    let instance = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    #expect(
+        PreviewDataStoreID.for(instanceID: instance).uuidString
+            == "59616B50-7265-8669-A577-53746F726531")
+}
+
+@Test func theEraseListHoldsBothStoresOfAnInstanceThatIsGone() {
+    let gone = UUID()
+    let kept = UUID()
+    let goneStores = PreviewDataStoreID.allStores(for: gone)
+    let keptStores = PreviewDataStoreID.allStores(for: kept)
+    let result = PreviewDataStoreID.toErase(
+        existing: goneStores + keptStores, known: goneStores + keptStores, keep: [kept], pending: [])
+    #expect(result == goneStores)
+}
+
+@Test func aKeptInstanceKeepsItsEmbedStoreAndAPendingOneLosesBoth() {
+    let instance = UUID()
+    let stores = PreviewDataStoreID.allStores(for: instance)
+    #expect(PreviewDataStoreID.toErase(existing: stores, known: stores, keep: [instance], pending: []) == [])
+    #expect(
+        PreviewDataStoreID.toErase(existing: stores, known: stores, keep: [instance], pending: [instance]) == stores)
+}
+
+@Test func anEmbedStoreThatWasNeverHandedOutIsNotListed() {
+    let gone = UUID()
+    let embed = PreviewDataStoreID.for(instanceID: gone, purpose: .embed)
+    let preview = PreviewDataStoreID.for(instanceID: gone)
+    #expect(
+        PreviewDataStoreID.toErase(existing: [embed, preview], known: [preview], keep: [], pending: []) == [preview])
+}
