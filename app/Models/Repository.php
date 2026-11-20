@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTransferObjects\RepositorySettings;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Services\RepositoryConfig;
 use App\Services\Tasks\TaskActions;
 use App\Services\Threads\Repos\ThreadsAwaitingRepository;
@@ -272,6 +273,15 @@ class Repository extends Model
     public function setupTask(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'setup_task_id');
+    }
+
+    /**
+     * The setup task still building this repository's template, if any. A repository
+     * runs one setup at a time, so callers that want a setup reuse this one.
+     */
+    public function inFlightSetupTask(): ?YakTask
+    {
+        return $this->setupTask()->whereIn('status', TaskStatus::activeValues())->first();
     }
 
     /**
