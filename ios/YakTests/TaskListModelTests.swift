@@ -34,7 +34,7 @@ private func listFixture() async throws -> TasksFixture {
     #expect(await fixture.eventually { model.snapshot.nextPage == 2 && !model.snapshot.isShowingCachedCopy })
     await model.loadMore()
     #expect(fixture.transport.all.contains("GET tasks?tab=tasks&page=2"))
-    #expect(model.snapshot.nextPage == nil)
+    #expect(await fixture.eventually { model.snapshot.nextPage == nil })
     await model.loadMore()
     #expect(fixture.transport.count { $0.contains("page=2") } == 1)
     await model.stop()
