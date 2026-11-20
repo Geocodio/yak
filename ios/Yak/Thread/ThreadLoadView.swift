@@ -200,7 +200,7 @@ private struct LoadingBoard<Footer: View>: View {
         .task {
             guard !isSlow else { return }
             do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-            withAnimation(reduceMotion ? nil : .easeIn(duration: 0.2)) { isShown = true }
+            withAnimation(reduceMotion ? nil : Motion.reveal) { isShown = true }
         }
     }
 }
@@ -217,7 +217,7 @@ struct ThreadSkeleton: View {
             if !isSlow { bubble(width: 0.7, lines: 2, isTrailing: true) }
         }
         .padding(.horizontal, 16)
-        .opacity(isSlow ? 0.5 : 1).accessibilityHidden(true)
+        .opacity(isSlow ? 0.5 : 1).shimmering().accessibilityHidden(true)
     }
 
     private func bubble(width: CGFloat, lines: Int, isTrailing: Bool) -> some View {

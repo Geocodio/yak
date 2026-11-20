@@ -41,7 +41,7 @@ struct DrawerView: View {
                 bottomBar
             }
         }
-        .animation(.spring(duration: 0.3), value: drawer?.actionLine)
+        .motion(Motion.panel, value: drawer?.actionLine)
         .sensoryFeedback(.error, trigger: drawer?.refusalCount ?? 0)
         .confirmationDialog(
             Text("overview.drop.title \(dropTarget?.title ?? "")"), isPresented: dropBinding, titleVisibility: .visible
@@ -104,7 +104,7 @@ struct DrawerView: View {
             }
             .frame(minHeight: 44).contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("drawer.switcher \(instance.name)")
         .layoutPriority(1)
         .accessibilityIdentifier("drawer.switcher")
@@ -118,7 +118,7 @@ struct DrawerView: View {
                 .background(Color.primary.opacity(0.1), in: .capsule)
                 .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("drawer.accountLabel \(instance.userName)")
         .accessibilityIdentifier("drawer.account")
     }
@@ -204,7 +204,7 @@ struct DrawerView: View {
             .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
             .contentShape(.rect(cornerRadius: Design.Radius.row))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityIdentifier(identifier)
     }
 
@@ -266,7 +266,7 @@ struct DrawerView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            .animation(.spring(duration: 0.35), value: drawer.content)
+            .motion(Motion.content, value: drawer.content)
             .accessibilityIdentifier("drawer.list")
         }
     }
@@ -275,7 +275,8 @@ struct DrawerView: View {
     @ViewBuilder private func rowView(_ row: DrawerRow, now: Date, drawer: DrawerModel) -> some View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
-            isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id)
+            isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id,
+            isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id)
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
         let menu = drawer.childMenu(row)
@@ -677,20 +678,17 @@ private struct DrawerLoading: View {
     /// The session may still be starting, so the list's own slow state is not the only clock.
     @State private var hasWaitedLong = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isDim = false
 
     var body: some View {
         ScrollView { loadingContent }.scrollBounceBehavior(.basedOnSize)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .task {
                 do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-                withAnimation(.easeIn(duration: 0.2)) { showsSkeleton = true }
-                guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
-                withAnimation(.easeInOut(duration: 0.9).repeatForever()) { isDim = true }
+                withAnimation(Motion.resolve(Motion.reveal, reduceMotion: reduceMotion)) { showsSkeleton = true }
             }
             .task {
                 do { try await Task.sleep(for: ThreadListFeed.slowAfter) } catch { return }
-                withAnimation(.spring) { hasWaitedLong = true }
+                withAnimation(Motion.resolve(Motion.content, reduceMotion: reduceMotion)) { hasWaitedLong = true }
             }
     }
 
@@ -708,7 +706,7 @@ private struct DrawerLoading: View {
                 VStack(alignment: .leading, spacing: 18) {
                     ForEach(0..<6, id: \.self) { index in row(index) }
                 }
-                .opacity(isDim ? 0.5 : 1)
+                .shimmering()
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("drawer.loading")
                 .accessibilityIdentifier("drawer.loading")
