@@ -46,7 +46,9 @@ export function EmbedBridge() {
             return;
         }
         setEmbedActive(true);
-        let pending: { card: string; action: string; ok: boolean } | null = null;
+        // The card POST in flight, found again by its address; a refresh or any other visit during it leaves it alone.
+        let pending: { card: string; action: string; ok: boolean; href: string } | null = null;
+        const isPending = (visit: { url: URL | string }) => pending !== null && new URL(String(visit.url), window.location.href).href === pending.href;
         let lastErrorAt = 0;
         const reportError = (kind: 'http' | 'network' | 'script', status?: number) => {
             if (Date.now() - lastErrorAt >= ERROR_INTERVAL_MS) {
@@ -68,7 +70,10 @@ export function EmbedBridge() {
                 }
 
                 const action = cardActionOf(visit.method, url.pathname);
-                pending = action === null || card.current === null ? null : { card: card.current, action, ok: true };
+
+                if (action !== null && card.current !== null) {
+                    pending = { card: card.current, action, ok: true, href: url.href };
+                }
             }),
             router.on('error', () => {
                 pending &&= { ...pending, ok: false };
@@ -94,8 +99,8 @@ export function EmbedBridge() {
                 pending &&= { ...pending, ok: false };
                 reportError('network');
             }),
-            router.on('finish', () => {
-                if (pending !== null) {
+            router.on('finish', (event) => {
+                if (pending !== null && isPending(event.detail.visit)) {
                     embed.post({ type: 'cardAnswered', card: pending.card as Extract<PageMessage, { type: 'cardAnswered' }>['card'], action: pending.action, ok: pending.ok });
                     pending = null;
                 }
@@ -108,7 +113,8 @@ export function EmbedBridge() {
             stops.forEach((stop) => stop());
             window.removeEventListener('error', onScriptError);
         };
-    }, [embed]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [embed !== null]);
 
     return null;
 }

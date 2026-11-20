@@ -3,7 +3,9 @@
 use App\Models\Device;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use Illuminate\Foundation\Http\Events\RequestHandled;
+use Illuminate\Support\Facades\Queue;
 
 const EMBED_USER_AGENT = 'Mozilla/5.0 YakApp/1.0 (embed)';
 
@@ -106,4 +108,21 @@ function recordEmbedRequests(): Closure
     return function () use (&$requests): array {
         return $requests;
     };
+}
+
+/**
+ * A thread owned by the phone's user with an open question, as the embed page shows it.
+ *
+ * @return array{0: Thread, 1: array<string, string>, 2: User}
+ */
+function embedQuestionThread(): array
+{
+    Queue::fake();
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'title' => 'Add a retry to the import job']);
+    YakTask::factory()->withClarificationQuestions([
+        ['id' => 'scope', 'header' => 'Scope', 'question' => 'Which scope?', 'options' => [['label' => 'Small', 'description' => 'Only the import job'], ['label' => 'Large', 'description' => 'Every job']], 'multi_select' => false],
+    ])->create(['thread_id' => $thread->id, 'started_by_user_id' => $user->id]);
+
+    return [$thread, $headers, $user];
 }

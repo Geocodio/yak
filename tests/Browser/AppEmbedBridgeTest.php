@@ -1,13 +1,13 @@
 <?php
 
 use App\Enums\StopKind;
+use App\Enums\TurnMessageState;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
-use App\Enums\TurnMessageState;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
-use App\Models\ThreadTurnMessage;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\Queue;
@@ -166,4 +166,15 @@ it('hands a message attachment download to the app, from the tile and from the c
 
     expect($sent)->toBe(['archive.zip', 'archive.zip']);
     $page->assertScript('location.pathname', "/app/embed/threads/{$thread->public_id}");
+});
+
+it('tells the app when a card was answered, even with a refresh during the post', function () {
+    [$thread, $headers] = embedQuestionThread();
+
+    $page = visitEmbedThread($thread, $headers)->wait(2);
+    stubAppHandler($page);
+    $page->click('[data-testid="question-scope"] >> text=Small')->click('[data-testid="questions-submit"]');
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+
+    expect(sentOfType($page, 'cardAnswered', 'sent.map(({ card, action, ok }) => ({ card, action, ok }))'))->toBe([['card' => 'question', 'action' => 'answer', 'ok' => true]]);
 });
