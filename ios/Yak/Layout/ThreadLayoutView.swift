@@ -223,6 +223,6 @@ struct ThreadLayoutView: View {
                 thread: thread, slots: slots, placement: placement, pane: pane, slot: slot,
                 select: { scene.select($0, from: slot) }, beside: beside)
         }
-        .animation(.easeInOut(duration: 0.2), value: line)
+        .motion(Motion.crossFade, value: line)
     }
 }

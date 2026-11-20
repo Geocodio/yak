@@ -78,7 +78,7 @@ struct BottomBar: View {
             let across = value.translation.width
             guard slot == nil, abs(across) > swipeDistance, abs(across) > abs(value.translation.height) else { return }
             if let next = Panes.neighbor(of: pane, in: thread.panes, step: across < 0 ? 1 : -1) {
-                withAnimation(.smooth(duration: 0.28)) { select(next) }
+                withAnimation(Motion.paneSwitch) { select(next) }
             }
         }
     }

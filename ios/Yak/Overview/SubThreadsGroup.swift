@@ -161,7 +161,7 @@ struct SubThreadsGroupView: View {
     private func messages(_ items: [StackMessage]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.smooth) { areMessagesOpen.toggle() }
+                withAnimation(Motion.content) { areMessagesOpen.toggle() }
             } label: {
                 OverviewRow(title: Text("overview.messages.folded \(items.count)")) {
                     EmptyView()

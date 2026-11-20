@@ -46,8 +46,22 @@ struct PaneHost: View {
                 }
             }
         }
+        // The frames move when panes open, close or swap, never while the divider is dragged: a drag moves the frames
+        // without changing this key. Reduce Motion fades; test mode, where the audit needs a still screen, only fades
+        // the single pane.
         .animation(
-            isSingle ? (isStill ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28)) : nil, value: focused)
+            isSingle && isStill ? Motion.crossFade : Motion.resolve(Motion.paneSwitch, reduceMotion: reduceMotion),
+            value: Arrangement(focused: focused, kind: slots.arrangement, placement: slots.placement)
+        )
+        .haptic(.paneChanged, trigger: focused)
+        // Scrolling any pane's list drags the keyboard down with it.
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private struct Arrangement: Equatable {
+        let focused: PaneID
+        let kind: PaneArrangement
+        let placement: [PaneID: SlotPosition]
     }
 
     private func slide(of id: PaneID, isShown: Bool) -> CGFloat {
@@ -57,6 +71,6 @@ struct PaneHost: View {
         if isStill { return Design.Size.offscreen }
         let order = thread.panes
         guard let own = order.firstIndex(of: id), let current = order.firstIndex(of: focused) else { return 0 }
-        return own < current ? -24 : 24
+        return own < current ? -Motion.paneSlideDistance : Motion.paneSlideDistance
     }
 }
