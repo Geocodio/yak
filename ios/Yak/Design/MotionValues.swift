@@ -4,7 +4,9 @@ import SwiftUI
 /// and never a literal duration or spring.
 enum Motion {
     /// The drawer sliding in and out, and the thread scaling back beside it.
-    static let drawer: Animation = .spring(duration: 0.4, bounce: 0.1)
+    static let drawer: Animation = .spring(duration: drawerDuration, bounce: drawerBounce)
+    private static let drawerDuration: Double = 0.4
+    private static let drawerBounce: Double = 0.1
     /// A pane replacing another, and panes taking their frames in a two pane layout.
     static let paneSwitch: Animation = .smooth(duration: 0.28)
     /// A panel or a toast entering and leaving: cards, bars and sheet-like surfaces.
@@ -43,12 +45,12 @@ enum Motion {
         return reduceMotion ? crossFade : animation
     }
 
-    /// The spring a drag release continues with: `velocity` is the finger's speed toward the end point in points per
+    /// The drawer spring a drag release continues with: `velocity` is the finger's speed toward the end point in points per
     /// second and `distance` the points still to travel.
     static func release(velocity: CGFloat, distance: CGFloat) -> Animation {
         guard distance > 0 else { return drawer }
         let normalized = min(max(velocity / distance, -maxReleaseVelocity), maxReleaseVelocity)
-        return .interpolatingSpring(stiffness: 260, damping: 28, initialVelocity: Double(normalized))
+        return .interpolatingSpring(duration: drawerDuration, bounce: drawerBounce, initialVelocity: Double(normalized))
     }
 
     /// Spring hand-off speeds beyond this look like a jump rather than a throw.
