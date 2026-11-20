@@ -356,7 +356,7 @@ private func compactInputs() -> LayoutInputs {
     #expect(relaunched.state.threadID == "d0e515ef" && relaunched.state.secondPane == .terminal)
 }
 
-@MainActor @Test func everyOpenerOfTheDrawerFlipsTheOneFlagTheContainerAnimates() {
+@MainActor @Test func everyOpenerOfTheDrawerFlipsTheOneDrawerOpenFlag() {
     let scene = SceneModel(state: SceneState())
     scene.setDrawerOpen(true)
     #expect(scene.state.isDrawerOpen)
