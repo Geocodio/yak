@@ -161,3 +161,20 @@ export const isEmbedActive = (): boolean => isActive;
 export function installReceiver(): void {
     window.__yakEmbed = { receive: receiveFromApp };
 }
+
+let isAuthReported = false;
+
+/** Tells the app the session ended, once per page load, and only while an embed page is mounted. */
+export function reportAuthExpired(): void {
+    if (isActive && !isAuthReported) {
+        isAuthReported = true;
+        sendToApp({ type: 'auth', state: 'expired' });
+    }
+}
+
+/** Reports the session ending when a response says so (401 expired, 419 token mismatch). */
+export function reportAuthIfExpired(status: number): void {
+    if (status === 401 || status === 419) {
+        reportAuthExpired();
+    }
+}

@@ -1,7 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 import type { SharedProps } from '@/types/shared';
-import { setEmbedActive, type PageMessage } from './bridge';
+import { reportAuthExpired, setEmbedActive, type PageMessage } from './bridge';
 import { cardActionOf } from './cardActions';
 import { useEmbed, useEmbedMessage, useEmbedReady } from './useEmbed';
 
@@ -82,7 +82,7 @@ export function EmbedBridge() {
                 pending &&= { ...pending, ok: false };
 
                 if (status === 401 || status === 419) {
-                    embed.post({ type: 'auth', state: 'expired' });
+                    reportAuthExpired();
 
                     return false;
                 }

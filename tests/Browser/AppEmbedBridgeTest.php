@@ -108,3 +108,20 @@ it('shows the app outbox as unsent rows and ignores unknown messages', function 
     $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [] }); true");
     $page->assertMissing('[data-testid="thread-message-unsent"]')->assertNoJavaScriptErrors();
 });
+
+it('tells the app once when the session ends and a reload meets the 401', function () {
+    [$user, $device, $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $page = visitEmbedThread($thread, $headers);
+    stubAppHandler($page);
+    $device->delete();
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+
+    expect(sentOfType($page, 'auth', 'sent.length'))->toBe(1);
+
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
+    $page->script('new Promise((resolve) => setTimeout(resolve, 1500))');
+
+    expect($page->script("window.__sent.filter((message) => message.type === 'auth').length"))->toBe(1);
+});
