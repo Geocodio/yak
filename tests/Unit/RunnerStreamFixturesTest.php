@@ -3,7 +3,7 @@
 $fixtures = glob(__DIR__ . '/../Fixtures/runner-streams/*.jsonl') ?: [];
 
 it('has the required fixture set', function () use ($fixtures) {
-    expect($fixtures)->toHaveCount(20);
+    expect($fixtures)->toHaveCount(21);
 });
 
 it('contains only valid scrubbed JSON lines', function (string $path) {
