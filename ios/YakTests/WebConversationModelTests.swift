@@ -269,6 +269,20 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         #expect(await harness.waitForRedeems(1))
     }
 
+    @Test func aLaunchWhileOfflineShowsTheOfflineStateAndRecoversOnReconnect() async {
+        let harness = Harness()
+        // The pane reports the connection as soon as it appears, before it asks for the thread.
+        harness.model.connectivityChanged(isOnline: false)
+        harness.outcomes = [.failed(.network)]
+        harness.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { harness.model.phase == .failed(.network) })
+        #expect(harness.model.loadPresentation == .offlineWithoutCopy)
+        harness.model.connectivityChanged(isOnline: true)
+        #expect(await harness.waitForMints(2))
+        #expect(await harness.waitForRedeems(1))
+        #expect(harness.model.loadPresentation == .loading)
+    }
+
     @Test func messagesThatNeedThePaneAreHandedToIt() async {
         let harness = Harness()
         await harness.open("d0e515ef")

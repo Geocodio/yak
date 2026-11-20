@@ -48,7 +48,7 @@ private struct ChatPane: View {
             web?.handleRequest = { [thread, scene] request in handle(request, thread: thread, scene: scene) }
             web?.show(thread: thread.threadID)
         }
-        .onChange(of: thread.isOffline) { web?.connectivityChanged(isOnline: !thread.isOffline) }
+        .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
         .sensoryFeedback(.error, trigger: thread.question.failureCount)
