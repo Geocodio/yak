@@ -11,6 +11,7 @@ use App\Enums\TurnState;
 use App\Events\ThreadEventBroadcast;
 use App\Http\Resources\ThreadMessagesData;
 use App\Http\Resources\ThreadQuestionData;
+use App\Http\Resources\ThreadQueuedMessagesData;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\RunYakJob;
@@ -22,6 +23,7 @@ use App\Models\YakTask;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\RunawayGuard;
+use App\Services\Threads\SteeringDelivery;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
@@ -37,10 +39,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\Support\InMemoryThreadEventWindow;
 
 require_once __DIR__ . '/../../Support/LiveQuestionHelpers.php';
 require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
+require_once __DIR__ . '/../../Support/AppApiHelpers.php';
 
 beforeEach(function () {
     Queue::fake();
@@ -494,4 +498,53 @@ it('queues the answer given after the timeout for the next prompt when the turn 
 
     expect(PendingSteeringMessage::query()->sole()->text)->toContain('Laptop')
         ->and($task->refresh()->clarificationAnswersAwaitingResume())->toBeNull();
+});
+
+it('queues the files of an answer that Claude cannot take now, and shows them like any queued message', function () {
+    Storage::fake('artifacts');
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+    $this->mock(SteeringDelivery::class)->shouldReceive('deliver')->andReturn(false);
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), [
+        'message' => 'laptop',
+        'attachments' => [UploadedFile::fake()->image('shot.png')],
+        'attachment_refs' => ['Image #1'],
+    ], ['Accept' => 'application/json'])
+        ->assertOk()
+        ->assertJson(['status' => 'queued', 'notice' => 'Your files go to Claude with the next message.']);
+
+    $queued = PendingSteeringMessage::query()->sole();
+    $attachment = TaskAttachment::query()->sole();
+
+    expect($queued->mode)->toBe(SteeringMode::Queue)
+        ->and($queued->text)->toContain('laptop')
+        ->and($attachment->pending_steering_message_id)->toBe($queued->id)
+        ->and(ThreadQueuedMessagesData::for($thread, $user))->toHaveCount(1)
+        ->and(ThreadQueuedMessagesData::for($thread, $user)[0]['attachments'])->toHaveCount(1);
+
+    $row = collect(ThreadMessagesData::for($thread, $user))->firstWhere('id', 'queued-message-' . $queued->id);
+
+    expect($row['mode'])->toBe('queue')->and($row['attachments'])->toHaveCount(1);
+});
+
+it('tells the app that the files of an answer are queued', function () {
+    Storage::fake('artifacts');
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+    $this->mock(SteeringDelivery::class)->shouldReceive('deliver')->andReturn(false);
+
+    $this->postJson(appThreadPath($thread, '/messages'), [
+        'message' => 'laptop',
+        'attachments' => [UploadedFile::fake()->image('shot.png')],
+        'attachment_refs' => ['Image #1'],
+        'send_key' => (string) Str::uuid(),
+    ], phoneHeadersFor($user))
+        ->assertOk()
+        ->assertJson(['status' => 'queued', 'notice' => 'Your files go to Claude with the next message.']);
+
+    $queued = PendingSteeringMessage::query()->sole();
+    $row = collect(ThreadMessagesData::for($thread, $user))->firstWhere('id', 'queued-message-' . $queued->id);
+
+    expect($row['attachments'])->toHaveCount(1);
 });

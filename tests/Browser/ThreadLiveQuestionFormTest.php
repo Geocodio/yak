@@ -1,7 +1,12 @@
 <?php
 
+use App\Enums\RunnerState;
+use App\Models\PendingSteeringMessage;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\FakeBrokerStreams;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Support\Facades\Storage;
+use Tests\Support\ParseMultipartBody;
 
 require_once __DIR__ . '/../Support/LiveQuestionHelpers.php';
 
@@ -57,4 +62,32 @@ it('fits the live question form at phone width', function () {
         ->assertNoJavaScriptErrors();
 
     expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
+});
+
+it('shows the files of an answer as a queued message when Claude cannot take them now', function () {
+    Storage::fake('artifacts');
+    app(HttpKernel::class)->prependMiddleware(ParseMultipartBody::class);
+    [$thread, , , $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    questionLineFor($thread, [widthQuestion()]);
+    $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+    $file = tempnam(sys_get_temp_dir(), 'yak') . '.png';
+    file_put_contents($file, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+
+    $page = visit("/threads/{$thread->public_id}");
+    $page->attach('[data-testid="attachment-input"]', $file)
+        ->assertCount('[data-testid="draft-attachment"]', 1)
+        ->typeSlowly('[data-testid="thread-composer-input"]', ' laptop', 5)
+        ->assertValue('[data-testid="thread-composer-input"]', '[Image #1]  laptop')
+        ->click('[data-testid="thread-send"]');
+
+    $page->waitForText('Your files go to Claude with the next message.');
+
+    $queued = PendingSteeringMessage::query()->sole();
+
+    $page->assertSeeIn('[data-testid="queued-message-' . $queued->id . '"]', 'laptop')
+        ->assertSeeIn('[data-testid="queued-message-' . $queued->id . '"]', 'Queued')
+        ->assertPresent('[data-testid="queued-message-' . $queued->id . '"] [aria-label="1 attached"]')
+        ->assertSee('Your files go to Claude with the next message.')
+        ->assertNoJavaScriptErrors();
 });

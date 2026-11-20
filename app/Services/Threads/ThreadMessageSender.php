@@ -270,7 +270,9 @@ class ThreadMessageSender
 
         $message = $this->turns->steer($thread, 'The files that go with my answer: ' . $input->text, $user, $input->model, $input->storeAttachments, 'thread', null, false, $input->effort);
 
-        return new ThreadMessageResult($message->mode === SteeringMode::Steer ? 'sent' : 'queued', $message->uuid, null);
+        $isSent = $message->mode === SteeringMode::Steer;
+
+        return new ThreadMessageResult($isSent ? 'sent' : 'queued', $message->uuid, null, $isSent ? null : 'Your files go to Claude with the next message.');
     }
 
     /**

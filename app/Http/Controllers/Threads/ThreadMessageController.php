@@ -64,15 +64,15 @@ class ThreadMessageController extends Controller
                 : redirect()->to($continued)->with('success', $notice);
         }
 
-        return $this->sent($request, $result->notice);
+        return $this->sent($request, $result->notice, $result->status);
     }
 
     /**
      * The page's send queue asks for JSON so a send survives navigation; a plain form post gets the redirect.
      */
-    private function sent(Request $request, ?string $notice = null): RedirectResponse|JsonResponse
+    private function sent(Request $request, ?string $notice = null, string $status = 'sent'): RedirectResponse|JsonResponse
     {
-        return $request->expectsJson() ? response()->json(['status' => 'sent']) : back()->with('success', $notice ?? 'Message sent.');
+        return $request->expectsJson() ? response()->json(array_filter(['status' => $status, 'notice' => $notice])) : back()->with('success', $notice ?? 'Message sent.');
     }
 
     private function refuse(Request $request, string $reason): RedirectResponse|JsonResponse
