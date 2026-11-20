@@ -267,3 +267,16 @@ test('a message anchored at an item sequence follows that item', () => {
 
     assert.deepEqual(mergeConversation([steer], [], items).map((entry) => (entry.type === 'person' ? 'steer' : entry.item.key)), ['m1:0', 'steer', 'm2:0']);
 });
+
+test('an Agent or Workflow call becomes its own card and splits the tool run around it', () => {
+    const { items } = project(
+        feedOf(assistant(1, 'm1', [use('t1', 'Read', { file_path: 'a.php' }), use('toolu_agent', 'Agent', { description: 'Build mockups' }), use('t2', 'Bash', { command: 'ls' }), use('toolu_flow', 'Workflow', { workflow: 'review' })])),
+    );
+
+    assert.deepEqual(items.map((item) => [item.kind, item.toolUseId ?? null, item.kind === 'agent' ? item.text : null]), [
+        ['tools', null, null],
+        ['agent', 'toolu_agent', 'Build mockups'],
+        ['tools', null, null],
+        ['agent', 'toolu_flow', 'review'],
+    ]);
+});
