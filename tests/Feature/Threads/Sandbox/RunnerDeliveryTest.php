@@ -21,7 +21,9 @@ use Tests\Support\FakeSandboxManager;
  */
 class DeliverySandbox extends FakeSandboxManager
 {
-    public string $installedVersion = '';
+    public string $installedDeps = '';
+
+    public string $installedSrc = '';
 
     public bool $runnerLive = false;
 
@@ -32,10 +34,10 @@ class DeliverySandbox extends FakeSandboxManager
 
     public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
     {
-        if (str_contains($command, '/opt/yak-runner/.version')) {
+        if (str_contains($command, '.deps-version 2>/dev/null')) {
             $this->commands[] = $command;
 
-            return Process::result($this->installedVersion);
+            return Process::result("{$this->installedDeps}\n{$this->installedSrc}\n");
         }
 
         if (str_contains($command, 'yak-runner.new')) {
@@ -60,8 +62,10 @@ class DeliverySandbox extends FakeSandboxManager
 beforeEach(function () {
     $this->bundle = sys_get_temp_dir() . '/runner-bundle-' . uniqid();
     mkdir($this->bundle);
-    file_put_contents("{$this->bundle}/yak-runner.tgz", 'tarball');
-    file_put_contents("{$this->bundle}/version", "abc123\n");
+    foreach (['deps' => 'dep111', 'src' => 'src111'] as $part => $version) {
+        file_put_contents("{$this->bundle}/{$part}.tgz", 'tarball');
+        file_put_contents("{$this->bundle}/{$part}.version", "{$version}\n");
+    }
     config(['yak.sandbox.runner_bundle_path' => $this->bundle]);
     Cache::flush();
 
@@ -75,26 +79,44 @@ afterEach(function () {
     rmdir($this->bundle);
 });
 
-it('pushes and unpacks the bundle when the sandbox runs a different version', function () {
-    $this->sandbox->installedVersion = 'old999';
-
+it('pushes both parts to a sandbox that has neither version', function () {
     $this->delivery->ensure('yak-thread-1');
 
-    expect($this->sandbox->pushed)->toBe(['yak-thread-1:/tmp/yak-runner-bundle.tgz'])
+    expect($this->sandbox->pushed)->toBe(['yak-thread-1:/tmp/yak-runner-deps.tgz', 'yak-thread-1:/tmp/yak-runner-src.tgz'])
         ->and($this->sandbox->commandsMatching('yak-runner.new'))->toHaveCount(1)
         ->and($this->sandbox->commandsMatching('yak-runner.new')[0])
         ->toContain("pgrep -f '[/]opt/yak-runner/runner.mjs'")
+        ->toContain('tar -xzf /tmp/yak-runner-deps.tgz')
+        ->toContain('tar -xzf /tmp/yak-runner-src.tgz')
         ->toContain('mv /opt/yak-runner.new /opt/yak-runner');
 });
 
-it('pushes when the sandbox has no version file', function () {
+it('pushes only the source when only the source changed', function () {
+    $this->sandbox->installedDeps = 'dep111';
+    $this->sandbox->installedSrc = 'src000';
+
     $this->delivery->ensure('yak-thread-1');
 
-    expect($this->sandbox->pushed)->toHaveCount(1);
+    expect($this->sandbox->pushed)->toBe(['yak-thread-1:/tmp/yak-runner-src.tgz'])
+        ->and($this->sandbox->commandsMatching('yak-runner.new')[0])
+        ->toContain('cp -al /opt/yak-runner /opt/yak-runner.new')
+        ->toContain('tar -xzf /tmp/yak-runner-src.tgz')
+        ->not->toContain('yak-runner-deps.tgz -C');
 });
 
-it('does not push when the sandbox already runs the bundle version', function () {
-    $this->sandbox->installedVersion = "abc123\n";
+it('pushes only the dependencies when the lockfile version changed', function () {
+    $this->sandbox->installedDeps = 'dep000';
+    $this->sandbox->installedSrc = 'src111';
+
+    $this->delivery->ensure('yak-thread-1');
+
+    expect($this->sandbox->pushed)->toBe(['yak-thread-1:/tmp/yak-runner-deps.tgz'])
+        ->and($this->sandbox->commandsMatching('yak-runner.new')[0])->not->toContain('yak-runner-src.tgz -C');
+});
+
+it('does not push when the sandbox already runs both versions', function () {
+    $this->sandbox->installedDeps = 'dep111';
+    $this->sandbox->installedSrc = 'src111';
 
     $this->delivery->ensure('yak-thread-1');
 
@@ -102,20 +124,24 @@ it('does not push when the sandbox already runs the bundle version', function ()
         ->and($this->sandbox->commandsMatching('yak-runner.new'))->toBe([]);
 });
 
-it('remembers a verified sandbox so the next start does not shell out', function () {
+it('remembers a delivered sandbox so the next start does not shell out', function () {
     $this->delivery->ensure('yak-thread-1');
     $this->delivery->ensure('yak-thread-1');
 
-    expect($this->sandbox->pushed)->toHaveCount(1)
-        ->and($this->sandbox->commandsMatching('/opt/yak-runner/.version'))->toHaveCount(1);
+    expect($this->sandbox->pushed)->toHaveCount(2)
+        ->and($this->sandbox->commandsMatching('.deps-version 2>/dev/null'))->toHaveCount(1);
 });
 
-it('delivers again when the bundle changes', function () {
+it('delivers again when a part of the bundle changes', function () {
     $this->delivery->ensure('yak-thread-1');
-    file_put_contents("{$this->bundle}/version", 'def456');
+    file_put_contents("{$this->bundle}/src.version", 'src222');
+    $this->sandbox->installedDeps = 'dep111';
+    $this->sandbox->installedSrc = 'src111';
+    $this->sandbox->pushed = [];
+
     $this->delivery->ensure('yak-thread-1');
 
-    expect($this->sandbox->pushed)->toHaveCount(2);
+    expect($this->sandbox->pushed)->toBe(['yak-thread-1:/tmp/yak-runner-src.tgz']);
 });
 
 it('leaves a sandbox with a live runner untouched and retries on the next start', function () {
@@ -127,8 +153,8 @@ it('leaves a sandbox with a live runner untouched and retries on the next start'
     $this->delivery->ensure('yak-thread-1');
 
     expect($this->sandbox->commandsMatching('yak-runner.new'))->toHaveCount(2)
-        ->and($this->sandbox->pushed)->toHaveCount(2)
-        ->and(Cache::get('runner-delivery:yak-thread-1'))->toBe('abc123');
+        ->and($this->sandbox->pushed)->toHaveCount(4)
+        ->and(Cache::get('runner-delivery:yak-thread-1'))->toBe('dep111:src111');
 });
 
 it('logs and reports a failed push instead of throwing, and tries again next time', function () {
@@ -173,5 +199,5 @@ it('delivers before ThreadCommands starts a thread runner and still starts it wh
     (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), $this->delivery))
         ->startRunner($thread, $account, null, 'Be brief.');
 
-    expect($this->sandbox->pushed)->toBe(['thread-1:/tmp/yak-runner-bundle.tgz']);
+    expect($this->sandbox->pushed)->toBe(['thread-1:/tmp/yak-runner-deps.tgz', 'thread-1:/tmp/yak-runner-src.tgz']);
 });
