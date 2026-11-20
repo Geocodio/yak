@@ -398,6 +398,18 @@ private let instanceURL = URL(string: "https://yak.example.com")!
             ])
     }
 
+    @Test func aNoticeShowsAndGoesAwayByItself() async {
+        var release: CheckedContinuation<Void, Error>?
+        let model = WebConversationModel(
+            instanceURL: instanceURL, allowsLoopbackHTTP: false, mint: { _ in .failed(.network) },
+            sleep: { _ in try await withCheckedThrowingContinuation { release = $0 } })
+        model.showNotice("The file could not be opened.")
+        #expect(model.noticeLine == "The file could not be opened.")
+        #expect(await TestTimeScale.poll { release != nil })
+        release?.resume()
+        #expect(await TestTimeScale.poll { model.noticeLine == nil })
+    }
+
     @Test func aQuickLookGoesToTheWebView() async {
         let harness = Harness()
         await harness.open("d0e515ef")

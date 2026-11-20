@@ -201,10 +201,24 @@ import Testing
     @Test func decidesFromTheAnnouncedLengthAndTheProgress() {
         #expect(QuickLookFile.admits(expectedLength: 0))
         #expect(QuickLookFile.admits(expectedLength: QuickLookFile.maximumBytes))
-        #expect(!QuickLookFile.admits(expectedLength: -1))
+        // No announced length: a compressed, chunked answer. The cap is enforced while it downloads.
+        #expect(QuickLookFile.admits(expectedLength: -1))
         #expect(!QuickLookFile.admits(expectedLength: QuickLookFile.maximumBytes + 1))
         #expect(!QuickLookFile.mustCancel(receivedBytes: QuickLookFile.maximumBytes))
         #expect(QuickLookFile.mustCancel(receivedBytes: QuickLookFile.maximumBytes + 1))
+    }
+
+    @Test(arguments: ["a.pdf", "A.PDF", "x.docx", "sheet.xlsx", "n.txt", "log.log", "d.csv", "d.json", "p.png", "p.JPG", "n.md"])
+    func previewsOnlyAllowListedTypes(name: String) {
+        #expect(QuickLookFile.presentation(forFileName: name) == .preview)
+    }
+
+    @Test(arguments: [
+        "page.html", "page.htm", "page.xhtml", "logo.svg", "run.js", "noextension", "archive.zip", "backup.tar.gz",
+        "x.7z", "weird.html.txt.exe", "a.HTML", ".html", "file.", "x.mjs", "app.webarchive",
+    ])
+    func sharesEverythingElse(name: String) {
+        #expect(QuickLookFile.presentation(forFileName: name) == .share)
     }
 
     @Test func capsTheSize() {

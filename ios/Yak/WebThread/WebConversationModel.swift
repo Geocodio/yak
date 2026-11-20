@@ -51,6 +51,8 @@ final class WebConversationModel {
 
     /// A thread switch that the page does not answer within this long starts the session over.
     static let switchTimeout: Duration = .seconds(12)
+    /// How long a notice line stays.
+    static let noticeLifetime: Duration = .seconds(6)
 
     private(set) var mode: Mode = .undecided
     private(set) var machine: WebConversationMachine
@@ -61,6 +63,9 @@ final class WebConversationModel {
     /// The thread of the page's last `ready`: the cover over the page lifts only once this is the shown thread.
     private(set) var readyThreadID: String?
     private(set) var isOnline = true
+    /// A short line about something that went wrong beside the page, such as a file that could not be opened. It
+    /// goes away by itself.
+    private(set) var noticeLine: String?
 
     let instanceURL: URL
     let allowsLoopbackHTTP: Bool
@@ -79,6 +84,7 @@ final class WebConversationModel {
     @ObservationIgnored private var openedThreadID: String?
     @ObservationIgnored private var lastOutbox: [String: EmbedAppMessage] = [:]
     @ObservationIgnored private var lastProcessEndAt: WebConversationInstant?
+    @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var hasBegun = false
     @ObservationIgnored private var isPageHidden = false
 
@@ -372,6 +378,16 @@ final class WebConversationModel {
     private func send(_ message: EmbedAppMessage) {
         guard mode == .web else { return }
         page?.deliver(message)
+    }
+
+    /// Says `text` for a few seconds in the line beside the page.
+    func showNotice(_ text: String) {
+        noticeLine = text
+        noticeTask?.cancel()
+        noticeTask = Task { [weak self, sleep] in
+            do { try await sleep(Self.noticeLifetime) } catch { return }
+            self?.noticeLine = nil
+        }
     }
 
     // MARK: Hiding

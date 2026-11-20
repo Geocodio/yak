@@ -120,6 +120,9 @@ private struct ChatPane: View {
         let presentation = web.loadPresentation
         let isShown = presentation == .conversation && !isCovered
         return VStack(spacing: 0) {
+            if let notice = web.noticeLine {
+                FileLine(text: Text(verbatim: notice), identifier: "thread.web.notice")
+            }
             if web.showsOfflineLine {
                 FileLine(text: Text("web.offline.line"), identifier: "thread.web.offlineLine")
             }

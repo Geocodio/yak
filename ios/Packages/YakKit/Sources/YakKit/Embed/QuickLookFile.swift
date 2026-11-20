@@ -10,10 +10,33 @@ public enum QuickLookFile {
     /// Whether a file of `bytes` may be kept.
     public static func isWithinLimit(bytes: Int64) -> Bool { bytes <= maximumBytes }
 
-    /// Whether a download may start, from the length the response announces: an unknown (negative) or too large length
-    /// is refused, so no file of unbounded size is written.
+    /// Whether a download may start, from the length the response announces. A response with no announced length
+    /// (negative; a compressed, chunked answer has none) starts, because the running size is checked against the cap
+    /// while it downloads and again when it ends. An announced length over the cap is refused.
     public static func admits(expectedLength: Int64) -> Bool {
-        expectedLength >= 0 && isWithinLimit(bytes: expectedLength)
+        expectedLength < 0 || isWithinLimit(bytes: expectedLength)
+    }
+
+    /// What a downloaded file becomes.
+    public enum Presentation: Equatable, Sendable {
+        /// Quick Look shows it.
+        case preview
+        /// Quick Look is not used: the share sheet offers the file. Archives, pages and scripts that the system would
+        /// run or render, and every type this list does not know.
+        case share
+    }
+
+    /// The types Quick Look may show, by extension. Anything else, and above all anything a web view would run or
+    /// render (`html`, `htm`, `xhtml`, `svg`, `js`), goes to the share sheet.
+    private static let previewExtensions: Set<String> = [
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pages", "numbers", "key", "rtf",
+        "txt", "text", "md", "log", "csv", "tsv", "json",
+        "png", "jpg", "jpeg", "gif", "heic", "heif", "webp", "bmp", "tif", "tiff",
+    ]
+
+    public static func presentation(forFileName name: String) -> Presentation {
+        let fileExtension = (fileName(name) as NSString).pathExtension.lowercased()
+        return previewExtensions.contains(fileExtension) ? .preview : .share
     }
 
     /// Whether a running download has received more than the cap and must be cancelled.

@@ -15042,6 +15042,26 @@
         }
       }
     },
+    "web.quickLook.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file could not be opened."
+          }
+        }
+      }
+    },
+    "web.quickLook.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file is too large to open here."
+          }
+        }
+      }
+    },
     "window.noThread.body" : {
       "localizations" : {
         "en" : {

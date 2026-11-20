@@ -12,6 +12,7 @@ struct YakApp: App {
     private let parts: AppParts
 
     init() {
+        WebQuickLook.removeStaleFolders()
         let version = DeviceDescription.appVersion()
         let system = DeviceDescription.current().systemDescription
         #if DEBUG

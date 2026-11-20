@@ -74,7 +74,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
     init(model: WebConversationModel, dataStore: WKWebsiteDataStore, version: String) {
         self.model = model
         policy = model.policy
-        quickLook = WebQuickLook(policy: model.policy)
+        quickLook = WebQuickLook(policy: model.policy, notify: { [weak model] in model?.showNotice($0) })
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore
         configuration.limitsNavigationsToAppBoundDomains = false
