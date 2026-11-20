@@ -7,6 +7,7 @@ use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Http\Resources\ThreadAgentsData;
 use App\Models\TaskRun;
 use App\Models\ThreadAgent;
 use App\Models\ThreadEvent;
@@ -202,3 +203,34 @@ it('applies a fixture twice without a second agent row or event', function () {
     expect(ThreadAgent::query()->count())->toBe(2)
         ->and(ThreadEvent::query()->count())->toBe($events);
 });
+
+it('stores the prompt Claude gave an agent', function () {
+    [$thread] = agentFixtureTurn();
+
+    playAgentFixture($thread, 'agent-stopped');
+
+    expect(ThreadAgent::query()->first()->prompt)->toStartWith('Run `for i in $(seq 20)')
+        ->and(ThreadAgentsData::row(ThreadAgent::query()->first())['prompt'])->toStartWith('Run `for i');
+});
+
+it('keeps what an agent works on from its own tool calls', function () {
+    [$thread] = agentFixtureTurn();
+
+    playAgentFixture($thread, 'agent-progress-summaries');
+
+    $target = ThreadAgent::query()->whereNotNull('last_tool_target')->first();
+    expect($target)->not->toBeNull()
+        ->and($target->last_tool_target)->toStartWith('for i in $(seq 7)')
+        ->and(mb_strlen($target->last_tool_target))->toBeLessThanOrEqual(80);
+});
+
+it('derives a short target from a tool input', function (array $input, ?string $expected) {
+    expect(ThreadAgents::targetOf($input))->toBe($expected);
+})->with([
+    'file' => [['file_path' => '/w/crm.html', 'content' => 'x'], '/w/crm.html'],
+    'command' => [['command' => str_repeat('a', 100)], str_repeat('a', 80)],
+    'pattern' => [['pattern' => '*.php'], '*.php'],
+    'url' => [['url' => 'https://x.test'], 'https://x.test'],
+    'agent' => [['description' => 'Explore', 'prompt' => 'p'], 'Explore'],
+    'none' => [['foo' => 'bar'], null],
+]);
