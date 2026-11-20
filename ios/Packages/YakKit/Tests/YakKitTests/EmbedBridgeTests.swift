@@ -245,11 +245,29 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
     #expect(message == .quickLook(url: URL(string: "https://yak.example.com/f")!, name: ".._a_b.csv", mimeType: nil))
 }
 
-@Test func aQuickLookNameOverTheLimitIsRefused() {
-    let name = String(repeating: "n", count: EmbedPageMessage.maximumNameLength + 1)
-    #expect(throws: EmbedMessageProblem.malformed(type: "quickLook")) {
-        try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"\#(name)"}"#)
-    }
+private func quickLookName(_ name: String) throws -> String {
+    let message = try page(#"{"v":1,"type":"quickLook","url":"https://yak.example.com/f","name":"\#(name)"}"#)
+    guard case .quickLook(_, let safe, _) = message else { throw EmbedMessageProblem.malformed(type: "quickLook") }
+    return safe
+}
+
+@Test func aQuickLookNameOverTheLimitOfThePageIsRefused() {
+    let name = String(repeating: "n", count: 501)
+    #expect(throws: EmbedMessageProblem.malformed(type: "quickLook")) { try quickLookName(name) }
+}
+
+@Test func aLongNameIsShortenedToTheByteLimitAtACharacterBoundaryKeepingItsExtension() throws {
+    let cjk = String(repeating: "日本語", count: 100) + ".pdf"
+    let safe = try quickLookName(cjk)
+    #expect(safe.utf8.count <= EmbedPageMessage.maximumNameLength && safe.hasSuffix(".pdf"))
+    #expect(safe.hasPrefix("日本語日本語") && safe.dropLast(4).allSatisfy { "日本語".contains($0) })
+    let plain = try quickLookName(String(repeating: "n", count: 400))
+    #expect(plain.utf8.count == EmbedPageMessage.maximumNameLength)
+}
+
+@Test func aRightToLeftOverrideInANameBecomesAnUnderscore() throws {
+    #expect(try quickLookName("report\u{202E}fdp.exe") == "report_fdp.exe")
+    #expect(try quickLookName("a\u{200B}b") == "a_b")
 }
 
 @Test func aBadMimeTypeIsDroppedButTheMessageStays() throws {
