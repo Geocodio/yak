@@ -131,7 +131,7 @@ public actor OfflineCopyStore {
             try files.write(archive, to: archivePath(threadID), protection: .complete)
             try writeIndex(working)
         } catch {
-            logFailure("An offline copy could not be written: \(error)")
+            logFailure("An offline copy could not be written: \(type(of: error))")
             // The old index still describes what is on disk, apart from the archive that may be half replaced.
             if previous.entry(for: threadID) == nil { try? files.remove(archivePath(threadID)) }
             return .notSaved
@@ -148,7 +148,7 @@ public actor OfflineCopyStore {
         else { return nil }
         let data: Data?
         do { data = try files.read(archivePath(threadID)) } catch {
-            logFailure("An offline copy could not be read: \(error)")
+            logFailure("An offline copy could not be read: \(type(of: error))")
             return nil
         }
         guard let data else {
@@ -172,7 +172,7 @@ public actor OfflineCopyStore {
 
     /// Sign-out, instance removal, a revoked device, or the person's choice in Settings.
     public func removeAll() {
-        do { try files.remove(folder) } catch { logFailure("The offline copies could not be removed: \(error)") }
+        do { try files.remove(folder) } catch { logFailure("The offline copies could not be removed: \(type(of: error))") }
         index = OfflineCopyIndex()
     }
 
@@ -182,7 +182,7 @@ public actor OfflineCopyStore {
 
     private func removeArchive(_ threadID: String) {
         do { try files.remove(archivePath(threadID)) } catch {
-            logFailure("An offline copy could not be removed: \(error)")
+            logFailure("An offline copy could not be removed: \(type(of: error))")
         }
     }
 
@@ -197,7 +197,7 @@ public actor OfflineCopyStore {
         if let index { return index }
         let data: Data?
         do { data = try files.read("\(folder)/index.json", maximumBytes: 1_000_000) } catch {
-            logFailure("The offline copy index could not be read: \(error)")
+            logFailure("The offline copy index could not be read: \(type(of: error))")
             return nil
         }
         var loaded = OfflineCopyIndex()

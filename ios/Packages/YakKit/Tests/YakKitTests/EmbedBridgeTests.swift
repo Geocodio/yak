@@ -266,7 +266,10 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
     #expect(throws: EmbedMessageProblem.malformed(type: "quickLook")) {
         try EmbedPageMessage.decode(json: json, instanceURL: local)
     }
-    #expect(try EmbedPageMessage.decode(json: json, instanceURL: local, allowsLoopbackHTTP: true) != nil)
+    guard case .quickLook = try EmbedPageMessage.decode(json: json, instanceURL: local, allowsLoopbackHTTP: true) else {
+        Issue.record("loopback was refused")
+        return
+    }
 }
 
 @Test func aLongTitleIsCutAndTheNewestSequenceKept() throws {
