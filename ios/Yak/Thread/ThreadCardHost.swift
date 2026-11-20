@@ -23,7 +23,7 @@ struct ThreadCardHost: View {
             switch cards.state {
             case .none, .question, .unknown:
                 QuestionCard(model: thread.question, isOffline: thread.isOffline, paneHeight: paneHeight)
-                    .animation(.smooth(duration: 0.28), value: thread.question.flow != nil)
+                    .motion(Motion.panel, value: thread.question.flow != nil)
             case .repositoryQuestion(let question, let canAnswer): repositoryQuestion(question, canAnswer: canAnswer)
             case .earlyWarning(let row, let notice): earlyWarning(row, notice)
             case .coOwner(let decision, let panel): coOwner(decision, panel)

@@ -102,8 +102,8 @@ struct SkeletonRows: View {
         .accessibilityLabel(Text("load.loading"))
         .accessibilityIdentifier("overview.skeleton")
         .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { isDim = true }
+            guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
+            withAnimation(Motion.pulse) { isDim = true }
         }
     }
 }

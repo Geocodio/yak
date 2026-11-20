@@ -63,7 +63,7 @@ struct TasksScreen: View {
             footer.listRowInsets(.init()).listRowSeparator(.hidden).listRowBackground(Color.clear)
         }
         .listStyle(.plain)
-        .refreshable { await model.reload() }
+        .refreshableWithHaptic { await model.reload() }
     }
 
     @ViewBuilder private var footer: some View {

@@ -9,6 +9,8 @@ struct PaneHost: View {
     /// The focused pane: a pane that is not shown waits one step to the side it would slide in from.
     let focused: PaneID
     let slots: PaneSlotsModel
+    /// Changes when the person picks a pane; the haptic follows it.
+    let pickCount: Int
     /// The corners of a pane in a two-slot layout; a single pane is not clipped.
     let cornerRadius: CGFloat
 
@@ -46,8 +48,22 @@ struct PaneHost: View {
                 }
             }
         }
+        // The frames move when panes open, close or swap, never while the divider is dragged: a drag moves the frames
+        // without changing this key. Under Reduce Motion, and in test mode where the audit needs a still screen, a
+        // single pane cross-fades and frames take their place at once.
         .animation(
-            isSingle ? (isStill ? .easeInOut(duration: 0.2) : .smooth(duration: 0.28)) : nil, value: focused)
+            isStill ? (isSingle ? Motion.crossFade : nil) : Motion.paneSwitch,
+            value: Arrangement(focused: focused, kind: slots.arrangement, placement: slots.placement)
+        )
+        .haptic(.paneChanged, trigger: pickCount)
+        // Scrolling any pane's list drags the keyboard down with it.
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    private struct Arrangement: Equatable {
+        let focused: PaneID
+        let kind: PaneArrangement
+        let placement: [PaneID: SlotPosition]
     }
 
     private func slide(of id: PaneID, isShown: Bool) -> CGFloat {
@@ -57,6 +73,6 @@ struct PaneHost: View {
         if isStill { return Design.Size.offscreen }
         let order = thread.panes
         guard let own = order.firstIndex(of: id), let current = order.firstIndex(of: focused) else { return 0 }
-        return own < current ? -24 : 24
+        return own < current ? -Motion.paneSlideDistance : Motion.paneSlideDistance
     }
 }

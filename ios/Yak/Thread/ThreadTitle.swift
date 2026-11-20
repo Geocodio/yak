@@ -23,7 +23,7 @@ struct ThreadTitle: View {
     var body: some View {
         if let action {
             Button(action: action) { content }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel(Text("overview.title.label \(title)"))
                 .accessibilityHint(Text("overview.title.hint"))
                 .accessibilityIdentifier("thread.title")

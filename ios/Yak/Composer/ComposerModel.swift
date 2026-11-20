@@ -73,6 +73,8 @@ final class ComposerModel {
     private(set) var isSending = false
     /// Counts refused sends, so the view can play the error haptic once per refusal.
     private(set) var refusalCount = 0
+    /// Counts sends the outbox accepted, so the view can play the success haptic once per send.
+    private(set) var acceptedSendCount = 0
     /// Files being read and stored, which the strip shows as placeholders.
     private(set) var preparingCount = 0
     /// The server's limits once `me` is known; the defaults until then.
@@ -200,6 +202,7 @@ final class ComposerModel {
         inFlight = nil
         inFlightThumbnails = [:]
         problem = nil
+        acceptedSendCount += 1
         await saveNow()
     }
 

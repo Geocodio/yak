@@ -19,12 +19,13 @@ struct InstanceShell: View {
     @State private var tasksRoute: TasksRoute?
     /// The thread the tasks route opened over; a different thread closes the route.
     @State private var tasksOverThreadID: String?
+    /// The drawer moves only after the cold start has placed it; see `DrawerContainer.animates`.
+    @State private var drawerAnimates = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.walkthroughPlayback) private var walkthroughPlayback
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
@@ -76,7 +77,7 @@ struct InstanceShell: View {
             InstanceSwitcher(model: model, active: instance, onClose: { showsSwitcher = false })
                 .linkPairingStatus(model, sheetDepth: 1)
                 .countsAsOpenSheet(model)
-                .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+                .shortSheetDetents()
                 .presentationBackground(Color.yakBackground)
         }
         .sheet(isPresented: isConnecting) {
@@ -118,10 +119,13 @@ struct InstanceShell: View {
 
     @ViewBuilder private var layout: some View {
         if isCompactWidth {
-            DrawerContainer(isOpen: drawerBinding) {
+            DrawerContainer(isOpen: drawerBinding, animates: drawerAnimates) {
                 drawer
             } detail: {
                 threadScreen
+            }
+            .onChange(of: scene.hasAppliedColdStart, initial: true) { _, hasApplied in
+                if hasApplied { Task { drawerAnimates = true } }
             }
         } else {
             NavigationSplitView(columnVisibility: columnVisibility) {
@@ -152,7 +156,21 @@ struct InstanceShell: View {
             retry: { Task { await retryList() } }, openTasksRoute: openTasks)
     }
 
-    @ViewBuilder private var threadScreen: some View {
+    /// Names the screen the detail shows, so a change of screen cross-fades.
+    private var screenIdentity: AnyHashable {
+        if let tasksRoute { return AnyHashable(tasksRoute) }
+        if scene.state.isNewThreadOpen { return AnyHashable("new") }
+        return AnyHashable(scene.state.threadID)
+    }
+
+    private var threadScreen: some View {
+        threadScreenContent.motion(Motion.crossFade, value: screenIdentity)
+            .haptic(.threadSwitched, trigger: scene.state.threadID) { old, new in
+                old != nil && new != nil && new != scene.followedReplacementID
+            }
+    }
+
+    @ViewBuilder private var threadScreenContent: some View {
         if let route = tasksRoute {
             TasksNavigation(
                 route: route, session: session, scene: scene, instanceURL: instance.url,
@@ -175,15 +193,22 @@ struct InstanceShell: View {
                 isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
             )
         } else {
-            if NoThreadView.isShown(supportsMultipleWindows: hasSeveralWindows, isCompactWidth: isCompactWidth) {
-                NoThreadView { scene.openNewThread(repo: nil, text: nil) }
-            } else {
-                ThreadPlaceholder(
-                    title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
-                    openDrawer: { scene.setDrawerOpen(true) })
+            Group {
+                if NoThreadView.isShown(supportsMultipleWindows: hasSeveralWindows, isCompactWidth: isCompactWidth) {
+                    NoThreadView { scene.openNewThread(repo: nil, text: nil) }
+                } else {
+                    ThreadPlaceholder(
+                        title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
+                        openDrawer: { scene.setDrawerOpen(true) })
+                }
             }
+            .opacity(emptyDetailOpacity)
         }
     }
+
+    /// The empty detail draws nothing beside an open drawer: the thread's strip stays dimmed only that much, and a
+    /// line of gray text on it would not keep its contrast.
+    private var emptyDetailOpacity: Double { isCompactWidth && drawerBinding.wrappedValue ? 0 : 1 }
 
     private func openTasks(_ route: TasksRoute?) {
         tasksRoute = route

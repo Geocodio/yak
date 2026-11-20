@@ -65,6 +65,7 @@ struct InstanceSwitcher: View {
                 ConnectView(model: model, onDone: { showsAdd = false })
                     .linkPairingStatus(model, sheetDepth: 2)
                     .countsAsOpenSheet(model)
+                    .presentationBackground(Color.yakBackground)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("address.cancel") { showsAdd = false }
@@ -109,7 +110,7 @@ struct InstanceSwitcher: View {
             .contentShape(.rect)
             .id(dynamicTypeSize)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .disabled(switcher.isSwitching)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(instance))

@@ -355,6 +355,7 @@ private func snapshot(
         #expect(sent.sendKey == sendKey && sent.attachments.map(\.reference) == ["Image #1"])
         #expect(composer.text == "" && composer.attachments.isEmpty && composer.problem == nil)
         #expect(backend.savedDraft(.thread("d0e515ef")) == nil)
+        #expect(composer.acceptedSendCount == 1 && composer.refusalCount == 0)
     }
 
     @Test func aLongPressSendsAfterTheTurn() async throws {
@@ -385,7 +386,7 @@ private func snapshot(
         await composer.send(delivery: .steer)
         #expect(composer.text == "Wait for me")
         #expect(composer.problem == "Yak is not connected yet. Try again in a moment.")
-        #expect(composer.refusalCount == 1)
+        #expect(composer.refusalCount == 1 && composer.acceptedSendCount == 0)
     }
 
     @Test func stopShowsProgressAndTheRefusal() async throws {
