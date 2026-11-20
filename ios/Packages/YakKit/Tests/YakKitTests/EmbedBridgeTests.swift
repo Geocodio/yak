@@ -338,3 +338,41 @@ func aQuickLookOffTheInstanceOriginIsRefused(url: String) {
         try page(#"{"v":1,"type":"cardAnswered","card":"stopped","action":"restart","ok":false}"#)
             == .cardAnswered(card: .stopped, action: "restart", isOK: false))
 }
+
+private func outboxItems(_ message: EmbedAppMessage) throws -> [[String: Any]] {
+    let dictionary = try #require(message.dictionary())
+    return try #require(dictionary["items"] as? [[String: Any]])
+}
+
+private func outboxItem(key: String = "k", text: String = "t", reason: String? = nil) -> EmbedOutboxItem {
+    EmbedOutboxItem(
+        key: key, text: text, status: .refused, reason: reason, createdAt: Date(timeIntervalSince1970: 0),
+        attachmentCount: 0)
+}
+
+@Test func anOutboxOverTheCountIsCutToTheFirstHundred() throws {
+    let items = (0..<150).map { outboxItem(key: "k\($0)") }
+    let sent = try outboxItems(.outbox(threadID: "d0e515ef", items: items))
+    #expect(sent.count == 100 && sent.first?["key"] as? String == "k0" && sent.last?["key"] as? String == "k99")
+}
+
+@Test func outboxTextAndReasonAreCutAtACharacterBoundary() throws {
+    let family = "👨‍👩‍👧"
+    let text = String(repeating: "a", count: 99_999) + family
+    let reason = String(repeating: "b", count: 999) + family
+    let sent = try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: text, reason: reason)]))
+    let sentText = try #require(sent[0]["text"] as? String)
+    let sentReason = try #require(sent[0]["reason"] as? String)
+    #expect(sentText == String(repeating: "a", count: 99_999) && sentText.utf16.count <= 100_000)
+    #expect(sentReason == String(repeating: "b", count: 999) && sentReason.utf16.count <= 1_000)
+    let exact = String(repeating: "c", count: 100_000)
+    #expect(try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: exact)]))[0]["text"] as? String == exact)
+}
+
+@Test func anOutboxItemWithAKeyOverTheCapIsDropped() throws {
+    let long = String(repeating: "k", count: 101)
+    let exact = String(repeating: "k", count: 100)
+    let sent = try outboxItems(
+        .outbox(threadID: "d0e515ef", items: [outboxItem(key: long), outboxItem(key: exact), outboxItem(key: "")]))
+    #expect(sent.count == 1 && sent[0]["key"] as? String == exact)
+}

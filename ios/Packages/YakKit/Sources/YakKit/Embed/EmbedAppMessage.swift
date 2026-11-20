@@ -36,6 +36,13 @@ public enum EmbedAppMessage: Equatable, Sendable {
     case refresh
     case connectivity(isOnline: Bool)
 
+    /// The limits of the page's outbox validator, in UTF-16 units like the page's string lengths. The page drops a whole
+    /// message that exceeds one, so the app trims instead.
+    public static let maximumOutboxItems = 100
+    public static let maximumOutboxTextLength = 100_000
+    public static let maximumOutboxReasonLength = 1_000
+    public static let maximumOutboxKeyLength = 100
+
     /// A fragment the page may be told to scroll to: letters, digits, "-" and "_", 1 to 64 characters.
     public static func isValidFragment(_ text: String) -> Bool {
         !text.isEmpty && text.utf8.count <= 64
@@ -66,10 +73,13 @@ public enum EmbedAppMessage: Equatable, Sendable {
             guard ThreadIdentifier.isValid(threadID) else { return nil }
             result["type"] = "outbox"
             result["threadId"] = threadID
-            result["items"] = items.map { item -> [String: Any] in
+            let sendable = items.filter { !$0.key.isEmpty && $0.key.utf16.count <= Self.maximumOutboxKeyLength }
+            result["items"] = sendable.prefix(Self.maximumOutboxItems).map { item -> [String: Any] in
                 [
-                    "key": item.key, "text": item.text, "status": item.status.rawValue,
-                    "reason": item.reason.map { $0 as Any } ?? NSNull(),
+                    "key": item.key, "text": Self.truncated(item.text, toUTF16Length: Self.maximumOutboxTextLength),
+                    "status": item.status.rawValue,
+                    "reason": item.reason.map { Self.truncated($0, toUTF16Length: Self.maximumOutboxReasonLength) as Any }
+                        ?? NSNull(),
                     "createdAt": item.createdAt.formatted(.iso8601), "attachmentCount": item.attachmentCount,
                 ]
             }
@@ -78,6 +88,19 @@ public enum EmbedAppMessage: Equatable, Sendable {
         case .connectivity(let isOnline):
             result["type"] = "connectivity"
             result["online"] = isOnline
+        }
+        return result
+    }
+
+    /// The longest prefix of `text` that ends at a character boundary and is at most `limit` UTF-16 units.
+    static func truncated(_ text: String, toUTF16Length limit: Int) -> String {
+        guard text.utf16.count > limit else { return text }
+        var result = ""
+        var length = 0
+        for character in text {
+            length += character.utf16.count
+            if length > limit { break }
+            result.append(character)
         }
         return result
     }
