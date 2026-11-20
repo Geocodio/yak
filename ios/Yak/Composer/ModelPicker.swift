@@ -5,6 +5,7 @@ import YakKit
 struct ModelPicker: View {
     let composer: ComposerModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded: Set<String> = []
 
     private var selected: String? {
@@ -43,7 +44,7 @@ struct ModelPicker: View {
                 ForEach(ModelChoices.rows(families: composer.modelFamilies, selected: selected, expanded: expanded)) {
                     row in
                     ModelRow(row: row, isExpanded: expanded.contains(familyName(of: row))) {
-                        withAnimation(Motion.content) { toggle(familyName(of: row)) }
+                        withMotion(Motion.content, reduceMotion: reduceMotion) { toggle(familyName(of: row)) }
                     } pick: {
                         composer.selectModel(row.id)
                     }

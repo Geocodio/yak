@@ -43,7 +43,7 @@ struct PaneDivider: View {
                 snapCount += 1
                 commit(0.5)
             }
-            .animation(Motion.quick, value: isDragging)
+            .motion(Motion.quick, value: isDragging)
             .sensoryFeedback(.impact(weight: .light), trigger: snapCount)
             .accessibilityElement()
             .accessibilityLabel(Text("pane.divider.label"))

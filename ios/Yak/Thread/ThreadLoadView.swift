@@ -200,7 +200,7 @@ private struct LoadingBoard<Footer: View>: View {
         .task {
             guard !isSlow else { return }
             do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-            withAnimation(reduceMotion ? nil : Motion.reveal) { isShown = true }
+            withMotion(Motion.reveal, reduceMotion: reduceMotion) { isShown = true }
         }
     }
 }

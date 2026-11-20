@@ -36,8 +36,9 @@ enum Motion {
     /// How much a pressed control dims.
     static let pressedOpacity: Double = 0.85
 
-    /// What to run for `animation`: the plain fade under Reduce Motion, nothing in test mode, where every screen stays
-    /// still for the accessibility audit.
+    /// The animation to run for `animation`: the cross-fade in its place under Reduce Motion, and none in test mode,
+    /// where every screen stays still for the accessibility audit. Pass the result to `withAnimation`, `.animation`
+    /// or a transaction.
     static func resolve(_ animation: Animation, reduceMotion: Bool, isTestMode: Bool = StillMotion.isTestMode)
         -> Animation?
     {
