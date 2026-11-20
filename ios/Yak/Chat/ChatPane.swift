@@ -32,6 +32,7 @@ private struct ChatPane: View {
                     })
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .motion(Motion.crossFade, value: thread.loadPresentation)
             if case .conversation = thread.loadPresentation {
                 if thread.composer.bar.line != nil {
                     Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(.primary)

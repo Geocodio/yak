@@ -90,10 +90,13 @@ struct ThreadLayoutView: View {
         return VStack(spacing: 0) {
             if singlePlacement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
             ZStack {
-                PaneHost(thread: thread, focused: focused, slots: model, cornerRadius: cornerRadius)
-                    .frame(
-                        maxWidth: .infinity, maxHeight: .infinity,
-                        alignment: plan.arrangement == .single ? .center : .topLeading)
+                PaneHost(
+                    thread: thread, focused: focused, slots: model, pickCount: scene.panePickCount,
+                    cornerRadius: cornerRadius
+                )
+                .frame(
+                    maxWidth: .infinity, maxHeight: .infinity,
+                    alignment: plan.arrangement == .single ? .center : .topLeading)
                 slotLayer(plan, focused: focused)
             }
             .background(plan.arrangement == .single ? Color.clear : Color.yakCard)
@@ -223,6 +226,6 @@ struct ThreadLayoutView: View {
                 thread: thread, slots: slots, placement: placement, pane: pane, slot: slot,
                 select: { scene.select($0, from: slot) }, beside: beside)
         }
-        .animation(.easeInOut(duration: 0.2), value: line)
+        .motion(Motion.crossFade, value: line)
     }
 }

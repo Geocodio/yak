@@ -355,3 +355,30 @@ private func compactInputs() -> LayoutInputs {
         state: SceneModel.restoredState(from: scene.encodedState), request: nil, activeInstance: instance)
     #expect(relaunched.state.threadID == "d0e515ef" && relaunched.state.secondPane == .terminal)
 }
+
+@MainActor @Test func everyOpenerOfTheDrawerFlipsTheOneDrawerOpenFlag() {
+    let scene = SceneModel(state: SceneState())
+    scene.setDrawerOpen(true)
+    #expect(scene.state.isDrawerOpen)
+    scene.setDrawerOpen(false)
+    #expect(!scene.state.isDrawerOpen)
+    scene.requestSearchFocus()
+    #expect(scene.state.isDrawerOpen)
+    scene.openNewThread(repo: nil, text: nil)
+    #expect(!scene.state.isDrawerOpen)
+}
+
+@MainActor @Test func onlyAPaneThePersonPicksCountsForTheHaptic() {
+    let scene = wideScene()
+    #expect(scene.panePickCount == 0)
+    scene.select(.files)
+    #expect(scene.panePickCount == 1)
+    scene.focusSlot(.trailing)
+    #expect(scene.panePickCount == 1)
+}
+
+@MainActor @Test func followingAClearRemembersTheThreadSoOnlyTheSendPlaysAHaptic() {
+    let scene = SceneModel(state: SceneState(threadID: "d0e515ef"))
+    scene.openReplacement("n3w7hr3d", sentFrom: "d0e515ef", isCompactWidth: true)
+    #expect(scene.followedReplacementID == "n3w7hr3d")
+}

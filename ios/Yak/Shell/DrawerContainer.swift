@@ -4,11 +4,18 @@ import SwiftUI
 /// drawer in and pushes the thread aside by the drawer's width, scaled down with a hairline border.
 struct DrawerContainer<Drawer: View, Detail: View>: View {
     @Binding var isOpen: Bool
+    /// False until the first placement is done: the drawer the cold start closes after the list loads takes its place at
+    /// once, and only later changes move.
+    let animates: Bool
     @ViewBuilder let drawer: Drawer
     @ViewBuilder let detail: Detail
 
     /// How far the finger has moved the drawer from where it rests, while a drag runs.
     @State private var dragOffset: CGFloat = 0
+    /// The spring of the drag that just ended, so the settle carries the finger's speed; nil for every other opener.
+    @State private var releaseAnimation: Animation?
+    /// Counts the times the drawer settled open, for the haptic.
+    @State private var settledOpenCount = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let edgeWidth: CGFloat = 20
@@ -31,14 +38,25 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                     .simultaneousGesture(dragGesture(width: width))
                 detail
                     .background {
-                        RoundedRectangle(cornerRadius: 28 * progress).fill(Color.yakBackground)
+                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress).fill(Color.yakBackground)
                             .ignoresSafeArea()
                     }
+                    .overlay {
+                        // The thread recedes behind the drawer, as the board's faded card does.
+                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress)
+                            .fill(Color.yakBackground.opacity(Motion.drawerFade * progress))
+                            .ignoresSafeArea()
+                            .allowsHitTesting(false)
+                    }
                     .overlay(
-                        RoundedRectangle(cornerRadius: 28 * progress)
-                            .stroke(Color.primary.opacity(0.12 * progress), lineWidth: 0.5).ignoresSafeArea()
+                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress)
+                            .stroke(
+                                Color.primary.opacity(Motion.drawerStrokeOpacity * progress),
+                                lineWidth: Design.Space.hairline
+                            )
+                            .ignoresSafeArea()
                     )
-                    .scaleEffect(1 - 0.06 * progress)
+                    .scaleEffect(reduceMotion ? 1 : 1 - Motion.drawerScaleBack * progress, anchor: .leading)
                     .offset(x: progress * width)
                     .allowsHitTesting(!isOpen)
                     .accessibilityHidden(isOpen)
@@ -60,7 +78,19 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                         .accessibilityAction(.escape) { setOpen(false) }
                 }
             }
-            .animation(reduceMotion ? .easeInOut(duration: 0.2) : nil, value: isOpen)
+            // Every opener (button, shortcut, thread pick, scrim tap, drag release) flips `isOpen`, so one transaction
+            // here animates them all.
+            .transaction(value: isOpen) { transaction in
+                transaction.animation =
+                    animates ? Motion.resolve(releaseAnimation ?? Motion.drawer, reduceMotion: reduceMotion) : nil
+                if isOpen, animates {
+                    // The drawer may have closed again by the time the open settles.
+                    transaction.addAnimationCompletion(criteria: .logicallyComplete) {
+                        if isOpen { settledOpenCount += 1 }
+                    }
+                }
+            }
+            .haptic(.drawerSettled, trigger: settledOpenCount)
         }
     }
 
@@ -69,10 +99,16 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
         return min(max(base + dragOffset, 0), width) / width
     }
 
-    private func setOpen(_ open: Bool) {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.38, bounce: 0.12)) {
+    /// Settles the drawer open or closed. `velocity` is the finger's speed along the width in points per second.
+    private func setOpen(_ open: Bool, from position: CGFloat = 0, velocity: CGFloat = 0, width: CGFloat = 1) {
+        let distance = open ? width - position : position
+        let animation = Motion.release(velocity: open ? velocity : -velocity, distance: distance)
+        releaseAnimation = animation
+        withAnimation(Motion.resolve(animation, reduceMotion: reduceMotion)) {
             isOpen = open
             dragOffset = 0
+        } completion: {
+            releaseAnimation = nil
         }
     }
 
@@ -85,12 +121,16 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
             .onEnded { value in
                 let flick = value.predictedEndTranslation.width - value.translation.width
                 let moved = value.translation.width
+                let position = min(max((isOpen ? width : 0) + moved, 0), width)
+                let release = { (open: Bool) in
+                    setOpen(open, from: position, velocity: value.velocity.width, width: width)
+                }
                 // From closed, a move past a third of the width or a fast flick opens; from open, the same
                 // move the other way closes.
                 if isOpen {
-                    setOpen(!(moved < -width / 3 || flick < -flickDistance))
+                    release(!(moved < -width / 3 || flick < -flickDistance))
                 } else {
-                    setOpen(moved > width / 3 || flick > flickDistance)
+                    release(moved > width / 3 || flick > flickDistance)
                 }
             }
     }

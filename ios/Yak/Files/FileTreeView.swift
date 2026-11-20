@@ -51,7 +51,7 @@ struct FileTreeView: View {
         }
         .listStyle(.plain)
         .id(dynamicTypeSize)
-        .refreshable { await model.turnFinished() }
+        .refreshableWithHaptic { await model.turnFinished() }
         .accessibilityIdentifier("files.tree")
     }
 

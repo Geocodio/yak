@@ -18,6 +18,7 @@ struct BottomBar: View {
     var beside: PaneID?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let swipeDistance: CGFloat = 60
 
     /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
@@ -78,7 +79,7 @@ struct BottomBar: View {
             let across = value.translation.width
             guard slot == nil, abs(across) > swipeDistance, abs(across) > abs(value.translation.height) else { return }
             if let next = Panes.neighbor(of: pane, in: thread.panes, step: across < 0 ? 1 : -1) {
-                withAnimation(.smooth(duration: 0.28)) { select(next) }
+                withMotion(Motion.paneSwitch, reduceMotion: reduceMotion) { select(next) }
             }
         }
     }

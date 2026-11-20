@@ -27,7 +27,8 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
             .background(Color.yakRust, in: .rect(cornerRadius: Design.Radius.key))
-            .opacity(isEnabled ? (configuration.isPressed ? 0.85 : 1) : 0.4)
+            .opacity(isEnabled ? 1 : Design.disabledOpacity)
+            .pressFeedback(configuration.isPressed)
     }
 }
 
@@ -42,10 +43,10 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
             .background(
-                Color.yakFillStrong.opacity(configuration.isPressed ? 0.6 : 1),
-                in: .rect(cornerRadius: Design.Radius.key)
+                Color.yakFillStrong, in: .rect(cornerRadius: Design.Radius.key)
             )
             .opacity(isEnabled ? 1 : 0.5)
+            .pressFeedback(configuration.isPressed)
     }
 }
 

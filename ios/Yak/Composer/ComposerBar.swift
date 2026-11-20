@@ -59,8 +59,9 @@ struct ComposerBar: View {
         .onChange(of: inputBlocked) { takeFocusIfOpen() }
         .task { takeFocusIfOpen() }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
-        .animation(.smooth(duration: 0.2), value: composer.bar)
-        .animation(.smooth(duration: 0.2), value: composer.attachments.count)
+        .haptic(.sent, trigger: composer.acceptedSendCount)
+        .motion(Motion.content, value: composer.bar)
+        .motion(Motion.content, value: composer.attachments.count)
     }
 
     // MARK: Controls
@@ -94,7 +95,7 @@ struct ComposerBar: View {
         } label: {
             SendGlyph(isBusy: composer.isSending)
         }
-        .buttonStyle(.plain).disabled(!composer.canSend).hoverEffect(.highlight)
+        .buttonStyle(.pressable).disabled(!composer.canSend).hoverEffect(.highlight)
         .contextMenu {
             if composer.bar.offersSendAfterTurn {
                 Button("composer.sendAfterTurn") { send(.afterTurn) }
@@ -135,7 +136,7 @@ struct ComposerBar: View {
             }
             .frame(width: 44, height: 44).contentShape(.circle)
         }
-        .buttonStyle(.plain).disabled(composer.isStopping)
+        .buttonStyle(.pressable).disabled(composer.isStopping)
         .accessibilityLabel("composer.stop.label").accessibilityIdentifier("composer.stop")
     }
 

@@ -4,6 +4,9 @@ import UIKit
 /// The design values of the approved boards: colors, spacing steps, radii, control sizes and type. Views use these
 /// names and never a bare number, so the screens stay equal to the boards in one place.
 enum Design {
+    /// How faded a disabled control looks.
+    static let disabledOpacity: Double = 0.4
+
     /// Gaps and insets, in points.
     enum Space {
         static let hairline: CGFloat = 0.5

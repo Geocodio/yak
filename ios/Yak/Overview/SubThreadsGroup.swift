@@ -15,6 +15,7 @@ struct SubThreadsGroupView: View {
     @State private var dropTarget: SubThreadRow?
     @State private var isStopAskOpen = false
     @State private var areMessagesOpen = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let rows = makeRows()
@@ -161,7 +162,7 @@ struct SubThreadsGroupView: View {
     private func messages(_ items: [StackMessage]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.smooth) { areMessagesOpen.toggle() }
+                withMotion(Motion.content, reduceMotion: reduceMotion) { areMessagesOpen.toggle() }
             } label: {
                 OverviewRow(title: Text("overview.messages.folded \(items.count)")) {
                     EmptyView()

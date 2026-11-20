@@ -104,7 +104,7 @@ struct WorkButtonStyle: ButtonStyle {
                 isPrimary && isEnabled ? Color.yakCardPrimary : Color.yakCardButton,
                 in: .rect(cornerRadius: Design.Radius.key)
             )
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .pressFeedback(configuration.isPressed)
     }
 
     private func foreground(isPrimary: Bool) -> Color {
