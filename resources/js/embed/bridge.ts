@@ -137,7 +137,7 @@ export function sendToApp(message: PageMessage): boolean {
 export function receiveFromApp(raw: unknown): void {
     const result = validateAppMessage(raw);
 
-    if (result.kind !== 'ok') {
+    if (result.kind !== 'ok' || !isActive) {
         return;
     }
 

@@ -65,8 +65,6 @@ router.on('error', (event) => {
 });
 
 healStandaloneViewport();
-installReceiver();
-
 // The app's web view takes push natively; a service worker there would only cache nothing for nobody.
 if (!navigator.userAgent.includes('YakApp/')) {
     if (document.readyState === 'complete') {
@@ -80,6 +78,11 @@ createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),
     resolve: (name) => pages[`./pages/${name}.tsx`]().then((module) => module.default),
     setup({ el, App, props }) {
+        // Only the phone's web view has an app to hear from; other sessions get no receiver at all.
+        if ((props.initialPage.props as { embed?: unknown }).embed) {
+            installReceiver();
+        }
+
         createRoot(el).render(
             <StrictMode>
                 <App {...props} />

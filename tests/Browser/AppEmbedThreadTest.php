@@ -86,3 +86,13 @@ it('only calls allow-listed routes on load and while answering a card', function
             ->and($request['status'])->not->toBe(404, "{$request['route']} answered 404");
     });
 });
+
+it('installs no receiver for the app on a normal session', function () {
+    [$thread, , $user] = embedQuestionThread();
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->public_id}")->resize(1280, 900)
+        ->assertPresent('[data-testid="app-shell"]')
+        ->assertScript('typeof window.__yakEmbed', 'undefined')
+        ->assertNoJavaScriptErrors();
+});
