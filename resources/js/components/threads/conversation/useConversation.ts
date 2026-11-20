@@ -10,7 +10,7 @@ import { createReadTracker, mergeConversation, type ConversationEntry } from './
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: string, messages: ThreadMessage[], turnStartSequence = 0): { entries: ConversationEntry[]; liveSteps: number; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents'] } {
+export function useConversation(threadId: string, messages: ThreadMessage[], fallbackTurnStart = 0): { entries: ConversationEntry[]; liveSteps: number; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents'] } {
     const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
@@ -19,7 +19,7 @@ export function useConversation(threadId: string, messages: ThreadMessage[], tur
     const readKey = readUuids.join(',');
     const entries = useMemo(() => mergeConversation(messages, readUuids, items, readSequences), [messages, readKey, items, readSequences]);
 
-    const liveSteps = useMemo(() => liveStepCount(events.entries, entrySequences, turnStartSequence), [events.entries, entrySequences, turnStartSequence]);
+    const liveSteps = useMemo(() => liveStepCount(events.entries, entrySequences, events.turnStartSequence ?? fallbackTurnStart), [events.entries, entrySequences, events.turnStartSequence, fallbackTurnStart]);
 
     return { entries, liveSteps, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents };
 }
