@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::log
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:27
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:33
 * @route '/threads/{thread}/agents/{agent}/log'
 */
 export const log = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ log.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::log
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:27
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:33
 * @route '/threads/{thread}/agents/{agent}/log'
 */
 log.url = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ log.url = (args: { thread: string | { public_id: string }, agent: string | { tas
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::log
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:27
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:33
 * @route '/threads/{thread}/agents/{agent}/log'
 */
 log.get = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ log.get = (args: { thread: string | { public_id: string }, agent: string | { tas
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::log
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:27
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:33
 * @route '/threads/{thread}/agents/{agent}/log'
 */
 log.head = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -66,7 +66,7 @@ log.head = (args: { thread: string | { public_id: string }, agent: string | { ta
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stopAll
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:45
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:51
 * @route '/threads/{thread}/agents/stop'
 */
 export const stopAll = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -81,7 +81,7 @@ stopAll.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stopAll
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:45
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:51
 * @route '/threads/{thread}/agents/stop'
 */
 stopAll.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -114,7 +114,7 @@ stopAll.url = (args: { thread: string | { public_id: string } } | [thread: strin
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stopAll
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:45
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:51
 * @route '/threads/{thread}/agents/stop'
 */
 stopAll.post = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -124,7 +124,7 @@ stopAll.post = (args: { thread: string | { public_id: string } } | [thread: stri
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stop
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:34
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:40
 * @route '/threads/{thread}/agents/{agent}/stop'
 */
 export const stop = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -139,7 +139,7 @@ stop.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stop
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:34
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:40
 * @route '/threads/{thread}/agents/{agent}/stop'
 */
 stop.url = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions) => {
@@ -169,7 +169,7 @@ stop.url = (args: { thread: string | { public_id: string }, agent: string | { ta
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::stop
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:34
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:40
 * @route '/threads/{thread}/agents/{agent}/stop'
 */
 stop.post = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -179,7 +179,7 @@ stop.post = (args: { thread: string | { public_id: string }, agent: string | { t
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::message
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 export const message = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -194,7 +194,7 @@ message.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::message
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 message.url = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions) => {
@@ -224,7 +224,7 @@ message.url = (args: { thread: string | { public_id: string }, agent: string | {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::message
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 message.post = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({

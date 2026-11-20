@@ -1,0 +1,11 @@
+{
+    "details": {
+        "errors": {
+            "path": [
+                "The path must be an embedded page of Yak."
+            ]
+        }
+    },
+    "error": "validation_failed",
+    "message": "The request is not valid."
+}

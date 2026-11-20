@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::store
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 export const store = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::store
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 store.url = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions) => {
@@ -46,7 +46,7 @@ store.url = (args: { thread: string | { public_id: string }, agent: string | { t
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadAgentController::store
-* @see app/Http/Controllers/Threads/ThreadAgentController.php:58
+* @see app/Http/Controllers/Threads/ThreadAgentController.php:64
 * @route '/threads/{thread}/agents/{agent}/messages'
 */
 store.post = (args: { thread: string | { public_id: string }, agent: string | { task_id: string } } | [thread: string | { public_id: string }, agent: string | { task_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
