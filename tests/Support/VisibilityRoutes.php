@@ -74,6 +74,7 @@ class VisibilityRoutes
         'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
         'threads.terminal-sessions.store' => ['POST', '/threads/{thread}/terminal-sessions', [], 403],
         'threads.repository-answer.store' => ['POST', '/threads/{thread}/repository-answer'],
+        'threads.step-limit.store' => ['POST', '/threads/{thread}/step-limit'],
         'threads.retry' => ['POST', '/threads/{thread}/retry'],
         'threads.cancel' => ['POST', '/threads/{thread}/cancel'],
         'threads.move' => ['POST', '/threads/{thread}/move', ['repo' => 'nope']],
