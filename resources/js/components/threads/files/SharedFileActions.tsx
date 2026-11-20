@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { Button, Dialog, Toggle, cn, toast } from '@geocodio/console-ui';
 import { Check, Download, ExternalLink, Eye, Link as LinkIcon, Users } from 'lucide-react';
 import { useState } from 'react';
+import { useEmbed } from '@/embed/useEmbed';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { csrfToken } from '@/lib/csrfToken';
 import { teamShare } from '@/routes/threads/shared-files';
@@ -14,6 +15,7 @@ const PRIMARY = 'inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 ro
 /** Open for a report (the viewer in a new tab), View for an image (the lightbox), Download for the rest. */
 export function OpenFileButton({ file, className }: { file: SharedFile; className?: string }) {
     const [isViewing, setIsViewing] = useState(false);
+    const embed = useEmbed();
     const action = openAction(file);
 
     if (action === 'view') {
@@ -34,7 +36,15 @@ export function OpenFileButton({ file, className }: { file: SharedFile; classNam
     }
 
     return (
-        <a href={file.url} {...(action === 'open' ? { target: '_blank', rel: 'noopener noreferrer' } : { download: file.name })} className={cn(PRIMARY, className)} data-testid="shared-file-open">
+        <a
+            href={file.url}
+            {...(action === 'open' ? { target: '_blank', rel: 'noopener noreferrer' } : { download: file.name })}
+            onClick={(event) => {
+                // A download in the app opens in the system's quick look, which fetches with the session.
+                if (embed !== null && action !== 'open' && embed.post({ type: 'quickLook', url: new URL(file.url, window.location.href).href, name: file.name })) {
+                    event.preventDefault();
+                }
+            }} className={cn(PRIMARY, className)} data-testid="shared-file-open">
             {action === 'open' ? <ExternalLink size={14} aria-hidden /> : <Download size={14} aria-hidden />}
             {action === 'open' ? 'Open' : 'Download'}
         </a>

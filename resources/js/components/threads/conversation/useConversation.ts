@@ -1,4 +1,5 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { reportFeedProgress } from '@/embed/feedProgress';
 import { useEmbed } from '@/embed/useEmbed';
 import { useThreadEventFeed } from '@/threads/realtime/useThreadEventFeed';
 import { livePropsSignature, useRefreshThreadProps } from '@/threads/realtime/useRefreshThreadProps';
@@ -11,6 +12,7 @@ export { mergeConversation, type ConversationEntry };
 
 export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState } {
     const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId, useEmbed() === null);
+    useEffect(() => reportFeedProgress({ threadId, lastSequence: events.lastSequence, isSettled: events.connection === 'live' || events.connection === 'offline' }), [threadId, events.lastSequence, events.connection]);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
     const { items, readSequences } = useMemo(() => projectConversation(events, entrySequences, entryTimes), [events.entries, entrySequences, entryTimes, events.streamingBlocks, events.children, events.repositories, events.lastSequence]);

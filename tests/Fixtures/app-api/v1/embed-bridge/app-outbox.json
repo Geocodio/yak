@@ -1,0 +1,23 @@
+{
+    "v": 1,
+    "type": "outbox",
+    "threadId": "d0e515ef",
+    "items": [
+        {
+            "key": "6f1c2f9e-3b1d-4c55-9a53-0d4b5c8f7a10",
+            "text": "Also cover the export job",
+            "status": "waiting",
+            "reason": null,
+            "createdAt": "2026-11-20T10:15:00Z",
+            "attachmentCount": 0
+        },
+        {
+            "key": "0a7e5d20-91c4-4b8e-8f3a-2b6d1c9e4f55",
+            "text": "Not sent",
+            "status": "refused",
+            "reason": "You cannot send messages to this thread.",
+            "createdAt": "2026-11-20T10:16:00Z",
+            "attachmentCount": 1
+        }
+    ]
+}

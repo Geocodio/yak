@@ -4,6 +4,7 @@ import { toast } from '@geocodio/console-ui';
 import { createRoot } from 'react-dom/client';
 import { ComponentType, StrictMode } from 'react';
 import { healStandaloneViewport } from '@/lib/healStandaloneViewport';
+import { installReceiver, isEmbedActive } from '@/embed/bridge';
 import { registerServiceWorker } from '@/pwa/registerServiceWorker';
 
 const appName = 'Yak';
@@ -13,7 +14,7 @@ const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
 router.on('httpException', (event) => {
     const status = event.detail.response.status;
 
-    if (status === 419) {
+    if (status === 419 && !isEmbedActive()) {
         toast.error('Your session expired. Reloading…');
         window.location.reload();
 
@@ -64,6 +65,7 @@ router.on('error', (event) => {
 });
 
 healStandaloneViewport();
+installReceiver();
 
 // The app's web view takes push natively; a service worker there would only cache nothing for nobody.
 if (!navigator.userAgent.includes('YakApp/')) {

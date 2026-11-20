@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/react';
 import { ToastHost, useBrandFavicon } from '@geocodio/console-ui';
 import type { ReactNode } from 'react';
 import { AppCommandPalette } from '@/components/AppCommandPalette';
+import { EmbedBridge } from '@/embed/EmbedBridge';
 import { FlashToasts } from '@/components/FlashToasts';
 import { MobileNavSheet } from '@/components/MobileNavSheet';
 import { MobileTabBar } from '@/components/MobileTabBar';
@@ -28,6 +29,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         return (
             <div className="flex h-dvh w-full flex-col bg-app" data-testid="embed-shell">
                 {children}
+                <EmbedBridge />
                 <FlashToasts />
                 <ToastHost />
             </div>

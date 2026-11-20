@@ -103,7 +103,14 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
 
     /** Opens a view and decides the rail: Files in Changed mode takes the full width, a narrow screen floats the rail, otherwise it stays beside the view. */
     const selectDock = (id: string | null, requestedMode: FilesMode | null = filesMode) => {
-        if (isEmbed) {
+        if (embed !== null) {
+            // The panes are native: the app opens the one the page asks for.
+            if (id === 'preview' || id === 'terminal') {
+                embed.post({ type: 'openPane', pane: id });
+            } else if (id === 'files') {
+                embed.post({ type: 'openPane', pane: 'files', mode: requestedMode === 'everything' ? 'everything' : 'changed' });
+            }
+
             return;
         }
         dock.setActiveId(id);
@@ -119,7 +126,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         setFocusRequest(path === undefined ? null : { path, id: focusCounter.current });
     };
     const openChanges = (path?: string) => {
-        if (isEmbed) {
+        if (embed !== null) {
+            embed.post({ type: 'openPane', pane: 'files', mode: 'changed', ...(path === undefined ? {} : { path }) });
+
             return;
         }
         setFilesMode('changed');
@@ -128,7 +137,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         setPhoneTab('files');
     };
     const openFile = (path: string) => {
-        if (isEmbed) {
+        if (embed !== null) {
+            embed.post({ type: 'openPane', pane: 'files', mode: 'everything', path });
+
             return;
         }
         setFilesMode('everything');

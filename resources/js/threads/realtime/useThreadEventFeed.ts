@@ -3,6 +3,7 @@ import type { ThreadEventEnvelope, ThreadEventPointer, ThreadEventState, Viewer 
 import { fetchEvent, fetchEventsAfter } from './catchUp';
 import { type ThreadEventFeed } from './feedReducer.ts';
 import { createCatchUpRunner, linkKind, needsHttpCatchUp, type LinkState } from './catchUpRunner';
+import { isBrowserOnline } from '@/embed/connectivity';
 import { getEcho } from './echo';
 import { pollWhileVisible } from './pollWhileVisible';
 import { initialFeed, reduceFeed } from './feedReducer.ts';
@@ -32,7 +33,7 @@ export function useThreadEventFeed(threadId: string, isPresenceJoined = true): T
         let reconnectSocket = (): void => {};
 
         const refreshLink = (): void => {
-            const kind = linkKind({ lastCatchUpFailed, isBrowserOnline: navigator.onLine, hasSocket, socketDownForMs: socketDownAt === null ? 0 : Date.now() - socketDownAt });
+            const kind = linkKind({ lastCatchUpFailed, isBrowserOnline: isBrowserOnline(), hasSocket, socketDownForMs: socketDownAt === null ? 0 : Date.now() - socketDownAt });
 
             if (isActive) {
                 setLink((current) => (current.kind === kind ? current : { kind, since: kind === 'ok' ? null : Date.now() }));
