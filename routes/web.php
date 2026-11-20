@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
 use App\Http\Controllers\Api\Cli\TeleportController;
 use App\Http\Controllers\Api\Cli\ThreadLookupController;
+use App\Http\Controllers\AppEmbed\SessionController as AppEmbedSessionController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
@@ -142,6 +143,10 @@ Route::get('letmein', function () {
 
     return redirect()->route('home');
 })->name('letmein');
+
+// The phone's embedded web view: the hand-off (no session yet) and the thread page on its restricted guard.
+Route::post('app/embed/session', AppEmbedSessionController::class)->middleware('throttle:app-embed-redeem')->name('app.embed.session');
+Route::get('app/embed/threads/{thread}', [ThreadController::class, 'show'])->middleware('auth:app-embed')->name('app.embed.threads.show');
 
 Route::middleware('guest')->group(function () {
     Route::view('login', 'auth.login')->name('login');
