@@ -167,3 +167,31 @@ func aThreadIDThatIsNotAnIDIsNeverUsedAsAPath(thread: String) async {
     #expect(await store.save(archive(1), thread: thread) == .notSaved)
     #expect(await store.copy(thread: thread) == nil)
 }
+
+@Test func anInvalidatedStoreWritesNothingAndListsNothing() async throws {
+    let files = InMemoryFileStore()
+    let store = makeStore(files: files)
+    _ = await store.save(archive(3), thread: id(1))
+    await store.invalidate()
+    #expect(await store.entries().isEmpty)
+    #expect(await store.save(archive(3), thread: id(2)) == .notSaved)
+    #expect(await store.copy(thread: id(1)) == nil)
+    #expect(try files.list(InstanceFolders.offlineCopies(instance)).isEmpty)
+}
+
+@Test func aStoreNoticesThatTheFolderWasErasedUnderIt() async throws {
+    let files = InMemoryFileStore()
+    let store = makeStore(files: files)
+    _ = await store.save(archive(3), thread: id(1))
+    try files.remove(InstanceFolders.cache(instance))
+    #expect(await store.entries().isEmpty)
+    #expect(await store.save(archive(3), thread: id(2)) == .notSaved)
+    #expect(try files.list(InstanceFolders.cache(instance)).isEmpty)
+    #expect(try !files.exists("\(InstanceFolders.offlineCopies(instance))/index.json"))
+}
+
+@Test func theEntryAndCopyInitializersArePublic() {
+    let now = Date()
+    #expect(OfflineCopyEntry(threadID: "t", bytes: 1, savedAt: now, useOrder: 2).useOrder == 2)
+    #expect(OfflineCopy(archive: Data([1]), savedAt: now).archive == Data([1]))
+}
