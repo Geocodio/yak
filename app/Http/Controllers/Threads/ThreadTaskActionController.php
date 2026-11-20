@@ -76,13 +76,10 @@ class ThreadTaskActionController extends Controller
     public function answerClarification(StoreThreadClarificationAnswersRequest $request, Thread $thread, ClarificationAnswerSubmitter $submitter): RedirectResponse
     {
         return $this->respond($thread, function () use ($request, $submitter): string {
-            $submitted = $submitter->submit(
-                $request->head(),
-                $request->answers(),
-                $request->validated('note'),
-                (string) ($request->user()->name ?? 'Someone'),
-                'dashboard',
-            );
+            $answeredBy = (string) ($request->user()->name ?? 'Someone');
+            $submitted = $request->wantsClaudeToDecide()
+                ? $submitter->decide($request->head(), $answeredBy, 'dashboard')
+                : $submitter->submit($request->head(), $request->answers(), $request->validated('note'), $answeredBy, 'dashboard');
 
             if (! $submitted) {
                 throw ThreadActionRefused::because(ThreadActionRefused::QUESTION_CLOSED, StoreThreadClarificationAnswersRequest::CLOSED_SENTENCE);

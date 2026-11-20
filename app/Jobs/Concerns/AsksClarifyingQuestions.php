@@ -17,6 +17,7 @@ use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Threads\ThreadLiveQuestions;
 use App\Services\Threads\ThreadQuestionEvents;
 use App\YakPromptBuilder;
 use Throwable;
@@ -42,6 +43,16 @@ trait AsksClarifyingQuestions
 
     protected function askIfNeeded(AgentRunResult $result): bool
     {
+        // A live question nobody answered in time is still open: this finish parks it, so the answer starts a new turn.
+        if (ThreadLiveQuestions::isParkPending($this->task)) {
+            ThreadLiveQuestions::clearParkPending($this->task);
+            TaskMetricsAccumulator::record($this->task, $result);
+            DailyCost::accumulate($result->costUsd);
+            $this->parkedForQuestions = true;
+
+            return true;
+        }
+
         if (! $result->needsClarification()) {
             return false;
         }

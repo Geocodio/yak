@@ -24,6 +24,13 @@ class RunawayGuard
 
     public function check(TaskRun $run, CarbonImmutable $now, int $assistantTurns): ?string
     {
+        // A turn that waits on the person's answer to Claude's question does not run up either limit.
+        if ($run->task?->liveClarificationRound() !== null) {
+            return null;
+        }
+
+        $now = $now->subSeconds(ThreadLiveQuestions::waitedSeconds($run, $now));
+
         if (self::hasTurnLimit($run) && $assistantTurns >= self::turnLimit($run)) {
             return self::ASSISTANT_TURNS;
         }

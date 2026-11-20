@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunFollowUpJob;
@@ -18,7 +19,7 @@ use App\Jobs\RunYakJob;
 trait HasClarificationRounds
 {
     /**
-     * @return list<array{questions: list<array<string, mixed>>, summary: string, asked_at: string, answers: array<string, array{choices: list<string>, other: string|null}>|null, note: string|null, answered_by: string|null, answered_at: string|null, consumed_at: string|null}>
+     * @return list<array{questions: list<array<string, mixed>>, summary: string, asked_at: string, answers: array<string, array{choices: list<string>, other: string|null}>|null, note: string|null, answered_by: string|null, answered_at: string|null, consumed_at: string|null, live?: bool, runner_question_id?: string, tool_use_id?: string|null, park_pending?: bool, declined_at?: string}>
      */
     public function clarificationRounds(): array
     {
@@ -32,8 +33,9 @@ trait HasClarificationRounds
 
     /**
      * @param  list<ClarificationQuestion>  $questions
+     * @param  array<string, mixed>  $extra  Keys merged into the round, such as the live question's runner id.
      */
-    public function recordClarificationRound(array $questions, string $summary): void
+    public function recordClarificationRound(array $questions, string $summary, array $extra = []): void
     {
         $rounds = $this->clarificationRounds();
         $rounds[] = [
@@ -45,8 +47,52 @@ trait HasClarificationRounds
             'answered_by' => null,
             'answered_at' => null,
             'consumed_at' => null,
+            ...$extra,
         ];
 
+        $this->update(['clarification_rounds' => $rounds]);
+    }
+
+    /**
+     * The round Claude's AskUserQuestion tool opened and is still waiting on: the turn is running and
+     * the runner holds the tool call open until the person answers.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function liveClarificationRound(): ?array
+    {
+        $current = $this->clarificationRounds()[$this->clarificationRoundCount() - 1] ?? null;
+
+        return $current !== null && ($current['live'] ?? false) === true && $current['answers'] === null ? $current : null;
+    }
+
+    /**
+     * Whether a question waits on the person: a parked one, or a live one the running turn holds open.
+     */
+    public function hasOpenQuestion(): bool
+    {
+        if ($this->liveClarificationRound() !== null) {
+            return $this->pendingClarificationQuestions() !== [];
+        }
+
+        return $this->status === TaskStatus::AwaitingClarification && $this->pendingClarificationQuestions() !== [];
+    }
+
+    /**
+     * Merges keys into the current round.
+     *
+     * @param  array<string, mixed>  $changes
+     */
+    public function updateCurrentClarificationRound(array $changes): void
+    {
+        $rounds = $this->clarificationRounds();
+        $last = count($rounds) - 1;
+
+        if ($last < 0) {
+            return;
+        }
+
+        $rounds[$last] = [...$rounds[$last], ...$changes];
         $this->update(['clarification_rounds' => $rounds]);
     }
 

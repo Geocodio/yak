@@ -2,12 +2,11 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\TaskStatus;
 use App\Models\Thread;
 
 /**
- * The open question of a thread in the app's camelCase shape. Not null only while the head task
- * waits for answers and has questions left to answer.
+ * The open question of a thread in the app's camelCase shape. Not null only while the head task waits for
+ * answers (parked, or a running turn holding Claude's question open) and has questions left to answer.
  */
 class ThreadQuestionData
 {
@@ -18,7 +17,7 @@ class ThreadQuestionData
     {
         $task = $thread->headTask();
 
-        if ($task === null || $task->status !== TaskStatus::AwaitingClarification) {
+        if ($task === null || ! $task->hasOpenQuestion()) {
             return null;
         }
 

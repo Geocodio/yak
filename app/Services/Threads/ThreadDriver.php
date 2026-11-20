@@ -165,6 +165,8 @@ class ThreadDriver
                 $this->applyChange($thread, $run, $tracker, $tracker->tick(CarbonImmutable::now()), $events);
             });
 
+            $this->isolated(fn () => app(ThreadLiveQuestions::class)->expireDue($thread, $run, CarbonImmutable::now()));
+
             $reason = $run->refresh()->getAttribute('turn_state') === TurnState::Running
                 ? $this->guard->check($run, CarbonImmutable::now(), (int) $run->getAttribute('assistant_turns'))
                 : null;
@@ -275,6 +277,7 @@ class ThreadDriver
         }
 
         $run ??= $this->openAgentFollowUp($thread, $line, $events);
+        $this->applyQuestionLine($thread, $run, $line);
 
         if ($run !== null && $run->task !== null) {
             ($this->handlers[$run->id] ??= new StreamEventHandler($run->task))->handle($line);
@@ -285,6 +288,20 @@ class ThreadDriver
         }
 
         $events[] = new ThreadActivity($thread, $entry->generation, $entry->sequence, $line);
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function applyQuestionLine(Thread $thread, ?TaskRun $run, array $line): void
+    {
+        $event = BrokerLine::runnerEvent($line);
+
+        if ($event === 'question') {
+            app(ThreadLiveQuestions::class)->open($thread, $run, $line);
+        } elseif ($event === 'question_closed' && $run?->task !== null) {
+            app(ThreadLiveQuestions::class)->runnerClosed($run->task, $line);
+        }
     }
 
     /**
@@ -302,6 +319,7 @@ class ThreadDriver
         // A runner that is gone takes its agents with it and will never report them finished.
         if (in_array($event, ['broker_started', 'restarted'], true) || ($event === 'no_runner' && $entry->generation >= $thread->runner_generation)) {
             app(ThreadAgents::class)->failRunning($thread, $events);
+            app(ThreadLiveQuestions::class)->abandonForThread($thread);
         }
 
         if ($event === 'line_dropped') {
@@ -325,6 +343,7 @@ class ThreadDriver
             $thread->forceFill(['runner_state' => RunnerState::None]);
             $this->commands->revokePlaceholder($thread);
             app(ThreadAgents::class)->failRunning($thread, $events);
+            app(ThreadLiveQuestions::class)->abandonForThread($thread);
 
             if (! $endedForGood) {
                 $this->recovery->recover($thread, $events);

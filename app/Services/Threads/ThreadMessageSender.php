@@ -18,6 +18,7 @@ use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
 use App\Services\FollowUpTaskFactory;
 use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Teleport\ThreadNotOwnedByYak;
@@ -232,6 +233,10 @@ class ThreadMessageSender
                 return new ThreadMessageResult('sent', rescue(fn () => $run->prompt_uuid, null, false), null);
             }
 
+            if ($input->intent === null && $this->answersLiveQuestion($task, $user, $input->text)) {
+                return new ThreadMessageResult('sent', null, null);
+            }
+
             $message = $this->turns->steer(
                 $thread,
                 $input->text,
@@ -251,6 +256,22 @@ class ThreadMessageSender
         } catch (ThreadNotOwnedByYak) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
         }
+    }
+
+    /**
+     * A message typed while Claude waits on its question is the answer, not a steer.
+     */
+    private function answersLiveQuestion(YakTask $task, User $user, string $text): bool
+    {
+        if ($task->liveClarificationRound() === null || trim($text) === '') {
+            return false;
+        }
+
+        return ShortLockWait::transaction(function () use ($task, $user, $text): bool {
+            $locked = YakTask::query()->whereKey($task->id)->lockForUpdate()->first();
+
+            return $locked !== null && app(ThreadLiveQuestions::class)->reply($locked, $text, $user->name);
+        }, fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', QueuedMessages::BUSY_SENTENCE, [], 503));
     }
 
     /**
