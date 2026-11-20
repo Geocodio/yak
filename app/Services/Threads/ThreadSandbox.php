@@ -230,7 +230,7 @@ class ThreadSandbox
             }
 
             try {
-                $this->sandboxes->exec($parent, ['bash', '-c', 'git worktree remove --force "$1"; rm -rf "$2"', 'bash', ResearchChildRunner::worktreePath($child), $child->claude_config_dir]);
+                $this->sandboxes->exec($parent, ['bash', '-c', 'git worktree remove --force "$1"; chmod -R u+w "$1" 2>/dev/null; rm -rf "$1" "$2"', 'bash', ResearchChildRunner::worktreePath($child), $child->claude_config_dir]);
             } catch (Throwable $exception) {
                 Log::warning('Dropping a research worktree failed', ['thread' => $child->id, 'error' => $exception->getMessage()]);
             }

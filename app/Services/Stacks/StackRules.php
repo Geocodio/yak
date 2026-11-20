@@ -9,6 +9,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Threads\Repos\RepositoryAccess;
 use App\Services\Threads\ThreadAccess;
 
 /**
@@ -109,12 +110,8 @@ class StackRules
             return null;
         }
 
-        if ($kind === ThreadKind::Research) {
-            throw new StackRuleViolation('Research sub-threads see every repo of the parent; leave repo out.', personMessage: 'Leave the repository out for a research sub-thread.', field: 'repo');
-        }
-
-        if ($kind !== ThreadKind::Implement) {
-            throw new StackRuleViolation('Only implement sub-threads take a repo.', personMessage: 'Only an implement sub-thread works in a repository of its own.', field: 'repo');
+        if (! in_array($kind, [ThreadKind::Implement, ThreadKind::Research], true)) {
+            throw new StackRuleViolation('Only implement and research sub-threads take a repo.', personMessage: 'Only an implement or research sub-thread works in a repository of its own.', field: 'repo');
         }
 
         $slug = Repository::query()->where('slug', $repo)->orWhere('github_full_name', $repo)->value('slug');
@@ -123,7 +120,17 @@ class StackRules
             throw new StackRuleViolation("Yak cannot reach {$repo}. Add the repository to the Yak GitHub app first.", personMessage: "Yak cannot reach {$repo}. Ask an admin to add the repository to Yak's GitHub app.", field: 'repo');
         }
 
-        return $slug === $parent->repo ? null : $slug;
+        if ($slug === $parent->repo) {
+            return null;
+        }
+
+        $access = app(RepositoryAccess::class)->check($slug);
+
+        if (! $access->allowed) {
+            throw new StackRuleViolation("Yak cannot use {$slug} here. {$access->reason}", personMessage: (string) $access->reason, field: 'repo');
+        }
+
+        return $slug;
     }
 
     public function inSameStack(Thread $first, Thread $second): bool

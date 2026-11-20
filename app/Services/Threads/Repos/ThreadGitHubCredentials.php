@@ -3,6 +3,8 @@
 namespace App\Services\Threads\Repos;
 
 use App\Channels\GitHub\AppService;
+use App\Enums\ThreadKind;
+use App\Enums\ThreadStatus;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
@@ -14,7 +16,7 @@ use Throwable;
 
 /**
  * Gives a thread sandbox GitHub tokens limited to the repositories of the
- * thread. The git credential helper holds a token with contents write (the
+ * thread; the read-only one also covers the repositories its open research sub-threads look at. The git credential helper holds a token with contents write (the
  * sandbox pushes work in progress), the agent's `gh` wrapper a read-only one.
  * Token values travel on stdin only and never appear in a command line.
  */
@@ -42,7 +44,7 @@ class ThreadGitHubCredentials
         $names = $this->repositoryNames($thread);
 
         $gitToken = $this->github->getScopedInstallationToken($installationId, $names, ['contents' => 'write', 'metadata' => 'read']);
-        $ghToken = $this->github->getReadOnlyInstallationToken($installationId, $names);
+        $ghToken = $this->github->getReadOnlyInstallationToken($installationId, [...$names, ...$this->researchRepositoryNames($thread, $names)]);
 
         $this->writeTokenFile($thread, self::GIT_TOKEN_FILE, $gitToken);
         $this->writeTokenFile($thread, self::GH_TOKEN_FILE, $ghToken);
@@ -97,6 +99,25 @@ class ThreadGitHubCredentials
         }
 
         return array_values(array_unique(array_map(fn (string $slug): string => Str::afterLast($slug, '/'), $slugs)));
+    }
+
+    /**
+     * Repositories that open research sub-threads look at. Only the read-only token covers them.
+     *
+     * @param  list<string>  $own
+     * @return list<string>
+     */
+    private function researchRepositoryNames(Thread $thread, array $own): array
+    {
+        $slugs = Thread::query()->withoutGlobalScopes()
+            ->where('parent_thread_id', $thread->id)
+            ->where('kind', ThreadKind::Research)
+            ->where('status', ThreadStatus::Open)
+            ->whereNotNull('repo')
+            ->pluck('repo')
+            ->all();
+
+        return array_values(array_diff(array_unique(array_map(fn (string $slug): string => Str::afterLast($slug, '/'), $slugs)), $own));
     }
 
     private function writeTokenFile(Thread $thread, string $path, string $token): void

@@ -40,6 +40,41 @@ test('system prompt sends same-branch parallel work to the Agent tool and separa
         ->toContain('its own branch, another repository, its own pull request or its own preview');
 });
 
+test('system prompt tells Claude what each sub-thread kind sees and that results come back on their own', function () {
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->toContain('`research` is read-only with no branch or pull request')
+        ->toContain('may take `repo` to look at another repository')
+        ->toContain('to look at any other repository, start a `research` sub-thread with `repo`')
+        ->toContain('comes back to this thread as a message on its own')
+        ->toContain('do not tell the person to go check it');
+});
+
+test('system prompt lets Claude run its own agents in the background when subagents are on', function () {
+    config(['yak.threads.subagents' => true]);
+
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->toContain('Your own Agent and Workflow tools are different')
+        ->toContain('run_in_background: true` on the Agent tool')
+        ->toContain('(in the background when the pieces are independent)')
+        ->toContain('(for shell commands) set `run_in_background: true` on Bash calls')
+        ->toContain('`nohup`/`disown`/`setsid`');
+});
+
+test('system prompt keeps the synchronous rule unchanged when subagents are off', function () {
+    config(['yak.threads.subagents' => false]);
+
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->not->toContain('Your own Agent and Workflow tools')
+        ->not->toContain('in the background when the pieces are independent')
+        ->toContain('use your own Agent tool. Start');
+});
+
 test('system prompt includes task id in commit format rule', function () {
     $task = YakTask::factory()->pending()->create(['external_id' => 'YAK-42']);
 
