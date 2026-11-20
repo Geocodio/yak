@@ -119,3 +119,14 @@ test('a log step matches the agent it started by tool call id, even when descrip
     assert.equal(matchChild({ subject: 'Same' }, [first, second], new Set(['one']))?.id, 'two');
     assert.equal(matchChild({ subject: 'Other', agentToolUseIds: [] }, [first, second], used)?.id, 'one');
 });
+
+test('the sub-thread signature changes when a sub-thread appears or changes state', async () => {
+    const { childrenSignature } = await import('./agentsState.ts');
+    const none = childrenSignature({});
+    const queued = childrenSignature({ c1: { sequence: 1, data: { state: 'queued' } } });
+    const working = childrenSignature({ c1: { sequence: 2, data: { state: 'working' } } });
+
+    assert.notEqual(none, queued);
+    assert.notEqual(queued, working);
+    assert.equal(working, childrenSignature({ c1: { sequence: 9, data: { state: 'working' } } }));
+});

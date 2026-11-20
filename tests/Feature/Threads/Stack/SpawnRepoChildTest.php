@@ -69,11 +69,21 @@ it('returns an error result and creates nothing for an unreachable repo', functi
     Queue::assertNotPushed(StartChildThreadJob::class);
 });
 
-it('rejects a research child with a repo', function () {
+it('accepts a research child with a repo and points its row at the read-only checkout', function () {
     $parent = repoFanOutParent();
 
-    expect(fn () => app(ChildSpawner::class)->spawn($parent, 'look', 'Look.', ThreadKind::Research, null, null, 'acme/website'))
-        ->toThrow(StackRuleViolation::class, 'Research sub-threads see every repo of the parent; leave repo out.');
+    $child = app(ChildSpawner::class)->spawn($parent, 'look', 'Look.', ThreadKind::Research, null, null, 'acme/website');
+
+    expect($child->repo)->toBe('acme/website')
+        ->and($child->branch)->toBeNull()
+        ->and($child->primaryRepository->sandbox_path)->toBe('/home/yak/research/look');
+});
+
+it('still rejects a research child with an unknown repo', function () {
+    $parent = repoFanOutParent();
+
+    expect(fn () => app(ChildSpawner::class)->spawn($parent, 'look', 'Look.', ThreadKind::Research, null, null, 'acme/unknown'))
+        ->toThrow(StackRuleViolation::class, 'Yak cannot reach acme/unknown.');
 });
 
 it('passes the repo from the spawn_thread tool input', function () {

@@ -109,12 +109,8 @@ class StackRules
             return null;
         }
 
-        if ($kind === ThreadKind::Research) {
-            throw new StackRuleViolation('Research sub-threads see every repo of the parent; leave repo out.', personMessage: 'Leave the repository out for a research sub-thread.', field: 'repo');
-        }
-
-        if ($kind !== ThreadKind::Implement) {
-            throw new StackRuleViolation('Only implement sub-threads take a repo.', personMessage: 'Only an implement sub-thread works in a repository of its own.', field: 'repo');
+        if (! in_array($kind, [ThreadKind::Implement, ThreadKind::Research], true)) {
+            throw new StackRuleViolation('Only implement and research sub-threads take a repo.', personMessage: 'Only an implement or research sub-thread works in a repository of its own.', field: 'repo');
         }
 
         $slug = Repository::query()->where('slug', $repo)->orWhere('github_full_name', $repo)->value('slug');

@@ -1,3 +1,4 @@
+import { childrenSignature } from '@/threads/panels/agents/agentsState';
 import { router, usePoll } from '@inertiajs/react';
 import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
@@ -95,8 +96,8 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
-    const { entries, lastSequence, connection, link, agents: liveAgents } = useConversation(threadId, messages);
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false }: { isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, childrenSignature: string) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+    const { entries, lastSequence, connection, link, agents: liveAgents, children: liveChildren } = useConversation(threadId, messages);
     const agents = useAgents();
     const unsent = useUnsentMessages(threadId);
     const latest = entries.at(-1);
@@ -104,7 +105,8 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
 
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
-    useEffect(() => onAgentsChange?.(liveAgents), [liveAgents, onAgentsChange]);
+    const liveChildrenSignature = childrenSignature(liveChildren);
+    useEffect(() => onAgentsChange?.(liveAgents, liveChildrenSignature), [liveAgents, liveChildrenSignature, onAgentsChange]);
     // The person's own message always comes into view, also after they scrolled up.
     useEffect(() => {
         if (unsent.length > 0) {

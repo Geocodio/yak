@@ -168,3 +168,21 @@ it('reports the sandbox error when the worktree cannot be built', function () {
 
     expect(fn () => $this->runner->prepare($this->child))->toThrow(RuntimeException::class, 'Permission denied');
 });
+
+it('clones another repository read-only instead of adding a worktree', function () {
+    $other = Thread::factory()->child($this->parent)->create([
+        'name' => 'elsewhere',
+        'kind' => ThreadKind::Research,
+        'repo' => 'acme/website',
+        'claude_account_id' => $this->account->id,
+    ]);
+
+    $this->runner->prepare($other);
+
+    $commands = collect($this->sandbox->calls)->filter(fn (array $call): bool => $call['operation'] === 'exec' && $call['threadId'] === $this->parent->id)->pluck('arguments.command');
+    $clone = $commands->first(fn (array $command): bool => str_contains((string) ($command[2] ?? ''), 'git clone'));
+
+    expect($clone[2])->toContain('chmod -R a-w')->not->toContain('worktree add')
+        ->and($clone[4])->toBe('/home/yak/research/elsewhere')
+        ->and($clone[5])->toBe('https://github.com/acme/website.git');
+});

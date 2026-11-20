@@ -40,6 +40,17 @@ test('system prompt sends same-branch parallel work to the Agent tool and separa
         ->toContain('its own branch, another repository, its own pull request or its own preview');
 });
 
+test('system prompt tells Claude what each sub-thread kind sees and that results come back on their own', function () {
+    $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
+
+    expect($prompt)
+        ->toContain('`research` is read-only with no branch or pull request')
+        ->toContain('may take `repo` to look at another repository')
+        ->toContain('`gh api repos/<owner>/<repo>/readme`')
+        ->toContain('comes back to this thread as a message on its own')
+        ->toContain('do not tell the person to go check it');
+});
+
 test('system prompt includes task id in commit format rule', function () {
     $task = YakTask::factory()->pending()->create(['external_id' => 'YAK-42']);
 

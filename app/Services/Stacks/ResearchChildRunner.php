@@ -12,7 +12,8 @@ use RuntimeException;
 
 /**
  * A research child is a second runner in its parent's container: it works in
- * a read-only git worktree at the parent's HEAD, has its own config directory
+ * a read-only git worktree at the parent's HEAD (or a read-only clone of
+ * another repository when it was started for one), has its own config directory
  * and placeholder, and takes no awake slot of its own.
  */
 class ResearchChildRunner
@@ -85,7 +86,7 @@ class ResearchChildRunner
         }
 
         $path = self::worktreePath($child);
-        $this->sandboxes->exec($parent, ['bash', '-c', 'chmod -R u+w "$1" 2>/dev/null; git worktree remove --force "$1"', 'bash', $path]);
+        $this->sandboxes->exec($parent, ['bash', '-c', 'chmod -R u+w "$1" 2>/dev/null; git worktree remove --force "$1"; rm -rf "$1"', 'bash', $path]);
         $this->mustRun($parent, ['git', 'worktree', 'prune']);
         $this->addWorktree($parent, $child);
         $this->mustRun($parent, ['mkdir', '-p', $child->claude_config_dir]);
@@ -104,7 +105,24 @@ class ResearchChildRunner
     {
         $path = self::worktreePath($child);
 
+        if ($child->repo !== $parent->repo) {
+            $this->cloneOtherRepository($parent, $child, $path);
+
+            return;
+        }
+
         $this->mustRun($parent, ['bash', '-c', 'mkdir -p "$(dirname "$1")" && git worktree add --detach "$1" HEAD && chmod -R a-w "$1"', 'bash', $path]);
+    }
+
+    /**
+     * A read-only checkout of another repository, cloned over the sandbox's
+     * read-only GitHub access; the child gets no branch and can push nothing.
+     */
+    private function cloneOtherRepository(Thread $parent, Thread $child, string $path): void
+    {
+        $slug = (string) $child->repo;
+
+        $this->mustRun($parent, ['bash', '-c', 'rm -rf "$1" && mkdir -p "$(dirname "$1")" && git clone --depth 1 "$2" "$1" && chmod -R a-w "$1"', 'bash', $path, "https://github.com/{$slug}.git"]);
     }
 
     private function wake(Thread $parent): bool

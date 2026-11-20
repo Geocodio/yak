@@ -9,7 +9,7 @@ import { createReadTracker, mergeConversation, type ConversationEntry } from './
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents'] } {
+export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents']; children: ThreadEventState['children'] } {
     const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
@@ -18,5 +18,5 @@ export function useConversation(threadId: string, messages: ThreadMessage[]): { 
     const readKey = readUuids.join(',');
     const entries = useMemo(() => mergeConversation(messages, readUuids, items, readSequences), [messages, readKey, items, readSequences]);
 
-    return { entries, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents };
+    return { entries, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents, children: events.children };
 }

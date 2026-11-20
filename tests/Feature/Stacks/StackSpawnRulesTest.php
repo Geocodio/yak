@@ -128,7 +128,7 @@ it('gives each repository refusal a field and a sentence for a person', function
             ->and($violation->personMessage)->toBe($personMessage);
     }
 })->with([
-    'research' => [ThreadKind::Research, 'example/web', 'Research sub-threads see every repo of the parent; leave repo out.', 'Leave the repository out for a research sub-thread.'],
-    'general' => [ThreadKind::General, 'example/web', 'Only implement sub-threads take a repo.', 'Only an implement sub-thread works in a repository of its own.'],
+    'general' => [ThreadKind::General, 'example/web', 'Only implement and research sub-threads take a repo.', 'Only an implement or research sub-thread works in a repository of its own.'],
+    'unknown repository for research' => [ThreadKind::Research, 'example/missing', 'Yak cannot reach example/missing. Add the repository to the Yak GitHub app first.', 'Yak cannot reach example/missing. Ask an admin to add the repository to Yak\'s GitHub app.'],
     'unknown repository' => [ThreadKind::Implement, 'example/missing', 'Yak cannot reach example/missing. Add the repository to the Yak GitHub app first.', 'Yak cannot reach example/missing. Ask an admin to add the repository to Yak\'s GitHub app.'],
 ]);
