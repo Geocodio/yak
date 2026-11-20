@@ -47,10 +47,10 @@ struct PaneHost: View {
             }
         }
         // The frames move when panes open, close or swap, never while the divider is dragged: a drag moves the frames
-        // without changing this key. Reduce Motion fades; test mode, where the audit needs a still screen, only fades
-        // the single pane.
+        // without changing this key. Under Reduce Motion, and in test mode where the audit needs a still screen, a
+        // single pane cross-fades and frames take their place at once.
         .animation(
-            isSingle && isStill ? Motion.crossFade : Motion.resolve(Motion.paneSwitch, reduceMotion: reduceMotion),
+            isStill ? (isSingle ? Motion.crossFade : nil) : Motion.paneSwitch,
             value: Arrangement(focused: focused, kind: slots.arrangement, placement: slots.placement)
         )
         .haptic(.paneChanged, trigger: focused)

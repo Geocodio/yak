@@ -50,7 +50,7 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                             .stroke(Color.primary.opacity(0.12 * progress), lineWidth: Design.Space.hairline)
                             .ignoresSafeArea()
                     )
-                    .scaleEffect(1 - Motion.drawerScaleBack * progress, anchor: .leading)
+                    .scaleEffect(reduceMotion ? 1 : 1 - Motion.drawerScaleBack * progress, anchor: .leading)
                     .offset(x: progress * width)
                     .allowsHitTesting(!isOpen)
                     .accessibilityHidden(isOpen)
