@@ -8,6 +8,15 @@ export function findAtMention(text: string, caret: number): { start: number; que
     return match ? { start: caret - match[1].length - 1, query: match[1] } : null;
 }
 
+/** Where the text mentions a repository as `@owner/name`, for each slug (case-insensitive) in `slugs`. */
+export function findRepositoryMentions(text: string, slugs: string[]): { start: number; end: number }[] {
+    const wanted = new Set(slugs.map((slug) => slug.toLowerCase()));
+
+    return [...text.matchAll(/(?<=^|\s)@([\w./-]*[\w-])(?![\w-])/g)]
+        .filter((match) => wanted.has(match[1].toLowerCase()))
+        .map((match) => ({ start: match.index, end: match.index + match[0].length }));
+}
+
 /** Repositories whose slug contains the typed query, case-insensitively. */
 export function filterRepositories(slugs: string[], query: string): string[] {
     const needle = query.toLowerCase();
