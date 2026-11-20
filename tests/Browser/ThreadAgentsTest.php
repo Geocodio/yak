@@ -64,7 +64,7 @@ beforeEach(function () {
 });
 
 it('draws the agent Claude called as a card that expands to its steps and opens the full log', function () {
-    $agent = ThreadAgent::factory()->create(['thread_id' => Thread::factory(), 'task_id' => 'aone', 'tool_use_id' => 'toolu_agent', 'description' => 'Build company mockups', 'started_at' => now()->subMinutes(6), 'total_tokens' => 41210, 'tool_uses' => 23, 'last_tool' => 'Write', 'summary' => 'Company pages are done.']);
+    $agent = ThreadAgent::factory()->create(['thread_id' => Thread::factory(), 'task_id' => 'aone', 'tool_use_id' => 'toolu_agent', 'description' => 'Build company mockups', 'started_at' => now()->subMinutes(6), 'total_tokens' => 41210, 'tool_uses' => 23, 'last_tool' => 'Write', 'last_tool_target' => '/workspace/mockups/crm-pipeline.html', 'summary' => 'Company pages are done.']);
     [$thread] = agentThread($this->owner, $agent);
     $agent->forceFill(['thread_id' => $thread->id])->save();
 
@@ -72,7 +72,7 @@ it('draws the agent Claude called as a card that expands to its steps and opens 
         ->assertVisible('[data-testid="agent-card"]')
         ->assertSeeIn('[data-testid="agent-card-title"]', 'Build company mockups')
         ->assertSeeIn('[data-testid="agent-card-subtitle"]', 'general-purpose · background · Running')
-        ->assertSeeIn('[data-testid="agent-card-subtitle"]', 'now: Write')
+        ->assertSeeIn('[data-testid="agent-card-subtitle"]', 'now: Write crm-pipeline.html')
         ->assertVisible('[data-testid="agent-stop"]')
         ->assertMissing('[data-testid="agent-card-body"]')
         ->click('[data-testid="agent-card-toggle"]')
@@ -210,7 +210,7 @@ it('lists Claude, the nested agents and the sub-threads in the Agents panel', fu
 
 it('shows the selected agent with its stats, task and log, and stops it', function () {
     useThrowawayRedis();
-    $agent = ThreadAgent::factory()->create(['thread_id' => Thread::factory(), 'task_id' => 'aone', 'tool_use_id' => 'toolu_agent', 'description' => 'Build company mockups', 'started_at' => now()->subMinutes(6), 'total_tokens' => 41210, 'tool_uses' => 23, 'model' => 'claude-sonnet-5-5']);
+    $agent = ThreadAgent::factory()->create(['thread_id' => Thread::factory(), 'task_id' => 'aone', 'tool_use_id' => 'toolu_agent', 'description' => 'Build company mockups', 'started_at' => now()->subMinutes(6), 'total_tokens' => 41210, 'tool_uses' => 23, 'model' => 'claude-sonnet-5-5', 'prompt' => 'Build the company list page.']);
     [$thread] = agentThread($this->owner, $agent);
     $agent->forceFill(['thread_id' => $thread->id])->save();
 

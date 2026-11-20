@@ -4,7 +4,7 @@ import { useRunLog } from '@/components/threads/conversation/useRunLog';
 import { log } from '@/routes/threads/agents';
 import type { TranscriptEntry } from '@/types/tasks';
 import { useAgents } from './AgentsContext';
-import { isRunning, type AgentRowData } from './agentsState';
+import { isRunning, matchChild, type AgentRowData } from './agentsState';
 
 const SUBAGENT_TOOLS = new Set(['Agent', 'Task', 'Workflow']);
 
@@ -32,12 +32,11 @@ function StepRow({ entry, isLast, isLive }: { entry: TranscriptEntry; isLast: bo
  * One agent's own steps, read in pages from the agent log route. A step where the agent started another agent shows
  * that agent as a card of its own, so nested agents nest. While the agent runs the log reads itself again.
  */
-export function AgentLog({ agent, renderNested, renderTask, heading, size = 'comfortable' }: { agent: AgentRowData; renderNested?: (child: AgentRowData) => ReactNode; /** Draws the task Claude gave the agent, when its log starts with it. */ renderTask?: (task: string) => ReactNode; /** A heading above the steps. */ heading?: string; size?: 'compact' | 'comfortable' }) {
+export function AgentLog({ agent, renderNested, heading, size = 'comfortable' }: { agent: AgentRowData; renderNested?: (child: AgentRowData) => ReactNode; /** A heading above the steps. */ heading?: string; size?: 'compact' | 'comfortable' }) {
     const agents = useAgents();
     const url = agents === null ? null : log.url({ thread: agents.threadId, agent: agent.id });
     const { entries, status, hasMore, isLoadingMore, moreFailed, loadMore, retry } = useRunLog(url, isRunning(agent));
     const steps = entries.filter((entry) => entry.kind !== 'prompt');
-    const task = entries.find((entry) => entry.kind === 'prompt')?.prompt?.user ?? null;
     const unusedChildren = (agents?.rows ?? []).filter((row) => row.parentTaskId === agent.id);
     const used = new Set<string>();
 
@@ -72,11 +71,10 @@ export function AgentLog({ agent, renderNested, renderTask, heading, size = 'com
 
     return (
         <>
-        {task !== null && renderTask?.(task)}
         <div className={cn('flex flex-col text-[13px] text-body', size === 'compact' ? 'gap-2' : 'gap-3')} data-testid="agent-log">
             {heading !== undefined && <h3 className="text-[12px] font-semibold text-muted">{heading}</h3>}
             {steps.map((entry, index) => {
-                const nested = renderNested !== undefined && entry.kind === 'tool' && entry.tool !== undefined && SUBAGENT_TOOLS.has(entry.tool) ? unusedChildren.find((child) => !used.has(child.id) && (child.description === entry.subject || child.workflowName === entry.subject)) ?? unusedChildren.find((child) => !used.has(child.id)) : undefined;
+                const nested = renderNested !== undefined && entry.kind === 'tool' && entry.tool !== undefined && SUBAGENT_TOOLS.has(entry.tool) ? matchChild(entry, unusedChildren, used) : undefined;
 
                 if (nested !== undefined && renderNested !== undefined) {
                     used.add(nested.id);

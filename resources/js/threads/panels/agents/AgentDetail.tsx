@@ -75,17 +75,15 @@ export function AgentDetail({ agent, parent, modelLabels, localMessages, onSent,
                         </p>
                     </Section>
                 )}
+                {agent.prompt !== null && agent.prompt !== '' && (
+                    <Section title="Task from Claude">
+                        <p className="whitespace-pre-wrap break-words text-[13px] text-body" data-testid="agent-detail-task">
+                            {agent.prompt}
+                        </p>
+                    </Section>
+                )}
                 <div className="flex flex-col gap-3 px-5 py-3.5">
-                    <AgentLog
-                        agent={agent}
-                        heading="Log"
-                        renderTask={(task) => (
-                            <div className="-mx-5 -mt-3.5 mb-1 flex flex-col gap-1.5 border-b border-hair px-5 py-3.5" data-testid="agent-detail-task">
-                                <h3 className="text-[12px] font-semibold text-muted">Task from Claude</h3>
-                                <p className="whitespace-pre-wrap break-words text-[13px] text-body">{task}</p>
-                            </div>
-                        )}
-                    />
+                    <AgentLog agent={agent} heading="Log" />
                     <AgentMessageList agent={agent} local={localMessages} />
                 </div>
             </div>

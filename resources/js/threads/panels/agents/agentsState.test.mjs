@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, mergeAgents, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
+import { agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, matchChild, mergeAgents, nowLabel, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
 
 const agent = (id, extra = {}) => ({
     id, kind: 'agent', parentTaskId: null, toolUseId: null, depth: 1, agentType: 'general-purpose', description: id, workflowName: null, model: null, isBackground: true, status: 'running',
-    lastTool: null, summary: null, totalTokens: 0, toolUses: 0, durationMs: 0, startedAt: null, finishedAt: null, stopRequestedAt: null, stopError: null, workflowProgress: null,
+    lastTool: null, lastToolTarget: null, prompt: null, summary: null, totalTokens: 0, toolUses: 0, durationMs: 0, startedAt: null, finishedAt: null, stopRequestedAt: null, stopError: null, workflowProgress: null,
     startedByTurnId: null, followUpTurnId: null, messages: [], ...extra,
 });
 
@@ -99,4 +99,23 @@ test('agents that woke Claude are grouped by the run they started', () => {
 
     assert.deepEqual([...byRun.keys()], [7]);
     assert.equal(byRun.get(7).length, 2);
+});
+
+test('the now label shows a file by its name and other targets as they are', () => {
+    assert.equal(nowLabel(agent('a', { lastTool: 'Write', lastToolTarget: '/workspace/mockups/crm-pipeline.html' })), 'Write crm-pipeline.html');
+    assert.equal(nowLabel(agent('a', { lastTool: 'Bash', lastToolTarget: 'ls /a/b' })), 'Bash ls /a/b');
+    assert.equal(nowLabel(agent('a', { lastTool: 'Read' })), 'Read');
+    assert.equal(nowLabel(agent('a')), null);
+    assert.equal(cardSubtitle(agent('a', { startedAt: '2026-11-20T10:00:00Z', lastTool: 'Write', lastToolTarget: '/w/crm-pipeline.html' }), Date.parse('2026-11-20T10:00:28Z'), false), 'general-purpose · background · Running 28s · now: Write crm-pipeline.html');
+});
+
+test('a log step matches the agent it started by tool call id, even when descriptions are equal', () => {
+    const first = agent('one', { description: 'Same', toolUseId: 'toolu_1' });
+    const second = agent('two', { description: 'Same', toolUseId: 'toolu_2' });
+    const used = new Set();
+
+    assert.equal(matchChild({ subject: 'Same', agentToolUseIds: ['toolu_2'] }, [first, second], used)?.id, 'two');
+    assert.equal(matchChild({ subject: 'Same', agentToolUseIds: ['toolu_9'] }, [first, second], used), undefined);
+    assert.equal(matchChild({ subject: 'Same' }, [first, second], new Set(['one']))?.id, 'two');
+    assert.equal(matchChild({ subject: 'Other', agentToolUseIds: [] }, [first, second], used)?.id, 'one');
 });

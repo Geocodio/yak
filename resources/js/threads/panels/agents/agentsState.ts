@@ -103,6 +103,34 @@ export function formatTokens(tokens: number): string {
     return `${thousands < 10 ? Math.round(thousands * 10) / 10 : Math.round(thousands)}k tokens`;
 }
 
+const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'NotebookEdit']);
+
+/** What a running agent is doing: "Write crm-pipeline.html" (a file shows by its name), or just the tool; null when unknown. */
+export function nowLabel(agent: ThreadAgent): string | null {
+    if (agent.lastTool === null || agent.lastTool === '') {
+        return null;
+    }
+
+    const target = agent.lastToolTarget === null || agent.lastToolTarget === '' ? null : FILE_TOOLS.has(agent.lastTool) ? (agent.lastToolTarget.split('/').pop() ?? agent.lastToolTarget) : agent.lastToolTarget;
+
+    return target === null ? agent.lastTool : `${agent.lastTool} ${target}`;
+}
+
+/**
+ * The agent a log step started: by the tool call id of the step's Agent call, and only when the step carries no ids by
+ * description, then by being the next one not shown yet.
+ */
+export function matchChild(entry: { subject?: string; agentToolUseIds?: string[] }, children: AgentRowData[], used: Set<string>): AgentRowData | undefined {
+    const free = children.filter((child) => !used.has(child.id));
+    const ids = entry.agentToolUseIds ?? [];
+
+    if (ids.length > 0) {
+        return free.find((child) => child.toolUseId !== null && ids.includes(child.toolUseId));
+    }
+
+    return free.find((child) => child.description === entry.subject || child.workflowName === entry.subject) ?? free[0];
+}
+
 export function agentTitle(agent: ThreadAgent): string {
     return agent.kind === 'workflow' ? `Workflow: ${agent.workflowName ?? agent.description ?? 'workflow'}` : (agent.description ?? agent.agentType ?? 'Agent');
 }
@@ -154,8 +182,8 @@ const plural = (count: number, word: string): string => `${count} ${word}${count
 export function cardSubtitle(agent: ThreadAgent, now: number, isExpanded: boolean): string {
     const count = workflowAgentCount(agent.workflowProgress);
     const kindParts = agent.kind === 'workflow' ? [count > 0 ? plural(count, 'agent') : 'workflow'] : [agent.agentType ?? 'agent', agent.isBackground ? 'background' : 'foreground'];
-    const hasNow = isRunning(agent) && !isExpanded && agent.lastTool !== null && agent.lastTool !== '';
-    const activity = hasNow ? [`now: ${agent.lastTool}`] : [agent.totalTokens > 0 ? formatTokens(agent.totalTokens) : null, agent.toolUses > 0 && agent.kind === 'agent' ? plural(agent.toolUses, 'tool use') : null].filter((part) => part !== null);
+    const nowText = nowLabel(agent);
+    const activity = isRunning(agent) && !isExpanded && nowText !== null ? [`now: ${nowText}`] : [agent.totalTokens > 0 ? formatTokens(agent.totalTokens) : null, agent.toolUses > 0 && agent.kind === 'agent' ? plural(agent.toolUses, 'tool use') : null].filter((part) => part !== null);
 
     return [...kindParts, statusLine(agent, now), ...activity].join(' · ');
 }
@@ -168,7 +196,7 @@ export function rowSubtitle(agent: ThreadAgent, parent: AgentRowData | null, now
 
     if (isRunning(agent)) {
         const count = workflowAgentCount(agent.workflowProgress);
-        const doing = agent.kind === 'workflow' ? (count > 0 ? plural(count, 'agent') : null) : agent.lastTool;
+        const doing = agent.kind === 'workflow' ? (count > 0 ? plural(count, 'agent') : null) : nowLabel(agent);
 
         return [kind, startedBy, duration, doing].filter((part) => part !== null && part !== '').join(' · ');
     }
