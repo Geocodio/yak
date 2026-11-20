@@ -41,12 +41,11 @@ struct PressableButtonStyle: ButtonStyle {
 /// open one.
 struct RowButtonStyle: ButtonStyle {
     var isSelected = false
-    var cornerRadius: CGFloat = Design.Radius.row
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .background(fill(isPressed: configuration.isPressed), in: .rect(cornerRadius: cornerRadius))
+            .background(fill(isPressed: configuration.isPressed), in: .rect(cornerRadius: Design.Radius.row))
             .animation(Motion.resolve(Motion.quick, reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 

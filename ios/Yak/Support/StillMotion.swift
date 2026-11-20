@@ -8,10 +8,10 @@ enum StillMotion {
     }
 
     /// The app runs under a UI test: movement is instant, so a screen is still when the audit looks at it. The launch
-    /// argument `-yakTestMotion YES` keeps the motion on, to record how an interaction moves.
+    /// argument `-yakTestMotion YES` keeps the motion on (`NO` leaves it off), to record how an interaction moves.
     static var isTestMode: Bool {
         #if DEBUG
-            TestMode.value("yakTestInstance") != nil && TestMode.value("yakTestMotion") == nil
+            TestMode.value("yakTestInstance") != nil && !UserDefaults.standard.bool(forKey: "yakTestMotion")
         #else
             false
         #endif

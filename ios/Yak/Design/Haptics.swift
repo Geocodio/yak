@@ -12,7 +12,7 @@ enum Haptic: CaseIterable {
     case threadSwitched
     /// A message was accepted for sending.
     case sent
-    /// A pull to refresh finished.
+    /// A pull to refresh ended, whether it loaded or not.
     case refreshed
 
     enum Style: Equatable {
@@ -23,7 +23,8 @@ enum Haptic: CaseIterable {
         switch self {
         case .drawerSettled: .softImpact
         case .paneChanged, .threadSwitched: .selection
-        case .sent, .refreshed: .success
+        case .sent: .success
+        case .refreshed: .softImpact
         }
     }
 

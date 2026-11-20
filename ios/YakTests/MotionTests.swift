@@ -37,7 +37,7 @@ struct HapticTests {
         #expect(Haptic.paneChanged.style == .selection)
         #expect(Haptic.threadSwitched.style == .selection)
         #expect(Haptic.sent.style == .success)
-        #expect(Haptic.refreshed.style == .success)
+        #expect(Haptic.refreshed.style == .softImpact)
         #expect(Haptic.allCases.count == 5)
     }
 

@@ -24,6 +24,8 @@ private struct Shimmer: ViewModifier {
                         endPoint: UnitPoint(x: center + halfBand, y: 0.5))
                 }
                 .onAppear { withAnimation(Motion.shimmerPass) { isSweeping = true } }
+                // Leaving the moving branch rewinds the band, so the sweep starts over when motion comes back.
+                .onDisappear { isSweeping = false }
         }
     }
 }
