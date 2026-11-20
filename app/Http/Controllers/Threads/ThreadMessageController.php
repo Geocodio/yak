@@ -46,6 +46,7 @@ class ThreadMessageController extends Controller
             $request->acknowledgedPrivatePublish(),
             $request->validated('effort'),
             queueWithoutRepository: true,
+            hasAttachments: $request->hasFile('attachments'),
         );
 
         try {

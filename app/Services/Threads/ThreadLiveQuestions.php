@@ -3,15 +3,19 @@
 namespace App\Services\Threads;
 
 use App\DataTransferObjects\ClarificationQuestion;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Enums\TurnMessageKind;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
+use App\Jobs\SendNotificationJob;
+use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
+use App\Services\ClarificationMessage;
 use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
@@ -91,7 +95,7 @@ class ThreadLiveQuestions
             $task->update(['status' => TaskStatus::AwaitingClarification, 'clarification_expires_at' => null, 'clarification_reminder_at' => null]);
         }
         $this->events->opened($task);
-        $this->notify($thread, count($questions));
+        $this->notify($thread, $task, count($questions));
     }
 
     /**
@@ -116,15 +120,21 @@ class ThreadLiveQuestions
     public function answer(YakTask $task, array $answers, ?string $note, string $answeredBy): bool
     {
         $round = $task->liveClarificationRound();
+        $isGap = $round === null && self::isParkPending($task);
 
-        if ($round === null || ! ($thread = $task->thread) instanceof Thread) {
+        if ((! $isGap && $round === null) || ! ($thread = $task->thread) instanceof Thread) {
             return false;
         }
 
-        $texts = self::answerTexts($round, $answers);
+        $round ??= $task->clarificationRounds()[$task->clarificationRoundCount() - 1];
         $task->recordClarificationAnswers($answers, $note, $answeredBy);
-        $task->markClarificationAnswersConsumed();
-        $this->commands->answerQuestion($thread, (string) $round['runner_question_id'], $texts);
+
+        // After a timeout nobody waits on the answer: it stays unconsumed and the turn's end resumes with it.
+        if (! $isGap) {
+            $task->markClarificationAnswersConsumed();
+            $this->commands->answerQuestion($thread, (string) $round['runner_question_id'], self::answerTexts($round, $answers));
+        }
+
         $this->recordAnswerMessage($task, self::shownAnswers($task), $answeredBy);
         $this->closeQuestion($task);
 
@@ -145,9 +155,7 @@ class ThreadLiveQuestions
      */
     public function reply(YakTask $task, string $text, string $answeredBy): bool
     {
-        $round = $task->liveClarificationRound();
-
-        if ($round === null) {
+        if (trim($text) === '' || ! self::isOpen($task)) {
             return false;
         }
 
@@ -193,6 +201,24 @@ class ThreadLiveQuestions
         return $round !== null && ($round['park_pending'] ?? false) === true && $round['answers'] === null;
     }
 
+    /**
+     * Whether a question the person can still answer is open: Claude waits on it, or its wait timed out and the turn is ending.
+     */
+    public static function isOpen(YakTask $task): bool
+    {
+        return $task->liveClarificationRound() !== null || self::isParkPending($task);
+    }
+
+    /**
+     * Whether the current round carries the timeout mark, answered or not.
+     */
+    public static function hasParkMark(YakTask $task): bool
+    {
+        $round = $task->clarificationRounds()[$task->clarificationRoundCount() - 1] ?? null;
+
+        return $round !== null && ($round['park_pending'] ?? false) === true;
+    }
+
     public static function clearParkPending(YakTask $task): void
     {
         $task->updateCurrentClarificationRound(['park_pending' => false]);
@@ -211,6 +237,17 @@ class ThreadLiveQuestions
 
         if ($task->liveClarificationRound() !== null || (self::isParkPending($task) && $to !== TurnState::Completed)) {
             $this->abandon($task, 'The turn ended before the question was answered.');
+
+            return;
+        }
+
+        // An answer given after the timeout of a turn that did not complete has no resume to carry it, so it waits for the next prompt.
+        if ($to !== TurnState::Completed && self::hasParkMark($task) && $task->clarificationAnswersAwaitingResume() !== null) {
+            $answered = (array) $task->clarificationAnswersAwaitingResume();
+            $text = self::shownAnswers($task);
+            PendingSteeringMessage::queueFor($task, trim($text) !== '' ? $text : (string) $answered['note'], 'thread', authorName: (string) $answered['answered_by']);
+            $task->markClarificationAnswersConsumed();
+            self::clearParkPending($task);
         }
     }
 
@@ -273,14 +310,19 @@ class ThreadLiveQuestions
     private function decline(YakTask $task, array $answers, string $note, string $answeredBy, string $message, ?string $shown = null): bool
     {
         $round = $task->liveClarificationRound();
+        $isGap = $round === null && self::isParkPending($task);
 
-        if ($round === null || ! ($thread = $task->thread) instanceof Thread) {
+        if ((! $isGap && $round === null) || ! ($thread = $task->thread) instanceof Thread) {
             return false;
         }
 
         $task->recordClarificationAnswers($answers, $note, $answeredBy);
-        $task->markClarificationAnswersConsumed();
-        $this->commands->declineQuestion($thread, (string) $round['runner_question_id'], $message);
+
+        if (! $isGap) {
+            $task->markClarificationAnswersConsumed();
+            $this->commands->declineQuestion($thread, (string) $round['runner_question_id'], $message);
+        }
+
         $this->recordAnswerMessage($task, $shown ?? $note, $answeredBy);
         $this->closeQuestion($task);
 
@@ -414,10 +456,11 @@ class ThreadLiveQuestions
         return $questions;
     }
 
-    private function notify(Thread $thread, int $questionCount): void
+    private function notify(Thread $thread, YakTask $task, int $questionCount): void
     {
-        DB::afterCommit(function () use ($thread, $questionCount): void {
+        DB::afterCommit(function () use ($thread, $task, $questionCount): void {
             try {
+                SendNotificationJob::dispatch($task, NotificationType::Clarification, ClarificationMessage::asked($task->refresh()), personalize: false);
                 app(LiveActivities::class)->questionOpened($thread);
                 $body = $questionCount === 1 ? 'Claude has a question for you.' : "Claude has {$questionCount} questions for you.";
                 app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification");

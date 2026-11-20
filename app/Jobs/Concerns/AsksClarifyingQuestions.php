@@ -10,6 +10,7 @@ use App\Facades\Telemetry;
 use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\YakTask;
+use App\Services\ClarificationAnswerSubmitter;
 use App\Services\ClarificationMessage;
 use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Push\PushEvent;
@@ -20,6 +21,7 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\Threads\ThreadLiveQuestions;
 use App\Services\Threads\ThreadQuestionEvents;
 use App\YakPromptBuilder;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -44,8 +46,7 @@ trait AsksClarifyingQuestions
     protected function askIfNeeded(AgentRunResult $result): bool
     {
         // A live question nobody answered in time is still open: this finish parks it, so the answer starts a new turn.
-        if (ThreadLiveQuestions::isParkPending($this->task)) {
-            ThreadLiveQuestions::clearParkPending($this->task);
+        if (ThreadLiveQuestions::hasParkMark($this->task)) {
             TaskMetricsAccumulator::record($this->task, $result);
             DailyCost::accumulate($result->costUsd);
             $this->parkedForQuestions = true;
@@ -93,6 +94,25 @@ trait AsksClarifyingQuestions
         $this->task->refresh();
 
         if ($this->taskIsTerminal($this->task)) {
+            return;
+        }
+
+        // An answer given after the timeout is stored on the round, so the turn's end resumes with it instead of asking again.
+        $hasGapAnswer = DB::transaction(function (): bool {
+            $locked = YakTask::query()->whereKey($this->task->id)->lockForUpdate()->firstOrFail();
+            $hasAnswer = ThreadLiveQuestions::hasParkMark($locked) && $locked->clarificationAnswersAwaitingResume() !== null;
+            if (ThreadLiveQuestions::hasParkMark($locked)) {
+                ThreadLiveQuestions::clearParkPending($locked);
+            }
+
+            return $hasAnswer;
+        });
+
+        if ($hasGapAnswer) {
+            $this->task->refresh();
+            $this->task->update(['status' => TaskStatus::Pending, 'clarification_expires_at' => null, 'clarification_reminder_at' => null, ...ClarificationAnswerSubmitter::claimResetFor($this->task)]);
+            app(ClarificationAnswerSubmitter::class)->dispatchResume($this->task);
+
             return;
         }
 

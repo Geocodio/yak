@@ -3,6 +3,8 @@
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ThreadMessageInput;
 use App\Enums\MessageDelivery;
+use App\Enums\RunnerState;
+use App\Enums\SteeringMode;
 use App\Enums\TaskStatus;
 use App\Enums\ThreadListFilter;
 use App\Enums\TurnState;
@@ -12,6 +14,8 @@ use App\Http\Resources\ThreadQuestionData;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\RunYakJob;
+use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
@@ -28,9 +32,11 @@ use App\Services\Threads\ThreadMessageSender;
 use App\Services\Threads\ThreadRequestStatus;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\InMemoryThreadEventWindow;
 
 require_once __DIR__ . '/../../Support/LiveQuestionHelpers.php';
@@ -120,7 +126,7 @@ it('answers the runner from the web form without starting a turn', function () {
         ->and($task->clarificationRounds()[0]['answered_by'])->toBe('Test person')
         ->and(ThreadQuestionData::for($thread))->toBeNull()
         ->and(liveQuestionEvents($thread))->toBe([['open' => true], ['open' => false]]);
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunYakJob::class);
 });
 
 it('tells Claude to decide when the person lets Claude decide', function () {
@@ -414,4 +420,78 @@ it('shows the answer given through the app API', function () {
     $this->postJson(appThreadPath($thread, '/clarification-answers'), ['answers' => ['q1' => ['choices' => ['Desktop'], 'other' => null]]], phoneHeadersFor($user))->assertOk();
 
     expect(answerMessages($thread, $user)[0]['text'])->toBe("**Width**: Which width?\nDesktop");
+});
+
+it('keeps the files sent with a composer answer and steers them to Claude right after the answer', function () {
+    Storage::fake('artifacts');
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    $thread->forceFill(['runner_state' => RunnerState::Busy])->save();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->actingAs($user)->post(route('threads.messages.store', $thread), [
+        'message' => 'laptop',
+        'attachments' => [UploadedFile::fake()->image('shot.png')],
+        'attachment_refs' => ['Image #1'],
+    ], ['Accept' => 'application/json'])->assertOk();
+
+    $steer = runnerCommands($thread, 'steer');
+    $attachment = TaskAttachment::query()->sole();
+
+    expect((array) runnerCommands($thread, 'answer_question')[0]['answers'])->toBe(['Which width?' => 'Laptop'])
+        ->and($steer)->toHaveCount(1)
+        ->and($steer[0]['text'])->toContain('laptop')
+        ->and($attachment->pending_steering_message_id)->not->toBeNull()
+        ->and(PendingSteeringMessage::query()->find($attachment->pending_steering_message_id)->mode)->toBe(SteeringMode::Steer);
+});
+
+it('keeps the question visible after the timeout and delivers an answer through the parked path when the turn ends', function () {
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->travel(31)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect(ThreadQuestionData::for($thread))->not->toBeNull();
+
+    app(ThreadMessageSender::class)->send($thread, $user, new ThreadMessageInput('laptop', null, null, null, MessageDelivery::Steer, null));
+    $task->refresh();
+
+    expect(ThreadQuestionData::for($thread))->toBeNull()
+        ->and(runnerCommands($thread, 'answer_question'))->toBe([])
+        ->and($task->clarificationAnswersAwaitingResume()['answers']['q1']['choices'])->toBe(['Laptop']);
+    Queue::assertNotPushed(RunYakJob::class);
+
+    $job = new class($task)
+    {
+        use AsksClarifyingQuestions, GuardsTerminalTaskStatus;
+
+        public function __construct(public YakTask $task) {}
+
+        public function finish(): bool
+        {
+            $parked = $this->askIfNeeded(new AgentRunResult('s', 'Stopped.', 0.0, 1, 1, false, ''));
+            $this->finishParkingForQuestions();
+
+            return $parked;
+        }
+    };
+
+    expect($job->finish())->toBeTrue();
+    expect($task->refresh()->status)->toBe(TaskStatus::Pending)
+        ->and(ThreadLiveQuestions::hasParkMark($task))->toBeFalse();
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('queues the answer given after the timeout for the next prompt when the turn does not complete', function () {
+    [$thread, $run, $task, $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->travel(31)->minutes();
+    app(ThreadDriver::class)->tick();
+    app(ThreadMessageSender::class)->send($thread, $user, new ThreadMessageInput('laptop', null, null, null, MessageDelivery::Steer, null));
+
+    app(ThreadLiveQuestions::class)->settleAtTurnEnd($run, TurnState::Failed);
+
+    expect(PendingSteeringMessage::query()->sole()->text)->toContain('Laptop')
+        ->and($task->refresh()->clarificationAnswersAwaitingResume())->toBeNull();
 });

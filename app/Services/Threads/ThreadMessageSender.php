@@ -234,7 +234,7 @@ class ThreadMessageSender
             }
 
             if ($input->intent === null && $this->answersLiveQuestion($task, $user, $input->text)) {
-                return new ThreadMessageResult('sent', null, null);
+                return $this->sendAttachmentsAfterAnswer($thread, $user, $input);
             }
 
             $message = $this->turns->steer(
@@ -259,11 +259,26 @@ class ThreadMessageSender
     }
 
     /**
+     * The answer has no room for files, so they follow it as a steering message. One that cannot be delivered
+     * right away is queued for the next prompt, and the result says so.
+     */
+    private function sendAttachmentsAfterAnswer(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        if (! $input->hasAttachments || $input->storeAttachments === null) {
+            return new ThreadMessageResult('sent', null, null);
+        }
+
+        $message = $this->turns->steer($thread, 'The files that go with my answer: ' . $input->text, $user, $input->model, $input->storeAttachments, 'thread', null, false, $input->effort);
+
+        return new ThreadMessageResult($message->mode === SteeringMode::Steer ? 'sent' : 'queued', $message->uuid, null);
+    }
+
+    /**
      * A message typed while Claude waits on its question is the answer, not a steer.
      */
     private function answersLiveQuestion(YakTask $task, User $user, string $text): bool
     {
-        if ($task->liveClarificationRound() === null || trim($text) === '') {
+        if (! ThreadLiveQuestions::isOpen($task) || trim($text) === '') {
             return false;
         }
 

@@ -25,6 +25,8 @@ class ClarificationAnswerSubmitter
 
     private const PARKED = 'parked';
 
+    private const TIMED_OUT = 'timed_out';
+
     /**
      * @param  array<string, array{choices: list<string>, other: string|null}>  $answers
      */
@@ -55,10 +57,21 @@ class ClarificationAnswerSubmitter
             'round' => $task->clarificationRoundCount(),
         ], task: $task);
 
-        if ($claimed === self::LIVE) {
+        // A live answer reaches the waiting runner; one given after the wait timed out is stored and the turn's end resumes with it.
+        if ($claimed === self::LIVE || $claimed === self::TIMED_OUT) {
             return true;
         }
 
+        $this->dispatchResume($task);
+
+        return true;
+    }
+
+    /**
+     * Continues a task whose answers are recorded: a progress note, then the job that resumes it.
+     */
+    public function dispatchResume(YakTask $task): void
+    {
         SendNotificationJob::dispatch($task, NotificationType::Progress, 'Got your answers, continuing.', personalize: false);
 
         $jobClass = $task->claimingJobClass();
@@ -68,8 +81,6 @@ class ClarificationAnswerSubmitter
         } else {
             app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
         }
-
-        return true;
     }
 
     /**
@@ -109,7 +120,11 @@ class ClarificationAnswerSubmitter
                 return $live($locked) ? self::LIVE : null;
             }
 
-            if ($requiresLive || ThreadLiveQuestions::isParkPending($locked) || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
+            if (ThreadLiveQuestions::isParkPending($locked)) {
+                return $live($locked) ? self::TIMED_OUT : null;
+            }
+
+            if ($requiresLive || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
                 return null;
             }
 
@@ -126,7 +141,7 @@ class ClarificationAnswerSubmitter
      *
      * @return array<string, mixed>
      */
-    private static function claimResetFor(YakTask $task): array
+    public static function claimResetFor(YakTask $task): array
     {
         if ($task->agentJobClass() === RunFollowUpJob::class) {
             return [];
@@ -140,6 +155,10 @@ class ClarificationAnswerSubmitter
 
     public function submitReply(YakTask $task, string $replyText, string $answeredBy, string $via): bool
     {
+        if (ThreadLiveQuestions::isOpen($task)) {
+            return $this->claim($task, fn (): bool => false, fn (YakTask $locked): bool => app(ThreadLiveQuestions::class)->reply($locked, $replyText, $answeredBy), requiresLive: true) !== null;
+        }
+
         $questions = $task->pendingClarificationQuestions();
 
         if (count($questions) !== 1 || trim($replyText) === '') {

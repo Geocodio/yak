@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\YakTask;
+use App\Services\Threads\ThreadLiveQuestions;
 use App\Support\TaskPageUrl;
 
 /**
@@ -21,6 +22,14 @@ class ClarificationMessage
     {
         return count($task->pendingClarificationQuestions()) === 1
             && in_array($task->source, ['slack', 'linear'], true);
+    }
+
+    /**
+     * Whether a reply in the channel is the answer: the only question's option or words, or any reply to a question Claude waits on live.
+     */
+    public static function acceptsReply(YakTask $task): bool
+    {
+        return self::answersInline($task) || ThreadLiveQuestions::isOpen($task);
     }
 
     public static function asked(YakTask $task): string
