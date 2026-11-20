@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import embed from './embed'
 import device from './device'
 import threads from './threads'
 import broadcasting from './broadcasting'
@@ -7,6 +8,7 @@ import tasks from './tasks'
 import pushTokens from './push-tokens'
 import notifications from './notifications'
 import liveActivities from './live-activities'
+import webSession from './web-session'
 import media from './media'
 /**
 * @see \App\Http\Controllers\Api\App\InstanceController::__invoke
@@ -97,6 +99,7 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 const app = {
+    embed: Object.assign(embed, embed),
     instance: Object.assign(instance, instance),
     device: Object.assign(device, device),
     me: Object.assign(me, me),
@@ -107,6 +110,7 @@ const app = {
     pushTokens: Object.assign(pushTokens, pushTokens),
     notifications: Object.assign(notifications, notifications),
     liveActivities: Object.assign(liveActivities, liveActivities),
+    webSession: Object.assign(webSession, webSession),
     media: Object.assign(media, media),
 }
 

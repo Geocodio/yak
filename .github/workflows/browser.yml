@@ -88,3 +88,11 @@ jobs:
 
       - name: Run browser tests
         run: ./vendor/bin/pest tests/Browser --shard=${{ matrix.shard }}/4
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-screenshots-shard-${{ matrix.shard }}
+          path: tests/Browser/Screenshots
+          if-no-files-found: ignore

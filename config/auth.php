@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // The restricted session of the phone's embedded web view. Only AppEmbed\SessionController logs in on it.
+        'app-embed' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

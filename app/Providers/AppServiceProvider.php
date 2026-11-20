@@ -185,6 +185,14 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('app-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
 
+        RateLimiter::for('app-web-session', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(10)->by($device instanceof Device ? 'web-session:' . $device->id : 'web-session-ip:' . $request->ip());
+        });
+
+        RateLimiter::for('app-embed-redeem', fn (Request $request): Limit => Limit::perMinute(30)->by('embed-redeem:' . $request->ip()));
+
         RateLimiter::for('app-device', function (Request $request): Limit {
             if ($request->is(...self::APP_DEVICE_UNTHROTTLED_PATHS)) {
                 return Limit::none();

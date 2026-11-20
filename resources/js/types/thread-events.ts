@@ -112,6 +112,8 @@ export type ThreadEventState = {
     entries: TranscriptEntry[];
     streamingBlocks: Record<string, { kind: string; text: string }>;
     turn: { turnId: number; state: TurnState } | null;
+    /** Sequence of the event that started the current turn running; null when no such event is in the feed. */
+    turnStartSequence: number | null;
     thread: ThreadEventDataMap['thread'] | null;
     /** Whether the head task has questions open, from the latest `question` event; null before one arrives. */
     questionOpen: boolean | null;

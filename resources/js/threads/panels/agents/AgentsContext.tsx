@@ -33,7 +33,7 @@ export function useAgents(): AgentsContextValue | null {
 
 const RELOAD_SETTLE_MS = 400;
 
-/** Reads the agents prop again whenever an agent starts, finishes or is asked to stop, so messages and sub-threads stay current. */
+/** Reads the agents prop again whenever an agent starts, finishes or is asked to stop, or a sub-thread appears or changes state, so messages and sub-threads stay current. */
 function useReloadAgents(signature: string, hasUnforwardedMessage: boolean): void {
     const seen = useRef(signature);
 
@@ -79,6 +79,7 @@ export function AgentsProvider({
     canDrive,
     loaded = EMPTY,
     live,
+    childrenSignature = '',
     selectedId,
     onSelect,
     openPanel,
@@ -89,6 +90,7 @@ export function AgentsProvider({
     canDrive: boolean;
     loaded?: ThreadAgentsData;
     live: Record<string, ThreadAgent>;
+    childrenSignature?: string;
     selectedId: string | null;
     onSelect: (id: string | null) => void;
     openPanel: (agentId?: string) => void;
@@ -112,7 +114,7 @@ export function AgentsProvider({
     }, [isRunningAny]);
 
     const signature = rows.map((agent) => `${agent.id}:${agent.status}:${agent.stopRequestedAt ?? ''}:${agent.followUpTurnId ?? ''}`).join('|');
-    useReloadAgents(`${threadId}|${signature}`, rows.some((agent) => agent.status === 'running' && agent.messages.some((message) => message.forwardedAt === null)));
+    useReloadAgents(`${threadId}|${signature}|${childrenSignature}`, rows.some((agent) => agent.status === 'running' && agent.messages.some((message) => message.forwardedAt === null)));
 
     const value = useMemo<AgentsContextValue>(
         () => ({ threadId, canDrive, rows, main: loaded.main, subThreads: loaded.subThreads, running, now, selectedId, select: onSelect, openPanel, openFullLog }),
