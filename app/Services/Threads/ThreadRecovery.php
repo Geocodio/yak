@@ -57,7 +57,7 @@ class ThreadRecovery
         }
 
         try {
-            return $this->turns->start($head, 'Continue.', $user, null);
+            return $this->turns->start($head, 'Continue.', $user, null, shownText: 'Continue.');
         } catch (ThreadBusy) {
             throw ThreadActionRefused::because(ThreadActionRefused::TURN_RUNNING, 'This thread is already working. Give it a moment.');
         } catch (ThreadNotOwnedByYak) {

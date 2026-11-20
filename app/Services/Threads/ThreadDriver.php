@@ -170,7 +170,9 @@ class ThreadDriver
                     TaskLogger::warning($run->task, 'turn_stopped_by_guard', ['reason' => $reason]);
                 }
 
-                $this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events);
+                if ($this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events)) {
+                    app(ThreadTurns::class)->cancelMessages($run);
+                }
                 $events[] = fn () => app(GuardStopNotifier::class)->ask($run, $reason, (int) $run->getAttribute('assistant_turns'));
             }
         });

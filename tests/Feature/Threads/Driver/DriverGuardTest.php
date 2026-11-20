@@ -3,11 +3,15 @@
 use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
 use App\Enums\NotificationType;
+use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskLog;
+use App\Models\ThreadEvent;
+use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\GuardStopNotifier;
@@ -15,6 +19,7 @@ use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
 
@@ -29,6 +34,18 @@ it('stops a runaway turn', function () {
         ->and(TaskLog::query()->where('message', 'turn_stopped_by_guard')->exists())->toBeTrue()
         ->and(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->pluck('type')->all())->toContain('interrupt');
     Event::assertDispatchedTimes(TurnFailed::class, 1);
+});
+
+it('cancels the messages of a guard-stopped turn so none stays started', function () {
+    [$thread, $run] = runningTurnFor();
+    $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Started, 'text' => 'Go']);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($message->refresh()->state)->toBe(TurnMessageState::Cancelled)
+        ->and(ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'message.state')->latest('sequence')->first()->payload)
+        ->toBe(['uuid' => $message->uuid, 'state' => 'cancelled']);
 });
 
 it('ends a turn when the grace window closes', function () {
