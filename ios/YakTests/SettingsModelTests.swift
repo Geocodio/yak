@@ -19,8 +19,11 @@ private final class StepClock: YakClock, @unchecked Sendable {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
                 lock.lock()
-                waiters[id] = (elapsed + duration, continuation)
+                // A sleep cancelled before it registers has already run its cancel handler, so it never waits.
+                let isCancelled = Task.isCancelled
+                if !isCancelled { waiters[id] = (elapsed + duration, continuation) }
                 lock.unlock()
+                if isCancelled { continuation.resume(throwing: CancellationError()) }
             }
         } onCancel: {
             lock.lock()
