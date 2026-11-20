@@ -452,7 +452,7 @@ class WebhookController extends Controller
 
             if (RepoClarificationResolver::awaitingRepoChoice($clarificationTask)) {
                 RepoClarificationResolver::resolve($clarificationTask, $replyText);
-            } elseif (ClarificationMessage::answersInline($clarificationTask)) {
+            } elseif (ClarificationMessage::acceptsReply($clarificationTask)) {
                 app(ClarificationAnswerSubmitter::class)->submitReply(
                     $clarificationTask,
                     $replyText,

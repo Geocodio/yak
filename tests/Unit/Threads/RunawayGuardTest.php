@@ -16,6 +16,8 @@ function runStartedAt(?CarbonImmutable $startedAt): TaskRun
 {
     $run = new TaskRun;
     $run->agent_started_at = $startedAt;
+    $run->source = 'sentry';
+    $run->thread_id = 1;
 
     return $run;
 }
@@ -26,6 +28,14 @@ it('trips the assistant turn limit at equality, not below', function () {
     expect((new RunawayGuard)->check($run, $this->now, 9))->toBeNull();
     expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
     expect((new RunawayGuard)->check($run, $this->now, 11))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
+
+it('raises the step limit by the steps a person added', function () {
+    $run = runStartedAt($this->now);
+    $run->extra_turns = 10;
+
+    expect((new RunawayGuard)->check($run, $this->now, 19))->toBeNull();
+    expect((new RunawayGuard)->check($run, $this->now, 20))->toBe(RunawayGuard::ASSISTANT_TURNS);
 });
 
 it('trips the wall clock limit at equality, not below', function () {
@@ -54,9 +64,9 @@ it('words the stop message per reason', function () {
     $guard = new RunawayGuard;
 
     expect($guard->message(RunawayGuard::ASSISTANT_TURNS, 10))
-        ->toBe('Yak stopped this turn after 10 assistant turns. Reply or press Continue to keep going.');
+        ->toBe('Yak paused this turn after 10 steps. Claude keeps everything it has done so far. Reply or press Keep going to pick up where it stopped.');
     expect($guard->message(RunawayGuard::WALL_CLOCK, 10))
-        ->toBe('Yak stopped this turn after 60 minutes. Reply or press Continue to keep going.');
+        ->toBe('Yak paused this turn after 60 minutes. Claude keeps everything it has done so far. Reply or press Keep going to pick up where it stopped.');
 });
 
 it('trips wall clock for a run whose agent_started_at is a mutable Carbon', function () {
@@ -68,7 +78,36 @@ it('trips wall clock for a run whose agent_started_at is a mutable Carbon', func
     expect((new RunawayGuard)->check($run, $now, 0))->toBe(RunawayGuard::WALL_CLOCK);
 
     $run = new TaskRun;
+    $run->source = 'sentry';
     $run->agent_started_at = now()->subMinutes(239);
     expect((new RunawayGuard)->check($run, $now, 0))->toBeNull();
     expect((new RunawayGuard)->check($run, $now, (int) config('yak.max_turns')))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
+
+it('has no turn limit for a turn a person started or drives', function (?string $source, ?int $driverUserId) {
+    $run = runStartedAt($this->now);
+    $run->source = $source;
+    $run->driver_user_id = $driverUserId;
+
+    expect((new RunawayGuard)->check($run, $this->now, 5000))->toBeNull();
+})->with([
+    'dashboard thread' => ['dashboard', null],
+    'slack thread' => ['slack', null],
+    'linear thread' => ['linear', null],
+    'person replies in a sentry thread' => ['sentry', 7],
+]);
+
+it('keeps the turn limit for work Yak started by itself', function (string $source) {
+    $run = runStartedAt($this->now);
+    $run->source = $source;
+
+    expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
+})->with(['sentry', 'flaky-test', 'preview-repair']);
+
+it('keeps the turn limit for a one-shot run outside a thread', function () {
+    $run = runStartedAt($this->now);
+    $run->source = 'dashboard';
+    $run->thread_id = null;
+
+    expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
 });

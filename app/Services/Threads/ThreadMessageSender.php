@@ -18,6 +18,7 @@ use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Devices\ShortLockWait;
 use App\Services\FollowUpTaskFactory;
 use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\Teleport\ThreadNotOwnedByYak;
@@ -232,6 +233,10 @@ class ThreadMessageSender
                 return new ThreadMessageResult('sent', rescue(fn () => $run->prompt_uuid, null, false), null);
             }
 
+            if ($input->intent === null && $this->answersLiveQuestion($task, $user, $input->text)) {
+                return $this->sendAttachmentsAfterAnswer($thread, $user, $input);
+            }
+
             $message = $this->turns->steer(
                 $thread,
                 $input->text,
@@ -240,7 +245,8 @@ class ThreadMessageSender
                 $input->storeAttachments,
                 'thread',
                 $input->sendKey,
-                $input->delivery === MessageDelivery::AfterTurn,
+                // A slash command runs as its own turn: the steering preamble in front of it would stop Claude seeing the slash.
+                $input->delivery === MessageDelivery::AfterTurn || app(SlashCommands::class)->startsWithKnownCommand($thread, $input->text),
                 $input->effort,
             );
 
@@ -250,6 +256,39 @@ class ThreadMessageSender
         } catch (ThreadNotOwnedByYak) {
             throw ThreadActionRefused::because(ThreadActionRefused::THREAD_OWNED_BY_DEVICE, self::DEVICE_SENTENCE);
         }
+    }
+
+    /**
+     * The answer has no room for files, so they follow it as a steering message. One that cannot be delivered
+     * right away is queued for the next prompt, and the result says so.
+     */
+    private function sendAttachmentsAfterAnswer(Thread $thread, User $user, ThreadMessageInput $input): ThreadMessageResult
+    {
+        if (! $input->hasAttachments || $input->storeAttachments === null) {
+            return new ThreadMessageResult('sent', null, null);
+        }
+
+        $message = $this->turns->steer($thread, 'The files that go with my answer: ' . $input->text, $user, $input->model, $input->storeAttachments, 'thread', null, false, $input->effort);
+
+        $isSent = $message->mode === SteeringMode::Steer;
+
+        return new ThreadMessageResult($isSent ? 'sent' : 'queued', $message->uuid, null, $isSent ? null : 'Your files go to Claude with the next message.');
+    }
+
+    /**
+     * A message typed while Claude waits on its question is the answer, not a steer.
+     */
+    private function answersLiveQuestion(YakTask $task, User $user, string $text): bool
+    {
+        if (! ThreadLiveQuestions::isOpen($task) || trim($text) === '') {
+            return false;
+        }
+
+        return ShortLockWait::transaction(function () use ($task, $user, $text): bool {
+            $locked = YakTask::query()->whereKey($task->id)->lockForUpdate()->first();
+
+            return $locked !== null && app(ThreadLiveQuestions::class)->reply($locked, $text, $user->name);
+        }, fn (): ThreadActionRefused => new ThreadActionRefused('unavailable', QueuedMessages::BUSY_SENTENCE, [], 503));
     }
 
     /**

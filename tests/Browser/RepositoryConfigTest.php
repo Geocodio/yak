@@ -30,6 +30,19 @@ it('offers to open a config PR when setup is done and no files exist', function 
         ->assertNoJavascriptErrors();
 });
 
+it('shows a running setup instead of offering a second one', function () {
+    $repository = Repository::factory()->create(['setup_status' => 'running']);
+    fakeYakFiles([]);
+    $this->mock(ConfigPullRequests::class)->shouldReceive('openPullRequest')->andReturn(null);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.edit', $repository))
+        ->assertSee('Setup is running')
+        ->assertDontSee('Run setup to create')
+        ->assertVisible('[data-testid="yak-config-view-setup"]')
+        ->assertNoJavascriptErrors();
+});
+
 it('shows the open config PR waiting for review', function () {
     $repository = Repository::factory()->create(['setup_status' => 'ready']);
     fakeYakFiles([]);

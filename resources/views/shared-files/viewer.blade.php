@@ -25,6 +25,6 @@
         @endif
         <a class="download" href="{{ $downloadUrl }}" data-testid="shared-file-download">Download</a>
     </header>
-    <iframe src="{{ $rawUrl }}" title="{{ $file->filename }}" sandbox="allow-same-origin" data-testid="shared-file-frame"></iframe>
+    <iframe src="{{ $rawUrl }}" title="{{ $file->filename }}" sandbox="allow-scripts" data-testid="shared-file-frame"></iframe>
 </body>
 </html>

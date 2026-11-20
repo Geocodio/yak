@@ -3,13 +3,14 @@ import { useEmbed } from '@/embed/useEmbed';
 import { useThreadEventFeed } from '@/threads/realtime/useThreadEventFeed';
 import { livePropsSignature, useRefreshThreadProps } from '@/threads/realtime/useRefreshThreadProps';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
+import type { ThreadEventState } from '@/types/thread-events';
 import type { ThreadMessage } from '@/types/threads';
 import { projectConversation } from './projectConversation';
 import { createReadTracker, mergeConversation, type ConversationEntry } from './mergeConversation';
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState } {
+export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState; agents: ThreadEventState['agents'] } {
     const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId, useEmbed() === null);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
@@ -18,5 +19,5 @@ export function useConversation(threadId: string, messages: ThreadMessage[]): { 
     const readKey = readUuids.join(',');
     const entries = useMemo(() => mergeConversation(messages, readUuids, items, readSequences), [messages, readKey, items, readSequences]);
 
-    return { entries, lastSequence: events.lastSequence, connection: events.connection, link };
+    return { entries, lastSequence: events.lastSequence, connection: events.connection, link, agents: events.agents };
 }

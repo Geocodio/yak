@@ -799,8 +799,9 @@ function pushedMcpConfig(array $hostConfig): array
 
     $pushed = null;
     Process::fake(function (PendingProcess $process) use (&$pushed) {
-        preg_match("/incus file push '([^']+)'/", (string) $process->command, $matches);
-        $pushed = json_decode((string) file_get_contents($matches[1]), true);
+        if (preg_match("/incus file push '([^']+)'/", (string) $process->command, $matches) === 1) {
+            $pushed = json_decode((string) file_get_contents($matches[1]), true);
+        }
 
         return Process::result();
     });
@@ -828,6 +829,12 @@ it('pushes the host MCP config unchanged when Linear is not connected', function
     $config = pushedMcpConfig(['mcpServers' => ['context7' => ['command' => 'npx']]]);
 
     expect($config)->toBe(['mcpServers' => ['context7' => ['command' => 'npx']]]);
+});
+
+it('hands the pushed MCP config to the yak user', function () {
+    pushedMcpConfig(['mcpServers' => []]);
+
+    Process::assertRan(fn (PendingProcess $process) => str_contains((string) $process->command, 'chown yak:yak /home/yak/mcp-config.json'));
 });
 
 it('keeps a linear server already defined in the host MCP config', function () {

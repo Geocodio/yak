@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
@@ -119,6 +120,16 @@ class Artifact extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'yak_task_id');
+    }
+
+    /**
+     * The saved states of a shared file after its first, oldest first.
+     *
+     * @return HasMany<ArtifactVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(ArtifactVersion::class)->orderBy('version');
     }
 
     /**

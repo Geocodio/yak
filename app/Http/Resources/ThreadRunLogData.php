@@ -6,12 +6,14 @@ use App\Enums\TaskRunKind;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\ThreadEvent;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadTasks;
 use App\Services\Threads\ThreadTurns;
 use App\Support\Markdown;
 use Carbon\CarbonInterface;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -51,8 +53,31 @@ final class ThreadRunLogData
 
         $hasMore = $page->count() > self::PAGE_SIZE;
         $page = $page->take(self::PAGE_SIZE)->values();
-        $results = self::toolResults($thread, $bounds, $page);
-        $numbers = self::stepNumbers($thread, $bounds, $page);
+        $results = self::toolResults(fn (): Builder => self::runEvents($thread, $bounds), $page);
+        $numbers = self::stepNumbers(fn (): Builder => self::runEvents($thread, $bounds), $page);
+
+        return [
+            'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped([...self::eventEntry($event, $results), 'number' => $numbers[$event->sequence] ?? null]))->all()),
+            'nextCursor' => $hasMore ? $page->last()?->sequence : null,
+        ];
+    }
+
+    /**
+     * The log of one agent or workflow: its own entries across turns, a page of 50 steps after a cursor.
+     * Claude's own run log leaves these entries out.
+     *
+     * @return RunLogPage
+     */
+    public static function forAgent(Thread $thread, ThreadAgent $agent, int $cursor): array
+    {
+        $ids = array_values(array_filter([$agent->task_id, $agent->tool_use_id]));
+        $events = fn (): Builder => ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'entry')->whereIn('payload->agentId', $ids);
+
+        $page = $events()->where('sequence', '>', $cursor)->where('payload->role', '!=', 'tool_result')->orderBy('sequence')->limit(self::PAGE_SIZE + 1)->get();
+        $hasMore = $page->count() > self::PAGE_SIZE;
+        $page = $page->take(self::PAGE_SIZE)->values();
+        $results = self::toolResults($events, $page);
+        $numbers = self::stepNumbers($events, $page);
 
         return [
             'entries' => array_values($page->map(fn (ThreadEvent $event): array => self::capped([...self::eventEntry($event, $results), 'number' => $numbers[$event->sequence] ?? null]))->all()),
@@ -171,6 +196,7 @@ final class ThreadRunLogData
     private static function runEvents(Thread $thread, array $bounds): Builder
     {
         return ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'entry')
+            ->when(ThreadAgent::isEnabled(), fn (Builder $query) => $query->whereNull('payload->agentId'))
             ->where('sequence', '>', $bounds['start'])
             ->when($bounds['end'] !== null, fn (Builder $query) => $query->where('sequence', '<', $bounds['end']));
     }
@@ -178,11 +204,11 @@ final class ThreadRunLogData
     /**
      * The result events of the tool calls on a page, by tool call id.
      *
-     * @param  array{start: int, end: ?int}  $bounds
+     * @param  Closure(): Builder<ThreadEvent>  $events  the entries the page was cut from
      * @param  Collection<int, ThreadEvent>  $page
      * @return array<string, array{text: string, isError: bool, at: CarbonInterface}>
      */
-    private static function toolResults(Thread $thread, array $bounds, Collection $page): array
+    private static function toolResults(Closure $events, Collection $page): array
     {
         $ids = $page->flatMap(fn (ThreadEvent $event): array => array_column(self::toolCalls($event), 'id'))->filter()->unique()->values()->all();
 
@@ -192,7 +218,7 @@ final class ThreadRunLogData
 
         $results = [];
 
-        foreach (self::runEvents($thread, $bounds)->where('payload->role', 'tool_result')->whereIn('payload->toolUseId', $ids)->orderBy('sequence')->get() as $event) {
+        foreach ($events()->where('payload->role', 'tool_result')->whereIn('payload->toolUseId', $ids)->orderBy('sequence')->get() as $event) {
             $results[(string) $event->payload['toolUseId']] = ['text' => (string) ($event->payload['text'] ?? ''), 'isError' => (bool) ($event->payload['isError'] ?? false), 'at' => $event->created_at];
         }
 
@@ -204,19 +230,19 @@ final class ThreadRunLogData
      * steps before the page and one read of the step sequences inside the page's range, so a page costs two small
      * queries however long the run is.
      *
-     * @param  array{start: int, end: ?int}  $bounds
+     * @param  Closure(): Builder<ThreadEvent>  $events  the entries the page was cut from
      * @param  Collection<int, ThreadEvent>  $page
      * @return array<int, int>
      */
-    private static function stepNumbers(Thread $thread, array $bounds, Collection $page): array
+    private static function stepNumbers(Closure $events, Collection $page): array
     {
         if ($page->isEmpty()) {
             return [];
         }
 
         $first = (int) $page->first()->sequence;
-        $before = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->where('sequence', '<', $first)->count();
-        $inRange = self::runEvents($thread, $bounds)->where('payload->role', '!=', 'tool_result')->whereBetween('sequence', [$first, (int) $page->last()->sequence])->orderBy('sequence')->pluck('sequence')->all();
+        $before = $events()->where('payload->role', '!=', 'tool_result')->where('sequence', '<', $first)->count();
+        $inRange = $events()->where('payload->role', '!=', 'tool_result')->whereBetween('sequence', [$first, (int) $page->last()->sequence])->orderBy('sequence')->pluck('sequence')->all();
 
         return array_map(fn (int $index): int => $before + $index + 1, array_flip(array_map('intval', $inRange)));
     }
@@ -334,6 +360,7 @@ final class ThreadRunLogData
             'badge' => $name,
             'kind' => 'tool',
             'tool' => $name,
+            'agentToolUseIds' => array_values(array_filter(array_map(fn (array $call): ?string => ($call['name'] ?? null) === 'Agent' && is_string($call['id'] ?? null) ? $call['id'] : null, $calls))),
             'text' => Str::limit(trim($name . ' ' . $subject), 200),
             'subject' => Str::limit($subject, 500),
             'isShellCommand' => count($calls) === 1 && $name === 'Bash' && isset($input['command']),

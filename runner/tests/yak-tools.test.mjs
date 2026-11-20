@@ -74,6 +74,13 @@ test('it defines exactly the six Yak tools on a server named yak', () => {
     ['add_repository', 'list_threads', 'request_refresh', 'send_message', 'set_merge_order', 'spawn_thread']);
 });
 
+test('spawn_thread says to use the Agent tool for work in this checkout', () => {
+  const { byName } = setup();
+  const description = byName('spawn_thread').description;
+  assert.match(description, /its own branch, another repository, its own pull request or its own preview/);
+  assert.match(description, /Agent tool/);
+});
+
 test('it validates inputs with zod', () => {
   const { byName } = setup();
   const spawn = byName('spawn_thread').schema;

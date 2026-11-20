@@ -21,6 +21,11 @@ router.on('finish', (event) => {
     }
 });
 
+/** True while a non-GET visit is running, so a reload of other props does not take its flash. */
+export function hasMutationsInFlight(): boolean {
+    return mutationsInFlight > 0;
+}
+
 /**
  * The status pill, the composer and the panels render server props. A turn or thread event means those
  * props are stale, so this reloads them, and keeps trying while the link is down.

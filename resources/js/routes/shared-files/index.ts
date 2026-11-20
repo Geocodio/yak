@@ -63,7 +63,7 @@ show.head = (args: { publicId: string | number } | [publicId: string | number ] 
 
 /**
 * @see \App\Http\Controllers\SharedFileController::raw
-* @see app/Http/Controllers/SharedFileController.php:48
+* @see app/Http/Controllers/SharedFileController.php:49
 * @route '/files/{publicId}/raw'
 */
 export const raw = (args: { publicId: string | number } | [publicId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -78,7 +78,7 @@ raw.definition = {
 
 /**
 * @see \App\Http\Controllers\SharedFileController::raw
-* @see app/Http/Controllers/SharedFileController.php:48
+* @see app/Http/Controllers/SharedFileController.php:49
 * @route '/files/{publicId}/raw'
 */
 raw.url = (args: { publicId: string | number } | [publicId: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -105,7 +105,7 @@ raw.url = (args: { publicId: string | number } | [publicId: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\SharedFileController::raw
-* @see app/Http/Controllers/SharedFileController.php:48
+* @see app/Http/Controllers/SharedFileController.php:49
 * @route '/files/{publicId}/raw'
 */
 raw.get = (args: { publicId: string | number } | [publicId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -115,7 +115,7 @@ raw.get = (args: { publicId: string | number } | [publicId: string | number ] | 
 
 /**
 * @see \App\Http\Controllers\SharedFileController::raw
-* @see app/Http/Controllers/SharedFileController.php:48
+* @see app/Http/Controllers/SharedFileController.php:49
 * @route '/files/{publicId}/raw'
 */
 raw.head = (args: { publicId: string | number } | [publicId: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

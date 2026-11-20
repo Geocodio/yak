@@ -21,3 +21,15 @@ test('files without an anchor, or before any loaded event, go at the end', () =>
     assert.equal(after.size, 0);
     assert.deepEqual(trailing.map((f) => f.id), ['a', 'b']);
 });
+
+import { placeFileUpdates } from './sharedFiles.ts';
+
+test('a later version sits after the event it changed after, and an unanchored one goes last', () => {
+    const entries = [event(1), event(5), event(9)];
+    const report = { id: 'a', versions: [{ version: 2, anchorSequence: 6, createdAt: '2026-11-20T10:00:00Z' }, { version: 3, anchorSequence: null, createdAt: '2026-11-20T11:00:00Z' }] };
+    const { after, trailing } = placeFileUpdates(entries, [report]);
+
+    assert.deepEqual(after.get(1).map((update) => update.version.version), [2]);
+    assert.deepEqual(trailing.map((update) => update.version.version), [3]);
+    assert.equal(placeFileUpdates(entries, [{ id: 'b', versions: [] }]).after.size, 0);
+});

@@ -29,6 +29,7 @@ class ThreadMessageController extends Controller
                 : TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]),
             $request->acknowledgedPrivatePublish(),
             $request->validated('effort'),
+            hasAttachments: $request->hasFile('attachments'),
         );
 
         return response()->json($sender->send($thread, $request->user() ?? abort(401), $input)->toArray());

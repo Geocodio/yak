@@ -110,7 +110,8 @@
             }
         ],
         "nextAttachmentNumber": 4,
-        "state": "idle"
+        "state": "idle",
+        "turn": null
     },
     "diffTotals": null,
     "earlierWalkthroughs": [],

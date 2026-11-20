@@ -25,7 +25,7 @@ export function createYakTools({ write, timeoutMs = TOOL_CALL_TIMEOUT_MS, random
   const define = (name, description, shape) => tool(name, `${description} ${LOCAL_SESSION_NOTE}`, shape, (input) => call(name, input));
 
   const tools = [
-    define('spawn_thread', 'Start a new thread with its own sandbox and a brief.', {
+    define('spawn_thread', 'Start a sub-thread: a separate thread with its own sandbox, branch and pull request. Use it only when the work needs its own branch, another repository, its own pull request or its own preview. For parallel work in this checkout (research, exploring, building parts on the same branch), use your own Agent tool instead.', {
       name: z.string(),
       brief: z.string(),
       kind: z.enum(['implement', 'mockup', 'research', 'general']).default('general'),

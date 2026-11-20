@@ -7,6 +7,8 @@ import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActi
 import { drop, split, stop, takeOver } from '@/routes/threads/stack';
 import type { PanelProps } from '@/threads/panels';
 import { OverviewGroup } from '../environment/OverviewRow';
+import { useAgents } from '@/threads/panels/agents/AgentsContext';
+import { SUB_THREAD_DEFINITION } from '@/threads/panels/agents/words';
 import { AwakeLimitStepper } from './AwakeLimitStepper';
 import { ChildRow } from './ChildRow';
 import { StackMessages } from './StackMessages';
@@ -16,6 +18,7 @@ import { StackMessages } from './StackMessages';
  * the Awake at once stepper, and Stop stack. Adding a sub-thread lives here, in the composer menu and in the command palette.
  */
 export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAddSubThread }: PanelProps) {
+    const agents = useAgents();
     const [isConfirmingStop, setIsConfirmingStop] = useState(false);
     const [isStopping, setIsStopping] = useState(false);
 
@@ -59,6 +62,17 @@ export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAdd
             testId="stack-panel"
         >
             <div className="flex flex-col gap-4">
+                <p className="text-[12.5px] text-muted" data-testid="stack-definition">
+                    {SUB_THREAD_DEFINITION}
+                    {agents !== null && (
+                        <>
+                            {' '}
+                            <Button variant="link" onClick={() => agents.openPanel()} data-testid="stack-view-agents">
+                                View in Agents
+                            </Button>
+                        </>
+                    )}
+                </p>
                 {stack.parent && (
                     <p className="text-[12.5px] text-muted">
                         Part of <span className="font-medium text-body">{stack.parent.title}</span>. A sub-thread cannot start sub-threads of its own.

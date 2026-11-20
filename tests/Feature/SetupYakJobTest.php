@@ -1042,3 +1042,36 @@ test('the stored hash is the hash of the script that ran', function () {
 
     expect($repository->setup_script_hash)->toBe(SetupScriptHash::forContents("echo built\n"));
 });
+
+test('rerun setup reuses a setup that is still running instead of starting a second one', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+
+    $this->post(route('repos.store'), [
+        'name' => 'Busy Repo',
+        'git_url' => 'https://github.com/acme/busy-repo.git',
+        'default_branch' => 'main',
+        'ci_system' => 'github_actions',
+    ])->assertRedirect();
+
+    $repository = Repository::where('slug', 'busy-repo')->firstOrFail();
+    $running = $repository->setupTask;
+
+    $this->post(route('repos.rerun-setup', $repository))
+        ->assertRedirect(route('repos.runs.show', [$repository, $running]))
+        ->assertSessionHas('success', 'Setup is already running.');
+
+    expect(YakTask::where('repo', 'busy-repo')->where('mode', TaskMode::Setup)->count())->toBe(1);
+    Queue::assertPushed(SetupYakJob::class, 1);
+});
+
+test('rerun setup starts a new setup once the last one finished', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    $finished = YakTask::factory()->create(['repo' => 'done-repo', 'mode' => TaskMode::Setup, 'status' => TaskStatus::Failed]);
+    $repository = Repository::factory()->create(['slug' => 'done-repo', 'setup_status' => 'failed', 'setup_task_id' => $finished->id]);
+
+    $this->post(route('repos.rerun-setup', $repository))->assertRedirect();
+
+    expect($repository->fresh()->setup_task_id)->not->toBe($finished->id);
+});

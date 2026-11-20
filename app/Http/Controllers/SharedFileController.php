@@ -43,7 +43,8 @@ class SharedFileController extends Controller
 
     /**
      * The file's bytes, for the viewer's frame and for downloads. An HTML report is served in a sandbox so a
-     * direct visit cannot run its scripts in Yak's origin.
+     * report's scripts run in an opaque origin (`allow-scripts` without `allow-same-origin`), so they
+     * cannot read Yak's cookies or storage or call Yak as the person, whether framed or opened directly.
      */
     public function raw(Request $request, string $publicId): BinaryFileResponse
     {
@@ -79,10 +80,10 @@ class SharedFileController extends Controller
             'csv' => 'text/csv',
             'pdf' => 'application/pdf',
             default => 'application/octet-stream',
-        }, 'X-Content-Type-Options' => 'nosniff'];
+        }, 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-cache, private'];
 
         if ($extension === 'html') {
-            $headers['Content-Security-Policy'] = 'sandbox';
+            $headers['Content-Security-Policy'] = 'sandbox allow-scripts';
         }
 
         $response = response()->file(Storage::disk('artifacts')->path((string) $file->disk_path), $headers);

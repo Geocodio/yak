@@ -33,8 +33,13 @@ export function buildChildEnvironment(start, processEnvironment) {
   environment.ANTHROPIC_BASE_URL = start.anthropicBaseUrl;
   environment.CLAUDE_CODE_OAUTH_TOKEN = start.placeholder;
   environment.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
-  // Documented in the SDK's backgroundTasks(): with this set nothing is backgrounded, so a timed-out command cannot keep a finished turn open.
-  environment.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS = '1';
+  if (start.subagents) {
+    // Background agents and tasks run past Claude's reply; the CLI reports the true end of the session as session_state_changed idle.
+    environment.CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS = '1';
+  } else {
+    // Documented in the SDK's backgroundTasks(): with this set nothing is backgrounded, so a timed-out command cannot keep a finished turn open.
+    environment.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS = '1';
+  }
   return environment;
 }
 
