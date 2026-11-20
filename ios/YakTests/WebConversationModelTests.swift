@@ -81,10 +81,35 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         #expect(harness.paths.isEmpty && harness.page.redeems.isEmpty)
     }
 
-    @Test func theChoiceIsMadeOnce() {
+    @Test func theChoiceFollowsAChangeOfTheServersAnswer() async {
         let harness = Harness(supports: false)
-        harness.model.configure(supportsEmbeddedThread: true)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.configure(supportsEmbeddedThread: false)
         #expect(harness.model.mode == .native)
+        harness.model.configure(supportsEmbeddedThread: true)
+        #expect(harness.model.mode == .web)
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(harness.model.loadPresentation == .conversation)
+        harness.model.configure(supportsEmbeddedThread: false)
+        #expect(harness.model.mode == .native && harness.model.phase == .unsupported)
+        harness.model.configure(supportsEmbeddedThread: true)
+        #expect(await harness.waitForRedeems(2))
+        #expect(harness.model.loadPresentation == .loading)
+    }
+
+    @Test func aModelThatHasNotChosenYetMintsNothing() async {
+        var mints = 0
+        let undecided = WebConversationModel(
+            instanceURL: instanceURL, allowsLoopbackHTTP: false,
+            mint: { _ in
+                mints += 1
+                return .failed(.network)
+            })
+        undecided.show(thread: "d0e515ef")
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(undecided.mode == .undecided && mints == 0)
     }
 
     @Test func theMintEffectAsksForTheShownThreadAndTheRedeemEffectLoadsThePost() async throws {

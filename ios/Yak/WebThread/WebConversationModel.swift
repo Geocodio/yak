@@ -121,10 +121,20 @@ final class WebConversationModel {
 
     // MARK: Decision
 
-    /// Chooses the page or the native chat from what the server offers. The first choice stands for the window.
+    /// Chooses the page or the native chat from what the server offers, and follows a later change of the answer:
+    /// the machine is built again for the new answer, because it is built for one `me.web` value.
     func configure(supportsEmbeddedThread: Bool) {
-        guard mode == .undecided else { return }
-        mode = supportsEmbeddedThread ? .web : .native
+        let chosen: Mode = supportsEmbeddedThread ? .web : .native
+        guard mode != chosen else { return }
+        mode = chosen
+        mintTask?.cancel()
+        switchTask?.cancel()
+        tickTask?.cancel()
+        tickTask = nil
+        pageThreadID = nil
+        readyThreadID = nil
+        openedThreadID = nil
+        hasBegun = false
         machine = WebConversationMachine(supportsEmbeddedThread: supportsEmbeddedThread, threadID: threadID)
         if supportsEmbeddedThread, threadID != nil { begin() }
     }

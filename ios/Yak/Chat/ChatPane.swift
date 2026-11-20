@@ -42,7 +42,7 @@ private struct ChatPane: View {
                     openFiles: thread.panes.contains(.files) ? { scene.select(.files) } : nil)
             }
         }
-        .task(id: canChooseConversation) { await chooseConversation() }
+        .task(id: canChooseConversation) { await followConversationChoice() }
         .task(id: usesWeb) { await followOutbox() }
         .onAppear {
             web?.handleRequest = { [thread, scene] request in handle(request, thread: thread, scene: scene) }
@@ -134,10 +134,20 @@ private struct ChatPane: View {
         .motion(Motion.crossFade, value: presentation)
     }
 
-    private func chooseConversation() async {
+    /// How often a window that has chosen asks again whether the server turned the page on or off.
+    private static let choiceRecheckInterval: Duration = .seconds(5)
+    /// How often a window that has not chosen yet asks whether the server's answer has arrived.
+    private static let choicePollInterval: Duration = .seconds(1)
+
+    /// The choice waits for the server's answer (`me`); until then the window shows its loading state. A later
+    /// change of the answer is followed.
+    private func followConversationChoice() async {
         guard canChooseConversation, let web else { return }
-        let supports = await thread.session.me()?.supportsEmbeddedThread == true
-        web.configure(supportsEmbeddedThread: supports)
+        while !Task.isCancelled {
+            if let me = await thread.session.me() { web.configure(supportsEmbeddedThread: me.supportsEmbeddedThread) }
+            let wait = web.mode == .undecided ? Self.choicePollInterval : Self.choiceRecheckInterval
+            do { try await thread.session.clock.sleep(for: wait) } catch { return }
+        }
     }
 
     // MARK: From the page
