@@ -16,8 +16,8 @@ use App\Services\Threads\ThreadTurns;
  * come flat with `parentTaskId` and `depth`; the page builds the nesting. The array shapes here are
  * the source of truth for `resources/js/types/thread-agents.ts`.
  *
- * @phpstan-type AgentRow array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int}
- * @phpstan-type AgentRowWithMessages array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int, messages: list<AgentMessageRow>}
+ * @phpstan-type AgentRow array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int}
+ * @phpstan-type AgentRowWithMessages array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int, messages: list<AgentMessageRow>}
  * @phpstan-type AgentMessageRow array{id: int, text: string, authorName: ?string, sentAt: string, forwardedAt: ?string}
  * @phpstan-type SubThreadRow array{id: string, name: string, title: string, kind: string, state: 'queued'|'working'|'waiting'|'done'|'failed'|'closed', step: ?string, branch: ?string, pullRequestUrl: ?string}
  */
@@ -75,11 +75,13 @@ final class ThreadAgentsData
             'depth' => $agent->depth,
             'agentType' => $agent->agent_type,
             'description' => $agent->description,
+            'prompt' => $agent->prompt,
             'workflowName' => $agent->workflow_name,
             'model' => $agent->model,
             'isBackground' => $agent->is_background,
             'status' => $agent->status->value,
             'lastTool' => $agent->last_tool,
+            'lastToolTarget' => $agent->last_tool_target,
             'summary' => $agent->summary,
             'totalTokens' => (int) $agent->total_tokens,
             'toolUses' => $agent->tool_uses,

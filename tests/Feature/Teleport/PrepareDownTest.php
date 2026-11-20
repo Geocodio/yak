@@ -1,7 +1,9 @@
 <?php
 
 use App\DataTransferObjects\SandboxWake;
+use App\Enums\RunnerState;
 use App\Enums\TeleportState;
+use App\Enums\ThreadAgentStatus;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\PrepareTeleportDownJob;
@@ -10,15 +12,18 @@ use App\Models\SessionFile;
 use App\Models\TaskRun;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\ThreadRepository;
 use App\Models\ThreadSession;
 use App\Models\YakTask;
 use App\Services\SessionStore\SessionStore;
 use App\Services\Teleport\BranchHeadVerifier;
 use App\Services\Teleport\ThreadNotOwnedByYak;
+use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -242,4 +247,30 @@ it('stays preparing while no sandbox slot is free', function () {
     $this->thread->update(['sandbox_state' => ThreadSandboxState::Stopped]);
 
     expect(runDown(downTeleport($this))->state)->toBe(TeleportState::Preparing);
+});
+
+it('stops running agents, waits for them to end, and proceeds on the next attempt', function () {
+    config(['yak.threads.subagents' => true]);
+    $this->thread->forceFill(['runner_generation' => 1, 'runner_state' => RunnerState::Idle])->save();
+    $agents = ThreadAgent::factory()->count(2)->create(['thread_id' => $this->thread->id]);
+    $broker = app(BrokerStreams::class);
+    $stream = 'threads:' . $this->thread->id;
+
+    $teleport = runDown(downTeleport($this));
+
+    expect($teleport->state)->toBe(TeleportState::WaitingForTurn)
+        ->and($this->sandboxes->calls)->toBe([])
+        ->and(collect($broker->commands($stream))->pluck('taskId')->sort()->values()->all())->toBe($agents->pluck('task_id')->sort()->values()->all());
+
+    // The same attempt again while they still run asks again and still waits.
+    expect(runDown($teleport)->state)->toBe(TeleportState::WaitingForTurn);
+
+    foreach ($agents as $index => $agent) {
+        app(ThreadDriver::class)->handle($broker->pushOut($stream, 1, $index + 1, [
+            'type' => 'system', 'subtype' => 'task_notification', 'task_id' => $agent->task_id, 'status' => 'stopped', 'summary' => 'Stopped',
+        ]));
+    }
+
+    expect($agents->map->refresh()->pluck('status')->unique()->all())->toBe([ThreadAgentStatus::Stopped])
+        ->and(runDown($teleport)->state)->toBe(TeleportState::Ready);
 });

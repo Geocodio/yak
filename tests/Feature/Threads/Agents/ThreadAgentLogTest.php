@@ -122,3 +122,15 @@ it('shapes an agent row and the main agent state', function () {
         ->and($data['agents'][0])->toMatchArray(['id' => $agent->task_id, 'kind' => 'agent', 'status' => 'running', 'totalTokens' => 1234, 'toolUses' => 3, 'lastTool' => 'Bash', 'depth' => 1, 'messages' => []])
         ->and(ThreadAgentsData::for(Thread::factory()->create())['main']['state'])->toBe('idle');
 });
+
+it('exposes the tool call ids of the Agent calls in a log entry', function () {
+    [$thread] = threadWithAgentSteps();
+
+    $entries = $this->actingAs(User::factory()->create())->getJson(route('threads.agents.log', [$thread, 'aone']))->assertOk()->json('entries');
+    agentLogEntry($thread, 8, ['role' => 'assistant', 'agentId' => 'aone', 'blocks' => [['type' => 'tool_use', 'id' => 'toolu_child', 'name' => 'Agent', 'input' => ['description' => 'Same', 'prompt' => 'p']]]]);
+
+    $after = $this->actingAs(User::factory()->create())->getJson(route('threads.agents.log', [$thread, 'aone']))->json('entries');
+
+    expect($entries[0]['agentToolUseIds'])->toBe([])
+        ->and(collect($after)->firstWhere('id', 8)['agentToolUseIds'])->toBe(['toolu_child']);
+});

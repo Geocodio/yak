@@ -58,6 +58,7 @@ class ThreadAgents
 
         if ($type === 'assistant') {
             $this->markForwarded($thread, $line);
+            $this->recordTarget($thread, $line, $events);
 
             return;
         }
@@ -223,6 +224,8 @@ class ThreadAgents
             'kind' => $kind,
             'agent_type' => $line['subagent_type'] ?? $agent->agent_type,
             'description' => $line['description'] ?? $agent->description,
+            'prompt' => is_string($line['prompt'] ?? null) ? $line['prompt'] : $agent->prompt,
+            'last_tool_target' => null,
             'workflow_name' => $line['workflow_name'] ?? null,
             'model' => $line['model'] ?? $agent->model,
             'is_background' => (bool) ($line['is_backgrounded'] ?? $kind === ThreadAgentKind::Workflow),
@@ -289,6 +292,52 @@ class ThreadAgents
         ], fn (mixed $value): bool => $value !== null))->save();
 
         $this->publish($thread->id, 'agent.finished', $agent, $events);
+    }
+
+    /**
+     * What an agent works on now, from its own latest tool call: the file, command, pattern or url.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function recordTarget(Thread $thread, array $line, array &$events): void
+    {
+        $taskId = $line['agent_id'] ?? null;
+
+        if (! is_string($taskId) || $taskId === '') {
+            return;
+        }
+
+        $call = null;
+
+        foreach ((array) ($line['message']['content'] ?? []) as $block) {
+            if (is_array($block) && ($block['type'] ?? null) === 'tool_use') {
+                $call = $block;
+            }
+        }
+
+        $agent = $call === null ? null : ThreadAgent::query()->where('thread_id', $thread->id)->where('task_id', $taskId)->first();
+
+        if ($agent === null || ! $agent->isRunning()) {
+            return;
+        }
+
+        $agent->forceFill(['last_tool' => is_string($call['name'] ?? null) ? $call['name'] : $agent->last_tool, 'last_tool_target' => self::targetOf((array) ($call['input'] ?? []))])->save();
+        $this->publish($thread->id, 'agent.progress', $agent, $events, isStored: false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    public static function targetOf(array $input): ?string
+    {
+        foreach (['file_path', 'command', 'pattern', 'url', 'description'] as $key) {
+            if (is_string($input[$key] ?? null) && $input[$key] !== '') {
+                return mb_substr($input[$key], 0, $key === 'command' ? 80 : 255);
+            }
+        }
+
+        return null;
     }
 
     /**

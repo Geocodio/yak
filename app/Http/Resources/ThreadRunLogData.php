@@ -360,6 +360,7 @@ final class ThreadRunLogData
             'badge' => $name,
             'kind' => 'tool',
             'tool' => $name,
+            'agentToolUseIds' => array_values(array_filter(array_map(fn (array $call): ?string => ($call['name'] ?? null) === 'Agent' && is_string($call['id'] ?? null) ? $call['id'] : null, $calls))),
             'text' => Str::limit(trim($name . ' ' . $subject), 200),
             'subject' => Str::limit($subject, 500),
             'isShellCommand' => count($calls) === 1 && $name === 'Bash' && isset($input['command']),

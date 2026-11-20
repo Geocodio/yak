@@ -27,12 +27,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ThreadAgentKind $kind
  * @property string|null $agent_type
  * @property string|null $description
+ * @property string|null $prompt
  * @property string|null $workflow_name
  * @property string|null $model
  * @property bool $is_background
  * @property bool $needs_follow_up
  * @property ThreadAgentStatus $status
  * @property string|null $last_tool
+ * @property string|null $last_tool_target
  * @property string|null $summary
  * @property int $total_tokens
  * @property int $tool_uses
