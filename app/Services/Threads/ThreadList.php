@@ -18,6 +18,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\ThreadStar;
 use App\Models\ThreadView;
 use App\Models\User;
@@ -82,6 +83,9 @@ class ThreadList
             ->whereIn('id', $all->map(fn (Thread $thread): mixed => $thread->getAttribute('latest_run_id'))->filter()->all())
             ->get(['id', 'thread_id', 'turn_state', 'finished_at', 'updated_at'])
             ->keyBy('id');
+        // Agents run on after Claude's reply: a thread with one still working shows as running.
+        $withAgents = ThreadAgent::query()->running()->whereIn('thread_id', $all->pluck('id')->all())->distinct()->pluck('thread_id')->flip();
+        $all->each(fn (Thread $thread) => $thread->setAttribute('has_running_agents', $withAgents->has($thread->id)));
         $seen = ThreadView::query()
             ->where('user_id', $user->id)
             ->whereIn('thread_id', $all->pluck('id')->all())
@@ -355,7 +359,7 @@ class ThreadList
     {
         return match (true) {
             ! $thread->isOpen() => ThreadListStatus::Closed,
-            in_array($run?->getAttribute('turn_state'), [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true) => ThreadListStatus::Running,
+            in_array($run?->getAttribute('turn_state'), [TurnState::Running, TurnState::WaitingForAccount, TurnState::WaitingForSandbox], true), $thread->getAttribute('has_running_agents') === true => ThreadListStatus::Running,
             $thread->blocked_reason === ThreadBlockReason::WaitingForRepository => ThreadListStatus::WaitingForRepository,
             $thread->blocked_reason !== null => ThreadListStatus::Blocked,
             $thread->sandbox_state === ThreadSandboxState::Paused => ThreadListStatus::Paused,

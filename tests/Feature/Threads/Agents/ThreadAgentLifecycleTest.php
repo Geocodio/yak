@@ -14,6 +14,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadAgent;
 use App\Models\ThreadEvent;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Push\PushEvent;
@@ -26,6 +27,7 @@ use App\Services\Threads\RunnerRecovery;
 use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadList;
 use App\Services\Threads\ThreadRequestStatus;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
@@ -221,4 +223,16 @@ it('stops a runaway turn without stopping the agents or giving them a time limit
     expect($run->refresh()->turn_state)->toBe(TurnState::StoppedByGuard)
         ->and($types)->toContain('interrupt')->not->toContain('stop_agent')
         ->and($agent->refresh()->status)->toBe(ThreadAgentStatus::Running);
+});
+
+it('shows a thread in the list as running while an agent runs after the reply', function () {
+    $user = User::factory()->create();
+    $busy = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Has an agent']);
+    $idle = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => 'Does not']);
+    ThreadAgent::factory()->create(['thread_id' => $busy->id]);
+
+    $statuses = collect(ThreadList::for($user)['threads'] ?? [])->pluck('status', 'id');
+
+    expect($statuses[$busy->public_id])->toBe('running')
+        ->and($statuses[$idle->public_id])->not->toBe('running');
 });
