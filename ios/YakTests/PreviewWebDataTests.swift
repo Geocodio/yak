@@ -121,11 +121,14 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(inPreview.isEmpty)
         #expect(Set(try known(defaults)) == [previewID, embedID])
         #expect(await eraseEventually(instance, defaults: defaults))
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(!existing.contains(embedID) && !existing.contains(previewID))
+        // WebKit lists a removed store for a moment longer.
+        #expect(
+            await TestTimeScale.poll {
+                let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+                return !existing.contains(embedID) && !existing.contains(previewID)
+            })
         #expect(try known(defaults).isEmpty)
     }
-
 
     @Test func aPendingInstanceErasesItsEmbedStoreEvenWhenTheKnownRecordIsUnreadable() async throws {
         let defaults = PreviewDefaults()
