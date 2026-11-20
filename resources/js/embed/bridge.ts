@@ -162,6 +162,13 @@ export function installReceiver(): void {
     window.__yakEmbed = { receive: receiveFromApp };
 }
 
+/** The URL as the app should fetch it, or null when it leaves this origin (the session cookie must not travel there). */
+export function sameOriginUrl(href: string, base: string = window.location.href): string | null {
+    const url = new URL(href, base);
+
+    return url.origin === new URL(base).origin ? url.href : null;
+}
+
 let isAuthReported = false;
 
 /** Tells the app the session ended, once per page load, and only while an embed page is mounted. */

@@ -2,7 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { UnsentMessage } from '@/threads/outbox/outbox';
 import type { SharedProps } from '@/types/shared';
-import { sendToApp, type AppMessage, type PageMessage } from './bridge';
+import { sameOriginUrl, sendToApp, type AppMessage, type PageMessage } from './bridge';
 import { feedProgressOf, subscribeFeedProgress } from './feedProgress';
 import { embedOutboxOf, subscribeEmbedOutbox, visibleOutbox } from './outboxSource';
 
@@ -13,6 +13,13 @@ export function useEmbed(): Embed | null {
     const embed = usePage<SharedProps>().props.embed;
 
     return useMemo(() => (embed === null ? null : { ...embed, post: sendToApp }), [embed]);
+}
+
+/** Hands a download to the app's quick look; false when there is no app or the URL leaves this origin, so the browser handles it. */
+export function postQuickLook(embed: Embed | null, href: string, name: string): boolean {
+    const url = sameOriginUrl(href);
+
+    return embed !== null && url !== null && embed.post({ type: 'quickLook', url, name });
 }
 
 /** Runs the handler for each message of this type the app sends. */

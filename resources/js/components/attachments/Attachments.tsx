@@ -1,6 +1,7 @@
 import { IconButton, Tooltip, cn } from '@geocodio/console-ui';
 import { File, FileArchive, FileAudio, FileCode, FileSpreadsheet, FileText, FileVideo, ImagePlus, Paperclip, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { postQuickLook, useEmbed } from '@/embed/useEmbed';
 import { formatBytes } from '@/lib/format';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { AttachmentData, MediaItem } from '@/types/tasks';
@@ -74,6 +75,7 @@ function AttachmentTile({
     large?: boolean;
     testId?: string;
 }) {
+    const embed = useEmbed();
     const frame = cn(
         'block overflow-hidden rounded-card border bg-panel-2 shadow-card outline-none transition-[border-color,box-shadow,translate]',
         'focus-visible:ring-2 focus-visible:ring-accent hover:border-hair-strong',
@@ -126,7 +128,7 @@ function AttachmentTile({
             {body}
         </button>
     ) : href ? (
-        <a href={href} download={name} className={frame} aria-label={label} title={name}>
+        <a href={href} download={name} onClick={(event) => postQuickLook(embed, href, name) && event.preventDefault()} className={frame} aria-label={label} title={name}>
             {body}
         </a>
     ) : (
@@ -324,6 +326,7 @@ export function MessageWithAttachments({
     onOpenMedia: (media: MediaItem[], index: number) => void;
     children: ReactNode;
 }) {
+    const embed = useEmbed();
     const [highlighted, setHighlighted] = useState<string | null>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -347,7 +350,7 @@ export function MessageWithAttachments({
         if (attachment.previewKind) {
             const { media, ids } = sentMedia(attachments);
             onOpenMedia(media, ids.indexOf(attachment.id));
-        } else {
+        } else if (!postQuickLook(embed, attachment.downloadUrl, attachment.name)) {
             window.location.assign(attachment.downloadUrl);
         }
     };

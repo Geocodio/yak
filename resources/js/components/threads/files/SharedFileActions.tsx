@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import { Button, Dialog, Toggle, cn, toast } from '@geocodio/console-ui';
 import { Check, Download, ExternalLink, Eye, Link as LinkIcon, Users } from 'lucide-react';
 import { useState } from 'react';
-import { useEmbed } from '@/embed/useEmbed';
+import { postQuickLook, useEmbed } from '@/embed/useEmbed';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { csrfToken } from '@/lib/csrfToken';
 import { teamShare } from '@/routes/threads/shared-files';
@@ -41,7 +41,7 @@ export function OpenFileButton({ file, className }: { file: SharedFile; classNam
             {...(action === 'open' ? { target: '_blank', rel: 'noopener noreferrer' } : { download: file.name })}
             onClick={(event) => {
                 // A download in the app opens in the system's quick look, which fetches with the session.
-                if (embed !== null && action !== 'open' && embed.post({ type: 'quickLook', url: new URL(file.url, window.location.href).href, name: file.name })) {
+                if (action !== 'open' && postQuickLook(embed, file.url, file.name)) {
                     event.preventDefault();
                 }
             }} className={cn(PRIMARY, className)} data-testid="shared-file-open">

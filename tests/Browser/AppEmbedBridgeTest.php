@@ -3,10 +3,15 @@
 use App\Enums\StopKind;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Enums\TurnMessageState;
+use App\Models\TaskAttachment;
+use App\Models\TaskRun;
+use App\Models\ThreadTurnMessage;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /** Stands in for the app's script message handler; every message the page posts lands in `window.__sent`. */
@@ -140,4 +145,25 @@ it('does not show an outbox item twice when the server already queued it', funct
     $page->script('new Promise((resolve) => setTimeout(resolve, 500))');
 
     $page->assertMissing('[data-testid="thread-message-unsent"]')->assertNoJavaScriptErrors();
+});
+
+it('hands a message attachment download to the app, from the tile and from the chip', function () {
+    Storage::fake('artifacts');
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Read [File #1] first']);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => 'completed']);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed]);
+    $attachment = TaskAttachment::factory()->create(['yak_task_id' => $task->id, 'original_name' => 'archive.zip', 'mime_type' => 'application/zip', 'reference' => 'File #1']);
+    Storage::disk('artifacts')->put($attachment->disk_path, 'notes');
+
+    $page = visitEmbedThread($thread, $headers);
+    stubAppHandler($page);
+    settled($page, "document.querySelector('[data-testid=\"sent-attachments\"] a') !== null", 'document.querySelectorAll("[data-attachment-ref]").length');
+    $page->script("document.querySelector('[data-testid=\"sent-attachments\"] a').click(); document.querySelector('[data-attachment-ref]').click(); true");
+
+    $sent = sentOfType($page, 'quickLook', 'sent.map((message) => message.name)');
+
+    expect($sent)->toBe(['archive.zip', 'archive.zip']);
+    $page->assertScript('location.pathname', "/app/embed/threads/{$thread->public_id}");
 });
