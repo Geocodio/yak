@@ -150,6 +150,8 @@ final class OverviewModel {
         setActionLine(nil)
         let outcome = await actions.retryRepositorySetup(threadID, repository: id)
         await feed?.refresh([.environment])
+        // The stream that feeds `state` can still be behind the refresh that just finished; read what it loaded.
+        if let loaded = await feed?.currentState() { state = loaded }
         runningAction = nil
         let stillFailed =
             state?.environment.value?.repositories.contains {
