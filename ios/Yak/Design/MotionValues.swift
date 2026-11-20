@@ -28,9 +28,8 @@ enum Motion {
     static let paneSlideDistance: CGFloat = 24
     /// The size the thread scales back by when the drawer is fully open.
     static let drawerScaleBack: CGFloat = 0.06
-    /// How far the thread fades toward the background when the drawer is fully open. The strip of the thread that stays
-    /// beside the drawer keeps its small gray text above the contrast bar only up to this much.
-    static let drawerFade: Double = 0.12
+    /// How far the thread fades toward the background when the drawer is fully open, as on the board.
+    static let drawerFade: Double = 0.5
     /// The strength of the hairline around the thread beside the open drawer.
     static let drawerStrokeOpacity: Double = 0.12
     /// The size of a pressed control.

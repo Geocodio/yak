@@ -193,15 +193,22 @@ struct InstanceShell: View {
                 isCompactWidth: isCompactWidth, openWeb: { model.browserURL = $0 }
             )
         } else {
-            if NoThreadView.isShown(supportsMultipleWindows: hasSeveralWindows, isCompactWidth: isCompactWidth) {
-                NoThreadView { scene.openNewThread(repo: nil, text: nil) }
-            } else {
-                ThreadPlaceholder(
-                    title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
-                    openDrawer: { scene.setDrawerOpen(true) })
+            Group {
+                if NoThreadView.isShown(supportsMultipleWindows: hasSeveralWindows, isCompactWidth: isCompactWidth) {
+                    NoThreadView { scene.openNewThread(repo: nil, text: nil) }
+                } else {
+                    ThreadPlaceholder(
+                        title: nil, isNewThread: false, showsThreadsButton: isCompactWidth,
+                        openDrawer: { scene.setDrawerOpen(true) })
+                }
             }
+            .opacity(emptyDetailOpacity)
         }
     }
+
+    /// The empty detail draws nothing beside an open drawer: the thread's strip stays dimmed only that much, and a
+    /// line of gray text on it would not keep its contrast.
+    private var emptyDetailOpacity: Double { isCompactWidth && drawerBinding.wrappedValue ? 0 : 1 }
 
     private func openTasks(_ route: TasksRoute?) {
         tasksRoute = route
