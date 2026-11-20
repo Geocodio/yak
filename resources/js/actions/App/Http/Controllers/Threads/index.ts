@@ -1,4 +1,5 @@
 import ThreadMessageController from './ThreadMessageController'
+import ThreadAgentController from './ThreadAgentController'
 import ThreadStepLimitController from './ThreadStepLimitController'
 import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
 import ThreadTaskActionController from './ThreadTaskActionController'
@@ -36,6 +37,7 @@ import PullRequests from './PullRequests'
 
 const Threads = {
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),
+    ThreadAgentController: Object.assign(ThreadAgentController, ThreadAgentController),
     ThreadStepLimitController: Object.assign(ThreadStepLimitController, ThreadStepLimitController),
     ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
     ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
