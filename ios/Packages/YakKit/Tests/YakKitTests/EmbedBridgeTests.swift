@@ -392,7 +392,8 @@ private func outboxItem(key: String = "k", text: String = "t", reason: String? =
     #expect(sentText == String(repeating: "a", count: 99_999) && sentText.utf16.count <= 100_000)
     #expect(sentReason == String(repeating: "b", count: 999) && sentReason.utf16.count <= 1_000)
     let exact = String(repeating: "c", count: 100_000)
-    #expect(try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: exact)]))[0]["text"] as? String == exact)
+    #expect(
+        try outboxItems(.outbox(threadID: "d0e515ef", items: [outboxItem(text: exact)]))[0]["text"] as? String == exact)
 }
 
 @Test func anOutboxItemWithAKeyOverTheCapIsDropped() throws {

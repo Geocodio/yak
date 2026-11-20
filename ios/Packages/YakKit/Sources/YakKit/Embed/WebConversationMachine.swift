@@ -121,7 +121,8 @@ public struct WebConversationMachine: Equatable, Sendable {
     private var waitingSince: WebConversationInstant?
     private var lastReMintAt: WebConversationInstant?
 
-    public init(supportsEmbeddedThread: Bool, hasOfflineCopy: Bool = false, threadID: String? = nil,
+    public init(
+        supportsEmbeddedThread: Bool, hasOfflineCopy: Bool = false, threadID: String? = nil,
         timing: Timing = Timing()
     ) {
         self.threadID = threadID

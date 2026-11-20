@@ -78,7 +78,9 @@ public enum EmbedAppMessage: Equatable, Sendable {
                 [
                     "key": item.key, "text": Self.truncated(item.text, toUTF16Length: Self.maximumOutboxTextLength),
                     "status": item.status.rawValue,
-                    "reason": item.reason.map { Self.truncated($0, toUTF16Length: Self.maximumOutboxReasonLength) as Any }
+                    "reason": item.reason.map {
+                        Self.truncated($0, toUTF16Length: Self.maximumOutboxReasonLength) as Any
+                    }
                         ?? NSNull(),
                     "createdAt": item.createdAt.formatted(.iso8601), "attachmentCount": item.attachmentCount,
                 ]
