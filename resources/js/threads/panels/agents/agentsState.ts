@@ -232,3 +232,11 @@ export function continuedByRun<T extends ThreadAgent>(rows: T[]): Map<number, T[
 
     return byRun;
 }
+
+/** One string that changes when a sub-thread of the thread appears or changes state, so the Agents tab reads its sub-threads again. */
+export function childrenSignature(children: Record<string, { data: { state: string } }>): string {
+    return Object.entries(children)
+        .map(([id, child]) => `${id}:${child.data.state}`)
+        .sort()
+        .join('|');
+}

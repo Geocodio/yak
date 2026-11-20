@@ -1,6 +1,8 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\Enums\ThreadKind;
+use App\Enums\ThreadStatus;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -159,4 +161,28 @@ it('never mints tokens for a sandbox that is not real', function () {
     $github->shouldNotReceive('getScopedInstallationToken');
 
     (new ThreadGitHubCredentials($github, new FakeSandboxManager))->ensureFresh(Thread::factory()->create());
+});
+
+it('covers the repository of an open research sub-thread in the read-only token only', function () {
+    $sandbox = new FakeSandboxManager;
+    app()->instance(SandboxManager::class, $sandbox);
+    $parent = Thread::factory()->create(['repo' => 'acme/app']);
+    $sandbox->create($parent);
+    $sandbox->start($parent);
+    ThreadRepository::factory()->create(['thread_id' => $parent->id, 'repo' => 'acme/app']);
+    Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research, 'repo' => 'acme/website']);
+    Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research, 'repo' => 'acme/closed', 'status' => ThreadStatus::Closed]);
+
+    Http::fake([
+        'api.github.com/app/installations/42/access_tokens' => Http::sequence()
+            ->push(scopedBody(['token' => 'ghs_git', 'repositories' => [['name' => 'app']]]))
+            ->push(scopedBody(['token' => 'ghs_gh', 'repositories' => [['name' => 'app'], ['name' => 'website']], 'permissions' => ['contents' => 'read', 'metadata' => 'read']])),
+        'api.github.com/app/installations/42' => Http::response(['permissions' => ['contents' => 'write', 'metadata' => 'read']]),
+    ]);
+
+    app(ThreadGitHubCredentials::class)->install($parent);
+
+    $requests = tokenRequests();
+    expect($requests[0]['repositories'])->toBe(['app'])
+        ->and($requests[1]['repositories'])->toEqualCanonicalizing(['app', 'website']);
 });
