@@ -14972,6 +14972,66 @@
         }
       }
     },
+    "web.failed.network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation could not be loaded. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "web.failed.server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server could not show this conversation. Try again in a moment."
+          }
+        }
+      }
+    },
+    "web.failed.session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation could not be opened because its session could not be renewed. Try again."
+          }
+        }
+      }
+    },
+    "web.failed.timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation took too long to load. Try again."
+          }
+        }
+      }
+    },
+    "web.offline.line" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing what was loaded"
+          }
+        }
+      }
+    },
+    "web.page.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversation"
+          }
+        }
+      }
+    },
     "window.noThread.body" : {
       "localizations" : {
         "en" : {

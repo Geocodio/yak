@@ -98,6 +98,24 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(try known(defaults).isEmpty)
     }
 
+    @Test func theEmbeddedPageHasItsOwnStoreAndEraseRemovesBothStores() async throws {
+        let defaults = PreviewDefaults()
+        let instance = UUID()
+        let previewID = PreviewDataStoreID.for(instanceID: instance)
+        let embedID = PreviewDataStoreID.for(instanceID: instance, purpose: .embed)
+        #expect(previewID != embedID)
+        let embedStore = PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults)
+        let previewStore = PreviewWebData.store(for: instance, defaults: defaults)
+        await embedStore.httpCookieStore.setCookie(cookie("session"))
+        #expect(await embedStore.httpCookieStore.allCookies().map(\.name) == ["session"])
+        #expect(await previewStore.httpCookieStore.allCookies().isEmpty)
+        #expect(Set(try known(defaults)) == [previewID, embedID])
+        #expect(await eraseEventually(instance, defaults: defaults))
+        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        #expect(!existing.contains(embedID) && !existing.contains(previewID))
+        #expect(try known(defaults).isEmpty)
+    }
+
     @Test func aStoreInUseBecomesPendingAndPrepareFinishesIt() async throws {
         let defaults = PreviewDefaults()
         let instance = UUID()
