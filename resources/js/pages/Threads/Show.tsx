@@ -33,6 +33,10 @@ import { ThreadDockPanel } from '@/threads/dock/ThreadDock';
 import { ThreadPhoneTabs } from '@/threads/dock/ThreadPhoneTabs';
 import { useDockState } from '@/threads/dock/useDockState';
 import { dockPanelsFor, type PanelProps } from '@/threads/panels';
+import { AgentsProvider } from '@/threads/panels/agents/AgentsContext';
+import { agentTitle } from '@/threads/panels/agents/agentsState';
+import { log as agentLog } from '@/routes/threads/agents';
+import type { ThreadAgent } from '@/types/thread-agents';
 import '@/threads/panels/index';
 import { Overview } from '@/threads/panels/environment/Overview';
 import { resolveFilesMode, type FilesMode, type FocusRequest } from '@/threads/panels/files/filesMode';
@@ -52,7 +56,7 @@ const WIDE_RAIL_QUERY = '(min-width: 1200px)';
 /** From this width the page shows the views side by side; below it the phone tabs take over. */
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
-export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, earlierWalkthroughs, sharedFiles, brief, turnAnchors, isExpiredCoOwnerStop, messages, queuedMessages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, earlierWalkthroughs, sharedFiles, brief, turnAnchors, isExpiredCoOwnerStop, messages, queuedMessages, isLegacy, legacyAnswers, localTurnStints, notice, composer, capacity, teleport, stackParent, modelLabels, question, request, progress, runDetails, milestones, runs, agents, openLog, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions }: Props) {
     useFragmentScroll(thread.id, turnAnchors);
     const conversation = useMemo(() => withoutQueuedMessages(messages), [messages]);
     const dockPanels = dockPanelsFor(thread);
@@ -83,6 +87,9 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
         return { threadId: thread.id, seconds: Number.isFinite(seconds) && seconds >= 0 ? seconds : null };
     });
     const walkthroughStartAt = walkthroughRequest.threadId === thread.id ? walkthroughRequest.seconds : null;
+    const [liveAgents, setLiveAgents] = useState<Record<string, ThreadAgent>>({});
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    useEffect(() => setSelectedAgentId(null), [thread.id]);
     const [linkKind, setLinkKind] = useState<LinkState['kind']>('ok');
     const [restoredDraft, setRestoredDraft] = useState<{ text: string } | null>(null);
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
@@ -138,7 +145,13 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             dock.setActiveId(dockId);
         }
     };
-    const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'files' || phoneTab === 'terminal';
+    const isPhoneDockVisible = phoneTab === 'preview' || phoneTab === 'files' || phoneTab === 'terminal' || phoneTab === 'agents';
+    const openAgentsPanel = (agentId?: string) => {
+        setSelectedAgentId(agentId ?? null);
+        selectDock('agents');
+        setPhoneTab('agents');
+    };
+    const openAgentLog = (agent: ThreadAgent) => setLogTarget({ kind: 'url', id: agentLog.url({ thread: thread.id, agent: agent.id }), entryId: null, headline: agentTitle(agent) });
     const changesCount = diff?.filesCount ?? 0;
 
     // The note says what changed at the latest move to Yak.
@@ -224,7 +237,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     useCommandPaletteActions(THREAD_GROUP, threadActions);
 
     return (
-        <>
+        <AgentsProvider threadId={thread.id} canDrive={canDrive} loaded={agents} live={liveAgents} selectedId={selectedAgentId} onSelect={setSelectedAgentId} openPanel={openAgentsPanel} openFullLog={openAgentLog}>
             <Head title={thread.title} />
 
             <ThreadHeader
@@ -256,7 +269,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
                 >
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation isWaitingForRepository={card === 'repository_question'} runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} earlierWalkthroughs={earlierWalkthroughs} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} footer={isPhone ? <ThreadCards isInline={isPhone} page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} /> : null} />}
+                    {isLegacy ? <LegacyConversation messages={messages} answers={legacyAnswers} milestones={milestones} onOpenLog={(taskId) => setLogTarget({ kind: 'task', id: taskId, entryId: null, headline: thread.title })} /> : <Conversation isWaitingForRepository={card === 'repository_question'} runs={runs} milestones={milestones} walkthroughStartAt={walkthroughStartAt} onOpenRunLog={(runId) => setLogTarget({ kind: 'run', id: runId, entryId: null, headline: thread.title })} working={composer.state === 'working'} modelLabels={modelLabels} threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={conversation} question={question} walkthrough={walkthrough} earlierWalkthroughs={earlierWalkthroughs} sharedFiles={sharedFiles} isTeamThread={thread.visibility === 'team'} canShareFiles={canDrive} localTurns={localTurnStints} notice={notice} readonly={composer.state === 'readonly'} environmentNote={noteSwitch === undefined || teleport.environmentNote === null ? null : { text: teleport.environmentNote, ...noteSwitch }} environmentSwitches={teleport.environmentSwitches} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} onLinkChange={setLinkKind} onAgentsChange={setLiveAgents} onEditUnsent={(text) => setRestoredDraft({ text })} onOpenChanges={openChanges} footer={isPhone ? <ThreadCards isInline={isPhone} page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} /> : null} />}
                     {!isPhone && <ThreadCards page={{ thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request }} onOpenChanges={() => openChanges()} onMove={() => setIsMoving(true)} onShowLog={latestRun === undefined ? null : () => setLogTarget({ kind: 'run', id: latestRun.runId, entryId: null, headline: thread.title })} />}
                     <ThreadComposer isWaitingForRepository={card === 'repository_question'} thread={thread} composer={composer} queued={queuedMessages} notice={notice} teleportState={teleport.state} isOffline={linkKind === 'offline'} restoredDraft={restoredDraft} request={request} onAddSubThread={canAddSubThread ? () => setIsAddingSubThread(true) : undefined} />
                 </div>
@@ -298,7 +311,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
             ) : (
                 <TeleportToComputerDialog thread={thread} teleport={teleport} open={isTeleportOpen} onClose={() => setIsTeleportOpen(false)} />
             )}
-        </>
+        </AgentsProvider>
     );
 }
 
