@@ -11,6 +11,7 @@ import { AgentStatusDot } from './AgentStatusDot';
 import { useAgents } from './AgentsContext';
 import { agentTitle, buildTree, flattenTree, rowSubtitle, runningSummary, type AgentListRow } from './agentsState';
 import { StopAllControl } from './StopControls';
+import { AGENT_DEFINITION, SUB_THREAD_DEFINITION } from './words';
 
 const INDENT_PX = 22;
 
@@ -129,7 +130,7 @@ export function AgentsPanel({ modelLabels = {} }: PanelProps) {
                 <div className={cn('min-h-0 flex-col overflow-y-auto border-hair pb-4 @2xl:flex @2xl:w-[360px] @2xl:shrink-0 @2xl:border-r', selected === null ? 'flex flex-1' : 'hidden')} data-testid="agents-list">
                     <SectionHeader
                         title="Claude and its agents"
-                        definition="Agents are helpers Claude runs inside this thread. Same branch, same changes."
+                        definition={AGENT_DEFINITION}
                         action={agents.canDrive && runningCount > 0 ? <StopAllControl threadId={agents.threadId} runningCount={runningCount} /> : undefined}
                     />
                     <p className="sr-only" role="status" data-testid="agents-running-summary">
@@ -148,7 +149,7 @@ export function AgentsPanel({ modelLabels = {} }: PanelProps) {
                     )}
                     {agents.subThreads.length > 0 && (
                         <>
-                            <SectionHeader title="Sub-threads" definition="Separate threads with their own branch and PR. Open one to talk to it directly." />
+                            <SectionHeader title="Sub-threads" definition={SUB_THREAD_DEFINITION} />
                             <ul className="flex flex-col px-2" data-testid="agents-subthreads">
                                 {agents.subThreads.map((subThread) => (
                                     <SubThreadRow key={subThread.id} subThread={subThread} />
