@@ -178,3 +178,16 @@ it('tells the app when a card was answered, even with a refresh during the post'
 
     expect(sentOfType($page, 'cardAnswered', 'sent.map(({ card, action, ok }) => ({ card, action, ok }))'))->toBe([['card' => 'question', 'action' => 'answer', 'ok' => true]]);
 });
+
+it('names the attachments of an unsent message without text and offers discard only where it is safe', function () {
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $page = visitEmbedThread($thread, $headers);
+    $item = "{ key: 'k2', text: '', status: 'sending', reason: null, createdAt: '2026-11-20T10:15:00Z', attachmentCount: 2 }";
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [{$item}] }); true");
+
+    $page->assertSeeIn('[data-testid="thread-message-unsent"]', '2 attachments')
+        ->assertMissing('[data-testid="thread-message-unsent-discard"]')
+        ->assertNoJavaScriptErrors();
+});

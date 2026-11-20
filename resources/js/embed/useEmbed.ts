@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { UnsentMessage } from '@/threads/outbox/outbox';
 import type { SharedProps } from '@/types/shared';
 import { sameOriginUrl, sendToApp, type AppMessage, type PageMessage } from './bridge';
@@ -24,25 +24,28 @@ export function postQuickLook(embed: Embed | null, href: string, name: string): 
 
 /** Runs the handler for each message of this type the app sends. */
 export function useEmbedMessage<T extends AppMessage['type']>(type: T, handler: (message: Extract<AppMessage, { type: T }>) => void): void {
+    const latest = useRef(handler);
+    latest.current = handler;
+
     useEffect(() => {
         const listener = (event: Event) => {
             const message = (event as CustomEvent<AppMessage>).detail;
 
             if (message.type === type) {
-                handler(message as Extract<AppMessage, { type: T }>);
+                latest.current(message as Extract<AppMessage, { type: T }>);
             }
         };
         window.addEventListener('yak:embed', listener);
 
         return () => window.removeEventListener('yak:embed', listener);
-    });
+    }, [type]);
 }
 
 /** The app's outbox for the thread in the shape the page's unsent row takes, minus what the server already has. */
 export function useEmbedUnsent(threadId: string, messages: { sendKey: string | null }[]): UnsentMessage[] {
     const items = useSyncExternalStore(subscribeEmbedOutbox, () => embedOutboxOf(threadId));
 
-    return useMemo(() => visibleOutbox(items, messages).map((item) => ({ ...item, model: null, effort: null, files: [], refs: [] })), [items, messages]);
+    return useMemo(() => visibleOutbox(items, messages).map(({ attachmentCount, ...item }) => ({ ...item, text: item.text.trim() === '' && attachmentCount > 0 ? `${attachmentCount} ${attachmentCount === 1 ? 'attachment' : 'attachments'}` : item.text, model: null, effort: null, files: [], refs: [] })), [items, messages]);
 }
 
 /** Tells the app the thread is on screen: once the live feed has caught up, or after a short wait when it has not. */
