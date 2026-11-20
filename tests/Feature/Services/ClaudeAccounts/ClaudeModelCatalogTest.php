@@ -7,6 +7,7 @@ use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\RunnerDelivery;
 use App\Services\Threads\ThreadCommands;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Client\Request;
@@ -126,7 +127,7 @@ it('sends the resolved id to the runner', function () {
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->andReturn('yakph-test');
 
-    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class)))
+    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), app(RunnerDelivery::class)))
         ->startRunner($thread, ClaudeAccount::factory()->create(), null, 'Go.');
 
     expect(app(BrokerStreams::class)->commands('threads:' . $thread->id)[0]['start']['model'])->toBe('claude-sonnet-5-5');

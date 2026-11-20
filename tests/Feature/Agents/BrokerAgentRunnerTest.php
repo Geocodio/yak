@@ -101,6 +101,25 @@ it('returns the result of a natural turn end and writes only start, turn and end
         ->and($this->streams->channels('runs:'))->toBe([]);
 });
 
+it('delivers the runner bundle to the sandbox before starting a one-shot runner', function () {
+    $bundle = sys_get_temp_dir() . '/runner-bundle-' . uniqid();
+    mkdir($bundle);
+    foreach (['deps', 'src'] as $part) {
+        file_put_contents("{$bundle}/{$part}.tgz", 'tarball');
+        file_put_contents("{$bundle}/{$part}.version", 'abc123');
+    }
+    config(['yak.sandbox.runner_bundle_path' => $bundle]);
+    ($this->feed)('natural-turn-end');
+
+    app(BrokerAgentRunner::class)->run(($this->makeRequest)());
+
+    array_map('unlink', glob("{$bundle}/*"));
+    rmdir($bundle);
+
+    expect($this->sandbox->commandsMatching('.deps-version 2>/dev/null'))->toHaveCount(1)
+        ->and($this->sandbox->commandsMatching('yak-runner.new'))->toHaveCount(1);
+});
+
 it('revokes the placeholder and frees the slot after success', function () {
     ($this->feed)('natural-turn-end');
 

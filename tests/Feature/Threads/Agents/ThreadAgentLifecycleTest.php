@@ -23,6 +23,7 @@ use App\Services\Push\ThreadPush;
 use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\RunnerDelivery;
 use App\Services\Threads\RunnerRecovery;
 use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\ThreadCommands;
@@ -135,7 +136,7 @@ it('tells the runner whether subagents are on and which nested option to use', f
     $placeholders->shouldReceive('issue')->andReturn('yakph-test');
     app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
 
-    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class)))
+    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), app(RunnerDelivery::class)))
         ->startRunner($thread, ClaudeAccount::factory()->create(), null, 'x');
 
     $start = app(BrokerStreams::class)->commands('threads:' . $thread->id)[0]['start'];
