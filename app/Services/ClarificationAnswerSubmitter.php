@@ -109,7 +109,7 @@ class ClarificationAnswerSubmitter
                 return $live($locked) ? self::LIVE : null;
             }
 
-            if ($requiresLive || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
+            if ($requiresLive || ThreadLiveQuestions::isParkPending($locked) || $locked->status !== TaskStatus::AwaitingClarification || $locked->pendingClarificationQuestions() === []) {
                 return null;
             }
 

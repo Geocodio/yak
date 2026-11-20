@@ -75,6 +75,13 @@ trait HasClarificationRounds
             return $this->pendingClarificationQuestions() !== [];
         }
 
+        $current = $this->clarificationRounds()[$this->clarificationRoundCount() - 1] ?? null;
+
+        // A question Claude was told to stop waiting for stays hidden until its turn ends and parks it.
+        if ($current !== null && ($current['park_pending'] ?? false) === true) {
+            return false;
+        }
+
         return $this->status === TaskStatus::AwaitingClarification && $this->pendingClarificationQuestions() !== [];
     }
 

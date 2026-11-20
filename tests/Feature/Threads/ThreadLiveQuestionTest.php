@@ -4,22 +4,28 @@ use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ThreadMessageInput;
 use App\Enums\MessageDelivery;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadListFilter;
 use App\Enums\TurnState;
 use App\Events\ThreadEventBroadcast;
+use App\Http\Resources\ThreadMessagesData;
 use App\Http\Resources\ThreadQuestionData;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\RunYakJob;
 use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadEventWindow;
+use App\Services\Threads\ThreadList;
 use App\Services\Threads\ThreadLiveQuestions;
 use App\Services\Threads\ThreadMessageSender;
+use App\Services\Threads\ThreadRequestStatus;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +34,7 @@ use Illuminate\Support\Facades\Queue;
 use Tests\Support\InMemoryThreadEventWindow;
 
 require_once __DIR__ . '/../../Support/LiveQuestionHelpers.php';
+require_once __DIR__ . '/../../Support/ThreadTurnHelpers.php';
 
 beforeEach(function () {
     Queue::fake();
@@ -54,7 +61,7 @@ it('turns a runner question line into the question prop and a question event', f
 
     $question = ThreadQuestionData::for($thread);
 
-    expect($task->refresh()->status)->toBe(TaskStatus::Running)
+    expect($task->refresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->liveClarificationRound()['runner_question_id'])->toBe('rq-1')
         ->and($question['taskId'])->toBe($task->public_id)
         ->and($question['questions'])->toHaveCount(2)
@@ -311,4 +318,100 @@ it('declines the sixth question of one turn so waiting cannot be extended withou
         ->and($declined[0]['message'])->toBe(ThreadLiveQuestions::TOO_MANY_MESSAGE)
         ->and($task->refresh()->liveClarificationRound())->toBeNull()
         ->and($task->clarificationRoundCount())->toBe(5);
+});
+
+it('counts a live question as needing the person until it is answered', function () {
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    $needsYou = fn () => collect(ThreadList::for($user, ThreadListFilter::Mine)['needsYou'])->firstWhere('id', $thread->public_id);
+
+    expect($needsYou())->toBeNull()
+        ->and(ThreadRequestStatus::for($thread)['key'])->toBe('working');
+
+    questionLineFor($thread, [widthQuestion()]);
+
+    expect($needsYou())->not->toBeNull()
+        ->and($needsYou()['needsYouReason'])->toBe('question')
+        ->and(NeedsYouCount::for($user))->toBe(1)
+        ->and(ThreadRequestStatus::for($thread)['key'])->toBe('needs_you');
+
+    $this->actingAs($user)->post(route('threads.clarification-answers.store', $thread), ['answers' => ['q1' => ['choices' => ['Desktop'], 'other' => null]]]);
+
+    expect($needsYou())->toBeNull()
+        ->and(NeedsYouCount::for($user))->toBe(0)
+        ->and(ThreadRequestStatus::for($thread)['key'])->toBe('working');
+});
+
+it('keeps a question that timed out counted as needing the person while it is parked', function () {
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->travel(31)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect(NeedsYouCount::for($user))->toBe(1)
+        ->and(ThreadRequestStatus::for($thread)['key'])->toBe('needs_you');
+});
+
+it('replays the recorded SDK stream of a two-question call', function () {
+    [$thread, , $task] = threadWithRunningTurn();
+
+    replayRunnerFixture($thread, 'ask-user-question');
+
+    // The recording ends with the question answered, so the round is the one the runner asked.
+    $round = $task->refresh()->clarificationRounds()[0];
+
+    expect($round['questions'])->toHaveCount(2)
+        ->and($round['questions'][0]['multi_select'])->toBeTrue()
+        ->and($round['questions'][0]['question'])->toBe('Which fruits?')
+        ->and($round['questions'][1]['options'])->toHaveCount(2)
+        ->and($round['live'])->toBeTrue();
+});
+
+function answerMessages(Thread $thread, User $user): array
+{
+    return collect(ThreadMessagesData::for($thread, $user))->where('authorName', 'Test person')->values()->all();
+}
+
+it('shows the answers of a live question in the conversation where they were given', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [colourQuestion(), widthQuestion()]);
+
+    $this->actingAs($user)->post(route('threads.clarification-answers.store', $thread), ['answers' => [
+        'q1' => ['choices' => ['Contacts', 'Deals'], 'other' => null],
+        'q2' => ['choices' => [], 'other' => 'Both, desktop first'],
+    ]]);
+
+    $message = answerMessages($thread, $user)[0];
+
+    expect($message['text'])->toBe("**Screens**: Which screens first?\nContacts, Deals\n\n**Width**: Which width?\nBoth, desktop first")
+        ->and($message['state'])->toBe('read')
+        ->and($message['readAfterSequence'])->not->toBeNull();
+});
+
+it('shows that the person asked Claude to decide', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->actingAs($user)->post(route('threads.clarification-answers.store', $thread), ['decide' => true]);
+
+    expect(answerMessages($thread, $user)[0]['text'])->toBe('Asked Claude to decide');
+});
+
+it('shows the answer given in the composer', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+    app(ThreadMessageSender::class)->send($thread, $user, new ThreadMessageInput('laptop', null, null, null, MessageDelivery::Steer, null));
+    questionLineFor($thread, [colourQuestion(), widthQuestion()], 2, 'rq-2');
+    app(ThreadMessageSender::class)->send($thread, $user, new ThreadMessageInput('Do contacts first', null, null, null, MessageDelivery::Steer, null));
+
+    expect(collect(answerMessages($thread, $user))->pluck('text')->all())->toBe(["**Width**: Which width?\nLaptop", 'Do contacts first']);
+});
+
+it('shows the answer given through the app API', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    questionLineFor($thread, [widthQuestion()]);
+
+    $this->postJson(appThreadPath($thread, '/clarification-answers'), ['answers' => ['q1' => ['choices' => ['Desktop'], 'other' => null]]], phoneHeadersFor($user))->assertOk();
+
+    expect(answerMessages($thread, $user)[0]['text'])->toBe("**Width**: Which width?\nDesktop");
 });

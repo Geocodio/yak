@@ -3,18 +3,24 @@
 namespace App\Services\Threads;
 
 use App\DataTransferObjects\ClarificationQuestion;
+use App\Enums\TaskStatus;
+use App\Enums\TurnMessageKind;
+use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\Push\LiveActivities\LiveActivities;
 use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
+use App\Services\ThreadBuilder;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -80,6 +86,10 @@ class ThreadLiveQuestions
             'runner_question_id' => $runnerId,
             'tool_use_id' => is_string($line['toolUseId'] ?? null) ? $line['toolUseId'] : null,
         ]);
+        // Claude is blocked on the person, so the task reads as awaiting an answer: needs-you lists, counts and the status line follow.
+        if ($task->status === TaskStatus::Running) {
+            $task->update(['status' => TaskStatus::AwaitingClarification, 'clarification_expires_at' => null, 'clarification_reminder_at' => null]);
+        }
         $this->events->opened($task);
         $this->notify($thread, count($questions));
     }
@@ -115,7 +125,8 @@ class ThreadLiveQuestions
         $task->recordClarificationAnswers($answers, $note, $answeredBy);
         $task->markClarificationAnswersConsumed();
         $this->commands->answerQuestion($thread, (string) $round['runner_question_id'], $texts);
-        $this->events->closed($task);
+        $this->recordAnswerMessage($task, self::shownAnswers($task), $answeredBy);
+        $this->closeQuestion($task);
 
         return true;
     }
@@ -125,7 +136,7 @@ class ThreadLiveQuestions
      */
     public function decide(YakTask $task, string $answeredBy): bool
     {
-        return $this->decline($task, [], 'Let Claude decide', $answeredBy, self::DECIDE_MESSAGE);
+        return $this->decline($task, [], 'Let Claude decide', $answeredBy, self::DECIDE_MESSAGE, 'Asked Claude to decide');
     }
 
     /**
@@ -259,7 +270,7 @@ class ThreadLiveQuestions
     /**
      * @param  array<string, array{choices: list<string>, other: string|null}>  $answers
      */
-    private function decline(YakTask $task, array $answers, string $note, string $answeredBy, string $message): bool
+    private function decline(YakTask $task, array $answers, string $note, string $answeredBy, string $message, ?string $shown = null): bool
     {
         $round = $task->liveClarificationRound();
 
@@ -270,7 +281,8 @@ class ThreadLiveQuestions
         $task->recordClarificationAnswers($answers, $note, $answeredBy);
         $task->markClarificationAnswersConsumed();
         $this->commands->declineQuestion($thread, (string) $round['runner_question_id'], $message);
-        $this->events->closed($task);
+        $this->recordAnswerMessage($task, $shown ?? $note, $answeredBy);
+        $this->closeQuestion($task);
 
         return true;
     }
@@ -279,6 +291,65 @@ class ThreadLiveQuestions
     {
         $task->recordClarificationAnswers([], $note, 'Yak');
         $task->markClarificationAnswersConsumed();
+        $this->closeQuestion($task);
+    }
+
+    /**
+     * The person's answers as a message in the conversation: each question with the chosen answer.
+     */
+    private static function shownAnswers(YakTask $task): string
+    {
+        $round = $task->clarificationRounds()[$task->clarificationRoundCount() - 1];
+
+        return collect(ThreadBuilder::answerItems($round))->map(function (array $item): string {
+            $answer = collect([$item['answer'], $item['other']])->filter(fn (?string $part): bool => $part !== null && trim($part) !== '')->implode('; ');
+
+            return "**{$item['header']}**: {$item['question']}\n" . ($answer !== '' ? $answer : '_Skipped_');
+        })->implode("\n\n");
+    }
+
+    /**
+     * Records the answer as a message the person sent while the turn runs, taken in at once, so the conversation
+     * shows it where it was given.
+     */
+    private function recordAnswerMessage(YakTask $task, string $text, string $answeredBy): void
+    {
+        $run = $task->thread === null ? null : ThreadTurns::runningTurn($task->thread);
+
+        if ($run === null || trim($text) === '') {
+            return;
+        }
+
+        $message = ThreadTurnMessage::query()->create([
+            'task_run_id' => $run->id,
+            'uuid' => (string) Str::uuid(),
+            'kind' => TurnMessageKind::Steer,
+            'state' => TurnMessageState::Started,
+            'text' => $text,
+            'author_name' => $answeredBy,
+        ]);
+        $threadId = (int) $run->thread_id;
+
+        DB::afterCommit(function () use ($threadId, $message): void {
+            try {
+                app(ThreadEventPublisher::class)->append($threadId, 'message.state', ['uuid' => $message->uuid, 'state' => $message->state->value]);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
+    }
+
+    /**
+     * The turn carries on: the task is running again. Leaving the awaiting status emits the question closed event.
+     */
+    private function closeQuestion(YakTask $task): void
+    {
+        if ($task->status === TaskStatus::AwaitingClarification) {
+            $task->update(['status' => TaskStatus::Running]);
+
+            return;
+        }
+
         $this->events->closed($task);
     }
 
