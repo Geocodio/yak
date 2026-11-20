@@ -72,6 +72,10 @@ it('refuses a path outside the embed list', function (string $path) {
     '/app/embed/threads/d0e515ef/',
     '/app/embed/threads/d0e515e',
     '/threads/d0e515ef',
+    '/app/embed/pr-reviews/../../123',
+    '/app/embed/pr-reviews/./x/1',
+    '/app/embed/deployments/42',
+    '/app/embed/pr-reviews/example/web.app/17',
     '',
 ]);
 
@@ -83,15 +87,11 @@ it('binds the trimmed path when the app sends edge whitespace', function () {
     expect(Cache::get(WebSessionController::cacheKey($code))['path'])->toBe('/app/embed/threads/d0e515ef');
 });
 
-it('accepts the three embed paths', function (string $path) {
+it('accepts the embed thread path', function () {
     [, $headers] = phoneWithHeaders();
 
-    $this->postJson('/api/app/v1/web-session', ['path' => $path], $headers)->assertCreated();
-})->with([
-    '/app/embed/threads/d0e515ef',
-    '/app/embed/deployments/42',
-    '/app/embed/pr-reviews/example/web.app/17',
-]);
+    $this->postJson('/api/app/v1/web-session', ['path' => '/app/embed/threads/d0e515ef'], $headers)->assertCreated();
+});
 
 it('throttles minting per phone', function () {
     [, $headers] = phoneWithHeaders();

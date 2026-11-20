@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use Illuminate\Http\Request;
+use Throwable;
+
 /**
  * What a phone's embedded web view may reach. Everything else answers 404 to an embed session.
  */
@@ -66,8 +69,9 @@ final class AppEmbedRoutes
     public const BROADCAST_AUTH_URI = 'broadcasting/auth';
 
     /**
-     * Same-host check first (no control characters, no `//`, no backslash), then one of the fixed patterns, so a
-     * fragment, a query, percent-encoding and `..` never match.
+     * Same-host check first (no control characters, no `//`, no backslash), then no `.` or `..` segment, then one of
+     * the fixed patterns, so a fragment, a query, percent-encoding and dot segments never match. Last, the router
+     * must resolve the path to an allowed `app/embed/` page: a pattern whose route does not exist yet is refused.
      */
     public static function isEmbedPath(string $path): bool
     {
@@ -75,12 +79,27 @@ final class AppEmbedRoutes
             return false;
         }
 
+        if (preg_match('#/\.{1,2}(/|$)#', $path) === 1) {
+            return false;
+        }
+
         foreach (self::PATH_PATTERNS as $pattern) {
             if (preg_match($pattern, $path) === 1) {
-                return true;
+                return self::resolvesToAllowedPage($path);
             }
         }
 
         return false;
+    }
+
+    private static function resolvesToAllowedPage(string $path): bool
+    {
+        try {
+            $route = app('router')->getRoutes()->match(Request::create($path));
+        } catch (Throwable) {
+            return false;
+        }
+
+        return str_starts_with($route->uri(), 'app/embed/') && in_array($route->getName(), self::ALLOWED, true);
     }
 }
