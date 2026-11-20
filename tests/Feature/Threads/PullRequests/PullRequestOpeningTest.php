@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Events\ThreadEventBroadcast;
 use App\Jobs\CreatePullRequestJob;
 use App\Models\CoOwnerRequest;
 use App\Models\Thread;
@@ -8,6 +9,7 @@ use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\PullRequests\PullRequestOpening;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -33,6 +35,26 @@ it('marks the pull request as opening when the person asks for it', function () 
         ->where('thread.pullRequestOpening.state', 'opening')
         ->where('thread.pullRequestOpening.error', null));
 });
+
+it('broadcasts every opening change to the open tabs', function (Closure $change, int $broadcasts) {
+    Event::fake([ThreadEventBroadcast::class]);
+
+    $change(app(PullRequestOpening::class), $this->thread, $this->task);
+
+    Event::assertDispatchedTimes(ThreadEventBroadcast::class, $broadcasts);
+    Event::assertDispatched(ThreadEventBroadcast::class, fn (ThreadEventBroadcast $event): bool => $event->type === 'thread');
+})->with([
+    'claim' => [fn (PullRequestOpening $opening, Thread $thread) => $opening->claim($thread), 1],
+    'release' => [function (PullRequestOpening $opening, Thread $thread) {
+        $claimedAt = now()->startOfSecond();
+        $opening->claim($thread, $claimedAt);
+        $opening->release($thread, $claimedAt);
+    }, 2],
+    'finish' => [function (PullRequestOpening $opening, Thread $thread, YakTask $task) {
+        $opening->claim($thread);
+        $opening->finish($task, new RuntimeException('GitHub PR creation failed: Validation Failed'));
+    }, 2],
+]);
 
 it('clears the opening once the job is done', function () {
     $opening = app(PullRequestOpening::class);
