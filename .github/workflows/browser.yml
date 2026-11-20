@@ -86,6 +86,13 @@ jobs:
         if: steps.playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
+      - name: Start Reverb
+        run: |
+          CACHE_STORE=array php artisan reverb:start --host=127.0.0.1 --port=18080 > reverb.log 2>&1 &
+          for attempt in $(seq 30); do nc -z 127.0.0.1 18080 && exit 0; sleep 1; done
+          cat reverb.log
+          exit 1
+
       - name: Run browser tests
         run: ./vendor/bin/pest tests/Browser --shard=${{ matrix.shard }}/4
 
