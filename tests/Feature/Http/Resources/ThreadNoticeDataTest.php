@@ -22,7 +22,7 @@ function stoppedByGuard(?string $reason): Thread
 {
     $thread = Thread::factory()->create();
     $task = YakTask::factory()->create(['thread_id' => $thread->id]);
-    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::StoppedByGuard]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::StoppedByGuard, 'assistant_turns' => (int) config('yak.max_turns')]);
 
     if ($reason !== null) {
         TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => 'turn_stopped_by_guard', 'level' => 'warning', 'metadata' => ['reason' => $reason]]);
@@ -45,14 +45,14 @@ it('reads a turns guard stop from the log row', function () {
     config(['yak.max_turns' => 150]);
 
     expect(ThreadNoticeData::for(stoppedByGuard(RunawayGuard::ASSISTANT_TURNS)))
-        ->toMatchArray(['kind' => 'guard_turns', 'title' => 'Claude stopped after 150 steps', 'canContinue' => true]);
+        ->toMatchArray(['kind' => 'guard_turns', 'title' => 'Paused at 150 steps', 'body' => 'Claude keeps everything it has done so far. Keep going picks up exactly where it stopped, in this thread.', 'canContinue' => true]);
 });
 
 it('reads a wall clock guard stop from the log row', function () {
-    config(['yak.threads.turn_wall_clock_minutes' => 120]);
+    config(['yak.threads.turn_wall_clock_minutes' => 240]);
 
     expect(ThreadNoticeData::for(stoppedByGuard(RunawayGuard::WALL_CLOCK)))
-        ->toMatchArray(['kind' => 'guard_time', 'title' => 'Claude stopped after 120 minutes', 'canContinue' => true]);
+        ->toMatchArray(['kind' => 'guard_time', 'title' => 'Paused after 4 hours', 'canContinue' => true]);
 });
 
 it('falls back to a turns guard stop without a log row', function () {

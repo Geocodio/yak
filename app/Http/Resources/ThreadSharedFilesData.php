@@ -12,13 +12,14 @@ use App\Models\Thread;
 final class ThreadSharedFilesData
 {
     /**
-     * @return list<array{id: string, name: string, kind: 'report'|'image'|'csv'|'pdf'|'text'|'file', sizeBytes: int, url: string, sharedWithTeam: bool, anchorSequence: ?int, createdAt: string}>
+     * @return list<array{id: string, name: string, kind: 'report'|'image'|'csv'|'pdf'|'text'|'file', sizeBytes: int, url: string, sharedWithTeam: bool, anchorSequence: ?int, createdAt: string, updatedAt: ?string, versions: list<array{version: int, anchorSequence: ?int, createdAt: string, sizeBytes: int}>}>
      */
     public static function for(Thread $thread): array
     {
         $files = Artifact::query()
             ->shared()
             ->whereIn('yak_task_id', $thread->tasks()->select('id'))
+            ->with('versions')
             ->orderBy('id')
             ->get();
         $shared = [];
@@ -33,6 +34,13 @@ final class ThreadSharedFilesData
                 'sharedWithTeam' => $file->shared_with_team,
                 'anchorSequence' => $file->anchor_sequence === null ? null : (int) $file->anchor_sequence,
                 'createdAt' => $file->created_at?->toIso8601String() ?? '',
+                'updatedAt' => $file->versions->last()?->created_at?->toIso8601String(),
+                'versions' => $file->versions->map(fn ($version): array => [
+                    'version' => (int) $version->version,
+                    'anchorSequence' => $version->anchor_sequence === null ? null : (int) $version->anchor_sequence,
+                    'createdAt' => $version->created_at?->toIso8601String() ?? '',
+                    'sizeBytes' => (int) $version->size_bytes,
+                ])->all(),
             ];
         }
 

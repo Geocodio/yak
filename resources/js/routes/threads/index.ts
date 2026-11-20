@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import messages from './messages'
+import stepLimit from './step-limit'
 import repositoryAnswer from './repository-answer'
 import clarificationAnswers from './clarification-answers'
 import coOwner from './co-owner'
@@ -1109,6 +1110,7 @@ repositorySetup.head = (options?: RouteQueryOptions): RouteDefinition<'head'> =>
 const threads = {
     messages: Object.assign(messages, messages),
     stop: Object.assign(stop, stop),
+    stepLimit: Object.assign(stepLimit, stepLimit),
     repositoryAnswer: Object.assign(repositoryAnswer, repositoryAnswer),
     retry: Object.assign(retry, retry),
     cancel: Object.assign(cancel, cancel),

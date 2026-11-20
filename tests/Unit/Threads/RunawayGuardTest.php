@@ -29,6 +29,14 @@ it('trips the assistant turn limit at equality, not below', function () {
     expect((new RunawayGuard)->check($run, $this->now, 11))->toBe(RunawayGuard::ASSISTANT_TURNS);
 });
 
+it('raises the step limit by the steps a person added', function () {
+    $run = runStartedAt($this->now);
+    $run->extra_turns = 10;
+
+    expect((new RunawayGuard)->check($run, $this->now, 19))->toBeNull();
+    expect((new RunawayGuard)->check($run, $this->now, 20))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
+
 it('trips the wall clock limit at equality, not below', function () {
     expect((new RunawayGuard)->check(runStartedAt($this->now->subMinutes(59)->subSeconds(59)), $this->now, 0))->toBeNull();
     expect((new RunawayGuard)->check(runStartedAt($this->now->subMinutes(60)), $this->now, 0))->toBe(RunawayGuard::WALL_CLOCK);
@@ -55,9 +63,9 @@ it('words the stop message per reason', function () {
     $guard = new RunawayGuard;
 
     expect($guard->message(RunawayGuard::ASSISTANT_TURNS, 10))
-        ->toBe('Yak stopped this turn after 10 assistant turns. Reply or press Continue to keep going.');
+        ->toBe('Yak paused this turn after 10 steps. Claude keeps everything it has done so far. Reply or press Keep going to pick up where it stopped.');
     expect($guard->message(RunawayGuard::WALL_CLOCK, 10))
-        ->toBe('Yak stopped this turn after 60 minutes. Reply or press Continue to keep going.');
+        ->toBe('Yak paused this turn after 60 minutes. Claude keeps everything it has done so far. Reply or press Keep going to pick up where it stopped.');
 });
 
 it('trips wall clock for a run whose agent_started_at is a mutable Carbon', function () {
