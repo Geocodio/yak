@@ -68,7 +68,7 @@ final class WebConversationModel {
     @ObservationIgnored var handleRequest: @MainActor (WebConversationRequest) -> Void = { _ in }
     @ObservationIgnored private(set) var page: (any WebConversationPage)?
     @ObservationIgnored private let mint: Mint
-    @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let now: () -> WebConversationInstant
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
     @ObservationIgnored private var tickTask: Task<Void, Never>?
     @ObservationIgnored private var mintTask: Task<Void, Never>?
@@ -80,7 +80,8 @@ final class WebConversationModel {
     @ObservationIgnored private var isPageHidden = false
 
     init(
-        instanceURL: URL, allowsLoopbackHTTP: Bool, mint: @escaping Mint, now: @escaping () -> Date = { Date() },
+        instanceURL: URL, allowsLoopbackHTTP: Bool, mint: @escaping Mint,
+        now: @escaping () -> WebConversationInstant = { ContinuousClock.now },
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     ) {
         self.instanceURL = instanceURL
@@ -123,7 +124,7 @@ final class WebConversationModel {
     func configure(supportsEmbeddedThread: Bool) {
         guard mode == .undecided else { return }
         mode = supportsEmbeddedThread ? .web : .native
-        machine = WebConversationMachine(supportsEmbeddedThread: supportsEmbeddedThread)
+        machine = WebConversationMachine(supportsEmbeddedThread: supportsEmbeddedThread, threadID: threadID)
         if supportsEmbeddedThread, threadID != nil { begin() }
     }
 
@@ -151,7 +152,7 @@ final class WebConversationModel {
     /// Starts a fresh session for the shown thread: a new code, a new load.
     private func restart() {
         guard mode == .web, threadID != nil else { return }
-        machine = WebConversationMachine(supportsEmbeddedThread: true)
+        machine = WebConversationMachine(supportsEmbeddedThread: true, threadID: threadID)
         pageThreadID = nil
         readyThreadID = nil
         openedThreadID = nil
@@ -166,6 +167,7 @@ final class WebConversationModel {
         }
         openedThreadID = threadID
         send(.open(threadID: threadID, fragment: nil))
+        apply(.opened(threadID: threadID))
         switchTask?.cancel()
         switchTask = Task { [weak self, sleep] in
             do { try await sleep(Self.switchTimeout) } catch { return }
@@ -243,7 +245,7 @@ final class WebConversationModel {
         tickTask?.cancel()
         tickTask = nil
         guard let deadline = machine.nextDeadline else { return }
-        let wait = Duration.seconds(max(0, deadline.timeIntervalSince(now())))
+        let wait = max(.zero, now().duration(to: deadline))
         tickTask = Task { [weak self, sleep] in
             do { try await sleep(wait) } catch { return }
             self?.timePassed()
@@ -286,6 +288,7 @@ final class WebConversationModel {
             switchPageIfNeeded()
         case .threadChanged(let changedThreadID, _):
             pageThreadID = changedThreadID
+            apply(.opened(threadID: changedThreadID))
             if changedThreadID == threadID {
                 openedThreadID = nil
             } else if openedThreadID == nil {

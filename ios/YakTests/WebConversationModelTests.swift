@@ -21,7 +21,7 @@ private let instanceURL = URL(string: "https://yak.example.com")!
 @MainActor private final class Harness {
     var paths: [String] = []
     var outcomes: [WebConversationModel.MintOutcome] = []
-    var now = Date(timeIntervalSince1970: 1_800_000_000)
+    var now = ContinuousClock.now
     var requests: [WebConversationRequest] = []
     let page = FakePage()
     let model: WebConversationModel
@@ -42,7 +42,7 @@ private let instanceURL = URL(string: "https://yak.example.com")!
                 harness.paths.append(path)
                 return harness.outcomes.isEmpty ? .minted(Self.session()) : harness.outcomes.removeFirst()
             },
-            now: { box?.now ?? Date() }, sleep: { _ in try await Task.sleep(for: .seconds(3600)) })
+            now: { box?.now ?? ContinuousClock.now }, sleep: { _ in try await Task.sleep(for: .seconds(3600)) })
         box = self
         if attachesPage { model.attach(page) }
         model.handleRequest = { [unowned self] in requests.append($0) }
@@ -173,11 +173,11 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         harness.model.show(thread: "d0e515ef")
         #expect(await harness.waitForRedeems(1))
         harness.model.navigationCommitted()
-        harness.now = harness.now.addingTimeInterval(9)
+        harness.now = harness.now.advanced(by: .seconds(9))
         harness.model.timePassed()
         #expect(harness.model.phase == .slow)
         #expect(harness.model.loadPresentation == .slow)
-        harness.now = harness.now.addingTimeInterval(30)
+        harness.now = harness.now.advanced(by: .seconds(30))
         harness.model.timePassed()
         #expect(harness.model.phase == .failed(.timeout))
         #expect(harness.model.loadPresentation == .serverError(message: String(localized: "web.failed.timeout")))
