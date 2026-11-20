@@ -3,6 +3,7 @@ import { router } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useState } from 'react';
 import { store as addSteps } from '@/routes/threads/step-limit';
+import { shownSteps } from '@/threads/liveSteps';
 import { contextMeter, stepMeter, windowFor } from '@/threads/contextWindow';
 import type { ThreadComposer } from '@/types/threads';
 
@@ -15,9 +16,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * of the model selected now, which can differ from the model the session ran on. The context part stays hidden until a
  * value has been measured; the steps part shows only while a turn runs.
  */
-export function ContextRing({ composer, model, threadId }: { composer: ThreadComposer; model: string | null; threadId: string }) {
+export function ContextRing({ composer, model, threadId, liveSteps = 0 }: { liveSteps?: number; composer: ThreadComposer; model: string | null; threadId: string }) {
     const meter = contextMeter(composer.context, windowFor(composer.contextWindows, model));
-    const steps = stepMeter(composer.turn);
+    const steps = stepMeter(composer.turn === null ? null : { ...composer.turn, steps: shownSteps(composer.turn.steps, liveSteps) });
 
     if (meter === null && steps === null) {
         return null;
