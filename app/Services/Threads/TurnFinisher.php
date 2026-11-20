@@ -36,7 +36,7 @@ class TurnFinisher
         $was = $run->refresh()->getAttribute('turn_state');
 
         $finishedAt = now();
-        $startedAt = $run->agent_started_at ?? $run->started_at;
+        $agentStartedAt = $run->agent_started_at;
 
         $changed = TaskRun::query()
             ->whereKey($run->id)
@@ -44,7 +44,7 @@ class TurnFinisher
             ->update([
                 'turn_state' => $to,
                 'finished_at' => $finishedAt,
-                'total_ms' => (int) $startedAt->diffInMilliseconds($finishedAt, true),
+                'total_ms' => $agentStartedAt === null ? 0 : (int) $agentStartedAt->diffInMilliseconds($finishedAt, true),
                 'num_turns' => (int) $run->getAttribute('assistant_turns'),
             ]);
 

@@ -420,11 +420,20 @@ class ThreadTurns
         $finisher->dispatch($events);
     }
 
+    /**
+     * Ends the messages of a stopped turn: the ones Claude never read are cancelled, the ones it already
+     * started on stay in the conversation as done.
+     */
     public function cancelMessages(TaskRun $run): void
     {
         ThreadTurnMessage::query()
             ->where('task_run_id', $run->id)
-            ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued, TurnMessageState::Started])
+            ->where('state', TurnMessageState::Started)
+            ->update(['state' => TurnMessageState::Completed]);
+
+        ThreadTurnMessage::query()
+            ->where('task_run_id', $run->id)
+            ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued])
             ->update(['state' => TurnMessageState::Cancelled]);
     }
 

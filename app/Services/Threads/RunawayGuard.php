@@ -9,7 +9,7 @@ use Carbon\CarbonInterface;
 /**
  * Decides whether a running turn has gone on too long. A turn has no budget;
  * it is bounded by its wall-clock time and, when Yak started it on its own
- * (a Sentry alert, a flaky test, a preview repair), by its assistant turn count.
+ * (a Sentry alert, a flaky test, a CI failure, a preview repair), by its assistant turn count.
  * A turn a person started or sent a message into has no turn limit.
  */
 class RunawayGuard
@@ -19,7 +19,7 @@ class RunawayGuard
     public const WALL_CLOCK = 'wall_clock';
 
     /** Task sources of work Yak starts by itself, without a person asking. */
-    public const SELF_STARTED_SOURCES = ['sentry', 'flaky-test', 'preview-repair'];
+    public const SELF_STARTED_SOURCES = ['sentry', 'flaky-test', 'ci-failure', 'preview-repair'];
 
     public function check(TaskRun $run, CarbonImmutable $now, int $assistantTurns): ?string
     {

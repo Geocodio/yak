@@ -36,16 +36,28 @@ it('stops a runaway turn', function () {
     Event::assertDispatchedTimes(TurnFailed::class, 1);
 });
 
-it('cancels the messages of a guard-stopped turn so none stays started', function () {
+it('ends the messages of a guard-stopped turn so none stays started and the prompt stays visible', function () {
     [$thread, $run] = runningTurnFor();
-    $message = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Started, 'text' => 'Go']);
+    $started = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Prompt, 'state' => TurnMessageState::Started, 'text' => 'Go']);
+    $unread = ThreadTurnMessage::query()->create(['task_run_id' => $run->id, 'uuid' => (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => 'Also this']);
 
     $this->travel(241)->minutes();
     app(ThreadDriver::class)->tick();
 
-    expect($message->refresh()->state)->toBe(TurnMessageState::Cancelled)
-        ->and(ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'message.state')->latest('sequence')->first()->payload)
-        ->toBe(['uuid' => $message->uuid, 'state' => 'cancelled']);
+    expect($started->refresh()->state)->toBe(TurnMessageState::Completed)
+        ->and($unread->refresh()->state)->toBe(TurnMessageState::Cancelled)
+        ->and(ThreadEvent::query()->where('thread_id', $thread->id)->where('type', 'message.state')->where('payload->uuid', $started->uuid)->latest('sequence')->first()->payload)
+        ->toBe(['uuid' => $started->uuid, 'state' => 'completed']);
+});
+
+it('counts only the time the agent ran, not the wait for a slot', function () {
+    $this->freezeSecond();
+    [, $run] = runningTurnFor(['agent_started_at' => null, 'started_at' => now()->subHours(3), 'total_ms' => null]);
+
+    $this->travel(241)->minutes();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->total_ms)->toBe(0);
 });
 
 it('ends a turn when the grace window closes', function () {
