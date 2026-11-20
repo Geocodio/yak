@@ -45,16 +45,17 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
             .appending(path: QuickLookFile.fileName(name), directoryHint: .notDirectory)
         file = target
         folder = target.deletingLastPathComponent()
-        Task {
+        Task { [weak self] in
             let download = await webView.startDownload(using: URLRequest(url: url))
+            guard let self else { return }
             download.delegate = self
             progressObservation = download.progress.observe(\.completedUnitCount) { [weak self] progress, _ in
-                let received = progress.completedUnitCount
+                // A body that outgrows the cap is cancelled and its partial file removed.
+                guard QuickLookFile.mustCancel(receivedBytes: progress.completedUnitCount) else { return }
                 Task { @MainActor in
-                    // A body that outgrows the cap is cancelled and its partial file removed.
-                    guard QuickLookFile.mustCancel(receivedBytes: received) else { return }
-                    download.cancel { _ in }
-                    self?.finish()
+                    guard let self else { return }
+                    _ = await download.cancel()
+                    self.finish()
                 }
             }
         }
