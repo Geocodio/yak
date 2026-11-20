@@ -73,11 +73,17 @@ enum Design {
         static let largeShare: CGFloat = 0.5
         /// The least height the card is offered: its title and buttons.
         static let leastHeight: CGFloat = 160
+        /// The least the chat keeps above a card, so its text always has room to be read.
+        static let chatLeastHeight: CGFloat = 120
+        /// The least a card's text area keeps when the buttons under it need the room: a title line.
+        static let textLeastHeight: CGFloat = 60
     }
 
     /// Control sizes.
     enum Size {
         static let control: CGFloat = 44
+        /// A distance that puts a view wholly outside any screen.
+        static let offscreen: CGFloat = 4000
         /// The widest a person's message bubble grows.
         static let bubbleMaximumWidth: CGFloat = 300
         /// The drawer's search field and new thread button.
