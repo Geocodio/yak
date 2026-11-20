@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'runner/**'
+      - 'scripts/*-runner-bundle.sh'
       - '.github/workflows/runner.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
       - master
     paths:
       - 'runner/**'
+      - 'scripts/*-runner-bundle.sh'
       - '.github/workflows/runner.yml'
 
 jobs:
@@ -37,3 +39,8 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Build and verify the runner bundle the Docker image carries
+        run: |
+          ../scripts/build-runner-bundle.sh "$RUNNER_TEMP/bundle"
+          ../scripts/verify-runner-bundle.sh "$RUNNER_TEMP/bundle"
