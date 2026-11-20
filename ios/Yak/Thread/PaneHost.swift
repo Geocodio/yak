@@ -51,7 +51,10 @@ struct PaneHost: View {
     }
 
     private func slide(of id: PaneID, isShown: Bool) -> CGFloat {
-        guard !isStill, !isShown, isSingle else { return 0 }
+        guard !isShown, isSingle else { return 0 }
+        // Without motion a pane that is not shown waits entirely off the screen, so an audit finds no pixels of it
+        // to measure against the pane that is on top of its frame.
+        if isStill { return Design.Size.offscreen }
         let order = thread.panes
         guard let own = order.firstIndex(of: id), let current = order.firstIndex(of: focused) else { return 0 }
         return own < current ? -24 : 24

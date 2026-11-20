@@ -39,8 +39,7 @@ platform :ios do
         capabilities = {
           bundle_id => [
             [Spaceship::ConnectAPI::BundleIdCapability::Type::PUSH_NOTIFICATIONS, "alerts and Live Activity tokens"],
-            [Spaceship::ConnectAPI::BundleIdCapability::Type::APP_GROUPS, "shared storage with the extensions"],
-            [Spaceship::ConnectAPI::BundleIdCapability::Type::USERNOTIFICATIONS_TIMESENSITIVE, "time sensitive notifications"]
+            [Spaceship::ConnectAPI::BundleIdCapability::Type::APP_GROUPS, "shared storage with the extensions"]
           ],
           "#{bundle_id}.widgets" => [
             [Spaceship::ConnectAPI::BundleIdCapability::Type::PUSH_NOTIFICATIONS,
@@ -79,6 +78,8 @@ platform :ios do
         end
         rows << ["App group #{app_group}", "check by hand",
                  "The API cannot register an app group or assign it. Register it and assign it to #{bundle_id}, #{bundle_id}.widgets and #{bundle_id}.share in Certificates, Identifiers and Profiles."]
+        rows << ["Time Sensitive Notifications on #{bundle_id}", "check by hand",
+                 "The API refuses this capability type. Turn it on for #{bundle_id} in Certificates, Identifiers and Profiles."]
         rows << ["Broadcast Capability on #{bundle_id}", "check by hand",
                  "The API has no setting for it. Turn it on under Push Notifications for #{bundle_id} in Certificates, Identifiers and Profiles. Only #{bundle_id} needs it: Live Activity channel pushes use the app's topic, not #{bundle_id}.widgets."]
 
@@ -316,8 +317,7 @@ platform :ios do
   def release_capability_name(type)
     {
       "PUSH_NOTIFICATIONS" => "Push Notifications",
-      "APP_GROUPS" => "App Groups",
-      "USERNOTIFICATIONS_TIMESENSITIVE" => "Time Sensitive Notifications"
+      "APP_GROUPS" => "App Groups"
     }.fetch(type, type)
   end
 
@@ -331,7 +331,11 @@ platform :ios do
       rows << ["Tester group #{group_name}", "would create", ""]
     else
       group = release_apple_call("Creating the tester group") do
-        app.create_beta_group(group_name: group_name, is_internal_group: true, has_access_to_all_builds: true)
+        # An internal group has no public link, and Apple refuses the request when a link limit is sent with it.
+        app.create_beta_group(
+          group_name: group_name, is_internal_group: true, has_access_to_all_builds: true,
+          public_link_enabled: nil, public_link_limit: nil, public_link_limit_enabled: nil
+        )
       end
       rows << ["Tester group #{group_name}", "created", ""]
     end
@@ -346,14 +350,17 @@ platform :ios do
         rows << [item, "already present", ""]
         next
       end
-      user = release_apple_call("Looking up #{item} in Users and Access") { Spaceship::ConnectAPI::User.find(email: address).first }
+      user = release_apple_call("Looking up #{item} in Users and Access") { Spaceship::ConnectAPI::User.all(filter: { username: address }).first }
       if user.nil?
         rows << [item, "needs a person", "Not an App Store Connect user yet: invite them in Users and Access, then run bootstrap again."]
       elsif dry_run || group.nil?
         rows << [item, "would create", "Adds them to #{group_name}."]
       else
         release_apple_call("Adding #{item}") do
-          group.post_bulk_beta_tester_assignments(beta_testers: [{ email: address, firstName: user.first_name.to_s, lastName: user.last_name.to_s }])
+          Spaceship::ConnectAPI.post_beta_tester_assignment(
+            beta_group_ids: [group.id],
+            attributes: { email: address, firstName: user.first_name.to_s, lastName: user.last_name.to_s }
+          )
         end
         rows << [item, "created", "Added to #{group_name}."]
       end
