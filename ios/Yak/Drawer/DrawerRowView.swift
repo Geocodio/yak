@@ -61,6 +61,7 @@ struct DrawerRowView: View {
             .buttonStyle(RowButtonStyle(isSelected: isSelected))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityLabel)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityIdentifier("drawer.row.\(row.id)")
             if row.childCount > 0 {
                 Button(action: toggle) {
