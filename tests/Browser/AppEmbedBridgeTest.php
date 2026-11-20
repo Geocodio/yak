@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\StopKind;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 
 /** Stands in for the app's script message handler; every message the page posts lands in `window.__sent`. */
 function stubAppHandler(mixed $page): void
@@ -124,4 +126,18 @@ it('tells the app once when the session ends and a reload meets the 401', functi
     $page->script('new Promise((resolve) => setTimeout(resolve, 1500))');
 
     expect($page->script("window.__sent.filter((message) => message.type === 'auth').length"))->toBe(1);
+});
+
+it('does not show an outbox item twice when the server already queued it', function () {
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $root = YakTask::factory()->create(['thread_id' => $thread->id, 'description' => 'Start']);
+    PendingSteeringMessage::query()->create(['root_task_id' => $root->id, 'text' => 'Queued on the server', 'source' => 'thread', 'mode' => 'queue', 'uuid' => (string) Str::uuid(), 'send_key' => 'key-queued']);
+
+    $page = visitEmbedThread($thread, $headers);
+    $item = "{ key: 'key-queued', text: 'Queued on the server', status: 'waiting', reason: null, createdAt: '2026-11-20T10:15:00Z', attachmentCount: 0 }";
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'outbox', threadId: '{$thread->public_id}', items: [{$item}] }); true");
+    $page->script('new Promise((resolve) => setTimeout(resolve, 500))');
+
+    $page->assertMissing('[data-testid="thread-message-unsent"]')->assertNoJavaScriptErrors();
 });

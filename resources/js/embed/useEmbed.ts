@@ -2,7 +2,6 @@ import { usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { UnsentMessage } from '@/threads/outbox/outbox';
 import type { SharedProps } from '@/types/shared';
-import type { ThreadMessage } from '@/types/threads';
 import { sendToApp, type AppMessage, type PageMessage } from './bridge';
 import { feedProgressOf, subscribeFeedProgress } from './feedProgress';
 import { embedOutboxOf, subscribeEmbedOutbox, visibleOutbox } from './outboxSource';
@@ -33,7 +32,7 @@ export function useEmbedMessage<T extends AppMessage['type']>(type: T, handler: 
 }
 
 /** The app's outbox for the thread in the shape the page's unsent row takes, minus what the server already has. */
-export function useEmbedUnsent(threadId: string, messages: ThreadMessage[]): UnsentMessage[] {
+export function useEmbedUnsent(threadId: string, messages: { sendKey: string | null }[]): UnsentMessage[] {
     const items = useSyncExternalStore(subscribeEmbedOutbox, () => embedOutboxOf(threadId));
 
     return useMemo(() => visibleOutbox(items, messages).map((item) => ({ ...item, model: null, effort: null, files: [], refs: [] })), [items, messages]);
