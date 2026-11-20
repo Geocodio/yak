@@ -19,6 +19,8 @@ struct InstanceShell: View {
     @State private var tasksRoute: TasksRoute?
     /// The thread the tasks route opened over; a different thread closes the route.
     @State private var tasksOverThreadID: String?
+    /// The drawer moves only after the cold start has placed it; see `DrawerContainer.animates`.
+    @State private var drawerAnimates = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.walkthroughPlayback) private var walkthroughPlayback
@@ -117,10 +119,13 @@ struct InstanceShell: View {
 
     @ViewBuilder private var layout: some View {
         if isCompactWidth {
-            DrawerContainer(isOpen: drawerBinding) {
+            DrawerContainer(isOpen: drawerBinding, animates: drawerAnimates) {
                 drawer
             } detail: {
                 threadScreen
+            }
+            .onChange(of: scene.hasAppliedColdStart, initial: true) { _, hasApplied in
+                if hasApplied { Task { drawerAnimates = true } }
             }
         } else {
             NavigationSplitView(columnVisibility: columnVisibility) {

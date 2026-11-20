@@ -4,6 +4,9 @@ import SwiftUI
 /// drawer in and pushes the thread aside by the drawer's width, scaled down with a hairline border.
 struct DrawerContainer<Drawer: View, Detail: View>: View {
     @Binding var isOpen: Bool
+    /// False until the first placement is done: the drawer the cold start closes after the list loads takes its place at
+    /// once, and only later changes move.
+    let animates: Bool
     @ViewBuilder let drawer: Drawer
     @ViewBuilder let detail: Detail
 
@@ -75,8 +78,9 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
             // Every opener (button, shortcut, thread pick, scrim tap, drag release) flips `isOpen`, so one transaction
             // here animates them all.
             .transaction(value: isOpen) { transaction in
-                transaction.animation = Motion.resolve(releaseAnimation ?? Motion.drawer, reduceMotion: reduceMotion)
-                if isOpen {
+                transaction.animation =
+                    animates ? Motion.resolve(releaseAnimation ?? Motion.drawer, reduceMotion: reduceMotion) : nil
+                if isOpen, animates {
                     // The drawer may have closed again by the time the open settles.
                     transaction.addAnimationCompletion(criteria: .logicallyComplete) {
                         if isOpen { settledOpenCount += 1 }
