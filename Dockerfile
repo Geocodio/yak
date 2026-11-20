@@ -111,12 +111,24 @@ RUN cd video && npx remotion browser ensure
 # host image. Produces a single standalone JS file (no runtime deps).
 RUN cd sandbox-tools/yak-browser && npm install --no-audit --no-fund && npm run build
 
+# ── Agent runner bundle ──────────────────────────────────────────────
+# runner/ plus its production node_modules, packed as one tarball with a version
+# hash. ThreadCommands and OneShotRuns push it into a sandbox whose
+# /opt/yak-runner/.version differs, so every app deploy carries the runner.
+FROM base AS runner-bundle
+
+WORKDIR /app
+COPY runner ./runner
+COPY scripts/build-runner-bundle.sh scripts/verify-runner-bundle.sh ./scripts/
+RUN ./scripts/build-runner-bundle.sh /out && ./scripts/verify-runner-bundle.sh /out
+
 # ── Production image ─────────────────────────────────────────────────
 FROM base AS production
 
 WORKDIR /app
 
 COPY --from=build /app /app
+COPY --from=runner-bundle /out /opt/yak-runner-bundle
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 

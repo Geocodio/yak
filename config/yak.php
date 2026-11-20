@@ -166,6 +166,9 @@ return [
     */
 
     'sandbox' => [
+        // The prebuilt agent runner (yak-runner.tgz + version) the Docker image carries.
+        // A sandbox whose /opt/yak-runner/.version differs gets it pushed before a runner starts.
+        'runner_bundle_path' => env('YAK_RUNNER_BUNDLE_PATH', '/opt/yak-runner-bundle'),
         'enabled' => (bool) env('YAK_SANDBOX_ENABLED', true),
         'base_template' => env('YAK_SANDBOX_BASE_TEMPLATE', 'yak-base'),
         'snapshot_name' => env('YAK_SANDBOX_SNAPSHOT_NAME', 'ready'),
