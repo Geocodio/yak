@@ -90,7 +90,9 @@ struct ThreadLayoutView: View {
         return VStack(spacing: 0) {
             if singlePlacement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
             ZStack {
-                PaneHost(thread: thread, focused: focused, slots: model, cornerRadius: cornerRadius)
+                PaneHost(
+                    thread: thread, focused: focused, slots: model, pickCount: scene.panePickCount,
+                    cornerRadius: cornerRadius)
                     .frame(
                         maxWidth: .infinity, maxHeight: .infinity,
                         alignment: plan.arrangement == .single ? .center : .topLeading)

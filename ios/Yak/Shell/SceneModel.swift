@@ -72,6 +72,9 @@ final class SceneModel {
         didSet { if oldValue.threadID != state.threadID { paneBeforeOverview = .chat } }
     }
     private(set) var hasAppliedColdStart = false
+    /// How many times the person picked a pane, for the haptic. Rotation, the server and a tap into the other slot do
+    /// not count.
+    private(set) var panePickCount = 0
     /// Shows "Signed in as <name>" in the drawer once after a pairing.
     var justPairedUserName: String?
     var newThreadPrefill: (repo: String?, text: String?)?
@@ -184,6 +187,7 @@ final class SceneModel {
 
     /// A pane picked in a bar, the rail, the row or by Command 1 to 5. `slot` is the bar whose menu was used.
     func select(_ pane: PaneID, from slot: SlotPosition? = nil) {
+        panePickCount += 1
         guard let plan else {
             focus(pane: pane)
             return

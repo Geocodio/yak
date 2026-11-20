@@ -9,6 +9,8 @@ struct PaneHost: View {
     /// The focused pane: a pane that is not shown waits one step to the side it would slide in from.
     let focused: PaneID
     let slots: PaneSlotsModel
+    /// Changes when the person picks a pane; the haptic follows it.
+    let pickCount: Int
     /// The corners of a pane in a two-slot layout; a single pane is not clipped.
     let cornerRadius: CGFloat
 
@@ -53,7 +55,7 @@ struct PaneHost: View {
             isStill ? (isSingle ? Motion.crossFade : nil) : Motion.paneSwitch,
             value: Arrangement(focused: focused, kind: slots.arrangement, placement: slots.placement)
         )
-        .haptic(.paneChanged, trigger: focused)
+        .haptic(.paneChanged, trigger: pickCount)
         // Scrolling any pane's list drags the keyboard down with it.
         .scrollDismissesKeyboard(.interactively)
     }

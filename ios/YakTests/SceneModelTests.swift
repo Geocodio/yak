@@ -367,3 +367,12 @@ private func compactInputs() -> LayoutInputs {
     scene.openNewThread(repo: nil, text: nil)
     #expect(!scene.state.isDrawerOpen)
 }
+
+@MainActor @Test func onlyAPaneThePersonPicksCountsForTheHaptic() {
+    let scene = wideScene()
+    #expect(scene.panePickCount == 0)
+    scene.select(.files)
+    #expect(scene.panePickCount == 1)
+    scene.focusSlot(.trailing)
+    #expect(scene.panePickCount == 1)
+}
