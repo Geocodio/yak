@@ -17,6 +17,7 @@ function runStartedAt(?CarbonImmutable $startedAt): TaskRun
     $run = new TaskRun;
     $run->agent_started_at = $startedAt;
     $run->source = 'sentry';
+    $run->thread_id = 1;
 
     return $run;
 }
@@ -102,3 +103,11 @@ it('keeps the turn limit for work Yak started by itself', function (string $sour
 
     expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
 })->with(['sentry', 'flaky-test', 'preview-repair']);
+
+it('keeps the turn limit for a one-shot run outside a thread', function () {
+    $run = runStartedAt($this->now);
+    $run->source = 'dashboard';
+    $run->thread_id = null;
+
+    expect((new RunawayGuard)->check($run, $this->now, 10))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
