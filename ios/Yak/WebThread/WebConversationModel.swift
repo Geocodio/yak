@@ -75,7 +75,7 @@ final class WebConversationModel {
     @ObservationIgnored private var switchTask: Task<Void, Never>?
     @ObservationIgnored private var redeemRequest: URLRequest?
     @ObservationIgnored private var openedThreadID: String?
-    @ObservationIgnored private var lastOutbox: EmbedAppMessage?
+    @ObservationIgnored private var lastOutbox: [String: EmbedAppMessage] = [:]
     @ObservationIgnored private var lastProcessEndAt: WebConversationInstant?
     @ObservationIgnored private var hasBegun = false
     @ObservationIgnored private var isPageHidden = false
@@ -322,12 +322,13 @@ final class WebConversationModel {
 
     // MARK: To the page
 
-    /// The unsent messages of the shown thread. The page is told when the list changes; a list that the page has
-    /// not seen yet is sent when it is ready.
+    /// The unsent messages of a thread, kept per thread so an update from a pane that is leaving cannot replace the
+    /// list of the thread that is arriving. The page is told when the list changes; a list that the page has not
+    /// seen yet is sent when it is ready.
     func outboxChanged(threadID: String, items: [OutboxItem]) {
         let message = EmbedOutboxProjection.message(threadID: threadID, items: items)
-        guard message != lastOutbox else { return }
-        lastOutbox = message
+        guard message != lastOutbox[threadID] else { return }
+        lastOutbox[threadID] = message
         if machine.phase == .ready, pageThreadID == threadID { send(message) }
     }
 
@@ -336,9 +337,7 @@ final class WebConversationModel {
 
     private func sendHeldMessages() {
         if !isOnline { send(.connectivity(isOnline: false)) }
-        if case .outbox(let outboxThreadID, _)? = lastOutbox, outboxThreadID == pageThreadID, let lastOutbox {
-            send(lastOutbox)
-        }
+        if let pageThreadID, let held = lastOutbox[pageThreadID] { send(held) }
     }
 
     private func send(_ message: EmbedAppMessage) {

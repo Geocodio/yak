@@ -265,6 +265,20 @@ private let instanceURL = URL(string: "https://yak.example.com")!
         #expect(harness.page.messages.last == .outbox(threadID: "d0e515ef", items: []))
     }
 
+    @Test func anOutboxUpdateOfTheOldThreadDoesNotReplaceTheNewThreadsList() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        let newer = harness.outboxItem("For the new thread", thread: "a1b2c3d4")
+        harness.model.outboxChanged(threadID: "a1b2c3d4", items: [newer])
+        harness.model.show(thread: "a1b2c3d4")
+        // The old pane reports last, while the page cross-fades.
+        harness.model.outboxChanged(threadID: "d0e515ef", items: [])
+        harness.model.receive(.threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"))
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        #expect(
+            harness.page.messages.last == EmbedOutboxProjection.message(threadID: "a1b2c3d4", items: [newer]))
+    }
+
     @Test func anAcceptedSendRefreshesThePageAndAnotherThreadsOutboxIsNotSent() async {
         let harness = Harness()
         await harness.open("d0e515ef")
