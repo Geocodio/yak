@@ -9,6 +9,7 @@ use App\Exceptions\ThreadActionRefused;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
+use App\Services\Threads\Repos\RepositoryAccess;
 use App\Services\Threads\ThreadAccess;
 
 /**
@@ -119,7 +120,17 @@ class StackRules
             throw new StackRuleViolation("Yak cannot reach {$repo}. Add the repository to the Yak GitHub app first.", personMessage: "Yak cannot reach {$repo}. Ask an admin to add the repository to Yak's GitHub app.", field: 'repo');
         }
 
-        return $slug === $parent->repo ? null : $slug;
+        if ($slug === $parent->repo) {
+            return null;
+        }
+
+        $access = app(RepositoryAccess::class)->check($slug);
+
+        if (! $access->allowed) {
+            throw new StackRuleViolation("Yak cannot use {$slug} here. {$access->reason}", personMessage: (string) $access->reason, field: 'repo');
+        }
+
+        return $slug;
     }
 
     public function inSameStack(Thread $first, Thread $second): bool

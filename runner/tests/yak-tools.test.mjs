@@ -81,7 +81,7 @@ test('spawn_thread says to use the Agent tool for work in this checkout', () => 
   assert.match(description, /Agent tool/);
   assert.match(description, /`research` is read-only with no branch or pull request, runs in the sandbox of this thread, and may take `repo`/);
   assert.match(description, /`implement` gets its own sandbox, branch and pull request, and may take `repo`/);
-  assert.match(description, /gh api repos\/<owner>\/<repo>\/readme/);
+  assert.match(description, /start a `research` sub-thread with `repo`/);
   assert.match(description, /comes back to this thread as a message on its own/);
   assert.match(description, /do not tell the person to go check it/);
 });

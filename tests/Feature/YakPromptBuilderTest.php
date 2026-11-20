@@ -46,7 +46,7 @@ test('system prompt tells Claude what each sub-thread kind sees and that results
     expect($prompt)
         ->toContain('`research` is read-only with no branch or pull request')
         ->toContain('may take `repo` to look at another repository')
-        ->toContain('`gh api repos/<owner>/<repo>/readme`')
+        ->toContain('to look at any other repository, start a `research` sub-thread with `repo`')
         ->toContain('comes back to this thread as a message on its own')
         ->toContain('do not tell the person to go check it');
 });

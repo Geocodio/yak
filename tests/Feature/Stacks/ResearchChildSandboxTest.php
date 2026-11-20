@@ -12,6 +12,7 @@ use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadCloser;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadSandbox;
@@ -180,9 +181,52 @@ it('clones another repository read-only instead of adding a worktree', function 
     $this->runner->prepare($other);
 
     $commands = collect($this->sandbox->calls)->filter(fn (array $call): bool => $call['operation'] === 'exec' && $call['threadId'] === $this->parent->id)->pluck('arguments.command');
-    $clone = $commands->first(fn (array $command): bool => str_contains((string) ($command[2] ?? ''), 'git clone'));
+    $clone = $commands->first(fn (array $command): bool => str_contains((string) ($command[2] ?? ''), 'gh repo clone'));
 
-    expect($clone[2])->toContain('chmod -R a-w')->not->toContain('worktree add')
+    expect($clone[2])->toContain('gh repo clone')->toContain('chmod -R a-w')->not->toContain('worktree add')->not->toContain('git clone')
         ->and($clone[4])->toBe('/home/yak/research/elsewhere')
-        ->and($clone[5])->toBe('https://github.com/acme/website.git');
+        ->and($clone[5])->toBe('acme/website');
+});
+
+it('widens the parent credentials before it clones another repository', function () {
+    $credentials = Mockery::mock(ThreadGitHubCredentials::class);
+    $credentials->shouldReceive('install')->once()->with(Mockery::on(fn (Thread $thread): bool => $thread->is($this->parent)));
+    app()->instance(ThreadGitHubCredentials::class, $credentials);
+
+    $other = Thread::factory()->child($this->parent)->create(['name' => 'elsewhere', 'kind' => ThreadKind::Research, 'repo' => 'acme/website', 'claude_account_id' => $this->account->id]);
+
+    app(ResearchChildRunner::class)->prepare($other);
+});
+
+it('reports a failed clone in words the parent can act on', function () {
+    $other = Thread::factory()->child($this->parent)->create(['name' => 'elsewhere', 'kind' => ThreadKind::Research, 'repo' => 'acme/website', 'claude_account_id' => $this->account->id]);
+    $this->sandbox->queueExecResult(Process::result());
+    $this->sandbox->queueExecResult(Process::result('', 'HTTP 404: Not Found', 1));
+
+    expect(fn () => $this->runner->prepare($other))->toThrow(RuntimeException::class, 'Yak could not check out acme/website read-only');
+});
+
+it('starts a research child of another repository with user settings only', function () {
+    $other = Thread::factory()->child($this->parent)->create(['name' => 'elsewhere', 'kind' => ThreadKind::Research, 'repo' => 'acme/website', 'claude_account_id' => $this->account->id, 'sandbox_container' => 'yak-thread-parent']);
+    $credentials = Mockery::mock(ThreadGitHubCredentials::class);
+    $credentials->shouldReceive('install');
+    app()->instance(ThreadGitHubCredentials::class, $credentials);
+    $this->sandbox->queueExecResult(Process::result());
+    $this->sandbox->queueExecResult(Process::result());
+    $this->sandbox->queueExecResult(Process::result("2: eth0    inet 10.0.0.7/24 scope global eth0\n"));
+    app(ResearchChildRunner::class)->prepare($other);
+
+    app(ThreadCommands::class)->startRunner($other->fresh(), $this->account, null, 'prompt');
+
+    $start = collect(app(BrokerStreams::class)->commands("threads:{$other->id}"))->firstWhere('type', 'start_runner');
+
+    expect($start['start']['settingSources'])->toBe(['user']);
+});
+
+it('keeps project settings for a research child of the parent repository', function () {
+    startedResearchChild($this);
+
+    $start = collect(app(BrokerStreams::class)->commands("threads:{$this->child->id}"))->firstWhere('type', 'start_runner');
+
+    expect($start['start']['settingSources'])->toBe(['user', 'project', 'local']);
 });
