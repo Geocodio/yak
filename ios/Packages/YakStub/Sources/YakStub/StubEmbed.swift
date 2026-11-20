@@ -113,6 +113,12 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     }
 
     private func redeem(_ request: StubRequest) -> StubReply {
+        // The real server refuses a redeem that does not come from the app's own web view.
+        let isFromTheApp = (request.headers["user-agent"] ?? "").contains(" YakApp/")
+        let isSameSite = [nil, "none", "same-origin"].contains(request.headers["sec-fetch-site"])
+        guard isFromTheApp, isSameSite else {
+            return StubReply(answer: .reply(status: 403, contentType: "text/plain", body: Data("Forbidden".utf8)))
+        }
         let form = URLComponents(string: "?" + String(decoding: request.body, as: UTF8.self))?.queryItems ?? []
         let code = form.first { $0.name == "code" }?.value ?? ""
         let outcome: (path: String, session: String)? = lock.withLock {

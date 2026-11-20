@@ -41,12 +41,15 @@ import Testing
         return try #require(object["code"] as? String)
     }
 
-    private func redeem(_ feature: StubEmbed, code: String, scenario: String = "embed-basic") throws -> (
-        status: Int, body: String, headers: [String: String]
-    ) {
+    private func redeem(
+        _ feature: StubEmbed, code: String, scenario: String = "embed-basic", extraHeaders: [String: String] = [:],
+        userAgent: String? = "Mozilla/5.0 YakApp/1.0"
+    ) throws -> (status: Int, body: String, headers: [String: String]) {
+        var headers = ["content-type": "application/x-www-form-urlencoded"]
+        if let userAgent { headers["user-agent"] = userAgent }
+        headers.merge(extraHeaders) { $1 }
         let request = StubRequest(
-            method: "POST", path: StubEmbed.redeemPath,
-            headers: ["content-type": "application/x-www-form-urlencoded"], body: Data("code=\(code)".utf8))
+            method: "POST", path: StubEmbed.redeemPath, headers: headers, body: Data("code=\(code)".utf8))
         return try parts(feature.web(request, context: context(scenario)))
     }
 
@@ -107,6 +110,23 @@ import Testing
         #expect(try redeem(feature, code: minted).status == 403)
         #expect(try redeem(feature, code: "yakweb_unknown").status == 403)
         #expect(try redeem(feature, code: "").status == 403)
+    }
+
+    @Test func theRedeemNeedsTheAppUserAgentAndASameSiteFetch() throws {
+        let feature = StubEmbed()
+        func fresh() throws -> String { try code(from: mint(feature).body) }
+        #expect(try redeem(feature, code: fresh(), userAgent: nil).status == 403)
+        #expect(try redeem(feature, code: fresh(), userAgent: "Mozilla/5.0 Safari").status == 403)
+        #expect(try redeem(feature, code: fresh(), userAgent: "YakApp/1.0").status == 403)
+        #expect(try redeem(feature, code: fresh(), extraHeaders: ["sec-fetch-site": "cross-site"]).status == 403)
+        #expect(try redeem(feature, code: fresh(), extraHeaders: ["sec-fetch-site": "same-site"]).status == 403)
+        for site in ["none", "same-origin"] {
+            #expect(try redeem(feature, code: fresh(), extraHeaders: ["sec-fetch-site": site]).status == 303)
+        }
+        // A refused request does not use up the code.
+        let kept = try fresh()
+        #expect(try redeem(feature, code: kept, userAgent: nil).status == 403)
+        #expect(try redeem(feature, code: kept).status == 303)
     }
 
     @Test func theThreadPageNeedsTheSessionCookie() throws {
@@ -236,6 +256,7 @@ private final class StopAtRedirect: NSObject, URLSessionTaskDelegate {
         var redeem = URLRequest(url: URL(string: base + "/app/embed/session")!)
         redeem.httpMethod = "POST"
         redeem.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        redeem.setValue("Mozilla/5.0 YakApp/1.0", forHTTPHeaderField: "User-Agent")
         redeem.httpBody = Data("code=\(code)".utf8)
         let (_, redeemResponse) = try await session.data(for: redeem, delegate: StopAtRedirect())
         let redirect = try #require(redeemResponse as? HTTPURLResponse)
