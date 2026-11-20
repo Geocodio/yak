@@ -122,6 +122,7 @@ use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
 use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
+use App\Http\Controllers\Threads\ThreadStepLimitController;
 use App\Http\Controllers\Threads\ThreadTaskActionController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
@@ -329,6 +330,7 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('thread.drive')
         ->name('threads.stop');
     Route::middleware('thread.drive')->group(function (): void {
+        Route::post('threads/{thread}/step-limit', ThreadStepLimitController::class)->name('threads.step-limit.store');
         Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
         Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
         Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');

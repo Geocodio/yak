@@ -125,6 +125,11 @@ class ThreadEventProjector
         $entries = [];
 
         if (is_string($line['uuid'] ?? null) && ($text = $this->promptText($content)) !== null) {
+            // The CLI writes this marker for every message an interrupt dropped; it is not something the person typed.
+            if (str_starts_with(trim($text), '[Request interrupted by user')) {
+                return [];
+            }
+
             return [$this->entry(['role' => 'user', 'uuid' => $line['uuid'], 'text' => $text, 'kind' => 'prompt'])];
         }
 

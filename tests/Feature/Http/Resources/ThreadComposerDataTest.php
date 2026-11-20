@@ -28,6 +28,7 @@ it('is idle on an open thread without a running turn', function () {
         'accountName' => 'Work',
         'nextAttachmentNumber' => 1,
         'context' => null,
+        'turn' => null,
     ]);
 });
 

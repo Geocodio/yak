@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Artifact;
+use App\Models\ArtifactVersion;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadEvent;
@@ -17,8 +18,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Moves what Claude recorded into `.yak-artifacts/` during a turn from the
  * thread's sandbox onto the thread's task, where the pull request body and
- * the render jobs already look for it. The folder is removed from the sandbox
- * once persisted, so each turn only collects its own recording.
+ * the render jobs already look for it. Everything but `shared/` is removed from the
+ * sandbox once persisted, so each turn only collects its own recording; shared files stay
+ * and are collected again each turn, which changes nothing unless their content did.
  */
 class ThreadArtifacts
 {
@@ -53,7 +55,8 @@ class ThreadArtifacts
         $artifacts = ArtifactPersister::persist($task);
         $this->anchorSharedFiles($thread, $artifacts);
 
-        $shell->run($container, 'rm -rf ' . escapeshellarg("{$workspacePath}/.yak-artifacts"));
+        // `shared/` stays so Claude can open and edit its own files next turn; every other capture folder is cleared.
+        $shell->run($container, 'find ' . escapeshellarg("{$workspacePath}/.yak-artifacts") . ' -mindepth 1 -maxdepth 1 ! -name shared -exec rm -rf {} +');
 
         // A PR that is already open gets the new screenshots in its body; the render job updates the video itself.
         if ($task->pr_url !== null && collect($artifacts)->contains('role', 'screenshot')) {
@@ -92,16 +95,17 @@ class ThreadArtifacts
     private function anchorSharedFiles(Thread $thread, array $artifacts): void
     {
         $shared = array_filter($artifacts, fn (Artifact $artifact): bool => $artifact->role === Artifact::SHARED_ROLE);
-
-        if ($shared === []) {
-            return;
-        }
-
         $sequence = ThreadEvent::query()->where('thread_id', $thread->id)->max('sequence');
 
         foreach ($shared as $artifact) {
             $artifact->update(['anchor_sequence' => $sequence]);
         }
+
+        // A re-saved file keeps its first card; the version recorded by this collection sits at the same point.
+        ArtifactVersion::query()
+            ->whereNull('anchor_sequence')
+            ->whereIn('artifact_id', Artifact::query()->shared()->whereIn('yak_task_id', $thread->tasks()->select('id'))->select('id'))
+            ->update(['anchor_sequence' => $sequence]);
     }
 
     private function dropSupersededRecording(Thread $thread, YakTask $task, string $collected): void

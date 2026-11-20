@@ -50,6 +50,12 @@ it('projects a prompt line with a uuid as a user entry and ignores one without',
         ->and($projector->project(['type' => 'user', 'message' => ['content' => 'hi']]))->toBe([]);
 });
 
+it('drops the marker the CLI writes for messages an interrupt dropped', function () {
+    $line = ['type' => 'user', 'uuid' => 'u2', 'message' => ['content' => [['type' => 'text', 'text' => '[Request interrupted by user]']]]];
+
+    expect((new ThreadEventProjector)->project($line))->toBe([]);
+});
+
 it('extracts text, thinking and tool input deltas from stream events', function () {
     $projector = new ThreadEventProjector;
     $make = fn (array $delta, int $index = 2): array => ['type' => 'stream_event', 'message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => $index, 'delta' => $delta]];

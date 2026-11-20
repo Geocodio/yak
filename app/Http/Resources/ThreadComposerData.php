@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Tasks\StoppedTaskReplies;
+use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\ThreadAccess;
 use App\Services\Threads\ThreadTurns;
 
@@ -29,7 +30,7 @@ final class ThreadComposerData
     ];
 
     /**
-     * @return array{state: 'idle'|'working'|'stopped'|'disabled_closed'|'legacy'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>}
+     * @return array{state: 'idle'|'working'|'stopped'|'disabled_closed'|'legacy'|'disabled_computer'|'disabled_blocked'|'readonly', model: ?string, effort: ?string, models: list<array{family: string, latest: array{value: string, label: string, description: string, efforts: list<string>}, older: list<array{value: string, label: string, efforts: list<string>}>}>, accountName: ?string, nextAttachmentNumber: int, context: ?array{tokens: int, input: int, cacheRead: int, cacheCreation: int}, contextWindows: array<string, int>, turn: ?array{steps: int, limit: ?int, canAddSteps: bool, stepsToAdd: int}}
      */
     public static function for(Thread $thread, ?User $viewer): array
     {
@@ -59,6 +60,30 @@ final class ThreadComposerData
             'nextAttachmentNumber' => $attachments + 1,
             'context' => self::context($thread),
             'contextWindows' => self::contextWindows(),
+            'turn' => $state === 'working' ? self::turn($thread) : null,
+        ];
+    }
+
+    /**
+     * The running turn's steps so far and its step limit; a turn a person started has none.
+     *
+     * @return array{steps: int, limit: ?int, canAddSteps: bool, stepsToAdd: int}|null
+     */
+    private static function turn(Thread $thread): ?array
+    {
+        $run = ThreadTurns::activeTurn($thread);
+
+        if ($run === null) {
+            return null;
+        }
+
+        $hasLimit = RunawayGuard::hasTurnLimit($run);
+
+        return [
+            'steps' => (int) $run->getAttribute('assistant_turns'),
+            'limit' => $hasLimit ? RunawayGuard::turnLimit($run) : null,
+            'canAddSteps' => $hasLimit,
+            'stepsToAdd' => (int) config('yak.max_turns'),
         ];
     }
 

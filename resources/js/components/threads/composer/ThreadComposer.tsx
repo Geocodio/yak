@@ -205,7 +205,7 @@ export function ThreadComposer({ queued = [], thread, composer, notice, teleport
                             )}
                             {!disabled && <AttachButton draft={draft} disabled={form.processing} />}
                             <ModelPicker variant="inline" models={composer.models} value={form.data.model} onChange={(model) => form.setData('model', model)} effort={form.data.effort} onEffortChange={(effort) => form.setData('effort', effort)} disabled={disabled} testId="composer-model" />
-                            <ContextRing composer={composer} model={form.data.model} />
+                            <ContextRing composer={composer} model={form.data.model} threadId={thread.id} />
                             <span className="text-[11px] text-faint sm:truncate max-sm:basis-full" data-testid="thread-composer-hint">
                                 {hint}
                             </span>

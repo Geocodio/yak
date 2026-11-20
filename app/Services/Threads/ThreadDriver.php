@@ -170,7 +170,9 @@ class ThreadDriver
                     TaskLogger::warning($run->task, 'turn_stopped_by_guard', ['reason' => $reason]);
                 }
 
-                $this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events);
+                if ($this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events)) {
+                    app(ThreadTurns::class)->cancelMessages($run);
+                }
                 $events[] = fn () => app(GuardStopNotifier::class)->ask($run, $reason, (int) $run->getAttribute('assistant_turns'));
             }
         });
@@ -425,7 +427,8 @@ class ThreadDriver
         $tracker = $this->trackerFor($run);
         $type = $line['type'] ?? null;
 
-        if ($type === 'assistant') {
+        // A sub-agent's messages belong to its own run of steps and do not count towards the turn's.
+        if ($type === 'assistant' && ($line['parent_tool_use_id'] ?? null) === null) {
             $run->setAttribute('assistant_turns', (int) $run->getAttribute('assistant_turns') + 1);
         }
 

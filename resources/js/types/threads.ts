@@ -157,6 +157,10 @@ export type SharedFile = {
     /** The thread event the file's turn ended at; the card sits after the reply up to it. */
     anchorSequence: number | null;
     createdAt: string;
+    /** When the latest later version was saved; null while the file is unchanged. */
+    updatedAt: string | null;
+    /** Each later version of the file (the first is the card itself), oldest first. */
+    versions: { version: number; anchorSequence: number | null; createdAt: string; sizeBytes: number }[];
 };
 
 /** One answer of Yak in a thread made from an old task; mirrors `App\Services\Threads\LegacyConversation`. */
@@ -340,6 +344,8 @@ export type ThreadComposer = {
     context: { tokens: number; input: number; cacheRead: number; cacheCreation: number } | null;
     /** Window size by model id and family alias, plus `default`. */
     contextWindows: Record<string, number> & { default: number };
+    /** The turn running now: steps so far, its step limit (null when a person started it) and whether "Add steps" applies. Null otherwise. */
+    turn: { steps: number; limit: number | null; canAddSteps: boolean; stepsToAdd: number } | null;
 };
 
 export type ThreadNoticeKind =

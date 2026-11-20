@@ -31,8 +31,8 @@ import { ThreadNotice } from './ThreadNotice';
 import { ToolSteps } from './ToolSteps';
 import { EarlierWalkthroughCard, WalkthroughCard, WalkthroughRecordingRow } from './WalkthroughCard';
 import { placeWalkthroughs } from './placeWalkthroughs';
-import { SharedFilesCard } from './SharedFilesCard';
-import { placeSharedFiles } from '@/components/threads/files/sharedFiles';
+import { SharedFilesCard, SharedFileUpdate } from './SharedFilesCard';
+import { placeFileUpdates, placeSharedFiles } from '@/components/threads/files/sharedFiles';
 import type { ConversationItem } from './conversationItem';
 
 // Browser tests drive the pure merge through this hook.
@@ -125,6 +125,10 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
         ? <EarlierWalkthroughCard key={`walkthrough-${version.earlier.number}`} walkthrough={version.earlier} />
         : <WalkthroughCard key={`walkthrough-${version.latest.number}`} walkthrough={version.latest} threadId={threadId} canRetryRender={!readonly} canRecordAgain={!readonly && !working} startAt={walkthroughStartAt} />;
     const { after: filesAfter, trailing: trailingFiles } = placeSharedFiles(entries, sharedFiles);
+    const { after: updatesAfter, trailing: trailingUpdates } = placeFileUpdates(entries, sharedFiles);
+    const renderUpdate = ({ file, version }: { file: SharedFile; version: SharedFile['versions'][number] }) => (
+        <SharedFileUpdate key={`${file.id}-v${version.version}`} file={file} version={version} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
+    );
     const footersAfter = placeRunFooters(entries, onOpenRunLog === undefined ? [] : runs);
     const retryNumbers = new Map<string, number>();
     runs.filter((run) => run.isRetry).forEach((run, position) => retryNumbers.set(run.runId, position + 1));
@@ -176,6 +180,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                                 {(filesAfter.get(index) ?? []).map((group) => (
                                     <SharedFilesCard key={group[0].id} files={group} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />
                                 ))}
+                                {(updatesAfter.get(index) ?? []).map(renderUpdate)}
                                 {(walkthroughsAfter.get(index) ?? []).map(renderWalkthrough)}
                             </Fragment>
                         );
@@ -211,6 +216,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {trailingWalkthroughs.map(renderWalkthrough)}
                 {walkthrough?.isRecording === true && <WalkthroughRecordingRow number={walkthrough.nextNumber} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
+                {trailingUpdates.map(renderUpdate)}
                 {waiting !== null && (
                     <div className="ml-9">
                         <PendingStep since={waiting.since} label={waiting.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={waiting.queued} testId={waiting.queued ? 'thread-queued' : 'thread-thinking'} />
