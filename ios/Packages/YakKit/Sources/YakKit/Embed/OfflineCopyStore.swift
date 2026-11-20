@@ -172,7 +172,11 @@ public actor OfflineCopyStore {
 
     /// Sign-out, instance removal, a revoked device, or the person's choice in Settings.
     public func removeAll() {
-        do { try files.remove(folder) } catch { logFailure("The offline copies could not be removed: \(type(of: error))") }
+        do {
+            try files.remove(folder)
+        } catch {
+            logFailure("The offline copies could not be removed: \(type(of: error))")
+        }
         index = OfflineCopyIndex()
     }
 
