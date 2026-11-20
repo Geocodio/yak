@@ -66,7 +66,7 @@ export function IconRail({ active, onSelect, onShowThreads }: { active: RailSect
                     </button>
                 </Tooltip>
             ) : null}
-            <RailButton section="threads" active={active === 'threads'} badge={props.nav.needsYouCount} onSelect={onSelect} />
+            <RailButton section="threads" active={active === 'threads'} badge={props.nav?.needsYouCount} onSelect={onSelect} />
             <RailButton section="operations" active={active === 'operations'} onSelect={onSelect} />
             <RailButton section="insights" active={active === 'insights'} onSelect={onSelect} />
             <div className="mt-auto flex flex-col items-center gap-2">

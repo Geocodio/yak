@@ -7,8 +7,8 @@ import { useJson } from '../useJson';
 const POLL_MILLISECONDS = 10_000;
 
 /** The stack of a thread. Reloads when the thread's activity moves and polls while the page is visible. */
-export function useStack(thread: ThreadData): { stack: StackData | null; isLoading: boolean; error: string | null; reload: () => void } {
-    const { data, isLoading, error, reload } = useJson<StackData>(show.url(thread.id));
+export function useStack(thread: ThreadData, isEnabled = true): { stack: StackData | null; isLoading: boolean; error: string | null; reload: () => void } {
+    const { data, isLoading, error, reload } = useJson<StackData>(show.url(thread.id), isEnabled);
 
     useEffect(() => {
         reload();
@@ -16,13 +16,13 @@ export function useStack(thread: ThreadData): { stack: StackData | null; isLoadi
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (document.visibilityState === 'visible') {
+            if (isEnabled && document.visibilityState === 'visible') {
                 reload();
             }
         }, POLL_MILLISECONDS);
 
         return () => clearInterval(interval);
-    }, [reload]);
+    }, [reload, isEnabled]);
 
     return { stack: data, isLoading, error, reload };
 }

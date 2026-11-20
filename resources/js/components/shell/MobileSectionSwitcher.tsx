@@ -27,7 +27,7 @@ export function MobileSectionSwitcher({ active, onSelect }: { active: RailSectio
                 >
                     <Icon size={18} />
                     <span>{label}</span>
-                    {section === 'threads' && props.nav.needsYouCount > 0 ? (
+                    {section === 'threads' && (props.nav?.needsYouCount ?? 0) > 0 ? (
                         <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-pill bg-brand" data-testid="mobile-threads-dot" />
                     ) : null}
                 </button>

@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react';
+import { useEmbed } from '@/embed/useEmbed';
 import { useThreadEventFeed } from '@/threads/realtime/useThreadEventFeed';
 import { livePropsSignature, useRefreshThreadProps } from '@/threads/realtime/useRefreshThreadProps';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
@@ -9,7 +10,7 @@ import { createReadTracker, mergeConversation, type ConversationEntry } from './
 export { mergeConversation, type ConversationEntry };
 
 export function useConversation(threadId: string, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string; link: LinkState } {
-    const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId);
+    const { state: events, entrySequences, entryTimes, link } = useThreadEventFeed(threadId, useEmbed() === null);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
     const { items, readSequences } = useMemo(() => projectConversation(events, entrySequences, entryTimes), [events.entries, entrySequences, entryTimes, events.streamingBlocks, events.children, events.repositories, events.lastSequence]);

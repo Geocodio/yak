@@ -15,13 +15,24 @@ import type { SharedProps } from '@/types/shared';
 
 export function AppLayout({ children }: { children: ReactNode }) {
     const { props, url } = usePage<SharedProps>();
-    const { activeTaskCount } = props.nav;
+    const activeTaskCount = props.nav?.activeTaskCount ?? 0;
     // A thread page has no tab bar below `sm`; its composer and tools row sit at the bottom instead.
     const toastOffset = threadIdOfUrl(url) !== null ? 'max-sm:bottom-[calc(9rem+env(safe-area-inset-bottom))] sm:max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]' : 'max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]';
 
     // The tab favicon wears a pip while tasks are running, so a backgrounded
     // Yak tab still says whether anything is in flight.
     useBrandFavicon(YAK_MARK, YAK_BRAND_COLOR, { pip: activeTaskCount > 0 ? YAK_ACTIVITY_PIP : null });
+
+    // The phone's web view draws the page alone: its drawer, tabs and sheets are native.
+    if (props.embed !== null) {
+        return (
+            <div className="flex h-dvh w-full flex-col bg-app" data-testid="embed-shell">
+                {children}
+                <FlashToasts />
+                <ToastHost />
+            </div>
+        );
+    }
 
     // Below `lg` there is no app bar: each page's own header is the top row,
     // and the content column pads itself clear of the status bar when Yak

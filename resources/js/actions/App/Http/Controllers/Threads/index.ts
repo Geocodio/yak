@@ -1,3 +1,4 @@
+import ThreadController from './ThreadController'
 import ThreadMessageController from './ThreadMessageController'
 import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
 import ThreadTaskActionController from './ThreadTaskActionController'
@@ -8,7 +9,6 @@ import RestoreRetryController from './RestoreRetryController'
 import ThreadLogController from './ThreadLogController'
 import NewThreadController from './NewThreadController'
 import StoreThreadController from './StoreThreadController'
-import ThreadController from './ThreadController'
 import ThreadListController from './ThreadListController'
 import ThreadSeenController from './ThreadSeenController'
 import ThreadStarController from './ThreadStarController'
@@ -34,6 +34,7 @@ import ThreadRepositoryController from './ThreadRepositoryController'
 import PullRequests from './PullRequests'
 
 const Threads = {
+    ThreadController: Object.assign(ThreadController, ThreadController),
     ThreadMessageController: Object.assign(ThreadMessageController, ThreadMessageController),
     ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
     ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
@@ -44,7 +45,6 @@ const Threads = {
     ThreadLogController: Object.assign(ThreadLogController, ThreadLogController),
     NewThreadController: Object.assign(NewThreadController, NewThreadController),
     StoreThreadController: Object.assign(StoreThreadController, StoreThreadController),
-    ThreadController: Object.assign(ThreadController, ThreadController),
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
     ThreadSeenController: Object.assign(ThreadSeenController, ThreadSeenController),
     ThreadStarController: Object.assign(ThreadStarController, ThreadStarController),

@@ -30,7 +30,7 @@ export function MobileTabBar() {
     const isThreadPage = threadIdOfUrl(url) !== null;
 
     const slots = [
-        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: true, badge: props.nav.activeTaskCount },
+        { key: 'tasks', label: 'Threads', icon: <MessagesSquare size={22} />, url: home.url(), activePrefix: true, badge: props.nav?.activeTaskCount },
         { key: 'reviews', label: 'Reviews', icon: <MessageSquare size={22} />, url: prReviews.url(), activePrefix: false, badge: null },
         { key: 'repos', label: 'Repos', icon: <Code2 size={22} />, url: repos.url(), activePrefix: false, badge: null },
     ];

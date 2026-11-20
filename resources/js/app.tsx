@@ -65,10 +65,13 @@ router.on('error', (event) => {
 
 healStandaloneViewport();
 
-if (document.readyState === 'complete') {
-    void registerServiceWorker();
-} else {
-    window.addEventListener('load', () => void registerServiceWorker(), { once: true });
+// The app's web view takes push natively; a service worker there would only cache nothing for nobody.
+if (!navigator.userAgent.includes('YakApp/')) {
+    if (document.readyState === 'complete') {
+        void registerServiceWorker();
+    } else {
+        window.addEventListener('load', () => void registerServiceWorker(), { once: true });
+    }
 }
 
 createInertiaApp({

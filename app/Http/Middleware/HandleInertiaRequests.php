@@ -13,6 +13,7 @@ use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\ThreadList;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Middleware;
@@ -66,6 +67,8 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        // The phone's web view shows the conversation only: the drawer's data is never computed for it.
+        $isEmbed = Auth::getDefaultDriver() === 'app-embed';
         $threadList = fn (): ?array => $user instanceof User ? $this->threadList ??= ThreadList::for($user) : null;
 
         return [
@@ -91,17 +94,18 @@ class HandleInertiaRequests extends Middleware
                     'id' => ($success !== null || $error !== null) ? (string) Str::uuid() : null,
                 ];
             },
-            'threadList' => $threadList,
+            'embed' => $isEmbed ? ['bridge' => 1] : null,
+            'threadList' => $isEmbed ? null : $threadList,
             // Loaded by a partial reload when the new-thread dialog opens.
             'newThread' => Inertia::optional(fn (): array => NewThreadData::for($user)),
-            'nav' => fn () => [
+            'nav' => fn () => $isEmbed ? null : [
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
                 'needsYouCount' => $user instanceof User ? NeedsYouCount::for($user, $threadList()['needsYouCount'] ?? null) : 0,
             ],
-            'operationsPanel' => fn () => $user instanceof User && $request->is('repos', 'repos/*', 'deployments', 'deployments/*', 'pr-reviews', 'pr-reviews/*', 'observations', 'observations/*')
+            'operationsPanel' => fn () => ! $isEmbed && $user instanceof User && $request->is('repos', 'repos/*', 'deployments', 'deployments/*', 'pr-reviews', 'pr-reviews/*', 'observations', 'observations/*')
                 ? OperationsPanelData::for($user)
                 : null,
-            'setup' => fn () => $user instanceof User ? SetupData::for($user) : null,
+            'setup' => fn () => ! $isEmbed && $user instanceof User ? SetupData::for($user) : null,
             'docs' => ['baseUrl' => (string) config('docs.base_url')],
             // The address to forward email to, shown wherever tasks start; null while the email channel is off.
             'emailToYakAddress' => fn () => app(ChannelRegistry::class)->for('email')?->enabled() === true

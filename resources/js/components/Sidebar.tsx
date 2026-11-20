@@ -105,8 +105,8 @@ export function SidebarNav({ touch = false, onNavigate }: { touch?: boolean; onN
                         >
                             <Icon size={iconSize} />
                             <span className="flex-1">{item.label}</span>
-                            {item.label === 'Thread log' && props.nav.activeTaskCount > 0 ? (
-                                <span className="tnum text-[11px] text-faint">{props.nav.activeTaskCount}</span>
+                            {item.label === 'Thread log' && (props.nav?.activeTaskCount ?? 0) > 0 ? (
+                                <span className="tnum text-[11px] text-faint">{props.nav?.activeTaskCount}</span>
                             ) : null}
                         </Link>
                     );
