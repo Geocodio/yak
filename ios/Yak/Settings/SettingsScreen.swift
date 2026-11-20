@@ -85,7 +85,7 @@ struct SettingsScreen: View {
                 ConnectView(model: app, onDone: { showsAdd = false })
                     .linkPairingStatus(app, sheetDepth: 2)
                     .countsAsOpenSheet(app)
-                    .shortSheetDetents().presentationBackground(Color.yakBackground)
+                    .presentationBackground(Color.yakBackground)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("address.cancel") { showsAdd = false }
