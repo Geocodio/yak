@@ -132,6 +132,7 @@ export type YakConfigFile = {
 export type YakConfig = {
     state: 'read' | 'unreachable' | 'unavailable';
     setupStatus: string;
+    setupRunUrl: string | null;
     commitSha: string | null;
     commitUrl: string | null;
     readAt: string | null;

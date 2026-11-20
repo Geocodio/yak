@@ -8,6 +8,7 @@ use App\Models\TaskLog;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ConfigPullRequests;
 use Illuminate\Support\Facades\Queue;
 
 function seedRepositoryRuns(): array
@@ -118,4 +119,28 @@ it('opens the full log of a repository run without run buttons', function () {
         ->assertMissing('[data-testid="run-previous"]')
         ->assertMissing('[data-testid="run-next"]')
         ->assertSee('Search this run');
+});
+
+it('streams the steps of a running setup and opens one in the full log', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    [$repository] = seedRepositoryRuns();
+    $running = YakTask::factory()->create(['repo' => 'acme/site', 'mode' => TaskMode::Setup, 'status' => TaskStatus::Running, 'created_at' => now()->addMinute()]);
+    $repository->update(['setup_task_id' => $running->id, 'setup_status' => 'running']);
+    TaskLog::create(['yak_task_id' => $running->id, 'level' => 'info', 'message' => 'Installing composer packages']);
+    fakeYakFiles([]);
+    $this->mock(ConfigPullRequests::class)->shouldReceive('openPullRequest')->andReturn(null);
+
+    $page = visit(route('repos.edit', $repository))
+        ->click('[data-testid="yak-config-view-setup"]')
+        ->assertPathIs("/repos/acme/site/runs/{$running->public_id}")
+        ->assertSeeIn('[data-testid="run-live-log"]', 'Installing composer packages');
+
+    TaskLog::create(['yak_task_id' => $running->id, 'level' => 'info', 'message' => 'Starting the dev server']);
+
+    $page->wait(4)
+        ->assertSeeIn('[data-testid="run-live-log"]', 'Starting the dev server')
+        ->click('Starting the dev server')
+        ->assertPresent('[data-testid="log-entry-open"]')
+        ->assertNoJavascriptErrors();
 });

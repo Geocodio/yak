@@ -190,7 +190,7 @@ export function YakConfigStrip({ config, slug, branch, setupDone, configUrl }: {
                 icon={<RefreshCw size={16} className="animate-spin text-muted" />}
                 title="Setup is running"
                 action={
-                    <Link href={repos.runs.index.url(slug)}>
+                    <Link href={config.setupRunUrl ?? repos.runs.index.url(slug)}>
                         <Button data-testid="yak-config-view-setup">View run</Button>
                     </Link>
                 }

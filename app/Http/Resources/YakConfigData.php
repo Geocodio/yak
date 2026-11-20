@@ -21,6 +21,7 @@ final class YakConfigData
      * @return array{
      *     state: 'read'|'unreachable'|'unavailable',
      *     setupStatus: string,
+     *     setupRunUrl: ?string,
      *     commitSha: ?string,
      *     commitUrl: ?string,
      *     readAt: ?string,
@@ -90,6 +91,7 @@ final class YakConfigData
                 default => 'unavailable',
             },
             'setupStatus' => (string) $repository->setup_status,
+            'setupRunUrl' => $repository->setupTask === null ? null : route('repos.runs.show', [$repository, $repository->setupTask]),
             'commitSha' => $snapshot->commitSha,
             'commitUrl' => $commitUrl($snapshot->commitSha),
             'readAt' => $snapshot->readAt?->toIso8601String(),
