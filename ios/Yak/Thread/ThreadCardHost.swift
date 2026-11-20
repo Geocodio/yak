@@ -404,7 +404,10 @@ private struct CardContainer<Content: View, Pinned: View>: View {
     @ViewBuilder let content: Content
     @ViewBuilder let pinned: Pinned
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private var limit: CGFloat { max(paneHeight * share, Design.Card.leastHeight) }
+    /// The card never takes more than its share, and never so much that the chat falls under its least height.
+    private var limit: CGFloat {
+        max(min(paneHeight * share, paneHeight - Design.Card.chatLeastHeight), Design.Card.leastHeight)
+    }
 
     private var share: CGFloat {
         if dynamicTypeSize.isAccessibilitySize { return Design.Card.largeShare }
@@ -430,7 +433,14 @@ private struct CardContainer<Content: View, Pinned: View>: View {
                     text().opacity(0).accessibilityHidden(true).allowsHitTesting(false)
                     ScrollView { text() }.scrollBounceBehavior(.basedOnSize)
                 }
-                buttons
+                // The buttons keep their height first; when even they need more than the card has, they scroll.
+                HeightCap(limit: limit - Design.Card.textLeastHeight) {
+                    ViewThatFits(in: .vertical) {
+                        buttons
+                        ScrollView { buttons }.scrollBounceBehavior(.basedOnSize)
+                    }
+                }
+                .layoutPriority(1)
             }
         }
         .id(dynamicTypeSize)
