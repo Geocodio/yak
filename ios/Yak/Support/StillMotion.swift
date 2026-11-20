@@ -4,9 +4,15 @@ import SwiftUI
 /// keeps XCUITest from ever getting an accessibility snapshot on a loaded machine.
 enum StillMotion {
     static func isOn(reduceMotion: Bool) -> Bool {
+        isTestMode || reduceMotion
+    }
+
+    /// The app runs under a UI test: movement is instant, so a screen is still when the audit looks at it.
+    static var isTestMode: Bool {
         #if DEBUG
-            if TestMode.value("yakTestInstance") != nil { return true }
+            TestMode.value("yakTestInstance") != nil
+        #else
+            false
         #endif
-        return reduceMotion
     }
 }
