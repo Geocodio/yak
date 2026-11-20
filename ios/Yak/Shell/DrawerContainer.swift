@@ -77,7 +77,10 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
             .transaction(value: isOpen) { transaction in
                 transaction.animation = Motion.resolve(releaseAnimation ?? Motion.drawer, reduceMotion: reduceMotion)
                 if isOpen {
-                    transaction.addAnimationCompletion(criteria: .logicallyComplete) { settledOpenCount += 1 }
+                    // The drawer may have closed again by the time the open settles.
+                    transaction.addAnimationCompletion(criteria: .logicallyComplete) {
+                        if isOpen { settledOpenCount += 1 }
+                    }
                 }
             }
             .haptic(.drawerSettled, trigger: settledOpenCount)
