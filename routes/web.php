@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
 use App\Http\Controllers\Api\Cli\TeleportController;
 use App\Http\Controllers\Api\Cli\ThreadLookupController;
+use App\Http\Controllers\AppEmbed\SessionController as AppEmbedSessionController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
@@ -101,6 +102,7 @@ use App\Http\Controllers\Threads\Stack\StackShowController;
 use App\Http\Controllers\Threads\Stack\StackStopController;
 use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
+use App\Http\Controllers\Threads\ThreadAgentController;
 use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
 use App\Http\Controllers\Threads\ThreadCoOwnerController;
@@ -122,6 +124,7 @@ use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\Threads\ThreadShareController;
 use App\Http\Controllers\Threads\ThreadSharedFileController;
 use App\Http\Controllers\Threads\ThreadStarController;
+use App\Http\Controllers\Threads\ThreadStepLimitController;
 use App\Http\Controllers\Threads\ThreadTaskActionController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
 use App\Http\Controllers\VideoThemeAssetController;
@@ -142,6 +145,10 @@ Route::get('letmein', function () {
 
     return redirect()->route('home');
 })->name('letmein');
+
+// The phone's embedded web view: the hand-off (no session yet) and the thread page on its restricted guard.
+Route::post('app/embed/session', AppEmbedSessionController::class)->middleware('throttle:app-embed-redeem')->name('app.embed.session');
+Route::get('app/embed/threads/{thread}', [ThreadController::class, 'show'])->middleware('auth:app-embed')->name('app.embed.threads.show');
 
 Route::middleware('guest')->group(function () {
     Route::view('login', 'auth.login')->name('login');
@@ -325,10 +332,19 @@ Route::middleware(['auth'])->group(function () {
     // Threads and the thread page.
     Route::post('threads/{thread}/messages', [ThreadMessageController::class, 'store'])
         ->name('threads.messages.store');
+    Route::get('threads/{thread}/agents/{agent:task_id}/log', [ThreadAgentController::class, 'log'])
+        ->scopeBindings()
+        ->name('threads.agents.log');
     Route::post('threads/{thread}/stop', [ThreadMessageController::class, 'stop'])
         ->middleware('thread.drive')
         ->name('threads.stop');
     Route::middleware('thread.drive')->group(function (): void {
+        Route::post('threads/{thread}/step-limit', ThreadStepLimitController::class)->name('threads.step-limit.store');
+        Route::post('threads/{thread}/agents/stop', [ThreadAgentController::class, 'stopAll'])->name('threads.agents.stop-all');
+        Route::scopeBindings()->group(function (): void {
+            Route::post('threads/{thread}/agents/{agent:task_id}/stop', [ThreadAgentController::class, 'stop'])->name('threads.agents.stop');
+            Route::post('threads/{thread}/agents/{agent:task_id}/messages', [ThreadAgentController::class, 'message'])->name('threads.agents.messages.store');
+        });
         Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
         Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
         Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');

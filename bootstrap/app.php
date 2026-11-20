@@ -4,6 +4,7 @@ use App\Channels\Drone\PollCommand;
 use App\Exceptions\SandboxCommandFailed;
 use App\Exceptions\TeleportError;
 use App\Exceptions\ThreadActionRefused;
+use App\Http\Middleware\AppEmbedSession;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\ClientProtocol;
 use App\Http\Middleware\EnsureTaskDriveRights;
@@ -19,6 +20,7 @@ use App\Services\Threads\Files\InvalidFilePath;
 use App\Support\ClientApi;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -62,18 +64,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);
         // The preview cookie is minted as a raw Set-Cookie header on the preview host, so it is never Laravel-encrypted.
         $middleware->encryptCookies(except: [PreviewAccess::COOKIE_NAME]);
-        $middleware->validateCsrfTokens(except: ['api/cli/*', 'api/app/*', 'internal/*']);
+        // The embed hand-off has no session yet; the single-use code in its body, the user agent and Sec-Fetch-Site guard it.
+        $middleware->validateCsrfTokens(except: ['api/cli/*', 'api/app/*', 'internal/*', 'app/embed/session']);
         $middleware->web(append: [
+            AppEmbedSession::class,
             HandleInertiaRequests::class,
         ]);
+        // The embed guard must be the default before any route middleware (auth, bindings, policies) reads the user.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: AppEmbedSession::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->dontFlash(['secret']);
+        $exceptions->dontFlash(['secret', 'code']);
 
         // Internal endpoints (forward_auth targets) must return 401, not a login redirect.
         $exceptions->render(function (AuthenticationException $e, Request $request): Response|JsonResponse|null {
             if ($request->is('internal/*')) {
                 return response('Unauthenticated.', 401);
+            }
+
+            // The embedded web view reads this 401 to start a new hand-off; a login redirect would hide it.
+            if ($request->is('app/embed/*')) {
+                return $request->expectsJson() ? response()->json(['message' => 'Unauthenticated.'], 401) : response('Unauthenticated.', 401);
             }
 
             $api = ClientApi::for($request);

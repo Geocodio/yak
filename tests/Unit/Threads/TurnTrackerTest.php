@@ -241,3 +241,44 @@ it('reopens a tracker ended by a runner exit', function () {
     expect($tracker->state()['ended'])->toBeFalse()
         ->and($tracker->state()['runner_exited'])->toBeFalse();
 });
+
+/** @return array<string, mixed> */
+function turnTrackerBackgroundTasks(string ...$types): array
+{
+    return ['type' => 'system', 'subtype' => 'background_tasks_changed', 'tasks' => array_map(fn (string $type, int $index): array => ['task_id' => "t{$index}", 'task_type' => $type], $types, array_keys($types))];
+}
+
+it('waits on a background agent by default and ignores it when asked to', function () {
+    $waiting = new TurnTracker(30);
+    $ignoring = new TurnTracker(30, ignoresAgentTasks: true);
+
+    foreach ([$waiting, $ignoring] as $tracker) {
+        $tracker->apply(turnTrackerBackgroundTasks('local_agent', 'local_workflow'), turnTrackerAt(0));
+        $tracker->apply(turnTrackerResultLine(), turnTrackerAt(1));
+    }
+
+    expect($waiting->tick(turnTrackerAt(60))->ended)->toBeFalse()
+        ->and($ignoring->tick(turnTrackerAt(60))->ended)->toBeTrue();
+});
+
+it('still waits on a background command while ignoring agents', function () {
+    $tracker = new TurnTracker(30, ignoresAgentTasks: true);
+    $tracker->apply(turnTrackerBackgroundTasks('local_agent', 'local_bash'), turnTrackerAt(0));
+    $tracker->apply(turnTrackerResultLine(), turnTrackerAt(1));
+
+    expect($tracker->tick(turnTrackerAt(60))->ended)->toBeFalse()
+        ->and($tracker->state()['background_task_count'])->toBe(1);
+
+    $tracker->apply(turnTrackerBackgroundTasks('local_agent'), turnTrackerAt(61));
+
+    expect($tracker->tick(turnTrackerAt(100))->ended)->toBeTrue();
+});
+
+it('keeps ignoring agent tasks after the state is stored and restored', function () {
+    $restored = TurnTracker::fromState((new TurnTracker(30, ignoresAgentTasks: true))->state());
+    $restored->apply(turnTrackerBackgroundTasks('local_agent'), turnTrackerAt(0));
+    $restored->apply(turnTrackerResultLine(), turnTrackerAt(1));
+
+    expect($restored->tick(turnTrackerAt(60))->ended)->toBeTrue()
+        ->and(TurnTracker::fromState(['grace_seconds' => 30])->state()['ignores_agent_tasks'])->toBeFalse();
+});

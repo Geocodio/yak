@@ -94,3 +94,24 @@ test('tells offline from a socket that is only reconnecting', async () => {
     assert.equal(linkKind({ ...healthy, lastCatchUpFailed: true, socketDownForMs: 6000 }), 'offline');
     assert.equal(linkKind({ ...healthy, isBrowserOnline: false }), 'offline');
 });
+
+test('fetches every page of a long thread before it counts as caught up', async () => {
+    const stored = Array.from({ length: 1200 }, (_, index) => ({ sequence: index + 1 }));
+    const calls = [];
+    const reported = [];
+    const runner = createCatchUpRunner({
+        fetchAfter: (after) => {
+            calls.push(after);
+
+            return Promise.resolve({ events: stored.filter((event) => event.sequence > after).slice(0, 500), latestSequence: 1210 });
+        },
+        getLastSequence: () => 0,
+        onResult: ({ latestSequence }) => reported.push(latestSequence),
+        onStatus: () => {},
+    });
+
+    await runner.request();
+
+    assert.deepEqual(calls, [0, 500, 1000, 1200]);
+    assert.deepEqual(reported, [500, 1000, 1200, 1210]);
+});

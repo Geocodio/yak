@@ -81,10 +81,10 @@ final class ThreadNoticeData
 
         if ($guardKind !== null) {
             $title = $guardKind === 'guard_turns'
-                ? 'Claude stopped after ' . (int) config('yak.max_turns') . ' steps'
-                : 'Claude stopped after ' . (int) config('yak.threads.turn_wall_clock_minutes') . ' minutes';
+                ? 'Paused at ' . (int) TaskRun::query()->where('thread_id', $thread->id)->latest('id')->value('assistant_turns') . ' steps'
+                : 'Paused after ' . self::duration((int) config('yak.threads.turn_wall_clock_minutes'));
 
-            return self::notice($guardKind, $title, 'Yak stops a turn that runs this long, so a loop cannot use up your plan. Continue starts a new turn with fresh limits.', $isOwnerOfAccount, true, $steps);
+            return self::notice($guardKind, $title, 'Claude keeps everything it has done so far. Keep going picks up exactly where it stopped, in this thread.', $isOwnerOfAccount, true, $steps);
         }
 
         if ($thread->sandbox_state === ThreadSandboxState::Starting && $steps !== [] && collect($steps)->contains(fn (array $step): bool => $step['status'] !== 'done')) {
@@ -357,6 +357,16 @@ final class ThreadNoticeData
             ->first();
 
         return ($log?->metadata['reason'] ?? null) === RunawayGuard::WALL_CLOCK ? 'guard_time' : 'guard_turns';
+    }
+
+    /** 240 becomes "4 hours" and 90 becomes "90 minutes". */
+    private static function duration(int $minutes): string
+    {
+        if ($minutes >= 60 && $minutes % 60 === 0) {
+            return Str::plural('hour', intdiv($minutes, 60), true);
+        }
+
+        return Str::plural('minute', $minutes, true);
     }
 
     private static function usageResetsAt(Thread $thread): ?string

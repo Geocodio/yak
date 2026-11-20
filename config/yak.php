@@ -166,6 +166,9 @@ return [
     */
 
     'sandbox' => [
+        // The prebuilt agent runner (yak-runner.tgz + version) the Docker image carries.
+        // A sandbox whose /opt/yak-runner/.version differs gets it pushed before a runner starts.
+        'runner_bundle_path' => env('YAK_RUNNER_BUNDLE_PATH', '/opt/yak-runner-bundle'),
         'enabled' => (bool) env('YAK_SANDBOX_ENABLED', true),
         'base_template' => env('YAK_SANDBOX_BASE_TEMPLATE', 'yak-base'),
         'snapshot_name' => env('YAK_SANDBOX_SNAPSHOT_NAME', 'ready'),
@@ -177,7 +180,7 @@ return [
         // bumped in the same commit. On the next task clone, any repo
         // template whose stored `sandbox_base_version` differs gets
         // destroyed and re-provisioned from the fresh yak-base.
-        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 10),
+        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 11),
 
         'cpu_limit' => (int) env('YAK_SANDBOX_CPU_LIMIT', 4),
         'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),
@@ -715,6 +718,14 @@ return [
         'stack_alert_turns' => (int) env('YAK_THREADS_STACK_ALERT_TURNS', 50),
         'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
         'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
+        // Claude's own subagents: background agents and workflows, per-agent stop, agent events. Off restores the old runner behaviour.
+        'subagents' => (bool) env('YAK_THREADS_SUBAGENTS', true),
+        // Undocumented SDK option that forwards depth-2 agent tool calls; turn it off if a CLI update removes it.
+        'subagents_forward_nested' => (bool) env('YAK_THREADS_SUBAGENTS_FORWARD_NESTED', true),
+        // Claude's AskUserQuestion tool: the turn waits for the person's answer. Off restores the text-fence questions.
+        'ask_user_question' => (bool) env('YAK_THREADS_ASK_USER_QUESTION', true),
+        // How long a live question holds the turn open before Claude is told to stop and wait for a reply.
+        'question_wait_minutes' => (int) env('YAK_THREADS_QUESTION_WAIT_MINUTES', 30),
         'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
         'diff_max_bytes' => (int) env('YAK_THREADS_DIFF_MAX_BYTES', 1048576),
 

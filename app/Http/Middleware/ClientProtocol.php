@@ -28,6 +28,7 @@ class ClientProtocol
         EncryptCookies::class,
         PreventRequestForgery::class,
         HandleInertiaRequests::class,
+        AppEmbedSession::class,
     ];
 
     /**

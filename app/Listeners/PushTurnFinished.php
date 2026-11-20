@@ -9,6 +9,7 @@ use App\Models\TaskRun;
 use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
+use App\Services\Threads\ThreadAgents;
 use App\Services\Threads\TurnResult;
 use Illuminate\Support\Str;
 
@@ -25,7 +26,7 @@ class PushTurnFinished
     {
         $run = $event->run;
 
-        if ($run->thread_id === null || $run->turn_state !== TurnState::Completed || $run->thread === null) {
+        if ($run->thread_id === null || $run->turn_state !== TurnState::Completed || $run->thread === null || ThreadAgents::isQuietTurn($run)) {
             return;
         }
 

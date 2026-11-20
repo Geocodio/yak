@@ -1,4 +1,4 @@
-export type PhoneTabId = 'chat' | 'preview' | 'files' | 'terminal' | 'overview';
+export type PhoneTabId = 'chat' | 'preview' | 'files' | 'terminal' | 'agents' | 'overview';
 
 export type PhoneTab = { id: PhoneTabId; label: string };
 
@@ -6,6 +6,7 @@ const DOCK_TABS: PhoneTab[] = [
     { id: 'preview', label: 'Preview' },
     { id: 'files', label: 'Files' },
     { id: 'terminal', label: 'Terminal' },
+    { id: 'agents', label: 'Agents' },
 ];
 
 /** Chat and Overview always show, first; Preview, Files and Terminal show only when a dock panel with that id is registered. */

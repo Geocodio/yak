@@ -63,6 +63,8 @@ final class ThreadTaskActions
 
         $this->requireOpen($thread);
         $this->turns->stop($thread);
+        // A cancelled task leaves nothing of Claude's running: its agents would otherwise wake it again.
+        app(ThreadAgents::class)->stopAll($thread);
 
         return $this->actions->cancel($head, $user);
     }

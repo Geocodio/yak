@@ -358,6 +358,8 @@ export type TranscriptEntry = {
     tool?: string;
     /** The command, path or pattern a tool step acted on. */
     subject?: string;
+    /** The tool call ids of the Agent calls in this step, to match the agents they started. */
+    agentToolUseIds?: string[];
     /** The step's place in its run's list, counted over all steps even when a search narrows the list. */
     number?: number;
     /** Seconds from a tool call to its output. */

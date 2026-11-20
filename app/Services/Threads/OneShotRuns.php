@@ -50,6 +50,7 @@ class OneShotRuns
         private readonly IncusSandboxManager $sandbox,
         private readonly RunawayGuard $guard,
         private readonly ClaudeModelCatalog $models,
+        private readonly RunnerDelivery $runnerDelivery,
     ) {}
 
     /**
@@ -76,6 +77,7 @@ class OneShotRuns
         $channel = 'runs:' . $run->id;
 
         try {
+            $this->runnerDelivery->ensure($request->containerName);
             $placeholder = $this->placeholders->issue($subject, $account, $containerIp, $request->containerName);
             $this->streams->register($channel);
             $this->streams->command($channel, $this->startRunner($request, $placeholder));

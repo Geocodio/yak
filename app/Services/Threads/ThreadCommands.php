@@ -3,6 +3,7 @@
 namespace App\Services\Threads;
 
 use App\Enums\RunnerState;
+use App\Enums\ThreadKind;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeModelCatalog;
@@ -29,6 +30,7 @@ class ThreadCommands
         private readonly SandboxManager $sandbox,
         private readonly AuthProxyPlaceholders $placeholders,
         private readonly ClaudeModelCatalog $models,
+        private readonly RunnerDelivery $runnerDelivery,
     ) {}
 
     public function channel(Thread $thread): string
@@ -36,9 +38,29 @@ class ThreadCommands
         return 'threads:' . $thread->id;
     }
 
+    /**
+     * A research child looking at another repository runs inside its parent's sandbox, so that
+     * repository's project and local settings (hooks, MCP servers) must never load.
+     *
+     * @return list<string>
+     */
+    private function settingSourcesFor(Thread $thread): array
+    {
+        if ($thread->kind === ThreadKind::Research && $thread->sharesParentSandbox() && $thread->repo !== $thread->parent?->repo) {
+            return ['user'];
+        }
+
+        return ['user', 'project', 'local'];
+    }
+
     public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt, ?string $workingDirectory = null): void
     {
         $workingDirectory ??= self::WORKING_DIRECTORY;
+
+        if ($thread->sandbox_container !== null) {
+            $this->runnerDelivery->ensure($thread->sandbox_container);
+        }
+
         $placeholder = $this->placeholders->issue($thread, $account, $this->containerIp($thread));
 
         $this->send($thread, [
@@ -56,13 +78,16 @@ class ThreadCommands
                 'additionalDirectories' => ThreadRepositoryPrompt::extraDirectories($thread),
                 'mcpServers' => (object) [],
                 'mcpConfigPath' => $this->mcpConfigPath(),
-                'settingSources' => ['user', 'project', 'local'],
+                'settingSources' => $this->settingSourcesFor($thread),
                 'resume' => $resumeSessionId,
                 'claudeConfigDir' => $thread->claude_config_dir,
                 'placeholder' => $placeholder,
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
                 'disallowedTools' => self::DISALLOWED_TOOLS,
                 'passthroughEnv' => IncusSandboxManager::passthroughNames(),
+                'subagents' => (bool) config('yak.threads.subagents'),
+                'askUserQuestion' => (bool) config('yak.threads.ask_user_question'),
+                'forwardNestedSubagentToolCalls' => (bool) config('yak.threads.subagents_forward_nested'),
             ],
         ]);
 
@@ -102,6 +127,32 @@ class ThreadCommands
     public function interrupt(Thread $thread): void
     {
         $this->send($thread, ['type' => 'interrupt']);
+    }
+
+    /**
+     * Stops one agent or workflow by Claude's task id; the reply it is part of keeps going.
+     */
+    public function stopAgent(Thread $thread, string $taskId): void
+    {
+        $this->send($thread, ['type' => 'stop_agent', 'taskId' => $taskId]);
+    }
+
+    /**
+     * Answers Claude's open AskUserQuestion call; `$answers` maps each question's text to its answer.
+     *
+     * @param  array<string, string>  $answers
+     */
+    public function answerQuestion(Thread $thread, string $questionId, array $answers): void
+    {
+        $this->send($thread, ['type' => 'answer_question', 'id' => $questionId, 'answers' => (object) $answers]);
+    }
+
+    /**
+     * Refuses Claude's open AskUserQuestion call; Claude reads the message as the tool's result.
+     */
+    public function declineQuestion(Thread $thread, string $questionId, string $message): void
+    {
+        $this->send($thread, ['type' => 'decline_question', 'id' => $questionId, 'message' => $message]);
     }
 
     public function setModel(Thread $thread, string $model): void

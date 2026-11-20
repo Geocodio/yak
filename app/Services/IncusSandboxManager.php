@@ -925,6 +925,15 @@ class IncusSandboxManager implements SandboxShell
             escapeshellarg($path),
             escapeshellarg($containerName),
         ));
+
+        // `incus file push` lands files as root and keeps the source mode, which is
+        // 0600 for a tempnam() file; the agent runs as yak and must read it.
+        $this->run(
+            $containerName,
+            'chown yak:yak /home/yak/mcp-config.json && chmod 600 /home/yak/mcp-config.json',
+            timeout: 10,
+            asRoot: true,
+        );
     }
 
     /**

@@ -45,6 +45,8 @@ class RunnerRecovery
         }
 
         $thread->forceFill(['runner_state' => RunnerState::None]);
+        // The runner that held the agents is replaced, and a new one cannot report them.
+        app(ThreadAgents::class)->failRunning($thread, $events);
 
         if ((int) $run->getAttribute('restart_count') >= (int) config('yak.threads.runner_restart_cap')) {
             $this->finisher->finish($thread, $run, TurnState::Failed, $events);

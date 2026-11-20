@@ -14,3 +14,9 @@ authentication-failed.jsonl: 401 with assistant error authentication_failed from
 cutoff-synthetic-user-message.jsonl: a long stall then a synthetic user message ("Your response above was cut off mid-stream") with isSynthetic true (stream_event lines dropped, _ms in seconds).
 runner-exit-mid-turn.jsonl: a real turn prefix followed by a synthetic broker.runner_exited line (exit_code 137) and no result.
 compaction.jsonl: a manual compaction: status compacting, a synthetic compact_boundary line, and the real compact result (local_command "compact").
+background-agents-session-state.jsonl: two background agents started in one reply; the result arrives before they end, then each finish makes the CLI take a turn of its own (result origin task-notification) and session_state_changed idle ends the session.
+nested-agents-forwarded.jsonl: a foreground agent that starts a second agent (spawn_depth 2) with forwardNestedSubagentToolCalls on, so the nested agent's own steps carry its agent_id.
+agent-stopped.jsonl: stopTask on one of two background agents; the stopped agent reports status stopped and the CLI takes a turn about it.
+agent-parent-stopped.jsonl: stopTask on a background agent that started a background agent of its own; the parent stops and the child keeps running to completion.
+workflow-background.jsonl: a Workflow tool call (task_type local_workflow) with workflow_progress, ending with its own task_notification and a turn.
+agent-progress-summaries.jsonl: a long foreground agent with agentProgressSummaries on; task_progress lines carry summary text.

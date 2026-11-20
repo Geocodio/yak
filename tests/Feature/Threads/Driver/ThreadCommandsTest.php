@@ -7,6 +7,7 @@ use App\Services\ClaudeAccounts\ClaudeModelCatalog;
 use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\RunnerDelivery;
 use App\Services\Threads\ThreadCommands;
 use Illuminate\Support\Facades\Process;
 
@@ -23,7 +24,7 @@ it('sends start_runner with the placeholder and never a credential', function ()
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->once()->with(Mockery::on(fn ($subject) => $subject->is($thread)), Mockery::on(fn ($given) => $given->is($account)), '10.100.0.7')->andReturn('yakph-test');
 
-    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class)))
+    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), app(RunnerDelivery::class)))
         ->startRunner($thread, $account, 'session-1', 'Be brief.');
 
     $command = app(BrokerStreams::class)->commands('threads:' . $thread->id)[0];
@@ -36,6 +37,7 @@ it('sends start_runner with the placeholder and never a credential', function ()
         ->and($command['start']['model'])->toBe('claude-opus-5-5')
         ->and($command['start']['appendSystemPrompt'])->toBe('Be brief.')
         ->and($command['start']['permissionMode'])->toBe('bypassPermissions')
+        ->and($command['start']['askUserQuestion'])->toBeTrue()
         ->and($command['start']['resume'])->toBe('session-1')
         ->and($command['start']['settingSources'])->toBe(['user', 'project', 'local'])
         ->and($command['start']['claudeConfigDir'])->toBe($thread->claude_config_dir)
@@ -54,7 +56,7 @@ it('points the runner at the pushed MCP config only when the host has one', func
     $thread = commandsThread();
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->andReturn('yakph');
-    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class));
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), app(RunnerDelivery::class));
     app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
     app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
     $account = ClaudeAccount::factory()->create();
@@ -74,7 +76,7 @@ it('points the runner at the pushed MCP config only when the host has one', func
 
 it('sends each command type', function (Closure $send, array $expected) {
     $thread = commandsThread();
-    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), Mockery::mock(AuthProxyPlaceholders::class), app(ClaudeModelCatalog::class));
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), Mockery::mock(AuthProxyPlaceholders::class), app(ClaudeModelCatalog::class), app(RunnerDelivery::class));
 
     $send($commands, $thread);
 
@@ -99,7 +101,7 @@ it('puts the thread effort in the start payload and tracks it on the runner', fu
     $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
     $placeholders->shouldReceive('issue')->andReturn('yakph');
     app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
-    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class));
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), $placeholders, app(ClaudeModelCatalog::class), app(RunnerDelivery::class));
 
     $commands->startRunner($thread, ClaudeAccount::factory()->create(), null, 'Be brief.');
     $commands->setEffort($thread, 'low');
@@ -110,7 +112,7 @@ it('puts the thread effort in the start payload and tracks it on the runner', fu
 
 it('tracks the runner state for model, end and the channel name', function () {
     $thread = commandsThread();
-    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), Mockery::mock(AuthProxyPlaceholders::class), app(ClaudeModelCatalog::class));
+    $commands = new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), Mockery::mock(AuthProxyPlaceholders::class), app(ClaudeModelCatalog::class), app(RunnerDelivery::class));
 
     $commands->setModel($thread, 'sonnet');
     $commands->end($thread);
