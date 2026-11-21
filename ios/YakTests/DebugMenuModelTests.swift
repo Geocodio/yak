@@ -44,6 +44,15 @@ private func entry(_ message: String, _ index: Int = 0) -> RawLogEntry {
         DebugMenuModel(faults: faults, logs: log, buildKind: FixedKind(value: kind), store: store, clock: clock)
     }
 
+    /// The model's timer and the fake log's hold both sleep on the clock. The read adds its entries before it holds,
+    /// so once both sleep, the entries are collected and advancing the clock can only cut off the hold.
+    private func waitForTheReadToHold(_ clock: ManualClock) async {
+        let isHolding = await TestTimeScale.poll {
+            clock.sleeperCount(waking: .seconds(5)) > 0 && clock.sleeperCount(waking: .seconds(3600)) > 0
+        }
+        #expect(isHolding)
+    }
+
     @Test func faultsAreOffAtLaunch() {
         let earlier = DebugFaultSwitch()
         make(faults: earlier).setFault(.offline)
@@ -79,7 +88,7 @@ private func entry(_ message: String, _ index: Int = 0) -> RawLogEntry {
         let log = FakeLog(entries: (0..<50).map { entry("line \($0)", $0) }, holdsAfter: true, clock: clock)
         let model = make(log, clock: clock)
         let load = Task { await model.loadLog() }
-        while clock.sleeperCount(waking: .seconds(5)) == 0 { await Task.yield() }
+        await waitForTheReadToHold(clock)
         clock.advance(.seconds(5))
         await load.value
         guard case .loaded(let lines, let partial) = model.log else {
@@ -93,7 +102,7 @@ private func entry(_ message: String, _ index: Int = 0) -> RawLogEntry {
         let clock = ManualClock()
         let model = make(FakeLog(holdsAfter: true, clock: clock), clock: clock)
         let load = Task { await model.loadLog() }
-        while clock.sleeperCount(waking: .seconds(5)) == 0 { await Task.yield() }
+        await waitForTheReadToHold(clock)
         clock.advance(.seconds(5))
         await load.value
         #expect(model.log == .failed("Reading the log took too long."))
