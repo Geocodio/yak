@@ -482,6 +482,7 @@ final class AppModel {
     /// tells the server this device is gone and erases every local copy.
     func remove(_ instance: Instance) async {
         await observers.willRemove(instance, removalTimeout: Self.removalTimeout)
+        await sessions.existingSession(for: instance.id)?.eraseOfflineCopies()
         await sessions.session(for: instance).unpair()
         if await instances.all().contains(where: { $0.id == instance.id }) {
             do { try await instances.remove(instance.id) } catch { logFailure("Removing an instance failed") }
@@ -494,6 +495,8 @@ final class AppModel {
 
     func markRevoked(_ instance: Instance) async {
         do { try await instances.markRevoked(instance.id) } catch { logFailure("Marking revoked failed") }
+        // Before the route changes, which stops the session: its copy store must refuse every later write.
+        await sessions.existingSession(for: instance.id)?.eraseOfflineCopies()
         refreshState = .idle
         await reloadRoute()
         await observers.removed(instance, reason: .revoked)

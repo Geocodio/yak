@@ -173,6 +173,12 @@ public struct WebConversationMachine: Equatable, Sendable {
             return startMinting(at: now)
         case .offlineCopyChanged(let isAvailable):
             hasOfflineCopy = isAvailable
+            // A copy that is found after the load already failed for lack of a network is shown now.
+            if isAvailable, phase == .failed(.network) {
+                phase = .offline
+            } else if !isAvailable, phase == .offline {
+                phase = .failed(.network)
+            }
             return []
         case .tick:
             guard let waitingSince else { return [] }

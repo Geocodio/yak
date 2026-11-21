@@ -54,9 +54,13 @@ private struct ChatPane: View {
             }
             web?.show(thread: thread.threadID)
         }
-        .onDisappear { web?.releaseRequests(owner: requestOwner) }
+        .onDisappear {
+            web?.paneLeft()
+            web?.releaseRequests(owner: requestOwner)
+        }
         .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
+        .onChange(of: scenePhase) { if scenePhase != .active { web?.appLeftForeground() } }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
         .sensoryFeedback(.error, trigger: thread.question.failureCount)
         .onGeometryChange(for: CGFloat.self) {
@@ -123,7 +127,9 @@ private struct ChatPane: View {
             if let notice = web.noticeLine {
                 FileLine(text: Text(verbatim: notice), identifier: "thread.web.notice")
             }
-            if web.showsOfflineLine {
+            if let copy = web.savedCopy, let state = web.savedCopyState {
+                SavedCopyLine(state: state, savedAt: copy.savedAt, retry: { web.retry() })
+            } else if web.showsOfflineLine {
                 FileLine(text: Text("web.offline.line"), identifier: "thread.web.offlineLine")
             }
             ZStack {
@@ -133,7 +139,16 @@ private struct ChatPane: View {
                         PreviewWebData.store(for: thread.session.instance.id, purpose: .embed, defaults: defaults)
                     }, version: thread.session.appVersion
                 )
-                .accessibilityHidden(!isShown)
+                .accessibilityHidden(!isShown || web.savedCopyState != nil)
+                if let copy = web.savedCopy, web.savedCopyState != nil {
+                    SavedCopyView(
+                        copy: copy, instanceURL: web.instanceURL, isHidden: isCovered,
+                        blockedTap: { web.showNotice(String(localized: "chat.action.offline")) },
+                        failed: { web.savedCopyFailed() }
+                    )
+                    .accessibilityHidden(isCovered)
+                    .transition(.opacity)
+                }
                 ThreadLoadView(
                     presentation: presentation, retry: { web.retry() }, openThreads: openThreads
                 )
@@ -142,6 +157,7 @@ private struct ChatPane: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .motion(Motion.crossFade, value: presentation)
+        .motion(Motion.crossFade, value: web.savedCopyState != nil)
     }
 
     /// How often a window that has chosen asks again whether the server turned the page on or off.
@@ -154,7 +170,12 @@ private struct ChatPane: View {
     private func followConversationChoice() async {
         guard canChooseConversation, let web else { return }
         while !Task.isCancelled {
-            if let me = await thread.session.me() { web.configure(supportsEmbeddedThread: me.supportsEmbeddedThread) }
+            if let me = await thread.session.me() {
+                web.configure(supportsEmbeddedThread: me.supportsEmbeddedThread)
+            } else if web.mode == .undecided, await web.hasSavedCopy(of: thread.threadID) {
+                // Offline at launch the server's answer is not known; a saved copy exists only where the page did.
+                web.configure(supportsEmbeddedThread: true)
+            }
             let wait = web.mode == .undecided ? Self.choicePollInterval : Self.choiceRecheckInterval
             do { try await thread.session.clock.sleep(for: wait) } catch { return }
         }

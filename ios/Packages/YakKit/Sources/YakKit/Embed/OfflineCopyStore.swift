@@ -22,7 +22,7 @@ public struct OfflineCopyLimits: Equatable, Sendable {
         self.maximumTotalBytes = maximumTotalBytes
     }
 
-    /// 8 MB per archive; 30 threads or 60 MB per instance.
+    /// 8 MB per archive; 30 threads or 60 MB per instance. The least recently opened copy goes first.
     public static let standard = OfflineCopyLimits(
         maximumArchiveBytes: 8_000_000, maximumThreads: 30, maximumTotalBytes: 60_000_000)
 }
@@ -177,6 +177,9 @@ public actor OfflineCopyStore {
         }
         index = working
         for droppedID in dropped { removeArchive(droppedID) }
+        do { try files.excludeFromBackup(folder) } catch {
+            logFailure("The offline copies could not be kept out of backups: \(type(of: error))")
+        }
         return .saved
     }
 
@@ -258,6 +261,8 @@ public actor OfflineCopyStore {
             }
         }
         index = loaded
+        // An empty folder gets its index file now, so that a later erase of the folder is noticed.
+        if !hasIndexOnDisk { try? writeIndex(loaded) }
         return loaded
     }
 }

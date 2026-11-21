@@ -44,9 +44,14 @@ public protocol FileStore: Sendable {
     func append(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError)
     /// Replaces the destination; `.unreadable` when the source is missing. The default rewrites the destination with `.untilFirstUnlock`, so a conformer that stores `.complete` files must override it to keep their protection.
     func move(_ source: String, to destination: String) throws(FileStoreError)
+    /// Keeps a file or a folder (and what is in it) out of device backups. The default does nothing, for stores that
+    /// have no backups.
+    func excludeFromBackup(_ path: String) throws(FileStoreError)
 }
 
 extension FileStore {
+    public func excludeFromBackup(_ path: String) throws(FileStoreError) {}
+
     public func exists(_ path: String) throws(FileStoreError) -> Bool { try read(path) != nil }
 
     public func read(_ path: String, maximumBytes: Int) throws(FileStoreError) -> Data? {
@@ -180,6 +185,14 @@ public struct DiskFileStore: FileStore {
         }
     }
 
+    public func excludeFromBackup(_ path: String) throws(FileStoreError) {
+        var location = try url(path)
+        guard FileManager.default.fileExists(atPath: location.path) else { return }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        do { try location.setResourceValues(values) } catch { throw .unreadable }
+    }
+
     public func remove(_ path: String) throws(FileStoreError) {
         let location = try url(path)
         guard FileManager.default.fileExists(atPath: location.path) else { return }
@@ -211,8 +224,20 @@ public final class InMemoryFileStore: FileStore, @unchecked Sendable {
     private let lock = NSLock()
     private var files: [String: (data: Data, protection: FileProtection)] = [:]
     private var locked = false
+    private var backupExcluded: Set<String> = []
 
     public init() {}
+
+    /// Whether `excludeFromBackup` was called for the path.
+    public func isExcludedFromBackup(_ path: String) -> Bool {
+        guard let key = try? validatedComponents(path).joined(separator: "/") else { return false }
+        return lock.withLock { backupExcluded.contains(key) }
+    }
+
+    public func excludeFromBackup(_ path: String) throws(FileStoreError) {
+        let key = try validatedComponents(path).joined(separator: "/")
+        _ = lock.withLock { backupExcluded.insert(key) }
+    }
 
     /// While true, reading, creating, writing or appending a `.complete` file throws `.unreadable`, as on a locked device.
     public var isLocked: Bool {

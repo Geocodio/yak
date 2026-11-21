@@ -159,6 +159,101 @@ import XCTest
             timeout: Wait.appear)
     }
 
+    // MARK: Saved copies
+
+    /// Leaving the foreground saves the page's copy at once. The copy cannot be seen, so the tests look for it by going
+    /// offline and trying again from the live page while it is not there yet.
+    private func saveTheCopy() {
+        XCUIDevice.shared.press(.home)
+        let isBackgrounded = NSPredicate(format: "state != %d", XCUIApplication.State.runningForeground.rawValue)
+        wait(for: [XCTNSPredicateExpectation(predicate: isBackgrounded, object: app)], timeout: Wait.appear)
+        app.activate()
+        XCTAssertTrue(app.webViews["thread.web.page"].waitForExistence(timeout: Wait.appear))
+    }
+
+    private static let copyAttempts = 4
+    private static let copyLook: TimeInterval = 10
+
+    private func switchThread(to id: String) {
+        app.buttons["threads.button"].tap()
+        let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
+        XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
+        row.tap()
+    }
+
+    private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
+
+    private func waitUntilGone(_ element: XCUIElement) {
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: element)], timeout: Wait.appear)
+    }
+
+    /// A thread opened offline shows its last loaded copy, read-only and with the time of the copy; a thread with no
+    /// copy keeps the plain offline state; the live page replaces the copy when the connection returns.
+    func testAThreadOpenedOfflineShowsItsSavedCopyUntilTheConnectionReturns() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        var line = element("thread.web.copyLine")
+        for attempt in 1...Self.copyAttempts {
+            saveTheCopy()
+            try stub.setOnline(false)
+            XCTAssertTrue(element("thread.web.offlineLine").waitForExistence(timeout: Wait.appear))
+            switchThread(to: "a1b2c3d4")
+            XCTAssertTrue(element("thread.offline").waitForExistence(timeout: Wait.appear))
+            XCTAssertFalse(element("thread.web.copyLine").exists)
+            switchThread(to: "d0e515ef")
+            line = element("thread.web.copyLine")
+            if line.waitForExistence(timeout: Self.copyLook) { break }
+            XCTAssertLessThan(attempt, Self.copyAttempts, "the copy was never saved")
+            try stub.setOnline(true)
+            waitForPage()
+        }
+        XCTAssertTrue(line.exists)
+        XCTAssertTrue(
+            line.staticTexts.firstMatch.label.hasPrefix("Offline. Showing the saved copy from "), line.debugDescription)
+        XCTAssertTrue(app.webViews["thread.web.copy"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(page("Stub conversation d0e515ef").waitForExistence(timeout: Wait.appear))
+        // A card or a button of the copy does nothing but say that the app is offline.
+        app.webViews["thread.web.copy"].buttons["Open a link"].tap()
+        XCTAssertTrue(element("thread.web.notice").waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(XCUIApplication(bundleIdentifier: "com.apple.SafariViewService").state == .runningForeground)
+        XCTAssertTrue(app.textFields["composer.field"].exists)
+        try audit()
+        try stub.setOnline(true)
+        waitUntilGone(line)
+        waitUntilGone(app.webViews["thread.web.copy"])
+        waitForPage()
+    }
+
+    /// The copy outlives the app: a thread opened after a relaunch with no connection shows it, which also needs the
+    /// copy to be known before the page's mode is.
+    func testAThreadOpenedAfterARelaunchWithoutAConnectionShowsItsSavedCopy() throws {
+        try launch(scenario: "embed-basic", extraArguments: ["-yakTestKeepFiles", "fresh"])
+        openThread()
+        waitForPage()
+        let keep = ["-yakTestKeepFiles", "again"]
+        for attempt in 1...Self.copyAttempts {
+            saveTheCopy()
+            app.terminate()
+            try stub.setOnline(false)
+            app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"] + keep
+            app.launchRetryingOnce()
+            openThread()
+            if element("thread.web.copyLine").waitForExistence(timeout: Self.copyLook) { break }
+            XCTAssertLessThan(attempt, Self.copyAttempts, "the copy was never saved")
+            app.terminate()
+            try stub.setOnline(true)
+            app.launchRetryingOnce()
+            openThread()
+            waitForPage()
+        }
+        let line = element("thread.web.copyLine")
+        XCTAssertTrue(line.staticTexts.firstMatch.label.hasPrefix("Offline. Showing the saved copy from "))
+        XCTAssertTrue(page("Stub conversation d0e515ef").waitForExistence(timeout: Wait.appear))
+        try audit()
+    }
+
     // MARK: Waiting messages
 
     private var queuedList: XCUIElement { app.descendants(matching: .any)["queued.list"] }
