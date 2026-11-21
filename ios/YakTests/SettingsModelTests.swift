@@ -64,7 +64,7 @@ private struct SettingsRig {
 }
 
 @MainActor
-private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsRig {
+private func makeSettingsRig(isAvailable: Bool = true, copyFiles: (any FileStore)? = nil) async throws -> SettingsRig {
     let rig = try await makePushRig()
     await rig.transport.on("GET me", status: 200, body: meJSON)
     await rig.transport.on("GET notifications", status: 200, body: preferencesJSON)
@@ -88,7 +88,8 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
                 await withCheckedContinuation { removed.gate = $0 }
             }
             try? await rig.store.remove(instance.id)
-        })
+        },
+        copyFiles: copyFiles ?? rig.files)
     return SettingsRig(rig: rig, app: app, model: model, clock: clock, removed: removed)
 }
 
@@ -337,4 +338,119 @@ private func makeSettingsRig(isAvailable: Bool = true) async throws -> SettingsR
         #expect(label.components(separatedBy: "yak.example.com").count - 1 == 1)
         #expect(label.hasPrefix("Example Yak, "))
     }
+
+    // MARK: Offline copies row
+
+    private func saveCopies(_ rig: SettingsRig, home: Int, other: Int) async {
+        let homeStore = OfflineCopyStore(instance: rig.rig.home.id, files: rig.rig.files)
+        let otherStore = OfflineCopyStore(instance: rig.rig.other.id, files: rig.rig.files)
+        for number in 0..<home { _ = await homeStore.save(Data(count: 1000), thread: String(format: "h%07d", number)) }
+        for number in 0..<other {
+            _ = await otherStore.save(Data(count: 2000), thread: String(format: "o%07d", number))
+        }
+    }
+
+    @Test func theCopiesRowCountsEveryInstanceFromDisk() async throws {
+        let rig = try await makeSettingsRig()
+        #expect(rig.model.offlineCopies == .counting)
+        #expect(!rig.model.offlineCopies.canClear)
+        await saveCopies(rig, home: 2, other: 1)
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .saved(OfflineCopySummary(threads: 3, bytes: 4000)))
+        #expect(rig.model.offlineCopies.canClear)
+        #expect(PrivacyRows.copiesSubtitle(rig.model.offlineCopies) == "3 threads, 4 KB")
+    }
+
+    @Test func withNothingSavedTheRowIsEmptyAndDisabled() async throws {
+        let rig = try await makeSettingsRig()
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .empty)
+        #expect(!rig.model.offlineCopies.canClear)
+        rig.model.askToClearOfflineCopies()
+        #expect(!rig.model.isConfirmingClear)
+        #expect(PrivacyRows.copiesSubtitle(.empty) == "No saved copies")
+    }
+
+    @Test func aTapAsksFirstAndCancellingClearsNothing() async throws {
+        let rig = try await makeSettingsRig()
+        await saveCopies(rig, home: 1, other: 0)
+        await rig.model.loadOfflineCopies()
+        rig.model.askToClearOfflineCopies()
+        #expect(rig.model.isConfirmingClear)
+        rig.model.isConfirmingClear = false
+        #expect(OfflineCopyStore.summary(of: [rig.rig.home.id], files: rig.rig.files).threads == 1)
+    }
+
+    @Test func confirmingClearsEveryInstanceAndTheRowSaysCleared() async throws {
+        let rig = try await makeSettingsRig()
+        await saveCopies(rig, home: 2, other: 2)
+        await rig.model.loadOfflineCopies()
+        rig.model.askToClearOfflineCopies()
+        await rig.model.clearOfflineCopies()
+        #expect(rig.model.offlineCopies == .cleared)
+        #expect(!rig.model.offlineCopies.canClear)
+        #expect(rig.model.clearedCount == 1)
+        #expect(!rig.model.isConfirmingClear)
+        #expect(OfflineCopyStore.summary(of: [rig.rig.home.id, rig.rig.other.id], files: rig.rig.files).isEmpty)
+        #expect(PrivacyRows.copiesSubtitle(.cleared) == "Cleared. No saved copies")
+        // A late count keeps the cleared state for the rest of the visit.
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .cleared)
+    }
+
+    @Test func aRefusedRemovalShowsTheErrorAndWhatRemains() async throws {
+        let refusing = RefusingRemovalFiles()
+        let rig = try await makeSettingsRig(copyFiles: refusing)
+        let store = OfflineCopyStore(instance: rig.rig.other.id, files: refusing)
+        _ = await store.save(Data(count: 500), thread: "t0000001")
+        refusing.refused = [InstanceFolders.offlineCopies(rig.rig.other.id)]
+        await rig.model.loadOfflineCopies()
+        await rig.model.clearOfflineCopies()
+        #expect(rig.model.offlineCopies == .failed(OfflineCopySummary(threads: 1, bytes: 500)))
+        #expect(rig.model.offlineCopies.canClear)
+        #expect(rig.model.clearedCount == 0)
+        #expect(PrivacyRows.copiesDetail(rig.model.offlineCopies) == "1 thread, 500 bytes")
+        #expect(PrivacyRows.copiesSubtitle(rig.model.offlineCopies).hasPrefix("Could not clear all copies. Try again."))
+        refusing.refused = []
+        await rig.model.clearOfflineCopies()
+        #expect(rig.model.offlineCopies == .cleared)
+    }
+
+    @Test func clearingTellsOpenCopyViewsAndKeepsTheUnsentMessages() async throws {
+        let rig = try await makeSettingsRig()
+        await saveCopies(rig, home: 1, other: 0)
+        let outboxFile = "\(InstanceFolders.outbox(rig.rig.home.id))/queue.json"
+        try rig.rig.files.write(Data("unsent".utf8), to: outboxFile, protection: .complete)
+        await rig.model.loadOfflineCopies()
+        var posted = 0
+        let token = NotificationCenter.default.addObserver(forName: .offlineCopiesCleared, object: nil, queue: nil) {
+            _ in
+            posted += 1
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+        await rig.model.clearOfflineCopies()
+        #expect(posted == 1)
+        #expect(rig.rig.files.has(outboxFile))
+    }
+
+    @Test func theFooterNamesTheStoreLimits() {
+        #expect(PrivacyRows.copiesFooter().contains("last 30 threads"))
+        #expect(PrivacyRows.copiesFooter().contains("60 MB"))
+        #expect(PrivacyRows.copiesFooter().contains("never cleared"))
+    }
+}
+
+/// Refuses to remove the listed paths, as a disk that cannot be written would.
+private final class RefusingRemovalFiles: FileStore, @unchecked Sendable {
+    private let inner = InMemoryFileStore()
+    var refused: Set<String> = []
+    func read(_ path: String) throws(FileStoreError) -> Data? { try inner.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        try inner.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) {
+        if refused.contains(path) { throw .unreadable }
+        try inner.remove(path)
+    }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
 }

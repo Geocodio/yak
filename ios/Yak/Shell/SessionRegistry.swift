@@ -29,6 +29,9 @@ final class SessionRegistry {
         return session
     }
 
+    /// The files the sessions keep their caches in, for reading what they hold without a session.
+    var files: any FileStore { makeEnvironment().files }
+
     /// The session of the instance if one exists; never creates one.
     func existingSession(for instance: UUID) -> InstanceSession? { sessions[instance] }
 

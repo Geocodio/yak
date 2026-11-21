@@ -257,6 +257,48 @@ import XCTest
         waitForPage()
     }
 
+    private func openSettings() {
+        let account = app.buttons["drawer.account"]
+        if !account.waitForExistence(timeout: Wait.appear) { app.buttons["threads.button"].tap() }
+        XCTAssertTrue(account.waitForExistence(timeout: Wait.appear))
+        account.tap()
+        XCTAssertTrue(element("settings.screen").waitForExistence(timeout: Wait.firstLoad))
+    }
+
+    /// Settings counts the saved copy, clears it after a confirmation, and the open thread then shows the plain offline
+    /// state instead of the copy.
+    func testClearingTheOfflineCopiesFromSettingsRemovesTheCopyTheThreadShowed() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        let row = element("settings.offlineCopies")
+        for attempt in 1...Self.copyAttempts {
+            saveTheCopy()
+            openSettings()
+            for _ in 0..<8 where !row.exists || !row.isHittable { app.swipeUp() }
+            if row.isEnabled { break }
+            XCTAssertLessThan(attempt, Self.copyAttempts, "the copy was never saved")
+            app.buttons["Close"].firstMatch.tap()
+        }
+        XCTAssertTrue(row.label.hasPrefix("Clear offline copies, 1 thread, "), row.label)
+        row.tap()
+        let confirm = app.buttons["Clear 1 copy"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: Wait.appear), app.debugDescription)
+        confirm.tap()
+        let cleared = NSPredicate(format: "label == 'Clear offline copies, Cleared. No saved copies'")
+        wait(for: [XCTNSPredicateExpectation(predicate: cleared, object: row)], timeout: Wait.appear)
+        XCTAssertFalse(row.isEnabled)
+        app.buttons["Close"].firstMatch.tap()
+        try stub.setOnline(false)
+        XCTAssertTrue(element("thread.web.offlineLine").waitForExistence(timeout: Wait.appear))
+        switchThread(to: "a1b2c3d4")
+        XCTAssertTrue(element("thread.offline").waitForExistence(timeout: Wait.appear))
+        switchThread(to: "d0e515ef")
+        XCTAssertTrue(element("thread.offline").waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("thread.web.copyLine").exists)
+        XCTAssertFalse(app.webViews["thread.web.copy"].exists)
+    }
+
     /// The copy outlives the app: a thread opened after a relaunch with no connection shows it, which also needs the
     /// copy to be known before the page's mode is.
     func testAThreadOpenedAfterARelaunchWithoutAConnectionShowsItsSavedCopy() throws {
