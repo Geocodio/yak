@@ -26,7 +26,8 @@ import Testing
             return isFound
         }
         #expect(isFound)
-        // Five seconds on a quiet Mac; a hosted machine reads the log store more slowly.
-        #expect(readTime < 5 * TestTimeScale.factor)
+        // The model cuts a read off after five seconds; the reader itself only has to finish. A hosted machine reads
+        // the log store in tens of seconds, so the bound is the shared wait bound.
+        #expect(readTime < Double(TestTimeScale.waitBound.components.seconds))
     }
 }
