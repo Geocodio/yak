@@ -111,7 +111,7 @@ import YakKit
             type: "open", localizedTitle: "x", localizedSubtitle: nil, icon: nil, userInfo: ["link": link as NSString])
         #expect(QuickActions.deliver(item))
         for _ in 0..<200 where model.launchLink == nil { try await Task.sleep(for: .milliseconds(10)) }
-        guard case .thread(_, let id)? = model.launchLink else {
+        guard case .thread(_, let id, _)? = model.launchLink else {
             Issue.record("the link did not reach the app")
             return
         }

@@ -101,6 +101,12 @@ private func checkAlert(_ name: String) throws -> PushPayload.Yak {
 func decodesTheNeedsYouAlert() throws { _ = try checkAlert("push/alert-needs-you") }
 
 @Test
+func decodesTheQuestionAlertWithItsFocusTarget() throws {
+    #expect(try checkAlert("push/alert-needs-you-question").fragment == "card-question")
+    #expect(try checkAlert("push/alert-needs-you").fragment == nil)
+}
+
+@Test
 func decodesTheTurnFinishedAlert() throws { _ = try checkAlert("push/alert-turn-finished") }
 
 @Test

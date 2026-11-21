@@ -159,7 +159,7 @@ trait AsksClarifyingQuestions
 
         $body = $questionCount === 1 ? 'Yak has a question for you.' : "Yak has {$questionCount} questions for you.";
 
-        app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification");
+        app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification", 'card-question');
     }
 
     /**

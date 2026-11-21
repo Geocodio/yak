@@ -177,7 +177,7 @@ import Testing
             "window.webkit.messageHandlers", #"type: "ready""#, #"type: "link""#, #"type: "openPane""#,
             #"type: "cardAnswered""#, #"type: "auth""#, #"type: "unsentAction""#, #"type: "threadChanged""#,
             #"case "open":"#, #"case "outbox":"#, #"case "focus":"#, #"case "refresh":"#, #"case "scrollToBottom":"#,
-            #"case "connectivity":"#, "window.__yakEmbed", "data-testid",
+            #"case "connectivity":"#, "window.__yakEmbed", "data-testid", #"type: "focusMissed""#, "message-9f2c1a4e",
         ] {
             #expect(page.contains(fragment), "\(fragment)")
         }

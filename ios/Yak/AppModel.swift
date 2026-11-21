@@ -315,7 +315,7 @@ final class AppModel {
             if case .pair = link { return }
             if hasLoaded, case .connect = route {
                 switch link {
-                case .thread(let address, _), .task(let address, _), .newThread(let address, _, _):
+                case .thread(let address, _, _), .task(let address, _), .newThread(let address, _, _):
                     addressToConnect = address
                     return
                 case .pair: break

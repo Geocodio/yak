@@ -24,6 +24,8 @@ enum Motion {
     /// The slow pulse of a status dot or a waiting row.
     static let pulse: Animation = .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
 
+    /// How long the page's target of a push or a link keeps its mark, in seconds. The page uses the same length.
+    static let focusHighlightSeconds: Double = 1.6
     /// How far a pane waits to the side it slides in from.
     static let paneSlideDistance: CGFloat = 24
     /// The size the thread scales back by when the drawer is fully open.
