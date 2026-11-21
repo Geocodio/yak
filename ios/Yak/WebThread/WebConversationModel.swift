@@ -473,7 +473,7 @@ final class WebConversationModel {
     /// copy is what the person reads. While the live page is still loading (or the copy only stands in for a moment)
     /// the target waits.
     private func deliverPendingFocus() {
-        guard let target = pendingFocus.target, mode == .web, target.threadID == threadID else { return }
+        guard let target = pendingFocus.target, mode == .web, !isPageHidden, target.threadID == threadID else { return }
         if machine.phase == .ready, readyThreadID == target.threadID, pageThreadID == target.threadID {
             if let sent = pendingFocus.take(forThread: target.threadID) { send(.focus(fragment: sent.fragment)) }
         } else if let state = savedCopyState, state == .offline || state == .failed {
@@ -481,6 +481,11 @@ final class WebConversationModel {
             focusSerial += 1
             copyFocus = SavedCopyFocus(serial: focusSerial, fragment: sent.fragment)
         }
+    }
+
+    /// The saved copy ran the request with this serial: a view made later for the same copy gets no target.
+    func copyFocusHandled(serial: Int) {
+        if copyFocus?.serial == serial { copyFocus = nil }
     }
 
     /// The unsent messages of a thread, kept per thread so an update from a pane that is leaving cannot replace the
@@ -525,6 +530,8 @@ final class WebConversationModel {
     func setPageHidden(_ isHidden: Bool) {
         isPageHidden = isHidden
         page?.setHidden(isHidden)
+        // A target that came in while the lock covered the page is sent now that the person can see it.
+        if !isHidden { deliverPendingFocus() }
     }
 
     // MARK: What the pane draws

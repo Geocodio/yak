@@ -25,7 +25,14 @@ function markTarget(element: HTMLElement): void {
         element.setAttribute('tabindex', '-1');
     }
 
-    element.focus({ preventScroll: true });
+    if (!isTyping(document.activeElement)) {
+        element.focus({ preventScroll: true });
+    }
+}
+
+/** Whether a person is typing in the element, so the target must not take the cursor from it. */
+function isTyping(active: Element | null): boolean {
+    return active instanceof HTMLElement && (active.matches('input, textarea, select') || active.isContentEditable);
 }
 
 /** Scrolls to the element once it renders, repeating briefly because the conversation pins itself to the newest entry while it settles, and marks it once. Calls `onMiss` when it never renders. Returns the stop function. */

@@ -152,6 +152,7 @@ private struct ChatPane: View {
                 if let copy = web.savedCopy, web.savedCopyState != nil {
                     SavedCopyView(
                         copy: copy, instanceURL: web.instanceURL, isHidden: isCovered, focus: web.copyFocus,
+                        focusHandled: { web.copyFocusHandled(serial: $0) },
                         blockedTap: { web.showNotice(String(localized: "chat.action.offline")) },
                         failed: { web.savedCopyFailed() }
                     )

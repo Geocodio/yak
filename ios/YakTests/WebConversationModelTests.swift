@@ -950,4 +950,31 @@ private func target(_ thread: String = "d0e515ef", _ fragment: String = "card-qu
         harness.model.savedCopyFailed()
         #expect(harness.model.copyFocus == nil)
     }
+
+    @Test func aCopyThatRanTheTargetLeavesNoneForTheNextView() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await TestTimeScale.poll { harness.model.copyFocus != nil })
+        let serial = harness.model.copyFocus?.serial ?? 0
+        harness.model.copyFocusHandled(serial: serial)
+        #expect(harness.model.copyFocus == nil)
+    }
+
+    @Test func aTargetWaitsWhileTheLockCoversThePage() async {
+        let harness = Harness()
+        harness.model.setPageHidden(true)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page).isEmpty)
+        #expect(harness.model.pendingFocusTarget == target())
+        harness.model.setPageHidden(false)
+        #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
+        #expect(harness.model.pendingFocusTarget == nil)
+    }
 }

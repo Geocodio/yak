@@ -59,12 +59,16 @@ struct SavedCopyView: UIViewRepresentable {
     let isHidden: Bool
     /// The element to scroll to and mark, once the copy has loaded; each request runs once.
     let focus: SavedCopyFocus?
+    /// The copy ran the request with this serial.
+    let focusHandled: (Int) -> Void
     let blockedTap: () -> Void
     /// The archive could not be shown.
     let failed: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    func makeCoordinator() -> SavedCopyCoordinator { SavedCopyCoordinator(blockedTap: blockedTap, failed: failed) }
+    func makeCoordinator() -> SavedCopyCoordinator {
+        SavedCopyCoordinator(blockedTap: blockedTap, failed: failed, focusHandled: focusHandled)
+    }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -91,6 +95,7 @@ struct SavedCopyView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.blockedTap = blockedTap
         context.coordinator.failed = failed
+        context.coordinator.focusHandled = focusHandled
         webView.isHidden = isHidden
         webView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         webView.pageZoom = WebPageZoom.value(for: webView.traitCollection.preferredContentSizeCategory)
@@ -153,6 +158,7 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
     weak var webView: WKWebView?
     var blockedTap: () -> Void
     var failed: () -> Void
+    var focusHandled: (Int) -> Void
     private var pendingFocus: SavedCopyFocus?
     private var handledFocusSerial = 0
     /// The copy loaded and its own script ran, so a scroll to a target comes after the scroll to the newest message.
@@ -164,9 +170,12 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
     private var rules = Rules.compiling
     private var pending: (copy: SavedWebCopy, baseURL: URL)?
 
-    init(blockedTap: @escaping () -> Void, failed: @escaping () -> Void) {
+    init(
+        blockedTap: @escaping () -> Void, failed: @escaping () -> Void, focusHandled: @escaping (Int) -> Void
+    ) {
         self.blockedTap = blockedTap
         self.failed = failed
+        self.focusHandled = focusHandled
     }
 
     /// The rule list is added before the first load, so no request of the copy can reach the network.
@@ -224,6 +233,8 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
         guard isReadyForFocus, let request = pendingFocus, let webView else { return }
         pendingFocus = nil
         handledFocusSerial = request.serial
+        // The model forgets the request now, so a view made again for this copy does not scroll it again.
+        focusHandled(request.serial)
         webView.callAsyncJavaScript(
             Self.focusScript, arguments: ["fragment": request.fragment, "seconds": Motion.focusHighlightSeconds],
             in: nil, in: .defaultClient
