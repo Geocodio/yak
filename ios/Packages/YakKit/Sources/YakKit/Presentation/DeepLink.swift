@@ -2,7 +2,9 @@ import Foundation
 
 public enum DeepLink: Equatable, Sendable {
     case pair(PairingLink)
-    case thread(instance: URL, id: String)
+    /// `fragment` is the element of the thread page to scroll to (`card-question`, `message-<uuid>`), from the link's
+    /// optional `fragment` item; a value the page would refuse is dropped and the thread still opens.
+    case thread(instance: URL, id: String, fragment: String? = nil)
     case task(instance: URL, id: String)
     case newThread(instance: URL, repo: String?, text: String?)
 
@@ -31,7 +33,10 @@ public enum DeepLink: Equatable, Sendable {
             guard let id = value("id"), kind == "thread" ? Self.isValidID(id) : Self.isValidTaskID(id) else {
                 return nil
             }
-            self = kind == "thread" ? .thread(instance: instance, id: id) : .task(instance: instance, id: id)
+            self =
+                kind == "thread"
+                ? .thread(instance: instance, id: id, fragment: value("fragment").flatMap(Self.validFragment))
+                : .task(instance: instance, id: id)
         case "new":
             let repo = value("repo").flatMap { Self.isValidRepo($0) ? $0 : nil }
             let trimmed = value("text")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -39,6 +44,10 @@ public enum DeepLink: Equatable, Sendable {
                 instance: instance, repo: repo, text: trimmed.isEmpty ? nil : String(trimmed.prefix(4000)))
         default: return nil
         }
+    }
+
+    private static func validFragment(_ text: String) -> String? {
+        EmbedAppMessage.isValidFragment(text) ? text : nil
     }
 
     private static func isValidID(_ id: String) -> Bool {

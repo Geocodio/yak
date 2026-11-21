@@ -4,14 +4,15 @@ import YakKit
 
 @testable import Yak
 
-private func scenarioPayload(_ name: String, instance: String? = nil) throws -> PushPayload {
+private func scenarioPayload(_ name: String, instance: String? = nil, path: String? = nil) throws -> PushPayload {
     var directory = URL(fileURLWithPath: #filePath)
     while directory.lastPathComponent != "ios" { directory.deleteLastPathComponent() }
     let file = directory.appendingPathComponent("Packages/YakKit/Tests/YakKitTests/Scenarios/\(name).json")
     var object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
-    if let instance {
+    if instance != nil || path != nil {
         var yak = object["yak"] as? [String: Any] ?? [:]
-        yak["instance"] = instance
+        if let instance { yak["instance"] = instance }
+        if let path { yak["path"] = path }
         object["yak"] = yak
     }
     return try PushPayload(json: JSONSerialization.data(withJSONObject: object))
@@ -55,6 +56,24 @@ private func firstLink(of controller: PushController) async -> URL? {
             ])
         await rig.controller.didTap(try scenarioPayload("scenario-push-alert-question"))
         #expect(collector.links.count == 2)
+    }
+
+    @Test func aTapWithATargetCarriesItInTheLink() async throws {
+        let rig = try await makePushRig()
+        await rig.controller.didTap(
+            try scenarioPayload("scenario-push-alert-question", path: "/threads/d0e515ef#message-9f2c1a4e"))
+        let collector = LinkCollector()
+        rig.controller.openLink = { collector.links.append($0) }
+        await rig.controller.deliverBufferedLinks()
+        #expect(
+            collector.links.map(\.absoluteString) == [
+                "yak://thread?instance=https%3A%2F%2Fyak.example.com&id=d0e515ef&fragment=message-9f2c1a4e"
+            ])
+        let url = try #require(collector.links.first)
+        #expect(
+            DeepLink(url: url)
+                == .thread(
+                    instance: URL(string: "https://yak.example.com")!, id: "d0e515ef", fragment: "message-9f2c1a4e"))
     }
 
     @Test func aTapReachesTheAppModelWithNoViewListening() async throws {

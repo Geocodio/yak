@@ -20,6 +20,7 @@ use App\Models\TaskAttachment;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Push\ThreadPush;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\RunawayGuard;
@@ -84,6 +85,15 @@ it('turns a runner question line into the question prop and a question event', f
         ])
         ->and($question['questions'][1]['multiSelect'])->toBeFalse()
         ->and(liveQuestionEvents($thread))->toBe([['open' => true]]);
+});
+
+it('points the question push at the question card', function () {
+    $push = Mockery::mock(ThreadPush::class);
+    $push->shouldReceive('send')->once()->withArgs(fn ($event, $thread, $recipients, $body, $tag, $fragment): bool => $fragment === 'card-question');
+    app()->instance(ThreadPush::class, $push);
+    [$thread] = threadWithRunningTurn();
+
+    questionLineFor($thread, [colourQuestion()]);
 });
 
 it('declines a question it cannot show so Claude never waits on it', function (array $questions) {

@@ -35,6 +35,54 @@ private func instance(_ address: String) -> Instance {
     #expect(outcome == .switchInstance(other))
 }
 
+@MainActor @Test func aThreadLinkWithATargetHandsItOutOnce() {
+    let active = instance("https://yak.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.thread(instance: active.url, id: "a1b2c3d4", fragment: "card-question")
+    #expect(scene.handle(link, active: active, instances: [active], isCompactWidth: true) == .handled)
+    #expect(scene.state.threadID == "a1b2c3d4")
+    #expect(scene.takeFocusRequest(forThread: "e5f6g7h8") == nil)
+    let expected = PendingFocus(threadID: "a1b2c3d4", fragment: "card-question")
+    #expect(scene.takeFocusRequest(forThread: "a1b2c3d4") == expected)
+    #expect(scene.takeFocusRequest(forThread: "a1b2c3d4") == nil)
+}
+
+@MainActor @Test func aLaterLinkReplacesTheTargetAndAPlainOneClearsIt() {
+    let active = instance("https://yak.example.com")
+    let scene = SceneModel(state: SceneState())
+    _ = scene.handle(
+        .thread(instance: active.url, id: "a1b2c3d4", fragment: "card-question"), active: active, instances: [active],
+        isCompactWidth: true)
+    _ = scene.handle(
+        .thread(instance: active.url, id: "e5f6g7h8", fragment: "message-9f2c1a4e"), active: active,
+        instances: [active], isCompactWidth: true)
+    #expect(scene.focusRequest == PendingFocus(threadID: "e5f6g7h8", fragment: "message-9f2c1a4e"))
+    _ = scene.handle(
+        .thread(instance: active.url, id: "e5f6g7h8"), active: active, instances: [active], isCompactWidth: true)
+    #expect(scene.focusRequest == nil)
+}
+
+@MainActor @Test func openingAnotherThreadFromTheDrawerDropsAnUntakenTarget() {
+    let active = instance("https://yak.example.com")
+    let scene = SceneModel(state: SceneState())
+    _ = scene.handle(
+        .thread(instance: active.url, id: "a1b2c3d4", fragment: "card-question"), active: active, instances: [active],
+        isCompactWidth: true)
+    scene.open(thread: "e5f6g7h8", isCompactWidth: true)
+    #expect(scene.focusRequest == nil)
+}
+
+@MainActor @Test func aTargetForTheOtherInstanceSurvivesTheSwitch() {
+    let active = instance("https://yak.example.com")
+    let other = instance("https://other.example.com")
+    let scene = SceneModel(state: SceneState())
+    let link = DeepLink.thread(instance: other.url, id: "a1b2c3d4", fragment: "card-question")
+    #expect(
+        scene.handle(link, active: active, instances: [active, other], isCompactWidth: true) == .switchInstance(other))
+    let expected = PendingFocus(threadID: "a1b2c3d4", fragment: "card-question")
+    #expect(scene.takeFocusRequest(forThread: "a1b2c3d4") == expected)
+}
+
 @MainActor @Test func anUnknownInstanceAsksToPair() {
     let active = instance("https://yak.example.com")
     let scene = SceneModel(state: SceneState())

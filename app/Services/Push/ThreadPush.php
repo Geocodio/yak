@@ -23,9 +23,9 @@ class ThreadPush
      * @param  iterable<User>  $recipients
      * @return int how many people were pushed
      */
-    public function send(PushEvent $event, Thread $thread, iterable $recipients, string $body, ?string $tag = null): int
+    public function send(PushEvent $event, Thread $thread, iterable $recipients, string $body, ?string $tag = null, ?string $fragment = null): int
     {
-        $payload = $this->payloads->forThread($event, $thread, $body, $tag);
+        $payload = $this->payloads->forThread($event, $thread, $body, $tag, $fragment);
         $sent = 0;
 
         foreach ($recipients as $user) {

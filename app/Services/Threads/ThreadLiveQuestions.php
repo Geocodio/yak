@@ -463,7 +463,7 @@ class ThreadLiveQuestions
                 SendNotificationJob::dispatch($task, NotificationType::Clarification, ClarificationMessage::asked($task->refresh()), personalize: false);
                 app(LiveActivities::class)->questionOpened($thread);
                 $body = $questionCount === 1 ? 'Claude has a question for you.' : "Claude has {$questionCount} questions for you.";
-                app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification");
+                app(ThreadPush::class)->send(PushEvent::NeedsYou, $thread, app(PushRecipients::class)->forClarification($thread), $body, "thread-{$thread->id}-clarification", 'card-question');
             } catch (Throwable $exception) {
                 report($exception);
             }

@@ -148,6 +148,34 @@
     }
 }
 
+/*
+ * The element an address fragment or the app's `focus` message points at wears
+ * a ring and a tint for a moment (`useFragmentScroll` sets and removes the
+ * attribute). Under Reduce Motion the mark is the same and does not fade.
+ */
+[data-fragment-target] {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+    background-color: var(--accent-soft);
+}
+
+@keyframes fragment-target-fade {
+    60% {
+        outline-color: var(--accent-ring);
+        background-color: var(--accent-soft);
+    }
+    to {
+        outline-color: transparent;
+        background-color: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [data-fragment-target] {
+        animation: fragment-target-fade 1600ms ease-out forwards;
+    }
+}
+
 @media (hover: none) and (prefers-reduced-motion: no-preference) {
     button:not(:disabled),
     .ui-tab-bar a,

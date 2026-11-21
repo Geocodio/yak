@@ -11,7 +11,7 @@ public enum ColdStart {
         -> ColdStartDestination
     {
         switch link {
-        case .thread(_, let id): return .thread(id)
+        case .thread(_, let id, _): return .thread(id)
         case .newThread: return .newThread
         default: break
         }

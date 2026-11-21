@@ -90,6 +90,9 @@ final class SceneModel {
     /// Counts the requests to put the cursor in the composer (the activity strip).
     private(set) var composerFocusRequest = 0
 
+    /// The message or card a push or link named, until the pane of that thread takes it. Not restored.
+    private(set) var focusRequest: PendingFocus?
+
     /// The instance this window shows; a thread of another instance is never kept.
     private(set) var activeInstance: UUID?
     /// What the thread layout shows now; nil while no thread screen is on screen.
@@ -293,7 +296,16 @@ final class SceneModel {
         newThreadItem = nil
     }
 
+    /// Hands out the target of the last push or link when it names `threadID`, once. The pane of another thread leaves
+    /// it where it is, because the pane of the thread it names may not be made yet.
+    func takeFocusRequest(forThread threadID: String) -> PendingFocus? {
+        guard let request = focusRequest, request.threadID == threadID else { return nil }
+        focusRequest = nil
+        return request
+    }
+
     func open(thread id: String, isCompactWidth: Bool) {
+        if focusRequest?.threadID != id { focusRequest = nil }
         state.threadID = id
         if let activeInstance { state.instanceID = activeInstance }
         state.focusedPane = .chat
@@ -367,17 +379,19 @@ final class SceneModel {
             hasAppliedColdStart = true
             state.instanceID = target.id
             return .switchInstanceThenOpenTaskPage(target, page)
-        case .thread(let address, let id):
+        case .thread(let address, let id, let fragment):
             guard let target = Self.instance(at: address, active: active, instances: instances) else {
                 return .unknownInstance(address)
             }
             if target.id == active.id {
                 open(thread: id, isCompactWidth: isCompactWidth)
+                focusRequest = PendingFocus(threadID: id, fragment: fragment)
                 return .handled
             }
             // The shell of the other instance starts on this thread.
             hasAppliedColdStart = true
             open(thread: id, isCompactWidth: true)
+            focusRequest = PendingFocus(threadID: id, fragment: fragment)
             state.instanceID = target.id
             return .switchInstance(target)
         case .newThread(let address, let repo, let text):

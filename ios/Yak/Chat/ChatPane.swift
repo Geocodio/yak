@@ -53,7 +53,9 @@ private struct ChatPane: View {
                 handle(request, thread: thread, scene: scene)
             }
             web?.show(thread: thread.threadID)
+            takeFocusRequest()
         }
+        .onChange(of: scene.focusRequest) { takeFocusRequest() }
         .onDisappear {
             web?.paneLeft()
             web?.releaseRequests(owner: requestOwner)
@@ -73,6 +75,13 @@ private struct ChatPane: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
+    }
+
+    /// A push or link named a message or card of the shown thread: the web conversation scrolls to it once its page is
+    /// ready. A request for another thread stays for the pane of that thread.
+    private func takeFocusRequest() {
+        guard let request = scene.takeFocusRequest(forThread: thread.threadID) else { return }
+        web?.focus(request)
     }
 
     private func openThread(_ id: String) {
@@ -142,7 +151,8 @@ private struct ChatPane: View {
                 .accessibilityHidden(!isShown || web.savedCopyState != nil)
                 if let copy = web.savedCopy, web.savedCopyState != nil {
                     SavedCopyView(
-                        copy: copy, instanceURL: web.instanceURL, isHidden: isCovered,
+                        copy: copy, instanceURL: web.instanceURL, isHidden: isCovered, focus: web.copyFocus,
+                        focusHandled: { web.copyFocusHandled(serial: $0) },
                         blockedTap: { web.showNotice(String(localized: "chat.action.offline")) },
                         failed: { web.savedCopyFailed() }
                     )

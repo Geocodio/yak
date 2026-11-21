@@ -241,6 +241,8 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         button { font: inherit; color: var(--text); background: var(--fill); border: 1px solid var(--line); border-radius: 0.5rem; min-height: 2.75rem; padding: 0 1rem; margin: 0 0.5rem 0.5rem 0; }
         ul { padding-left: 1.25rem; }
         li { margin-bottom: 0.5rem; }
+        [data-fragment-target] { outline: 2px solid var(--line); outline-offset: 2px; background: var(--fill); }
+        #history li, #card-question { padding: 0.5rem; border-radius: 0.5rem; }
         </style>
         </head>
         <body>
@@ -257,6 +259,9 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         </div>
         <h2>Messages</h2>
         <ul id="messages" data-testid="embed-messages" aria-label="Messages"></ul>
+        <h2>History</h2>
+        <ul id="history" data-testid="embed-history" aria-label="History"></ul>
+        <section id="card-question" aria-label="Question" tabindex="-1" data-testid="embed-question"><p>Yak has a question for you.</p></section>
         <h2>Unsent messages</h2>
         <ul id="outbox" data-testid="embed-outbox" aria-label="Unsent messages"></ul>
         <p id="last" data-testid="embed-last"></p>
@@ -277,6 +282,25 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             el("status").textContent = "Ready";
             post({ type: "ready", threadId: threadId, url: "/app/embed/threads/" + threadId, latestSequence: 42,
                    title: "Stub conversation " + threadId });
+          }
+          (function fillHistory() {
+            var list = el("history");
+            for (var index = 1; index <= 30; index += 1) {
+              var row = document.createElement("li");
+              row.id = index === 12 ? "message-9f2c1a4e" : "message-earlier-" + index;
+              row.textContent = index === 12 ? "The message a link points at" : "Earlier message " + index;
+              list.appendChild(row);
+            }
+          })();
+          function focusTarget(fragment) {
+            var target = document.getElementById(fragment);
+            if (!target) { post({ type: "focusMissed", fragment: fragment }); el("last").textContent = "Missed " + fragment; return; }
+            target.setAttribute("data-fragment-target", "");
+            target.scrollIntoView({ block: "center" });
+            if (!target.hasAttribute("tabindex")) { target.setAttribute("tabindex", "-1"); }
+            target.focus({ preventScroll: true });
+            el("last").textContent = "Focused " + fragment;
+            setTimeout(function () { target.removeAttribute("data-fragment-target"); }, 1600);
           }
           showThread();
           setTimeout(sendReady, \#(readyDelayMilliseconds));
@@ -341,8 +365,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
                   sendReady();
                   break;
                 case "focus":
-                  location.hash = message.fragment;
-                  el("last").textContent = "Focused " + message.fragment;
+                  focusTarget(message.fragment);
                   break;
                 case "scrollToBottom":
                   window.scrollTo(0, document.body.scrollHeight);

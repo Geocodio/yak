@@ -8,8 +8,10 @@ extension PushDestination {
         let kind: String
         let instance: Instance
         let id: String
+        var fragment: String?
         switch self {
-        case .thread(let match, let threadID): (kind, instance, id) = ("thread", match, threadID)
+        case .thread(let match, let threadID, let target):
+            (kind, instance, id, fragment) = ("thread", match, threadID, target)
         case .task(let match, let taskID): (kind, instance, id) = ("task", match, taskID)
         case .webPage, .instance, .unknownInstance: return nil
         }
@@ -22,6 +24,8 @@ extension PushDestination {
         components.percentEncodedQueryItems = [
             URLQueryItem(name: "instance", value: address), URLQueryItem(name: "id", value: id),
         ]
+        // A fragment holds letters, digits, "-" and "_" only, so it needs no escaping.
+        if let fragment { components.percentEncodedQueryItems?.append(URLQueryItem(name: "fragment", value: fragment)) }
         return components.url
     }
 }

@@ -62,3 +62,19 @@ func refusesMalformedLinks(text: String) { #expect(DeepLink(url: URL(string: tex
         DeepLink(url: URL(string: "yak://new?\(base)&text=%20%20%20")!)
             == .newThread(instance: instance, repo: nil, text: nil))
 }
+
+@Test func aThreadLinkCarriesItsFocusTarget() {
+    let link = DeepLink(url: URL(string: "yak://thread?\(base)&id=d0e515ef&fragment=card-question")!)
+    #expect(link == .thread(instance: instance, id: "d0e515ef", fragment: "card-question"))
+}
+
+@Test(arguments: ["", "a%20b", "a%2Fb", "%23x", String(repeating: "a", count: 65)])
+func aTargetThePageWouldRefuseIsDroppedAndTheThreadStillOpens(fragment: String) {
+    let link = DeepLink(url: URL(string: "yak://thread?\(base)&id=d0e515ef&fragment=\(fragment)")!)
+    #expect(link == .thread(instance: instance, id: "d0e515ef"))
+}
+
+@Test func aTaskLinkHasNoFocusTarget() {
+    let link = DeepLink(url: URL(string: "yak://task?\(base)&id=881&fragment=card-question")!)
+    #expect(link == .task(instance: instance, id: "881"))
+}

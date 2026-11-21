@@ -102,6 +102,39 @@ it('switches thread on open without a full page load and follows focus', functio
     expect(sentOfType($page, 'threadChanged', 'sent[0].previousThreadId'))->toBe($first->public_id);
 });
 
+it('scrolls to the element a focus message names, marks it, and moves focus there', function () {
+    [$thread, $headers] = embedQuestionThread();
+
+    $page = visitEmbedThread($thread, $headers)->wait(2);
+    stubAppHandler($page);
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'focus', fragment: 'card-question' }); true");
+
+    expect(settled($page, "document.getElementById('card-question')?.hasAttribute('data-fragment-target')", "document.activeElement === document.getElementById('card-question') || document.getElementById('card-question').contains(document.activeElement)"))->toBeTrue();
+    $page->assertNoJavaScriptErrors();
+});
+
+it('scrolls and marks the target without taking focus from a field the person is typing in', function () {
+    [$thread, $headers] = embedQuestionThread();
+
+    $page = visitEmbedThread($thread, $headers)->wait(2);
+    $page->script("const field = document.createElement('input'); field.id = 'typing'; document.body.appendChild(field); field.focus(); setInterval(() => document.activeElement !== field && !document.getElementById('card-question').contains(document.activeElement) && field.focus(), 10); window.__yakEmbed.receive({ v: 1, type: 'focus', fragment: 'card-question' }); true");
+
+    expect(settled($page, "document.getElementById('card-question')?.hasAttribute('data-fragment-target')", "document.activeElement?.tagName + '#' + document.activeElement?.id"))->toBe('INPUT#typing');
+    $page->assertNoJavaScriptErrors();
+});
+
+it('tells the app when the element a focus message names is not on the page', function () {
+    [$user, , $headers] = embedPhone();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+
+    $page = visitEmbedThread($thread, $headers)->wait(2);
+    stubAppHandler($page);
+    $page->script("window.__yakEmbed.receive({ v: 1, type: 'focus', fragment: 'message-0000aaaa' }); true");
+
+    expect(sentOfType($page, 'focusMissed', 'sent.map((message) => message.fragment)'))->toBe(['message-0000aaaa']);
+    $page->assertNoJavaScriptErrors();
+});
+
 it('shows the app outbox as unsent rows and ignores unknown messages', function () {
     [$user, , $headers] = embedPhone();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);

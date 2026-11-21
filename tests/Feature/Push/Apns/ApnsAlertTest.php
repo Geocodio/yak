@@ -73,6 +73,15 @@ it('pushes a person who has only a phone', function () {
     ContractFixture::assertMatches('app', 'push/alert-needs-you', $body);
 });
 
+it('names the question card in the path of a clarification push', function () {
+    fakeApns();
+    askQuestion($this->thread, $this->user);
+
+    app(ThreadPush::class)->send(PushEvent::NeedsYou, $this->thread, [$this->user], 'Yak has a question for you.', "thread-{$this->thread->id}-clarification", 'card-question');
+
+    ContractFixture::assertMatches('app', 'push/alert-needs-you-question', pushedBody());
+});
+
 it('sends to both channels and never instead of one', function () {
     fakeApns();
     $web = FakePushEndpoint::install();

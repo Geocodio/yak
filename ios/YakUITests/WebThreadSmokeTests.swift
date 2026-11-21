@@ -127,6 +127,37 @@ import XCTest
         XCTAssertTrue(try embedState().contains("mints=1 redeems=1 loads=1"))
     }
 
+    private func threadLink(_ id: String, fragment: String) throws -> URL {
+        var components = URLComponents()
+        components.scheme = "yak"
+        components.host = "thread"
+        components.queryItems = [
+            URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: id),
+            URLQueryItem(name: "fragment", value: fragment),
+        ]
+        return try XCTUnwrap(components.url)
+    }
+
+    /// A link that launches the app names a message: the page opens on that thread and is told to focus the message once.
+    func testALinkAtColdStartFocusesItsTargetInThePage() throws {
+        try stub.play("embed-basic")
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.open(try threadLink("d0e515ef", fragment: "message-9f2c1a4e"))
+        waitForPage()
+        XCTAssertTrue(page("Focused message-9f2c1a4e").waitForExistence(timeout: Wait.appear))
+    }
+
+    /// The system starts the app again for a link, with the thread it showed restored: the link's thread opens instead
+    /// and its target is focused. (The switch inside one page without a reload is proven by the model's unit tests.)
+    func testALinkForAnotherThreadThanTheRestoredOneFocusesItsTarget() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        app.open(try threadLink("a1b2c3d4", fragment: "card-question"))
+        XCTAssertTrue(page("Stub conversation a1b2c3d4").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(page("Focused card-question").waitForExistence(timeout: Wait.appear))
+    }
+
     func testThePageIsHiddenWhileTheAppIsLocked() throws {
         try launch(
             scenario: "embed-basic",

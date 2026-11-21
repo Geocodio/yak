@@ -57,12 +57,18 @@ struct SavedCopyView: UIViewRepresentable {
     let instanceURL: URL
     /// The app is locked or covered: the copy is hidden, like the live page.
     let isHidden: Bool
+    /// The element to scroll to and mark, once the copy has loaded; each request runs once.
+    let focus: SavedCopyFocus?
+    /// The copy ran the request with this serial.
+    let focusHandled: (Int) -> Void
     let blockedTap: () -> Void
     /// The archive could not be shown.
     let failed: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    func makeCoordinator() -> SavedCopyCoordinator { SavedCopyCoordinator(blockedTap: blockedTap, failed: failed) }
+    func makeCoordinator() -> SavedCopyCoordinator {
+        SavedCopyCoordinator(blockedTap: blockedTap, failed: failed, focusHandled: focusHandled)
+    }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -89,10 +95,12 @@ struct SavedCopyView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.blockedTap = blockedTap
         context.coordinator.failed = failed
+        context.coordinator.focusHandled = focusHandled
         webView.isHidden = isHidden
         webView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         webView.pageZoom = WebPageZoom.value(for: webView.traitCollection.preferredContentSizeCategory)
         context.coordinator.load(copy, baseURL: instanceURL)
+        context.coordinator.focus(focus)
     }
 }
 
@@ -119,6 +127,26 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
         }, true);
         """
 
+    /// Scrolls to the element and marks it, with the mark of the live page but static, so Reduce Motion needs no
+    /// second path. Reports whether the element is in the copy. The page's scripts are off; this runs in the app's own
+    /// script world, which reads the element id as an argument and never builds code from it.
+    private static let focusScript = """
+        const target = document.getElementById(fragment);
+        if (!target) { return false; }
+        if (!document.getElementById('yak-focus-style')) {
+          const style = document.createElement('style');
+          style.id = 'yak-focus-style';
+          style.textContent = '[data-yak-target] { outline: 2px solid color-mix(in srgb, currentColor 45%, transparent); outline-offset: 2px; background-color: color-mix(in srgb, currentColor 8%, transparent); }';
+          document.head.appendChild(style);
+        }
+        target.setAttribute('data-yak-target', '');
+        if (!target.hasAttribute('tabindex') && target.matches('div, section, article, li')) { target.setAttribute('tabindex', '-1'); }
+        target.scrollIntoView({ block: 'center' });
+        target.focus({ preventScroll: true });
+        setTimeout(() => target.removeAttribute('data-yak-target'), seconds * 1000);
+        return true;
+        """
+
     /// Requests that run code, call out or play media are refused. Images, styles and fonts are not: the archive serves
     /// its own through the same loader, so blocking them would blank the copy (measured: an archived image and style
     /// stop rendering under a rule for all loads, and an archived page makes no network request on its own).
@@ -130,6 +158,11 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
     weak var webView: WKWebView?
     var blockedTap: () -> Void
     var failed: () -> Void
+    var focusHandled: (Int) -> Void
+    private var pendingFocus: SavedCopyFocus?
+    private var handledFocusSerial = 0
+    /// The copy loaded and its own script ran, so a scroll to a target comes after the scroll to the newest message.
+    private var isReadyForFocus = false
     private var loadedKey: String?
     private var isLoaded = false
     private var hasAllowedArchiveLoad = false
@@ -137,9 +170,12 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
     private var rules = Rules.compiling
     private var pending: (copy: SavedWebCopy, baseURL: URL)?
 
-    init(blockedTap: @escaping () -> Void, failed: @escaping () -> Void) {
+    init(
+        blockedTap: @escaping () -> Void, failed: @escaping () -> Void, focusHandled: @escaping (Int) -> Void
+    ) {
         self.blockedTap = blockedTap
         self.failed = failed
+        self.focusHandled = focusHandled
     }
 
     /// The rule list is added before the first load, so no request of the copy can reach the network.
@@ -176,6 +212,7 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
         pending = nil
         loadedKey = key
         isLoaded = false
+        isReadyForFocus = false
         hasAllowedArchiveLoad = false
         webView.load(
             copy.archive, mimeType: "application/x-webarchive", characterEncodingName: "utf-8", baseURL: baseURL)
@@ -183,6 +220,28 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         blockedTap()
+    }
+
+    /// A request is run once its copy has loaded; a request already run is not run again.
+    func focus(_ request: SavedCopyFocus?) {
+        guard let request, request.serial != handledFocusSerial else { return }
+        pendingFocus = request
+        runPendingFocus()
+    }
+
+    private func runPendingFocus() {
+        guard isReadyForFocus, let request = pendingFocus, let webView else { return }
+        pendingFocus = nil
+        handledFocusSerial = request.serial
+        // The model forgets the request now, so a view made again for this copy does not scroll it again.
+        focusHandled(request.serial)
+        webView.callAsyncJavaScript(
+            Self.focusScript, arguments: ["fragment": request.fragment, "seconds": Motion.focusHighlightSeconds],
+            in: nil, in: .defaultClient
+        ) { result in
+            if case .success(let found) = result, found as? Bool == true { return }
+            Self.log("The saved copy does not hold the target of a push or link")
+        }
     }
 
     /// The archive's own load is the only navigation; anything after it is a tap, which does nothing but say so.
@@ -204,8 +263,14 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoaded = true
-        webView.callAsyncJavaScript(Self.readOnlyScript, arguments: [:], in: nil, in: .defaultClient) { result in
+        webView.callAsyncJavaScript(Self.readOnlyScript, arguments: [:], in: nil, in: .defaultClient) {
+            [weak self] result in
             if case .failure = result { Self.log("The saved copy could not be made read-only") }
+            // The newest-message scroll has run; the target scroll comes after it.
+            Task { @MainActor in
+                self?.isReadyForFocus = true
+                self?.runPendingFocus()
+            }
         }
     }
 

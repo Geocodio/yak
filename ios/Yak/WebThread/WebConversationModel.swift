@@ -46,6 +46,12 @@ struct SavedWebCopy: Equatable {
     let savedAt: Date
 }
 
+/// A request to scroll the saved copy to an element. `serial` tells two requests for the same element apart.
+struct SavedCopyFocus: Equatable {
+    let serial: Int
+    let fragment: String
+}
+
 /// What the line above a saved copy says, from what the model is doing about the live page.
 enum SavedCopyState: Equatable {
     /// There is no connection.
@@ -80,6 +86,9 @@ final class WebConversationModel {
     static let captureQuietPeriod: Duration = .seconds(2)
     /// How long a notice line stays.
     static let noticeLifetime: Duration = .seconds(6)
+    /// A pane that goes away and is made again at once (a layout change) keeps the pending target; one that stays gone
+    /// this long lets it go.
+    static let focusReleaseGrace: Duration = .seconds(1)
 
     private(set) var mode: Mode = .undecided
     private(set) var machine: WebConversationMachine
@@ -95,7 +104,11 @@ final class WebConversationModel {
     private(set) var noticeLine: String?
     /// The saved copy of the shown thread, drawn instead of the live page while the live page is not there. It stays
     /// until the live page is ready, so the swap back has no empty moment.
-    private(set) var savedCopy: SavedWebCopy?
+    private(set) var savedCopy: SavedWebCopy? {
+        didSet { if savedCopy == nil { copyFocus = nil } }
+    }
+    /// The element of the saved copy to scroll to; the copy view runs each request once.
+    private(set) var copyFocus: SavedCopyFocus?
 
     let instanceURL: URL
     let allowsLoopbackHTTP: Bool
@@ -125,6 +138,9 @@ final class WebConversationModel {
     @ObservationIgnored private var lastOutbox: [String: EmbedAppMessage] = [:]
     @ObservationIgnored private var lastProcessEndAt: WebConversationInstant?
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingFocus = PendingFocusSlot()
+    @ObservationIgnored private var focusSerial = 0
+    @ObservationIgnored private var releaseTask: Task<Void, Never>?
     @ObservationIgnored private var hasBegun = false
     @ObservationIgnored private var isPageHidden = false
 
@@ -175,6 +191,7 @@ final class WebConversationModel {
     func takeRequests(owner: AnyObject, _ handler: @escaping @MainActor (WebConversationRequest) -> Void) {
         requestOwner = ObjectIdentifier(owner)
         handleRequest = handler
+        releaseTask?.cancel()
     }
 
     /// A pane that goes away lets go of the requests, unless a newer pane has taken them over, so the window's model
@@ -183,6 +200,15 @@ final class WebConversationModel {
         guard requestOwner == ObjectIdentifier(owner) else { return }
         requestOwner = nil
         handleRequest = { _ in }
+        // The person left the thread, unless a new pane for it takes over at once: a target that never got its page
+        // does not wait for a thread that is no longer shown.
+        guard pendingFocus.target != nil else { return }
+        releaseTask?.cancel()
+        releaseTask = Task { [weak self, sleep] in
+            do { try await sleep(Self.focusReleaseGrace) } catch { return }
+            guard let self, requestOwner == nil else { return }
+            pendingFocus.clear()
+        }
     }
 
     // MARK: Decision
@@ -193,6 +219,7 @@ final class WebConversationModel {
         let chosen: Mode = supportsEmbeddedThread ? .web : .native
         guard mode != chosen else { return }
         mode = chosen
+        if chosen == .native { pendingFocus.clear() }
         mintTask?.cancel()
         switchTask?.cancel()
         tickTask?.cancel()
@@ -219,6 +246,7 @@ final class WebConversationModel {
 
     /// The pane shows `threadID`: the first time this loads the page, later it asks the open page to switch.
     func show(thread id: String) {
+        pendingFocus.drop(unlessForThread: id)
         guard threadID != id else { return }
         // The copy of the thread being left is as new as what the person last saw.
         if mode == .web, let old = threadID { saveOnLeaving(old) }
@@ -292,6 +320,7 @@ final class WebConversationModel {
         }
         scheduleTick()
         updateSavedCopy()
+        deliverPendingFocus()
     }
 
     private func startMint() {
@@ -399,6 +428,7 @@ final class WebConversationModel {
             apply(.page(message))
             sendHeldMessages()
             switchPageIfNeeded()
+            deliverPendingFocus()
             scheduleCapture()
         case .threadChanged(let changedThreadID, _):
             pageThreadID = changedThreadID
@@ -418,11 +448,45 @@ final class WebConversationModel {
             scheduleCapture()
         case .unsentAction(let key, let action): handleRequest(.unsent(key: key, action: action))
         case .authExpired, .error: apply(.page(message))
+        case .focusMissed:
+            // The element is not on the page (an older message that is not loaded, a card that is gone): the page
+            // stays where it is and nothing is shown.
+            Self.log("The page did not find the target of a push or link")
         case .unknown: break
         }
     }
 
     // MARK: To the page
+
+    /// A push or link named an element of `target.threadID`. It is sent once, after the page reports that thread ready
+    /// (at once when the page already shows it), and a later target replaces one that has not been sent.
+    func focus(_ target: PendingFocus) {
+        guard mode != .native, target.threadID == threadID else { return }
+        pendingFocus.set(target)
+        deliverPendingFocus()
+    }
+
+    /// The target that has not been sent yet; nil once it was sent or dropped.
+    var pendingFocusTarget: PendingFocus? { pendingFocus.target }
+
+    /// Sends the pending target to the live page when that page shows its thread, or scrolls the saved copy while the
+    /// copy is what the person reads. While the live page is still loading (or the copy only stands in for a moment)
+    /// the target waits.
+    private func deliverPendingFocus() {
+        guard let target = pendingFocus.target, mode == .web, !isPageHidden, target.threadID == threadID else { return }
+        if machine.phase == .ready, readyThreadID == target.threadID, pageThreadID == target.threadID {
+            if let sent = pendingFocus.take(forThread: target.threadID) { send(.focus(fragment: sent.fragment)) }
+        } else if let state = savedCopyState, state == .offline || state == .failed {
+            guard let sent = pendingFocus.take(forThread: target.threadID) else { return }
+            focusSerial += 1
+            copyFocus = SavedCopyFocus(serial: focusSerial, fragment: sent.fragment)
+        }
+    }
+
+    /// The saved copy ran the request with this serial: a view made later for the same copy gets no target.
+    func copyFocusHandled(serial: Int) {
+        if copyFocus?.serial == serial { copyFocus = nil }
+    }
 
     /// The unsent messages of a thread, kept per thread so an update from a pane that is leaving cannot replace the
     /// list of the thread that is arriving. The page is told when the list changes; a list that the page has not
@@ -466,6 +530,8 @@ final class WebConversationModel {
     func setPageHidden(_ isHidden: Bool) {
         isPageHidden = isHidden
         page?.setHidden(isHidden)
+        // A target that came in while the lock covered the page is sent now that the person can see it.
+        if !isHidden { deliverPendingFocus() }
     }
 
     // MARK: What the pane draws
@@ -565,6 +631,7 @@ extension WebConversationModel {
             guard !Task.isCancelled, threadID == id, machine.phase == .offline else { return }
             if let copy {
                 savedCopy = SavedWebCopy(threadID: id, archive: copy.archive, savedAt: copy.savedAt)
+                deliverPendingFocus()
             } else {
                 // The copy is gone or cannot be read now: the plain offline state shows.
                 Self.log("A saved copy could not be read")

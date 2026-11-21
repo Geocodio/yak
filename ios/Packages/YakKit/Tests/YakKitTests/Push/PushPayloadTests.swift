@@ -189,3 +189,34 @@ func aBadIdOpensTheInstance(id: String) throws {
     #expect(PushCleanup.identifiers(in: delivered, from: first, among: [first, other]).isEmpty)
     #expect(PushCleanup.identifiers(in: delivered, from: other, among: [first, other]) == ["for-other"])
 }
+
+private func threadPayload(path: String?) throws -> PushPayload {
+    try PushPayload(
+        json: Scenarios.data(
+            "scenario-push-alert-question", setting: ["yak", "path"], toJSON: path.map { "\"\($0)\"" } ?? "null"))
+}
+
+@Test func aThreadPushTakesItsFocusTargetFromThePathFragment() throws {
+    let payload = try threadPayload(path: "/threads/d0e515ef#card-question")
+    #expect(payload.yak?.fragment == "card-question")
+    #expect(
+        PushDestination.make(payload, instances: [home])
+            == .thread(home, id: "d0e515ef", fragment: "card-question"))
+    let message = try threadPayload(path: "/threads/d0e515ef#message-9f2c1a4e")
+    #expect(message.yak?.fragment == "message-9f2c1a4e")
+}
+
+@Test(arguments: [
+    "/threads/d0e515ef", "/threads/d0e515ef#", "/threads/a1b2c3d4#card-question", "/other#card-question",
+    "/threads/d0e515ef#a b", "/threads/d0e515ef#" + String(repeating: "a", count: 65), "#card-question",
+])
+func aPathWithoutAUsableFragmentGivesNoTarget(path: String) throws {
+    let payload = try threadPayload(path: path)
+    #expect(payload.yak?.fragment == nil)
+    #expect(PushDestination.make(payload, instances: [home]) == .thread(home, id: "d0e515ef"))
+}
+
+@Test func aPushWithoutAPathStillOpensItsThread() throws {
+    let payload = try threadPayload(path: nil)
+    #expect(PushDestination.make(payload, instances: [home]) == .thread(home, id: "d0e515ef"))
+}

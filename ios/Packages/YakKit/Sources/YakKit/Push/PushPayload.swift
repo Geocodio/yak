@@ -57,6 +57,16 @@ public struct PushPayload: Decodable, Equatable, Sendable {
 
         private enum CodingKeys: String, CodingKey { case instance, event, kind, id, path, needsYouCount }
 
+        /// The element of the thread page the push points at: the part of `path` after `#`, when the path before it
+        /// is this push's own thread page and the part passes the page's fragment rule. Nil otherwise.
+        public var fragment: String? {
+            guard let id, let path, let hash = path.firstIndex(of: "#"), path[..<hash] == "/threads/\(id)" else {
+                return nil
+            }
+            let fragment = String(path[path.index(after: hash)...])
+            return EmbedAppMessage.isValidFragment(fragment) ? fragment : nil
+        }
+
         /// The core members are strict, so a missing one drops the object. The optional members are
         /// read one by one, so one of the wrong type is nil and the push keeps its destination.
         public init(from decoder: any Decoder) throws {
@@ -128,7 +138,8 @@ public enum InstanceMatch {
 }
 
 public enum PushDestination: Equatable, Sendable {
-    case thread(Instance, id: String)
+    /// `fragment` is the element of the thread page to scroll to, from the push's path.
+    case thread(Instance, id: String, fragment: String? = nil)
     case task(Instance, id: String)
     /// An account push: the path on that instance.
     case webPage(Instance, URL)
@@ -148,7 +159,9 @@ public enum PushDestination: Equatable, Sendable {
         if yak.event == .test { return .instance(match) }
         switch yak.kind {
         case .thread:
-            if let id = yak.id, ThreadIdentifier.isValid(id) { return .thread(match, id: id) }
+            if let id = yak.id, ThreadIdentifier.isValid(id) {
+                return .thread(match, id: id, fragment: yak.fragment)
+            }
             return .instance(match)
         case .task:
             if let id = yak.id, ThreadIdentifier.isValid(id) { return .task(match, id: id) }

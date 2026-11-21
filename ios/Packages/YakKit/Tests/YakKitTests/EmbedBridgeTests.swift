@@ -33,6 +33,7 @@ private func typeName(of message: EmbedPageMessage) -> String {
     case .cardAnswered: "cardAnswered"
     case .unsentAction: "unsentAction"
     case .authExpired: "auth"
+    case .focusMissed: "focusMissed"
     case .error: "error"
     case .unknown(let type): "unknown:\(type)"
     }
@@ -55,6 +56,7 @@ private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-cardAnswered": .cardAnswered(card: .question, action: "answer", isOK: true),
     "page-unsentAction": .unsentAction(key: UUID(uuidString: "6f1c2f9e-3b1d-4c55-9a53-0d4b5c8f7a10")!, action: .retry),
     "page-auth": .authExpired,
+    "page-focusMissed": .focusMissed(fragment: "message-9f2c1a4e"),
     "page-error": .error(kind: .http, status: 503),
     "page-cardAnswered-failed": .cardAnswered(card: .question, action: "answer", isOK: false),
     "page-error-network": .error(kind: .network, status: nil),
@@ -402,4 +404,19 @@ private func outboxItem(key: String = "k", text: String = "t", reason: String? =
     let sent = try outboxItems(
         .outbox(threadID: "d0e515ef", items: [outboxItem(key: long), outboxItem(key: exact), outboxItem(key: "")]))
     #expect(sent.count == 1 && sent[0]["key"] as? String == exact)
+}
+
+@Test func theFocusFixtureIsWhatTheAppSendsForItsTarget() throws {
+    let fixture = try Fixtures.object("embed-bridge/app-focus")
+    let produced = try #require(EmbedAppMessage.focus(fragment: "turn-812").dictionary())
+    #expect(try canonical(produced) == canonical(fixture))
+}
+
+@Test func aFocusMissedWithABadFragmentIsMalformed() {
+    #expect(throws: EmbedMessageProblem.malformed(type: "focusMissed")) {
+        try page(#"{"v":1,"type":"focusMissed","fragment":"a b"}"#)
+    }
+    #expect(throws: EmbedMessageProblem.malformed(type: "focusMissed")) {
+        try page(#"{"v":1,"type":"focusMissed"}"#)
+    }
 }

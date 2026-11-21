@@ -793,3 +793,188 @@ private actor SleepGate {
         #expect(map(.notYak) == .rejected)
     }
 }
+
+// MARK: Focus targets
+
+private func target(_ thread: String = "d0e515ef", _ fragment: String = "card-question") -> PendingFocus {
+    PendingFocus(threadID: thread, fragment: fragment)!
+}
+
+@MainActor private func focusMessages(_ page: FakePage) -> [EmbedAppMessage] {
+    page.messages.filter { if case .focus = $0 { true } else { false } }
+}
+
+@MainActor @Suite struct WebConversationFocusTests {
+    @Test func aTargetIsSentOnceAfterThePageReportsReady() async {
+        let harness = Harness()
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        #expect(focusMessages(harness.page).isEmpty)
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
+        #expect(harness.model.pendingFocusTarget == nil)
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page).count == 1)
+    }
+
+    @Test func aTargetForAnOpenPageScrollsItWithoutALoad() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        let loads = harness.page.redeems.count
+        harness.model.focus(target("d0e515ef", "message-9f2c1a4e"))
+        #expect(focusMessages(harness.page) == [.focus(fragment: "message-9f2c1a4e")])
+        #expect(harness.page.redeems.count == loads)
+        #expect(harness.model.phase == .ready)
+    }
+
+    @Test func aLaterTargetReplacesOneThatWasNotSent() async {
+        let harness = Harness()
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target("d0e515ef", "card-question"))
+        harness.model.focus(target("d0e515ef", "message-9f2c1a4e"))
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page) == [.focus(fragment: "message-9f2c1a4e")])
+    }
+
+    @Test func aTargetWaitsForTheThreadSwitchInsideThePage() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.model.show(thread: "a1b2c3d4")
+        harness.model.focus(target("a1b2c3d4"))
+        #expect(harness.page.messages.contains(.open(threadID: "a1b2c3d4", fragment: nil)))
+        #expect(focusMessages(harness.page).isEmpty)
+        harness.model.receive(.threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"))
+        #expect(focusMessages(harness.page).isEmpty)
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
+    }
+
+    @Test func aTargetForAnotherThreadThanTheShownOneIsLetGo() async {
+        let harness = Harness()
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target("a1b2c3d4"))
+        #expect(harness.model.pendingFocusTarget == nil)
+    }
+
+    @Test func leavingTheThreadDropsATargetThatNeverGotItsPage() async {
+        let harness = Harness()
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        harness.model.show(thread: "a1b2c3d4")
+        #expect(harness.model.pendingFocusTarget == nil)
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        #expect(focusMessages(harness.page).isEmpty)
+    }
+
+    @Test func aPaneThatStaysGoneDropsTheTargetButAFastRemountKeepsIt() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        let first = NSObject()
+        let second = NSObject()
+        harness.model.takeRequests(owner: first) { _ in }
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        harness.model.releaseRequests(owner: first)
+        harness.model.takeRequests(owner: second) { _ in }
+        await gate.release(WebConversationModel.focusReleaseGrace)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(harness.model.pendingFocusTarget == target())
+
+        harness.model.releaseRequests(owner: second)
+        #expect(await TestTimeScale.poll { await gate.isWaiting(for: WebConversationModel.focusReleaseGrace) })
+        await gate.release(WebConversationModel.focusReleaseGrace)
+        #expect(await TestTimeScale.poll { harness.model.pendingFocusTarget == nil })
+    }
+
+    @Test func theNativeChatTakesNoTarget() {
+        let harness = Harness(supports: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(harness.model.pendingFocusTarget == nil)
+    }
+
+    @Test func aMissReportedByThePageChangesNothing() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.model.focus(target("d0e515ef", "message-0000aaaa"))
+        harness.model.receive(.focusMissed(fragment: "message-0000aaaa"))
+        #expect(harness.model.phase == .ready)
+        #expect(harness.model.loadPresentation == .conversation)
+        #expect(harness.requests.isEmpty)
+        #expect(harness.model.noticeLine == nil)
+    }
+
+    @Test func offlineTheSavedCopyIsScrolledToTheTarget() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        #expect(await TestTimeScale.poll { harness.model.copyFocus != nil })
+        #expect(harness.model.copyFocus?.fragment == "card-question")
+        #expect(harness.model.pendingFocusTarget == nil)
+        #expect(focusMessages(harness.page).isEmpty)
+    }
+
+    @Test func aTargetWaitsWhileTheLivePageLoadsBehindTheCopy() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        harness.model.connectivityChanged(isOnline: true)
+        #expect(harness.model.savedCopyState == .reconnecting)
+        harness.model.focus(target())
+        #expect(harness.model.copyFocus == nil)
+        #expect(harness.model.pendingFocusTarget == target())
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
+    }
+
+    @Test func theCopyTargetGoesWhenTheCopyDoes() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await TestTimeScale.poll { harness.model.copyFocus != nil })
+        harness.model.savedCopyFailed()
+        #expect(harness.model.copyFocus == nil)
+    }
+
+    @Test func aCopyThatRanTheTargetLeavesNoneForTheNextView() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await TestTimeScale.poll { harness.model.copyFocus != nil })
+        let serial = harness.model.copyFocus?.serial ?? 0
+        harness.model.copyFocusHandled(serial: serial)
+        #expect(harness.model.copyFocus == nil)
+    }
+
+    @Test func aTargetWaitsWhileTheLockCoversThePage() async {
+        let harness = Harness()
+        harness.model.setPageHidden(true)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.focus(target())
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(focusMessages(harness.page).isEmpty)
+        #expect(harness.model.pendingFocusTarget == target())
+        harness.model.setPageHidden(false)
+        #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
+        #expect(harness.model.pendingFocusTarget == nil)
+    }
+}

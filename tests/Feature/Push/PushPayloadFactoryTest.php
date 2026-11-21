@@ -22,6 +22,14 @@ it('lets a caller override the tag', function () {
     expect(app(PushPayloadFactory::class)->forThread(PushEvent::StackUsage, $thread, 'x', 'stack-1')['tag'])->toBe('stack-1');
 });
 
+it('puts the element the page scrolls to on the url as a fragment', function () {
+    $thread = Thread::factory()->create();
+
+    $payload = app(PushPayloadFactory::class)->forThread(PushEvent::NeedsYou, $thread, 'A question', null, 'card-question');
+
+    expect($payload['url'])->toBe("/threads/{$thread->public_id}#card-question");
+});
+
 it('leaks nothing about a private thread', function () {
     $thread = Thread::factory()->private()->create(['title' => 'Secret migration plan', 'branch' => 'secret-branch']);
 

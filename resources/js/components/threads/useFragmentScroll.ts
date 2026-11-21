@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { sendToApp } from '@/embed/bridge';
 import { decodeFragment, openingFragment } from '@/lib/initialFragment';
 
 const OLD_FRAGMENTS: Record<string, string> = { questions: 'card-question', 'co-owner': 'card-co-owner' };
@@ -12,8 +13,30 @@ export function resolveFragment(fragment: string, turnAnchors: Record<string, st
     return OLD_FRAGMENTS[fragment] ?? fragment;
 }
 
-/** Scrolls to the element once it renders, repeating briefly because the conversation pins itself to the newest entry while it settles. Returns the stop function. */
-function scrollToElement(id: string): () => void {
+/** How long the target keeps its mark. */
+const HIGHLIGHT_MS = 1600;
+
+/** Marks the element the fragment points at and moves the screen reader to it, without scrolling again. */
+function markTarget(element: HTMLElement): void {
+    element.setAttribute('data-fragment-target', '');
+    window.setTimeout(() => element.removeAttribute('data-fragment-target'), HIGHLIGHT_MS);
+
+    if (!element.hasAttribute('tabindex') && element.matches('div, section, article, li')) {
+        element.setAttribute('tabindex', '-1');
+    }
+
+    if (!isTyping(document.activeElement)) {
+        element.focus({ preventScroll: true });
+    }
+}
+
+/** Whether a person is typing in the element, so the target must not take the cursor from it. */
+function isTyping(active: Element | null): boolean {
+    return active instanceof HTMLElement && (active.matches('input, textarea, select') || active.isContentEditable);
+}
+
+/** Scrolls to the element once it renders, repeating briefly because the conversation pins itself to the newest entry while it settles, and marks it once. Calls `onMiss` when it never renders. Returns the stop function. */
+function scrollToElement(id: string, onMiss: () => void): () => void {
     let attempts = 0;
     let foundAt: number | null = null;
     const timer = window.setInterval(() => {
@@ -21,12 +44,19 @@ function scrollToElement(id: string): () => void {
         attempts += 1;
 
         if (element !== null) {
-            foundAt ??= attempts;
+            if (foundAt === null) {
+                foundAt = attempts;
+                markTarget(element);
+            }
             element.scrollIntoView({ block: 'center' });
         }
 
         if (attempts >= 30 || (foundAt !== null && attempts >= foundAt + 10)) {
             window.clearInterval(timer);
+
+            if (foundAt === null) {
+                onMiss();
+            }
         }
     }, 100);
 
@@ -41,7 +71,7 @@ export function useFragmentScroll(threadId: string, turnAnchors: Record<string, 
             stop();
 
             if (fragment !== '') {
-                stop = scrollToElement(resolveFragment(decodeFragment(fragment), turnAnchors));
+                stop = scrollToElement(resolveFragment(decodeFragment(fragment), turnAnchors), () => sendToApp({ type: 'focusMissed', fragment }));
             }
         };
         const onHashChange = () => follow(window.location.hash.slice(1));

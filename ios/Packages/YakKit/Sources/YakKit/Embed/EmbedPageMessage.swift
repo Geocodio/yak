@@ -57,6 +57,9 @@ public enum EmbedPageMessage: Equatable, Sendable {
     case unsentAction(key: UUID, action: EmbedUnsentAction)
     /// The web session ended; the app signs in again.
     case authExpired
+    /// The page looked for the element a `focus` message named and did not find it (an older message that is not
+    /// loaded, a card that is gone).
+    case focusMissed(fragment: String)
     case error(kind: EmbedErrorKind, status: Int?)
     /// A type or a variant this app does not know; it is ignored.
     case unknown(type: String)
@@ -97,6 +100,7 @@ extension EmbedPageMessage {
         case "cardAnswered": message = try payload(CardAnswered.self).message()
         case "unsentAction": message = try payload(UnsentAction.self).message()
         case "auth": message = try payload(Auth.self).message()
+        case "focusMissed": message = try payload(FocusMissed.self).message()
         case "error": message = try payload(ErrorReport.self).message()
         default: return .unknown(type: String(type.prefix(64)))
         }
@@ -286,6 +290,14 @@ extension EmbedPageMessage {
 
         func message() -> EmbedPageMessage? {
             state == "expired" ? .authExpired : .unknown(type: "auth")
+        }
+    }
+
+    private struct FocusMissed: Decodable {
+        let fragment: String
+
+        func message() -> EmbedPageMessage? {
+            EmbedAppMessage.isValidFragment(fragment) ? .focusMissed(fragment: fragment) : nil
         }
     }
 

@@ -329,7 +329,7 @@ struct InstanceShell: View {
             let link = model.takeLaunchLink()
             let own: DeepLink? =
                 switch link {
-                case .thread(let address, _)?, .newThread(let address, _, _)?:
+                case .thread(let address, _, _)?, .newThread(let address, _, _)?:
                     SceneModel.isSameAddress(address, instance.url) ? link : nil
                 default: nil
                 }
