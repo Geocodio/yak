@@ -56,14 +56,16 @@ module FastLanes
     !counts.empty?
   end
 
-  # The `-only-testing` identifiers (`Bundle/Class/test`) of the failed test cases in the JSON of
-  # `xcresulttool get test-results tests`.
+  # The `-only-testing` identifiers (`Bundle/Class/test` for XCTest, `Bundle/Suite/test()` for Swift Testing, nested
+  # suites and a test outside any suite included) of the failed test cases in the JSON of
+  # `xcresulttool get test-results tests`. A case's `nodeIdentifierURL` is `test://<host>/<project>/<identifier>`,
+  # with a `?args=` query on a row of a parameterized test; the identifier is everything after the project.
   def self.failed_tests(results)
     found = []
     walk = lambda do |nodes|
       (nodes || []).each do |node|
         if node["nodeType"] == "Test Case"
-          found << node["nodeIdentifierURL"].to_s.split("/").last(3).join("/") if node["result"] == "Failed"
+          found << test_identifier(node["nodeIdentifierURL"]) if node["result"] == "Failed"
         else
           walk.call(node["children"])
         end
@@ -71,6 +73,14 @@ module FastLanes
     end
     walk.call(results["testNodes"])
     found.uniq
+  end
+
+  # The `-only-testing` identifier in a test case's URL. Raises when the URL has none, so a failed test is never
+  # retried with an empty or wrong selection.
+  def self.test_identifier(url)
+    identifier = url.to_s[%r{\Atest://[^/]+/[^/]+/([^?]+)}, 1]
+    raise ArgumentError, "No test identifier in #{url.inspect}" if identifier.nil? || identifier.empty?
+    identifier
   end
 
   def self.file_digest(path)

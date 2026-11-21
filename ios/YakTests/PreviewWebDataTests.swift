@@ -61,6 +61,24 @@ private struct UnreadableTokenStore: TokenStore {
         await TestTimeScale.poll { await PreviewWebData.erase(instanceID: instance, defaults: defaults) }
     }
 
+    private func isUnlisted(_ ids: [UUID]) async -> Bool {
+        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        return ids.allSatisfy { !existing.contains($0) }
+    }
+
+    /// True once none of `ids` is listed. It only lists, and runs the launch sweep between lists, as the app does: a
+    /// store that WebKit lists again after an erase is for the sweep to remove.
+    private func isUnlistedEventually(_ ids: [UUID], defaults: PreviewDefaults) async -> Bool {
+        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        return await TestTimeScale.poll {
+            await PreviewWebData.sweep(instances: instances, defaults: defaults)
+            guard await isUnlisted(ids) else { return false }
+            // The sweep that finds the stores gone drops their records.
+            await PreviewWebData.sweep(instances: instances, defaults: defaults)
+            return await isUnlisted(ids)
+        }
+    }
+
     private func known(_ defaults: PreviewDefaults) throws -> [UUID] {
         try defaults.data(forKey: PreviewWebData.knownStoresKey).map { try JSONDecoder().decode([UUID].self, from: $0) }
             ?? []
@@ -104,8 +122,7 @@ private struct UnreadableTokenStore: TokenStore {
         let instance = UUID()
         await setCookie("saved", for: instance, defaults: defaults)
         #expect(await eraseEventually(instance, defaults: defaults))
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance)))
+        #expect(await isUnlistedEventually([PreviewDataStoreID.for(instanceID: instance)], defaults: defaults))
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
         #expect(try known(defaults).isEmpty)
     }
@@ -121,12 +138,7 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(inPreview.isEmpty)
         #expect(Set(try known(defaults)) == [previewID, embedID])
         #expect(await eraseEventually(instance, defaults: defaults))
-        // WebKit lists a removed store for a moment longer.
-        #expect(
-            await TestTimeScale.poll {
-                let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-                return !existing.contains(embedID) && !existing.contains(previewID)
-            })
+        #expect(await isUnlistedEventually([embedID, previewID], defaults: defaults))
         #expect(try known(defaults).isEmpty)
     }
 
@@ -138,8 +150,9 @@ private struct UnreadableTokenStore: TokenStore {
         defaults.set(Data("not json".utf8), forKey: PreviewWebData.knownStoresKey)
         defaults.set(try JSONEncoder().encode([instance]), forKey: PreviewWebData.pendingKey)
         #expect(await eraseEventually(instance, defaults: defaults))
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance, purpose: .embed)))
+        #expect(
+            await isUnlistedEventually(
+                [PreviewDataStoreID.for(instanceID: instance, purpose: .embed)], defaults: defaults))
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
     }
 
@@ -232,5 +245,84 @@ private struct UnreadableTokenStore: TokenStore {
             [UUID].self, from: try #require(defaults.data(forKey: PreviewWebData.pendingKey)))
         #expect(pending == [waiting])
         #expect(try known(defaults) == [PreviewDataStoreID.for(instanceID: handedOut)])
+    }
+
+    // MARK: A removal that leaves the store listed
+
+    /// A store list that keeps a store for the first `staysFor` removals of it, as WebKit does after a removal that
+    /// reported success.
+    @MainActor private final class StaleStores {
+        var listed: Set<UUID>
+        var removals: [UUID: Int] = [:]
+        let staysFor: Int
+
+        init(listed: Set<UUID>, staysFor: Int) {
+            self.listed = listed
+            self.staysFor = staysFor
+        }
+
+        var removal: PreviewWebData.Removal {
+            { [self] id in
+                removals[id, default: 0] += 1
+                if removals[id, default: 0] > staysFor { listed.remove(id) }
+            }
+        }
+
+        var listing: PreviewWebData.Listing { { [self] in Array(listed) } }
+    }
+
+    private func handOut(_ storeID: UUID, _ defaults: PreviewDefaults) throws {
+        defaults.set(try JSONEncoder().encode([storeID]), forKey: PreviewWebData.knownStoresKey)
+    }
+
+    @Test func aStoreThatStaysListedIsRemovedAgainBeforeTheRecordIsCleared() async throws {
+        let defaults = PreviewDefaults()
+        let instance = UUID()
+        let storeID = PreviewDataStoreID.for(instanceID: instance)
+        try handOut(storeID, defaults)
+        let stores = StaleStores(listed: [storeID], staysFor: 2)
+        let isErased = await PreviewWebData.erase(
+            instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+            pause: .milliseconds(1))
+        #expect(isErased)
+        #expect(stores.removals[storeID] == 3)  // two removals that leave it listed, one that does not
+        #expect(stores.listed.isEmpty)
+        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+        // The record stays until a sweep finds the store unlisted.
+        #expect(try known(defaults) == [storeID])
+        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+            pause: .milliseconds(1))
+        #expect(try known(defaults).isEmpty)
+    }
+
+    @Test func aStoreStillListedAfterTheBoundKeepsItsRecordAndTheNextSweepRemovesIt() async throws {
+        let defaults = PreviewDefaults()
+        let instance = UUID()
+        let storeID = PreviewDataStoreID.for(instanceID: instance)
+        try handOut(storeID, defaults)
+        let stores = StaleStores(listed: [storeID], staysFor: PreviewWebData.removalAttempts)
+        let isErased = await PreviewWebData.erase(
+            instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+            pause: .milliseconds(1))
+        #expect(!isErased)
+        #expect(stores.removals[storeID] == PreviewWebData.removalAttempts)
+        #expect(try known(defaults) == [storeID])
+        let pending = try JSONDecoder().decode(
+            [UUID].self, from: try #require(defaults.data(forKey: PreviewWebData.pendingKey)))
+        #expect(pending == [instance])
+        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+            pause: .milliseconds(1))
+        #expect(stores.listed.isEmpty)
+        // The record stays until a sweep finds the store unlisted.
+        #expect(try known(defaults) == [storeID])
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+            pause: .milliseconds(1))
+        #expect(try known(defaults).isEmpty)
+        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
     }
 }
