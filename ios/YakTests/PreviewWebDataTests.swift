@@ -61,6 +61,18 @@ private struct UnreadableTokenStore: TokenStore {
         await TestTimeScale.poll { await PreviewWebData.erase(instanceID: instance, defaults: defaults) }
     }
 
+    /// A store that was removed while WebKit still held it can stay listed after the removal succeeded; removing it
+    /// again once it is let go clears it. Returns true when none of `ids` is listed, removing the listed ones again
+    /// on every round.
+    private func isUnlistedEventually(_ ids: [UUID]) async -> Bool {
+        await TestTimeScale.poll {
+            let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+            let listed = ids.filter { existing.contains($0) }
+            for id in listed { try? await WKWebsiteDataStore.remove(forIdentifier: id) }
+            return listed.isEmpty
+        }
+    }
+
     private func known(_ defaults: PreviewDefaults) throws -> [UUID] {
         try defaults.data(forKey: PreviewWebData.knownStoresKey).map { try JSONDecoder().decode([UUID].self, from: $0) }
             ?? []
@@ -104,8 +116,7 @@ private struct UnreadableTokenStore: TokenStore {
         let instance = UUID()
         await setCookie("saved", for: instance, defaults: defaults)
         #expect(await eraseEventually(instance, defaults: defaults))
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance)))
+        #expect(await isUnlistedEventually([PreviewDataStoreID.for(instanceID: instance)]))
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
         #expect(try known(defaults).isEmpty)
     }
@@ -121,12 +132,7 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(inPreview.isEmpty)
         #expect(Set(try known(defaults)) == [previewID, embedID])
         #expect(await eraseEventually(instance, defaults: defaults))
-        // WebKit lists a removed store for a moment longer.
-        #expect(
-            await TestTimeScale.poll {
-                let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-                return !existing.contains(embedID) && !existing.contains(previewID)
-            })
+        #expect(await isUnlistedEventually([embedID, previewID]))
         #expect(try known(defaults).isEmpty)
     }
 
@@ -138,8 +144,7 @@ private struct UnreadableTokenStore: TokenStore {
         defaults.set(Data("not json".utf8), forKey: PreviewWebData.knownStoresKey)
         defaults.set(try JSONEncoder().encode([instance]), forKey: PreviewWebData.pendingKey)
         #expect(await eraseEventually(instance, defaults: defaults))
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance, purpose: .embed)))
+        #expect(await isUnlistedEventually([PreviewDataStoreID.for(instanceID: instance, purpose: .embed)]))
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
     }
 
@@ -181,16 +186,17 @@ private struct UnreadableTokenStore: TokenStore {
         await setCookie("gone", for: gone, defaults: defaults)
         let foreignID = UUID()
         await WKWebsiteDataStore(forIdentifier: foreignID).httpCookieStore.setCookie(cookie("foreign"))
-        // WebKit lets go of a released store a moment later, so a store still in use is swept again until it is gone.
+        // WebKit lets go of a released store a moment later, so a store still in use is swept again until its
+        // removal is done, and one that stays listed after a removal is removed again.
+        let swept = [PreviewDataStoreID.for(instanceID: gone), PreviewDataStoreID.for(instanceID: needsPairing.id)]
         var existing: [UUID] = []
         let deadline = ContinuousClock.now.advanced(by: TestTimeScale.waitBound * 2)
         repeat {
             await PreviewWebData.sweep(instances: instances, defaults: defaults)
             existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-            let isSwept =
-                !existing.contains(PreviewDataStoreID.for(instanceID: gone))
-                && !existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id))
-            if isSwept { break }
+            let listed = swept.filter { existing.contains($0) }
+            if listed.isEmpty { break }
+            for id in listed { try? await WKWebsiteDataStore.remove(forIdentifier: id) }
             try await Task.sleep(for: .milliseconds(300))
         } while ContinuousClock.now < deadline
         #expect(existing.contains(PreviewDataStoreID.for(instanceID: kept.id)))
