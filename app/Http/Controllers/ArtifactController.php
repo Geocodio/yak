@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Artifact;
 use App\Models\YakTask;
+use App\Support\ServedFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
@@ -24,13 +25,12 @@ class ArtifactController extends Controller
 
         abort_unless(Storage::disk('artifacts')->exists($artifact->disk_path), 404, 'Artifact file not found.');
 
-        $mimeType = $this->guessMimeType($filename);
-
         $this->abortWhenRangeStartsPastEnd($request, $artifact->disk_path);
 
-        return response()->file(
+        return ServedFile::response(
             Storage::disk('artifacts')->path($artifact->disk_path),
-            ['Content-Type' => $mimeType],
+            $filename,
+            inline: ServedFile::isInlineSafe($filename),
         );
     }
 
@@ -93,29 +93,11 @@ class ArtifactController extends Controller
         abort_if($artifact === null, 404);
         abort_unless(Storage::disk('artifacts')->exists($artifact->disk_path), 404);
 
-        return response()->file(
+        return ServedFile::response(
             Storage::disk('artifacts')->path($artifact->disk_path),
-            [
-                'Content-Type' => $this->guessMimeType($artifact->filename),
-                'Cache-Control' => 'public, max-age=31536000',
-            ],
+            $artifact->filename,
+            inline: ServedFile::isInlineSafe($artifact->filename),
+            headers: ['Cache-Control' => 'public, max-age=31536000'],
         );
-    }
-
-    private function guessMimeType(string $filename): string
-    {
-        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-
-        return match ($extension) {
-            'png' => 'image/png',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'html' => 'text/html',
-            'pdf' => 'application/pdf',
-            default => 'application/octet-stream',
-        };
     }
 }

@@ -76,7 +76,7 @@ class PullRequestImageController extends Controller
         return response($image->body(), 200, [
             'Content-Type' => $contentType,
             'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'",
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
             'Cache-Control' => 'private, max-age=86400',
         ]);
     }
