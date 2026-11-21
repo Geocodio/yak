@@ -44,6 +44,18 @@ private struct UnreadableTokenStore: TokenStore {
         return (inFirst, inSecond)
     }
 
+    /// Sets a cookie in the embed store and reads both stores of the instance, which are let go of afterwards.
+    private func cookiesOfEmbedAndPreviewStores(_ instance: UUID, defaults: PreviewDefaults) async -> (
+        [String], [String]
+    ) {
+        let embedStore = PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults)
+        let previewStore = PreviewWebData.store(for: instance, defaults: defaults)
+        await embedStore.httpCookieStore.setCookie(cookie("session"))
+        let inEmbed = await embedStore.httpCookieStore.allCookies().map(\.name)
+        let inPreview = await previewStore.httpCookieStore.allCookies().map(\.name)
+        return (inEmbed, inPreview)
+    }
+
     /// WebKit lets go of a released store a moment later, so an erase that finds it still in use is repeated until it succeeds.
     private func eraseEventually(_ instance: UUID, defaults: PreviewDefaults) async -> Bool {
         await TestTimeScale.poll { await PreviewWebData.erase(instanceID: instance, defaults: defaults) }
@@ -95,6 +107,26 @@ private struct UnreadableTokenStore: TokenStore {
         let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
         #expect(!existing.contains(PreviewDataStoreID.for(instanceID: instance)))
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+        #expect(try known(defaults).isEmpty)
+    }
+
+    @Test func theEmbeddedPageHasItsOwnStoreAndEraseRemovesBothStores() async throws {
+        let defaults = PreviewDefaults()
+        let instance = UUID()
+        let previewID = PreviewDataStoreID.for(instanceID: instance)
+        let embedID = PreviewDataStoreID.for(instanceID: instance, purpose: .embed)
+        #expect(previewID != embedID)
+        let (inEmbed, inPreview) = await cookiesOfEmbedAndPreviewStores(instance, defaults: defaults)
+        #expect(inEmbed == ["session"])
+        #expect(inPreview.isEmpty)
+        #expect(Set(try known(defaults)) == [previewID, embedID])
+        #expect(await eraseEventually(instance, defaults: defaults))
+        // WebKit lists a removed store for a moment longer.
+        #expect(
+            await TestTimeScale.poll {
+                let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+                return !existing.contains(embedID) && !existing.contains(previewID)
+            })
         #expect(try known(defaults).isEmpty)
     }
 

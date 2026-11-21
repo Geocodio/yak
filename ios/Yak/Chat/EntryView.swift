@@ -232,7 +232,7 @@ struct AttachmentChip: View {
 }
 
 /// The sheet that changes the text of a message that waits for the next turn.
-private struct EditQueuedSheet: View {
+struct EditQueuedSheet: View {
     let uuid: String
     @State var text: String
     let thread: ThreadModel

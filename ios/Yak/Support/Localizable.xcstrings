@@ -10814,6 +10814,106 @@
         }
       }
     },
+    "queued.attached %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld attached"
+          }
+        }
+      }
+    },
+    "queued.collapse.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows less of the message"
+          }
+        }
+      }
+    },
+    "queued.expand.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the whole message"
+          }
+        }
+      }
+    },
+    "queued.fewer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show fewer"
+          }
+        }
+      }
+    },
+    "queued.list.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting messages"
+          }
+        }
+      }
+    },
+    "queued.mode.queued" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queued"
+          }
+        }
+      }
+    },
+    "queued.mode.steering" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steering"
+          }
+        }
+      }
+    },
+    "queued.more %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld more"
+          }
+        }
+      }
+    },
+    "queued.sending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updating the message"
+          }
+        }
+      }
+    },
+    "queued.via %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "via %@"
+          }
+        }
+      }
+    },
     "quickAction.newThread" : {
       "localizations" : {
         "en" : {
@@ -14968,6 +15068,96 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This video format cannot be played on this device."
+          }
+        }
+      }
+    },
+    "web.failed.crashed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation page stopped working. Try again."
+          }
+        }
+      }
+    },
+    "web.failed.network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation could not be loaded. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "web.failed.server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server could not show this conversation. Try again in a moment."
+          }
+        }
+      }
+    },
+    "web.failed.session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation could not be opened because its session could not be renewed. Try again."
+          }
+        }
+      }
+    },
+    "web.failed.timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation took too long to load. Try again."
+          }
+        }
+      }
+    },
+    "web.offline.line" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing what was loaded"
+          }
+        }
+      }
+    },
+    "web.page.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversation"
+          }
+        }
+      }
+    },
+    "web.quickLook.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file could not be opened."
+          }
+        }
+      }
+    },
+    "web.quickLook.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file is too large to open here."
           }
         }
       }

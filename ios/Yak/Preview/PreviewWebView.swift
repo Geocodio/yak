@@ -180,7 +180,7 @@ final class PreviewWebCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate,
         }
     }
 
-    private static func topViewController() -> UIViewController? {
+    static func topViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         var top = scenes.flatMap(\.windows).first(where: \.isKeyWindow)?.rootViewController
         while let presented = top?.presentedViewController { top = presented }

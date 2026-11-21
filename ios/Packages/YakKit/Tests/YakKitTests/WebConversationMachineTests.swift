@@ -412,3 +412,13 @@ private func waitingFor(_ id: String) -> Machine {
     _ = machine.handle(.page(.authExpired), at: later(100))
     #expect(machine.handle(.retry, at: later(101)) == [] && machine.phase == .signedOut)
 }
+
+@Test func aCrashLoopFailsWithAFailureThatRetryLeaves() {
+    var machine = readyMachine()
+    #expect(machine.handle(.pageCrashLoop, at: later(2)) == [])
+    #expect(machine.phase == .failed(.pageCrashed) && machine.nextDeadline == nil)
+    #expect(Machine.Failure.pageCrashed.isRetryable)
+    #expect(machine.handle(.retry, at: later(3)) == [.mint])
+    var unsupported = Machine(supportsEmbeddedThread: false)
+    #expect(unsupported.handle(.pageCrashLoop, at: later(1)) == [] && unsupported.phase == .unsupported)
+}

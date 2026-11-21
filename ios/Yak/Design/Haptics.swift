@@ -69,3 +69,10 @@ extension View {
         }
     }
 }
+
+extension Haptic {
+    /// An action on a card of the page resolved: success when it worked, a warning when it did not.
+    @MainActor static func playCardAnswered(isOK: Bool) {
+        UINotificationFeedbackGenerator().notificationOccurred(isOK ? .success : .warning)
+    }
+}

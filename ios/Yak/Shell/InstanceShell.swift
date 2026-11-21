@@ -15,6 +15,8 @@ struct InstanceShell: View {
     /// The stored copy of the instance, refreshed once `me` has landed.
     @State private var storedInstance: Instance?
     @State private var showsSwitcher = false
+    /// The web conversation of this window and instance; its web view serves every thread the window shows.
+    @State private var webConversation: WebConversationModel
     /// The tasks area, when it is open in place of the thread screen.
     @State private var tasksRoute: TasksRoute?
     /// The thread the tasks route opened over; a different thread closes the route.
@@ -26,6 +28,14 @@ struct InstanceShell: View {
     @Environment(\.walkthroughPlayback) private var walkthroughPlayback
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
+
+    init(model: AppModel, routedInstance: Instance, session: InstanceSession, scene: SceneModel) {
+        self.model = model
+        self.routedInstance = routedInstance
+        self.session = session
+        self.scene = scene
+        _webConversation = State(initialValue: WebConversationModel(session: session))
+    }
 
     private var instance: Instance { storedInstance ?? routedInstance }
     private var isCompactWidth: Bool { sizeClass != .regular }
@@ -99,6 +109,7 @@ struct InstanceShell: View {
             if let url = model.browserURL { BrowserSheet(url: url).ignoresSafeArea() }
         }
         .environment(\.hasSeveralWindows, hasSeveralWindows)
+        .environment(\.webConversation, webConversation)
         .focusedSceneValue(
             \.sceneCommands,
             SceneCommands.published(sceneCommands, isBlocked: inputBlocked, hasSheetOpen: hasSheetOpen)

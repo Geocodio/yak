@@ -52,6 +52,8 @@ Widget scenarios: `widgets-busy` and `widgets-empty` (the `mine` thread list is 
 
 The launch argument `-yakTestSkipWebSession YES` keeps the system web sign-in sheet closed, so the waiting screen of the typed-address flow can be seen and tested.
 
+Embed scenarios (the thread's conversation as a web page): `embed-basic`, `embed-expired-once` (the first page load answers 401), `embed-slow` (the page says ready after 12 seconds), `embed-failed` (every mint answers 503) and `embed-unsupported` (an older server). `me` carries `web` only in the embed scenarios but `embed-unsupported`, so every other scenario keeps the native conversation. The page is a test page that speaks the script bridge, not the real thread page. `GET /__stub/embed/state` answers how many codes were minted and redeemed and how many page loads there were, and `POST /__stub/embed/expire` makes the next page load answer 401.
+
 ## Walkthrough
 
 `bundle exec fastlane walkthrough device:"iPhone 18 Pro" appearance:dark orientation:landscape` runs `WalkthroughTests`, which visits every state, saves a screenshot of each and runs the accessibility audit on it. It is not part of `ui_smoke`. `appearance` is `light` (default), `dark` or `largest-text`; `orientation` is `portrait` (default) or `landscape`; `only:testName` runs one test and adds to the shots already on disk (a full run starts with an empty folder). Screenshots land in `build/screenshots/<device>/<appearance>/<orientation>/`, so runs of different variants do not overwrite each other. Look at them: the audit does not catch a clipped or crowded layout.

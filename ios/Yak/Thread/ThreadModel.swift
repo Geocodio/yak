@@ -397,14 +397,22 @@ extension ThreadModel {
         return outcome
     }
 
-    func setQueuedMode(_ uuid: String, mode: MessageMode) async {
-        guard let engine else { return show(.failed(.offline)) }
-        show(await engine.setQueuedMessageMode(uuid, mode: mode))
+    /// `reportsLine` false leaves the words to the caller, which shows them beside the message itself.
+    @discardableResult
+    func setQueuedMode(_ uuid: String, mode: MessageMode, reportsLine: Bool = true) async -> ThreadActionOutcome {
+        guard let engine else { return finish(.failed(.offline), reportsLine: reportsLine) }
+        return finish(await engine.setQueuedMessageMode(uuid, mode: mode), reportsLine: reportsLine)
     }
 
-    func withdrawQueued(_ uuid: String) async {
-        guard let engine else { return show(.failed(.offline)) }
-        show(await engine.withdrawQueuedMessage(uuid))
+    @discardableResult
+    func withdrawQueued(_ uuid: String, reportsLine: Bool = true) async -> ThreadActionOutcome {
+        guard let engine else { return finish(.failed(.offline), reportsLine: reportsLine) }
+        return finish(await engine.withdrawQueuedMessage(uuid), reportsLine: reportsLine)
+    }
+
+    private func finish(_ outcome: ThreadActionOutcome, reportsLine: Bool) -> ThreadActionOutcome {
+        if reportsLine { show(outcome) }
+        return outcome
     }
 
     /// Sends a refused or waiting message again now.
@@ -445,16 +453,20 @@ extension ThreadModel {
 
     /// Words for how an action ended: nothing when it worked.
     private func show(_ outcome: ThreadActionOutcome) {
+        if let words = Self.words(for: outcome) { setActionLine(words) }
+    }
+
+    /// The words for how an action ended, in the server's own where it gave some; nil when it worked.
+    nonisolated static func words(for outcome: ThreadActionOutcome) -> String? {
         switch outcome {
-        case .done: break
-        case .alreadySent: setActionLine(String(localized: "chat.message.alreadySent"))
-        case .refused(_, let message, _, _):
-            setActionLine(message.isEmpty ? String(localized: "chat.action.refused") : message)
+        case .done: nil
+        case .alreadySent: String(localized: "chat.message.alreadySent")
+        case .refused(_, let message, _, _): message.isEmpty ? String(localized: "chat.action.refused") : message
         case .failed(let problem):
             switch problem {
-            case .offline: setActionLine(String(localized: "chat.action.offline"))
-            case .server(_, let message) where !message.isEmpty: setActionLine(message)
-            default: setActionLine(String(localized: "chat.action.failed"))
+            case .offline: String(localized: "chat.action.offline")
+            case .server(_, let message) where !message.isEmpty: message
+            default: String(localized: "chat.action.failed")
             }
         }
     }
