@@ -111,9 +111,7 @@ final class AppParts {
             steps: steps, previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
             observers: [
                 push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight,
-                OfflineCopyEraser { instance in
-                    await box.model?.sessions.session(for: instance).eraseOfflineCopies()
-                },
+                OfflineCopyEraser(files: context.makeEnvironment().files),
             ] + (context.uploads.map { [$0] } ?? []))
     }
 

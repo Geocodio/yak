@@ -9,34 +9,26 @@ import YakKit
         id: UUID(), url: URL(string: "https://yak.example.com")!, name: "Example Yak", userName: "Test person",
         lastUsedAt: Date())
 
+    /// No session and no window exist here: the eraser works on the files alone.
     @Test(arguments: [InstanceRemoval.unpaired, InstanceRemoval.revoked])
-    func anUnpairedOrRevokedInstanceHasItsCopiesErased(reason: InstanceRemoval) async {
-        var erased: [UUID] = []
-        let eraser = OfflineCopyEraser { erased.append($0.id) }
-        await eraser.instanceRemoved(instance, reason: reason)
-        #expect(erased == [instance.id])
+    func anUnpairedOrRevokedInstanceHasItsCopiesErasedWithoutASession(reason: InstanceRemoval) async throws {
+        let files = InMemoryFileStore()
+        let store = OfflineCopyStore(instance: instance.id, files: files)
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .saved)
+        let other = OfflineCopyStore(instance: UUID(), files: files)
+        #expect(await other.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .saved)
+        await OfflineCopyEraser(files: files).instanceRemoved(instance, reason: reason)
+        #expect(try files.list(InstanceFolders.offlineCopies(instance.id)).isEmpty)
+        #expect(await other.entries().count == 1)
     }
 
-    @Test func aPairedAndRefreshedInstanceKeepsItsCopies() async {
-        var erased: [UUID] = []
-        let eraser = OfflineCopyEraser { erased.append($0.id) }
+    @Test func aPairedAndRefreshedInstanceKeepsItsCopies() async throws {
+        let files = InMemoryFileStore()
+        let store = OfflineCopyStore(instance: instance.id, files: files)
+        _ = await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef")
+        let eraser = OfflineCopyEraser(files: files)
         await eraser.instancePaired(instance)
         await eraser.instanceRefreshed(instance)
-        #expect(erased.isEmpty)
-    }
-
-    @Test func theErasePathReachesTheSessionsStore() async throws {
-        let files = InMemoryFileStore()
-        let tokens = InMemoryTokenStore()
-        let instances = InstanceStore(defaults: PushMemoryDefaults(), tokens: tokens, now: { Date() })
-        let session = InstanceSession(
-            instance: instance, instances: instances, tokens: tokens,
-            environment: .app(version: "0.0.0", system: "Unit test", files: files, allowsInsecureRealtime: false))
-        let store = await session.offlineCopies()
-        #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .saved)
-        let eraser = OfflineCopyEraser { _ in await session.eraseOfflineCopies() }
-        await eraser.instanceRemoved(instance, reason: .revoked)
-        #expect(await store.entries().isEmpty)
-        #expect(try files.list(InstanceFolders.offlineCopies(instance.id)).isEmpty)
+        #expect(await store.entries().count == 1)
     }
 }

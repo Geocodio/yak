@@ -49,7 +49,11 @@ struct InstanceShell: View {
         Group {
             switch status {
             case .starting, .active: layout
-            case .needsPairing: Color.yakBackground.task { await model.markRevoked(instance) }
+            case .needsPairing:
+                Color.yakBackground.task {
+                    webConversation.sessionEnded()
+                    await model.markRevoked(instance)
+                }
             case .tokenUnreadable: problem("signedIn.tokenUnreadable")
             case .appTooOld: problem("signedIn.appTooOld")
             case .serverTooOld: problem("signedIn.serverTooOld")

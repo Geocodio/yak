@@ -572,6 +572,14 @@ extension WebConversationModel {
         }
     }
 
+    /// The session ended (revoked, unpaired): nothing more is saved or read.
+    func sessionEnded() {
+        captureTask?.cancel()
+        copyTask?.cancel()
+        readTask?.cancel()
+        savedCopy = nil
+    }
+
     /// The app leaves the foreground: the copy is saved now, because the page may not live on.
     func appLeftForeground() {
         captureTask?.cancel()
@@ -581,12 +589,16 @@ extension WebConversationModel {
     /// Saves the page as it is, when it is the ready page of the shown thread. A page that moved on, failed or went
     /// offline while the archive was made is not saved.
     func saveCopy() async {
-        guard mode == .web, isOnline, machine.phase == .ready, let id = threadID, readyThreadID == id,
+        guard !Task.isCancelled, mode == .web, isOnline, machine.phase == .ready, let id = threadID,
+            readyThreadID == id,
             pageThreadID == id, let page
         else { return }
+        // The store is taken before the archive is made: an archive that finishes after the copies were erased meets
+        // the erased store, which refuses it.
+        guard let store = await copies() else { return }
         guard let archive = await page.captureArchive() else { return Self.log("A page archive could not be made") }
         guard !Task.isCancelled, machine.phase == .ready, isOnline, pageThreadID == id, threadID == id,
-            let store = await copies()
+            let current = await copies(), current === store
         else { return }
         switch await store.save(archive, thread: id) {
         case .saved:

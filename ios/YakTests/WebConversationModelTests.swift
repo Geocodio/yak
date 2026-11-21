@@ -13,9 +13,11 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     var isHidden = false
     var archive: Data? = Data("archive".utf8)
     var captures = 0
+    var beforeArchive: (@MainActor () async -> Void)?
 
     func captureArchive() async -> Data? {
         captures += 1
+        await beforeArchive?()
         return archive
     }
 
@@ -146,6 +148,26 @@ private actor SleepGate {
         harness.page.archive = nil
         await harness.model.saveCopy()
         #expect(await harness.store.entries().isEmpty)
+    }
+
+    @Test func anArchiveThatFinishesAfterTheCopiesWereErasedIsDropped() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        harness.page.beforeArchive = { await harness.store.invalidate() }
+        await harness.model.saveCopy()
+        #expect(await harness.store.entries().isEmpty)
+        #expect(harness.page.captures == 1)
+    }
+
+    @Test func aSessionThatEndedCancelsTheWaitingSave() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        await harness.open("d0e515ef")
+        #expect(await TestTimeScale.poll { await gate.isWaiting(for: WebConversationModel.captureQuietPeriod) })
+        harness.model.sessionEnded()
+        await gate.release(WebConversationModel.captureQuietPeriod)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(harness.page.captures == 0)
     }
 
     @Test func leavingTheForegroundSavesTheCopyAtOnce() async {

@@ -103,6 +103,9 @@ public actor InstanceSession {
     private var currentMe: Me?
     private var cache: Cache?
     private var offlineCopyStore: OfflineCopyStore?
+    /// Set when the copies were erased (revoked, unpaired); the store stays invalidated until `start()` runs again with
+    /// a token, so a capture that finishes late writes nothing.
+    private var hasErasedOfflineCopies = false
     private var overview: OverviewActions?
     private var currentOutbox: Outbox?
     private var feed: ThreadListFeed?
@@ -161,6 +164,10 @@ public actor InstanceSession {
             return
         }
         currentOutbox = nil
+        if hasErasedOfflineCopies {
+            offlineCopyStore = nil
+            hasErasedOfflineCopies = false
+        }
         statusBroadcast.send(.starting)
         let transport = SessionTransport(wrapping: environment.http) { [weak self] signal in
             Task { await self?.handle(signal) }
@@ -402,8 +409,8 @@ public actor InstanceSession {
         await eraseOfflineCopies()
     }
 
-    /// The saved web archives of the instance's threads. One store serves every scene, and a new one is made after
-    /// the copies were erased.
+    /// The saved web archives of the instance's threads. One store serves every scene. After the copies were erased
+    /// the store refuses every write until the session starts again.
     public func offlineCopies() -> OfflineCopyStore {
         if let offlineCopyStore { return offlineCopyStore }
         let store = OfflineCopyStore(instance: instance.id, files: environment.files, clock: environment.clock)
@@ -415,7 +422,7 @@ public actor InstanceSession {
     /// the device is revoked, unpaired or the instance is removed.
     public func eraseOfflineCopies() async {
         let store = offlineCopies()
-        offlineCopyStore = nil
+        hasErasedOfflineCopies = true
         await store.invalidate()
     }
 
