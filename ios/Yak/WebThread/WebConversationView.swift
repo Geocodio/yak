@@ -112,6 +112,19 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         ) { _ in }
     }
 
+    func captureArchive() async -> Data? {
+        await withCheckedContinuation { continuation in
+            webView.createWebArchiveData { result in
+                switch result {
+                case .success(let data): continuation.resume(returning: data)
+                case .failure(let error):
+                    Self.log("A page archive failed: \(type(of: error))")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
     func quickLook(url: URL, name: String) { quickLook.start(url: url, name: name, in: webView) }
 
     /// A hidden page also gives up focus, so a field of the page cannot take keystrokes under the lock cover.
@@ -225,7 +238,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
 }
 
 /// Passes script messages to its target without keeping it, because a user content controller keeps its handlers.
-private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
+final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
     private weak var target: (any WKScriptMessageHandler)?
 
     init(_ target: any WKScriptMessageHandler) { self.target = target }

@@ -109,8 +109,12 @@ final class AppParts {
         return AppParts(
             storage: storage, isTestMode: isTestMode, push: push, uploads: context.uploads, widgets: widgets,
             steps: steps, previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
-            observers: [push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight]
-                + (context.uploads.map { [$0] } ?? []))
+            observers: [
+                push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight,
+                OfflineCopyEraser { instance in
+                    await box.model?.sessions.session(for: instance).eraseOfflineCopies()
+                },
+            ] + (context.uploads.map { [$0] } ?? []))
     }
 
     /// The active instance and its cached thread lists, read off the main actor; nil without a model, a ready

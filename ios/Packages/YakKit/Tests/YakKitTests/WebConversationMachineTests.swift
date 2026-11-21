@@ -205,6 +205,16 @@ func aNavigationStatusMapsToItsFailure(status: Int, failure: Machine.Failure) {
     #expect(machine.phase == .offline)
 }
 
+@Test func aCopyFoundAfterTheNetworkFailureTurnsTheFailureIntoTheOfflineCopy() {
+    var machine = waiting()
+    _ = machine.handle(.navigation(.networkError), at: later(1))
+    #expect(machine.phase == .failed(.network))
+    _ = machine.handle(.offlineCopyChanged(isAvailable: true), at: later(2))
+    #expect(machine.phase == .offline)
+    _ = machine.handle(.offlineCopyChanged(isAvailable: false), at: later(3))
+    #expect(machine.phase == .failed(.network))
+}
+
 @Test func connectivityComingBackReloadsFromOfflineAndFromANetworkFailure() {
     var offline = waiting(hasCopy: true)
     _ = offline.handle(.navigation(.networkError), at: later(1))

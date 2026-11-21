@@ -195,3 +195,11 @@ func aThreadIDThatIsNotAnIDIsNeverUsedAsAPath(thread: String) async {
     #expect(OfflineCopyEntry(threadID: "t", bytes: 1, savedAt: now, useOrder: 2).useOrder == 2)
     #expect(OfflineCopy(archive: Data([1]), savedAt: now).archive == Data([1]))
 }
+
+@Test func theCopiesAreKeptOutOfBackupsAndProtectedWhileLocked() async {
+    let files = InMemoryFileStore()
+    let store = makeStore(files: files)
+    #expect(await store.save(archive(10), thread: id(1)) == .saved)
+    #expect(files.isExcludedFromBackup(InstanceFolders.offlineCopies(instance)))
+    #expect(files.protection(of: "\(InstanceFolders.offlineCopies(instance))/\(id(1)).webarchive") == .complete)
+}

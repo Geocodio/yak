@@ -148,11 +148,26 @@ private func nextSnapshot(
         _ = await rig.session.openThread(threadID)
         _ = try await statuses.next { $0 == .needsPairing }
         #expect(try rig.files.list(InstanceFolders.cache(rig.instance.id)).isEmpty)
+        #expect(await rig.session.offlineCopies().entries().isEmpty)
         #expect(await rig.instances.state(of: rig.instance.id) == .needsPairing)
         #expect(await rig.session.outbox()?.pauseReason() == .unauthorized(code: "device_revoked"))
         #expect(await rig.session.openThread(threadID) == nil)
         await rig.session.stop()
         #expect(await rig.session.outbox() == nil)
+    }
+
+    @Test func aRevokedDeviceRemovesItsOfflineCopies() async throws {
+        let rig = try await startedRig { await $0.on(showRoute, revokedAnswer) }
+        let store = await rig.session.offlineCopies()
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: threadID) == .saved)
+        _ = await rig.session.openThread(threadID)
+        let statuses = StreamRecorder(await rig.session.statuses())
+        _ = try await statuses.next { $0 == .needsPairing }
+        #expect(await store.entries().isEmpty)
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: threadID) == .notSaved)
+        #expect(try rig.files.list(InstanceFolders.offlineCopies(rig.instance.id)).isEmpty)
+        // A later pairing gets a store that works.
+        #expect(await rig.session.offlineCopies().save(Data(repeating: 1, count: 10), thread: threadID) == .saved)
     }
 
     @Test func featureAccessorsFollowTheSession() async throws {
@@ -583,6 +598,15 @@ private func nextSnapshot(
         let rig = try await makeRig { await $0.on("DELETE device", .json(200, "{}")) }
         await rig.session.unpair()
         #expect(await rig.transport.requests(on: "DELETE device").count == 1)
+    }
+
+    @Test func unpairRemovesTheOfflineCopies() async throws {
+        let rig = try await startedRig { await $0.on("DELETE device", .json(200, "{}")) }
+        let store = await rig.session.offlineCopies()
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: threadID) == .saved)
+        await rig.session.unpair()
+        #expect(await store.entries().isEmpty)
+        #expect(try rig.files.list(InstanceFolders.offlineCopies(rig.instance.id)).isEmpty)
     }
 
     @Test func unpairErasesEverything() async throws {

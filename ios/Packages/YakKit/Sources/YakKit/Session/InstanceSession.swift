@@ -102,6 +102,7 @@ public actor InstanceSession {
     private var meRequester: APIClient?
     private var currentMe: Me?
     private var cache: Cache?
+    private var offlineCopyStore: OfflineCopyStore?
     private var overview: OverviewActions?
     private var currentOutbox: Outbox?
     private var feed: ThreadListFeed?
@@ -398,6 +399,24 @@ public actor InstanceSession {
     private func eraseCache() async {
         let target = cache ?? Cache(instance: instance.id, files: environment.files, clock: environment.clock)
         await target.eraseAll()
+        await eraseOfflineCopies()
+    }
+
+    /// The saved web archives of the instance's threads. One store serves every scene, and a new one is made after
+    /// the copies were erased.
+    public func offlineCopies() -> OfflineCopyStore {
+        if let offlineCopyStore { return offlineCopyStore }
+        let store = OfflineCopyStore(instance: instance.id, files: environment.files, clock: environment.clock)
+        offlineCopyStore = store
+        return store
+    }
+
+    /// Removes every saved copy and stops the store that held them from writing into the erased folder. Called when
+    /// the device is revoked, unpaired or the instance is removed.
+    public func eraseOfflineCopies() async {
+        let store = offlineCopies()
+        offlineCopyStore = nil
+        await store.invalidate()
     }
 
     // MARK: Threads

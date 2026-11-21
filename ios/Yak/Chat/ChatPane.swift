@@ -57,6 +57,7 @@ private struct ChatPane: View {
         .onDisappear { web?.releaseRequests(owner: requestOwner) }
         .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
+        .onChange(of: scenePhase) { if scenePhase != .active { web?.appLeftForeground() } }
         .sensoryFeedback(.success, trigger: thread.question.sentCount)
         .sensoryFeedback(.error, trigger: thread.question.failureCount)
         .onGeometryChange(for: CGFloat.self) {
@@ -123,7 +124,9 @@ private struct ChatPane: View {
             if let notice = web.noticeLine {
                 FileLine(text: Text(verbatim: notice), identifier: "thread.web.notice")
             }
-            if web.showsOfflineLine {
+            if let copy = web.savedCopy, let state = web.savedCopyState {
+                SavedCopyLine(state: state, savedAt: copy.savedAt, retry: { web.retry() })
+            } else if web.showsOfflineLine {
                 FileLine(text: Text("web.offline.line"), identifier: "thread.web.offlineLine")
             }
             ZStack {
@@ -134,6 +137,14 @@ private struct ChatPane: View {
                     }, version: thread.session.appVersion
                 )
                 .accessibilityHidden(!isShown)
+                if let copy = web.savedCopy, web.savedCopyState != nil {
+                    SavedCopyView(
+                        copy: copy, instanceURL: web.instanceURL, isHidden: isCovered,
+                        blockedTap: { web.showNotice(String(localized: "chat.action.offline")) }
+                    )
+                    .accessibilityHidden(isCovered)
+                    .transition(.opacity)
+                }
                 ThreadLoadView(
                     presentation: presentation, retry: { web.retry() }, openThreads: openThreads
                 )
@@ -142,6 +153,7 @@ private struct ChatPane: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .motion(Motion.crossFade, value: presentation)
+        .motion(Motion.crossFade, value: web.savedCopyState != nil)
     }
 
     /// How often a window that has chosen asks again whether the server turned the page on or off.
