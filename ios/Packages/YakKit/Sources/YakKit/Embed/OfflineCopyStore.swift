@@ -261,6 +261,8 @@ public actor OfflineCopyStore {
             }
         }
         index = loaded
+        // An empty folder gets its index file now, so that a later erase of the folder is noticed.
+        if !hasIndexOnDisk { try? writeIndex(loaded) }
         return loaded
     }
 }

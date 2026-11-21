@@ -344,6 +344,18 @@ private final class SleeperCount: @unchecked Sendable {
     #expect(observer.events == ["removed first.example.com revoked"])
 }
 
+@MainActor @Test func aRevokeErasesTheLiveSessionsCopiesBeforeTheRouteStopsIt() async throws {
+    let (model, instances) = makeLinkModel(observers: [])
+    let instance = try await instances.add(
+        url: URL(string: "https://first.example.com")!, name: "Example Yak", userName: "Test person", token: "secret")
+    let session = model.sessions.session(for: instance)
+    let store = await session.offlineCopies()
+    #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .saved)
+    await model.markRevoked(instance)
+    #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .notSaved)
+    #expect(await session.offlineCopies().entries().isEmpty)
+}
+
 @MainActor @Test func aSlowObserverDoesNotHoldTheRoute() async throws {
     let recorder = RecordingObserver()
     let (model, instances) = makeLinkModel(

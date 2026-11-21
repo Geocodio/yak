@@ -203,3 +203,12 @@ func aThreadIDThatIsNotAnIDIsNeverUsedAsAPath(thread: String) async {
     #expect(files.isExcludedFromBackup(InstanceFolders.offlineCopies(instance)))
     #expect(files.protection(of: "\(InstanceFolders.offlineCopies(instance))/\(id(1)).webarchive") == .complete)
 }
+
+@Test func aFolderErasedAfterAStoreStartedOnAnEmptyFolderStopsTheStore() async throws {
+    let files = InMemoryFileStore()
+    let store = makeStore(files: files)
+    #expect(await store.entries().isEmpty)
+    try files.remove(InstanceFolders.offlineCopies(instance))
+    #expect(await store.save(archive(10), thread: id(1)) == .notSaved)
+    #expect(try files.list(InstanceFolders.offlineCopies(instance)).isEmpty)
+}

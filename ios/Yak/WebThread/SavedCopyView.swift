@@ -58,9 +58,11 @@ struct SavedCopyView: UIViewRepresentable {
     /// The app is locked or covered: the copy is hidden, like the live page.
     let isHidden: Bool
     let blockedTap: () -> Void
+    /// The archive could not be shown.
+    let failed: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
-    func makeCoordinator() -> SavedCopyCoordinator { SavedCopyCoordinator(blockedTap: blockedTap) }
+    func makeCoordinator() -> SavedCopyCoordinator { SavedCopyCoordinator(blockedTap: blockedTap, failed: failed) }
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -80,12 +82,13 @@ struct SavedCopyView: UIViewRepresentable {
         webView.underPageBackgroundColor = color
         webView.accessibilityIdentifier = "thread.web.copy"
         webView.accessibilityLabel = String(localized: "web.copy.label")
-        context.coordinator.webView = webView
+        context.coordinator.attach(webView)
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.blockedTap = blockedTap
+        context.coordinator.failed = failed
         webView.isHidden = isHidden
         webView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         webView.pageZoom = WebPageZoom.value(for: webView.traitCollection.preferredContentSizeCategory)
@@ -116,18 +119,64 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
         }, true);
         """
 
+    /// Requests that run code, call out or play media are refused. Images, styles and fonts are not: the archive serves
+    /// its own through the same loader, so blocking them would blank the copy (measured: an archived image and style
+    /// stop rendering under a rule for all loads, and an archived page makes no network request on its own).
+    static let blockNetworkRules = """
+        [{"trigger": {"url-filter": ".*", "resource-type": ["script", "fetch", "raw", "ping", "media", "popup"]},
+          "action": {"type": "block"}}]
+        """
+
     weak var webView: WKWebView?
     var blockedTap: () -> Void
+    var failed: () -> Void
     private var loadedKey: String?
     private var isLoaded = false
+    private var hasAllowedArchiveLoad = false
+    private enum Rules { case compiling, ready, failed }
+    private var rules = Rules.compiling
+    private var pending: (copy: SavedWebCopy, baseURL: URL)?
 
-    init(blockedTap: @escaping () -> Void) { self.blockedTap = blockedTap }
+    init(blockedTap: @escaping () -> Void, failed: @escaping () -> Void) {
+        self.blockedTap = blockedTap
+        self.failed = failed
+    }
+
+    /// The rule list is added before the first load, so no request of the copy can reach the network.
+    func attach(_ webView: WKWebView) {
+        self.webView = webView
+        Task { [weak self] in
+            let list = try? await WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "SavedCopyBlockNetwork", encodedContentRuleList: Self.blockNetworkRules)
+            guard let self else { return }
+            if let list {
+                webView.configuration.userContentController.add(list)
+                rules = .ready
+            } else {
+                Self.log("The saved copy could not block the network")
+                rules = .failed
+            }
+            if let pending { load(pending.copy, baseURL: pending.baseURL) }
+        }
+    }
 
     func load(_ copy: SavedWebCopy, baseURL: URL) {
         let key = "\(copy.threadID)/\(copy.savedAt.timeIntervalSince1970)"
         guard loadedKey != key, let webView else { return }
+        // Without the rules the copy is not shown: a failed compile ends in the plain offline state.
+        switch rules {
+        case .compiling:
+            pending = (copy, baseURL)
+            return
+        case .failed:
+            failed()
+            return
+        case .ready: break
+        }
+        pending = nil
         loadedKey = key
         isLoaded = false
+        hasAllowedArchiveLoad = false
         webView.load(
             copy.archive, mimeType: "application/x-webarchive", characterEncodingName: "utf-8", baseURL: baseURL)
     }
@@ -140,7 +189,13 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
-        if !isLoaded, navigationAction.navigationType == .other { return .allow }
+        // Only the main frame's load of the archive itself, once; a subframe or a second navigation is refused.
+        if !hasAllowedArchiveLoad, navigationAction.targetFrame?.isMainFrame == true,
+            navigationAction.navigationType == .other
+        {
+            hasAllowedArchiveLoad = true
+            return .allow
+        }
         if navigationAction.navigationType == .linkActivated || navigationAction.navigationType == .formSubmitted {
             blockedTap()
         }
@@ -158,6 +213,12 @@ final class SavedCopyCoordinator: NSObject, WKNavigationDelegate, WKScriptMessag
         _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error
     ) {
         Self.log("The saved copy did not load")
+        failed()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        Self.log("The saved copy did not finish loading")
+        failed()
     }
 
     private nonisolated static func log(_ message: String) {

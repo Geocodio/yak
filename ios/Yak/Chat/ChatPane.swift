@@ -54,7 +54,10 @@ private struct ChatPane: View {
             }
             web?.show(thread: thread.threadID)
         }
-        .onDisappear { web?.releaseRequests(owner: requestOwner) }
+        .onDisappear {
+            web?.paneLeft()
+            web?.releaseRequests(owner: requestOwner)
+        }
         .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
         .onChange(of: scenePhase) { if scenePhase != .active { web?.appLeftForeground() } }
@@ -136,11 +139,12 @@ private struct ChatPane: View {
                         PreviewWebData.store(for: thread.session.instance.id, purpose: .embed, defaults: defaults)
                     }, version: thread.session.appVersion
                 )
-                .accessibilityHidden(!isShown)
+                .accessibilityHidden(!isShown || web.savedCopyState != nil)
                 if let copy = web.savedCopy, web.savedCopyState != nil {
                     SavedCopyView(
                         copy: copy, instanceURL: web.instanceURL, isHidden: isCovered,
-                        blockedTap: { web.showNotice(String(localized: "chat.action.offline")) }
+                        blockedTap: { web.showNotice(String(localized: "chat.action.offline")) },
+                        failed: { web.savedCopyFailed() }
                     )
                     .accessibilityHidden(isCovered)
                     .transition(.opacity)
@@ -166,7 +170,12 @@ private struct ChatPane: View {
     private func followConversationChoice() async {
         guard canChooseConversation, let web else { return }
         while !Task.isCancelled {
-            if let me = await thread.session.me() { web.configure(supportsEmbeddedThread: me.supportsEmbeddedThread) }
+            if let me = await thread.session.me() {
+                web.configure(supportsEmbeddedThread: me.supportsEmbeddedThread)
+            } else if web.mode == .undecided, await web.hasSavedCopy(of: thread.threadID) {
+                // Offline at launch the server's answer is not known; a saved copy exists only where the page did.
+                web.configure(supportsEmbeddedThread: true)
+            }
             let wait = web.mode == .undecided ? Self.choicePollInterval : Self.choiceRecheckInterval
             do { try await thread.session.clock.sleep(for: wait) } catch { return }
         }

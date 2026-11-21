@@ -15,10 +15,14 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     var captures = 0
     var beforeArchive: (@MainActor () async -> Void)?
 
-    func captureArchive() async -> Data? {
+    func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void) {
         captures += 1
-        await beforeArchive?()
-        return archive
+        let hook = beforeArchive
+        let data = archive
+        Task {
+            await hook?()
+            completion(data)
+        }
     }
 
     func loadRedeem(_ request: URLRequest) { redeems.append(request) }
@@ -173,8 +177,106 @@ private actor SleepGate {
     @Test func leavingTheForegroundSavesTheCopyAtOnce() async {
         let harness = Harness()
         await harness.open("d0e515ef")
+        var held = 0
+        var ended = 0
+        harness.model.holdBackgroundTime = {
+            held += 1
+            return { ended += 1 }
+        }
         harness.model.appLeftForeground()
         #expect(await TestTimeScale.poll { await harness.store.entries().count == 1 })
+        #expect(await TestTimeScale.poll { ended >= 1 })
+        #expect(held == 1)
+    }
+
+    @Test func theBackgroundTimeEndsWhenThereIsNothingToSave() async {
+        let harness = Harness()
+        var ended = 0
+        harness.model.holdBackgroundTime = { { ended += 1 } }
+        harness.model.appLeftForeground()
+        #expect(await TestTimeScale.poll { ended >= 1 })
+    }
+
+    @Test func leavingAThreadSavesItsCopyBeforeThePageIsToldToSwitch() async {
+        let harness = Harness()
+        await harness.open("d0e515ef")
+        #expect(await TestTimeScale.poll { await harness.store.entries().isEmpty })
+        harness.model.show(thread: "a1b2c3d4")
+        #expect(harness.page.captures == 1)
+        #expect(await TestTimeScale.poll { await harness.store.copy(thread: "d0e515ef") != nil })
+    }
+
+    @Test func aPageThatMovesToAnotherThreadByItselfIsSavedWhenItIsStill() async {
+        let gate = SleepGate()
+        let harness = Harness(sleep: { try await gate.sleep($0) })
+        await harness.open("d0e515ef")
+        harness.model.receive(.threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"))
+        harness.model.show(thread: "a1b2c3d4")
+        harness.model.receive(Harness.ready("a1b2c3d4"))
+        try? await Task.sleep(for: .milliseconds(100))
+        await gate.release(WebConversationModel.captureQuietPeriod)
+        #expect(await TestTimeScale.poll { await harness.store.copy(thread: "a1b2c3d4") != nil })
+    }
+
+    @Test func aThreadFirstShownOfflineBeforeTheModeIsKnownStillShowsItsCopy() async {
+        let harness = Harness(supports: false)
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.configure(supportsEmbeddedThread: true)
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        #expect(harness.model.phase == .offline && harness.model.savedCopyState == .offline)
+    }
+
+    @Test func aSavedCopyTellsAnUndecidedWindowThatThePageIsOffered() async {
+        let harness = Harness(supports: false)
+        #expect(await !harness.model.hasSavedCopy(of: "d0e515ef"))
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        #expect(await harness.model.hasSavedCopy(of: "d0e515ef"))
+        #expect(await !harness.model.hasSavedCopy(of: "a1b2c3d4"))
+    }
+
+    @Test func aLostAccessEndsTheCopy() async {
+        for failure in [WebConversationMachine.NavigationOutcome.http(403), .http(404)] {
+            let harness = Harness()
+            _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+            harness.model.connectivityChanged(isOnline: false)
+            harness.model.show(thread: "d0e515ef")
+            #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+            harness.model.connectivityChanged(isOnline: true)
+            #expect(await harness.waitForRedeems(1))
+            harness.model.navigationFailed(failure)
+            #expect(harness.model.savedCopy == nil && harness.model.savedCopyState == nil)
+            #expect(await TestTimeScale.poll { await harness.store.entries().isEmpty })
+        }
+    }
+
+    @Test func aRejectedMintEndsTheCopyButAThrottledOneKeepsIt() async {
+        let rejected = Harness()
+        _ = await rejected.store.save(Data("saved".utf8), thread: "d0e515ef")
+        rejected.model.connectivityChanged(isOnline: false)
+        rejected.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { rejected.model.savedCopy != nil })
+        rejected.outcomes = [.failed(.rejected)]
+        rejected.model.connectivityChanged(isOnline: true)
+        #expect(await TestTimeScale.poll { rejected.model.phase == .failed(.mintRejected) })
+        #expect(rejected.model.savedCopy == nil)
+        #expect(await TestTimeScale.poll { await rejected.store.entries().isEmpty })
+        let throttled = APIFailure.server(APIError(status: 429, code: "x", message: "", details: [:]))
+        #expect(WebConversationModel.mintFailure(of: throttled) == .server(429))
+    }
+
+    @Test func aCopyThatCannotBeShownIsDroppedAndTheOfflineStateShows() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        harness.model.savedCopyFailed()
+        #expect(harness.model.savedCopy == nil)
+        #expect(harness.model.phase == .failed(.network))
+        #expect(harness.model.loadPresentation == .offlineWithoutCopy)
+        #expect(await TestTimeScale.poll { await harness.store.entries().isEmpty })
     }
 
     @Test func offlineWithACopyShowsItWithItsTimeAndTheOfflineLine() async {
@@ -575,6 +677,7 @@ private actor SleepGate {
         harness.model.show(thread: "d0e515ef")
         #expect(await TestTimeScale.poll { harness.model.phase == .failed(.network) })
         #expect(harness.model.loadPresentation == .offlineWithoutCopy)
+        #expect(harness.paths.isEmpty, "no code is asked for while offline")
         harness.model.connectivityChanged(isOnline: true)
         #expect(await harness.waitForRedeems(1))
     }
@@ -586,6 +689,7 @@ private actor SleepGate {
         harness.model.show(thread: "d0e515ef")
         #expect(await TestTimeScale.poll { harness.model.phase == .failed(.network) })
         #expect(harness.model.loadPresentation == .offlineWithoutCopy)
+        #expect(harness.paths.isEmpty, "no code is asked for while offline")
         harness.model.connectivityChanged(isOnline: true)
         #expect(await harness.waitForRedeems(1))
         #expect(harness.model.loadPresentation == .loading)

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import UIKit
 import YakKit
 
 #if canImport(os)
@@ -33,8 +34,9 @@ extension EnvironmentValues {
     /// Downloads a same-origin file through the web view's session and shows it in Quick Look.
     func quickLook(url: URL, name: String)
     func setHidden(_ isHidden: Bool)
-    /// The page as it is shown now, as a web archive; nil when the web view cannot make one.
-    func captureArchive() async -> Data?
+    /// Starts an archive of the page as it is now and calls `completion` with it; nil when the web view cannot make
+    /// one. The archive is requested before this returns, so a message sent right after it cannot change what it holds.
+    func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void)
 }
 
 /// The last loaded copy of a thread's page, kept on the phone for reading offline.
@@ -107,6 +109,11 @@ final class WebConversationModel {
     @ObservationIgnored private var copyThreadIDs: Set<String> = []
     @ObservationIgnored private var copyTask: Task<Void, Never>?
     @ObservationIgnored private var readTask: Task<Void, Never>?
+    /// The store of the last lookup, so a capture that must start at once knows which store it began with.
+    @ObservationIgnored private var knownStore: OfflineCopyStore?
+    /// Keeps the app running a little longer while a copy is saved after it left the foreground. The returned closure
+    /// ends it, and may be called more than once.
+    @ObservationIgnored var holdBackgroundTime: @MainActor () -> @MainActor () -> Void = BackgroundTime.begin
     @ObservationIgnored private var captureTask: Task<Void, Never>?
     @ObservationIgnored private let now: () -> WebConversationInstant
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
@@ -157,7 +164,7 @@ final class WebConversationModel {
         switch failure {
         case .network: .network
         case .unauthorized: .unauthorized
-        case .server(let error): error.status >= 500 ? .server(error.status) : .rejected
+        case .server(let error): error.status >= 500 || error.status == 429 ? .server(error.status) : .rejected
         default: .rejected
         }
     }
@@ -195,7 +202,11 @@ final class WebConversationModel {
         openedThreadID = nil
         hasBegun = false
         machine = makeMachine(supportsEmbeddedThread: supportsEmbeddedThread)
-        if supportsEmbeddedThread, threadID != nil { begin() }
+        if supportsEmbeddedThread {
+            // A thread shown before the mode was known still needs to learn whether it has a copy.
+            refreshCopyAvailability()
+            if threadID != nil { begin() }
+        }
     }
 
     private func makeMachine(supportsEmbeddedThread: Bool) -> WebConversationMachine {
@@ -209,6 +220,8 @@ final class WebConversationModel {
     /// The pane shows `threadID`: the first time this loads the page, later it asks the open page to switch.
     func show(thread id: String) {
         guard threadID != id else { return }
+        // The copy of the thread being left is as new as what the person last saw.
+        if mode == .web, let old = threadID { saveOnLeaving(old) }
         threadID = id
         guard mode == .web else { return }
         refreshCopyAvailability()
@@ -390,6 +403,7 @@ final class WebConversationModel {
         case .threadChanged(let changedThreadID, _):
             pageThreadID = changedThreadID
             apply(.opened(threadID: changedThreadID))
+            scheduleCapture()
             if changedThreadID == threadID {
                 openedThreadID = nil
             } else if openedThreadID == nil {
@@ -510,6 +524,7 @@ extension WebConversationModel {
         copyTask?.cancel()
         copyTask = Task { [weak self] in
             guard let self, let store = await copies() else { return }
+            knownStore = store
             let known = Set(await store.entries().map(\.threadID))
             guard !Task.isCancelled else { return }
             copyThreadIDs = known
@@ -532,7 +547,11 @@ extension WebConversationModel {
             if readyThreadID == threadID { savedCopy = nil }
         case .failed(let failure):
             if !failure.isRetryable { savedCopy = nil }
-            if failure == .notFound { forgetCopy(of: threadID) }
+            // A person who lost access, or whose thread is gone, must not keep reading the old copy.
+            if failure == .notFound || failure == .forbidden || failure == .mintRejected {
+                savedCopy = nil
+                forgetCopy(of: threadID)
+            }
         case .unsupported: savedCopy = nil
         case .loading, .slow, .signedOut: break
         }
@@ -553,6 +572,12 @@ extension WebConversationModel {
                 apply(.offlineCopyChanged(isAvailable: false))
             }
         }
+    }
+
+    /// Whether a copy of the thread is saved. A copy exists only where the server offered the page.
+    func hasSavedCopy(of id: String) async -> Bool {
+        guard let store = await copies() else { return false }
+        return await store.entries().contains { $0.threadID == id }
     }
 
     /// The thread is gone or hidden: its copy goes too.
@@ -583,35 +608,92 @@ extension WebConversationModel {
     /// The app leaves the foreground: the copy is saved now, because the page may not live on.
     func appLeftForeground() {
         captureTask?.cancel()
-        captureTask = Task { [weak self] in await self?.saveCopy() }
+        let endBackgroundTime = holdBackgroundTime()
+        captureTask = Task { [weak self] in
+            defer { endBackgroundTime() }
+            await self?.saveCopy()
+        }
+    }
+
+    /// The pane that showed the page goes away.
+    func paneLeft() {
+        if let pageThreadID { saveOnLeaving(pageThreadID) }
+    }
+
+    /// Asks for the archive of the page at once, before the page is told to show another thread, and saves it under
+    /// the thread it was made for. A page that is not that thread's ready page, or moved on by the time the archive
+    /// is back, is not saved.
+    private func saveOnLeaving(_ id: String) {
+        guard mode == .web, isOnline, machine.phase == .ready, readyThreadID == id, pageThreadID == id, let page,
+            let store = knownStore
+        else { return }
+        page.captureArchive { [weak self] archive in
+            guard let self, let archive else { return }
+            Task { await self.keep(archive, of: id, in: store) }
+        }
     }
 
     /// Saves the page as it is, when it is the ready page of the shown thread. A page that moved on, failed or went
     /// offline while the archive was made is not saved.
     func saveCopy() async {
         guard !Task.isCancelled, mode == .web, isOnline, machine.phase == .ready, let id = threadID,
-            readyThreadID == id,
-            pageThreadID == id, let page
+            readyThreadID == id, pageThreadID == id, let page
         else { return }
         // The store is taken before the archive is made: an archive that finishes after the copies were erased meets
         // the erased store, which refuses it.
         guard let store = await copies() else { return }
-        guard let archive = await page.captureArchive() else { return Self.log("A page archive could not be made") }
-        guard !Task.isCancelled, machine.phase == .ready, isOnline, pageThreadID == id, threadID == id,
-            let current = await copies(), current === store
-        else { return }
+        knownStore = store
+        let archive = await withCheckedContinuation { continuation in
+            page.captureArchive { continuation.resume(returning: $0) }
+        }
+        guard let archive else { return Self.log("A page archive could not be made") }
+        guard !Task.isCancelled, machine.phase == .ready, isOnline, pageThreadID == id, threadID == id else { return }
+        await keep(archive, of: id, in: store)
+    }
+
+    private func keep(_ archive: Data, of id: String, in store: OfflineCopyStore) async {
+        guard let current = await copies(), current === store else { return }
         switch await store.save(archive, thread: id) {
         case .saved:
             copyThreadIDs.insert(id)
-            apply(.offlineCopyChanged(isAvailable: true))
+            if id == threadID { apply(.offlineCopyChanged(isAvailable: true)) }
         case .tooLarge: Self.log("A page archive was too large to keep")
         case .notSaved: Self.log("A page archive could not be saved")
         }
+    }
+
+    /// The saved copy could not be shown: it is dropped, forgotten and removed, and the plain offline state shows.
+    func savedCopyFailed() {
+        guard let id = savedCopy?.threadID ?? threadID else { return }
+        Self.log("A saved copy could not be shown")
+        copyThreadIDs.remove(id)
+        apply(.offlineCopyChanged(isAvailable: false))
+        savedCopy = nil
+        Task { [copies] in await copies()?.remove(thread: id) }
     }
 
     fileprivate nonisolated static func log(_ message: String) {
         #if canImport(os)
             Logger(subsystem: "Yak", category: "WebConversation").error("\(message, privacy: .public)")
         #endif
+    }
+}
+
+/// The app's background time while a copy is saved after the app left the foreground.
+@MainActor
+enum BackgroundTime {
+    private final class Hold {
+        var identifier = UIBackgroundTaskIdentifier.invalid
+        func end() {
+            guard identifier != .invalid else { return }
+            UIApplication.shared.endBackgroundTask(identifier)
+            identifier = .invalid
+        }
+    }
+
+    static func begin() -> @MainActor () -> Void {
+        let hold = Hold()
+        hold.identifier = UIApplication.shared.beginBackgroundTask(withName: "SavedCopy") { hold.end() }
+        return { hold.end() }
     }
 }

@@ -112,15 +112,13 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         ) { _ in }
     }
 
-    func captureArchive() async -> Data? {
-        await withCheckedContinuation { continuation in
-            webView.createWebArchiveData { result in
-                switch result {
-                case .success(let data): continuation.resume(returning: data)
-                case .failure(let error):
-                    Self.log("A page archive failed: \(type(of: error))")
-                    continuation.resume(returning: nil)
-                }
+    func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void) {
+        webView.createWebArchiveData { result in
+            switch result {
+            case .success(let data): completion(data)
+            case .failure(let error):
+                Self.log("A page archive failed: \(type(of: error))")
+                completion(nil)
             }
         }
     }
