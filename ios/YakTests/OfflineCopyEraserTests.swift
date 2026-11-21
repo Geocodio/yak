@@ -22,6 +22,22 @@ import YakKit
         #expect(await other.entries().count == 1)
     }
 
+    @Test func aLiveSessionCannotWriteAfterTheExternalRevoke() async throws {
+        let files = InMemoryFileStore()
+        let tokens = InMemoryTokenStore()
+        let instances = InstanceStore(defaults: PushMemoryDefaults(), tokens: tokens, now: { Date() })
+        let session = InstanceSession(
+            instance: instance, instances: instances, tokens: tokens,
+            environment: .app(version: "0.0.0", system: "Unit test", files: files, allowsInsecureRealtime: false))
+        let store = await session.offlineCopies()
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .saved)
+        let eraser = OfflineCopyEraser(files: files, existingSession: { _ in session })
+        await eraser.instanceRemoved(instance, reason: .revoked)
+        #expect(await store.save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .notSaved)
+        #expect(await session.offlineCopies().save(Data(repeating: 1, count: 10), thread: "d0e515ef") == .notSaved)
+        #expect(try files.list(InstanceFolders.offlineCopies(instance.id)).isEmpty)
+    }
+
     @Test func aPairedAndRefreshedInstanceKeepsItsCopies() async throws {
         let files = InMemoryFileStore()
         let store = OfflineCopyStore(instance: instance.id, files: files)

@@ -29,6 +29,9 @@ final class SessionRegistry {
         return session
     }
 
+    /// The session of the instance if one exists; never creates one.
+    func existingSession(for instance: UUID) -> InstanceSession? { sessions[instance] }
+
     func stop(_ instance: UUID) async {
         guard let session = sessions.removeValue(forKey: instance) else { return }
         await session.stop()

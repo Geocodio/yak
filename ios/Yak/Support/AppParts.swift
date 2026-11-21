@@ -111,7 +111,9 @@ final class AppParts {
             steps: steps, previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
             observers: [
                 push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight,
-                OfflineCopyEraser(files: context.makeEnvironment().files),
+                OfflineCopyEraser(
+                    files: context.makeEnvironment().files,
+                    existingSession: { box.model?.sessions.existingSession(for: $0) }),
             ] + (context.uploads.map { [$0] } ?? []))
     }
 
