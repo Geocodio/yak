@@ -181,7 +181,8 @@ final class SettingsModel {
         let summary = await recountOfflineCopies()
         if Task.isCancelled { return }
         switch offlineCopies {
-        case .counting, .saved, .empty, .cleared: offlineCopies = OfflineCopiesRow.counted(summary)
+        case .counting, .saved, .empty: offlineCopies = OfflineCopiesRow.counted(summary)
+        case .cleared: if !summary.isEmpty { offlineCopies = .saved(summary) }
         case .failed: offlineCopies = .failed(summary)
         case .clearing: break
         }
