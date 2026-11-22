@@ -127,6 +127,22 @@ import XCTest
         XCTAssertTrue(try embedState().contains("mints=1 redeems=1 loads=1"))
     }
 
+    /// A tap in the page gives the page the first responder. Switching threads then moves the page to a new container,
+    /// and the app must stay responsive.
+    func testSwitchingThreadsAfterATapInThePageKeepsTheAppResponsive() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        page("Ready").tap()
+        app.buttons["threads.button"].tap()
+        let other = app.descendants(matching: .any)["drawer.row.thread:a1b2c3d4"]
+        XCTAssertTrue(other.waitForExistence(timeout: Wait.appear))
+        other.tap()
+        XCTAssertTrue(page("Stub conversation a1b2c3d4").waitForExistence(timeout: Wait.appear))
+        app.buttons["threads.button"].tap()
+        XCTAssertTrue(app.otherElements["drawer"].waitForExistence(timeout: Wait.appear), "the app froze")
+    }
+
     private func threadLink(_ id: String, fragment: String) throws -> URL {
         var components = URLComponents()
         components.scheme = "yak"
