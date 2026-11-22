@@ -12,6 +12,8 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
         case openLink(URL)
         /// The web view stays; a link to a thread of this instance opens that thread in the app.
         case openThread(String)
+        /// The web view stays; a shared file's page of this instance opens in the app's file viewer.
+        case openFile(URL)
     }
 
     public static let embedPathPrefix = "/app/embed/"
@@ -53,6 +55,28 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
         return String(match.1)
     }
 
+    /// A link to the page of one shared file of this instance: `/files/` and 26 letters or digits, with no query and no
+    /// fragment. The web view of the app is signed in for these pages, the browser sheet is not.
+    public func isSharedFilePage(_ url: URL) -> Bool { sharedFileSuffix(of: url, allowsQuery: false) == "" }
+
+    /// The bytes of a shared file, which the file page frames: `/files/<id>/raw`, with no query and no fragment.
+    public func isSharedFileRaw(_ url: URL) -> Bool { sharedFileSuffix(of: url, allowsQuery: false) == "/raw" }
+
+    /// The raw address with the one query the page's Download link uses.
+    public func isSharedFileDownload(_ url: URL) -> Bool {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?.query == "download=1"
+            && sharedFileSuffix(of: url, allowsQuery: true) == "/raw"
+    }
+
+    /// What follows the id in a shared file address (`""` or `"/raw"`); nil for any other address.
+    private func sharedFileSuffix(of url: URL, allowsQuery: Bool) -> String? {
+        guard isInstanceOrigin(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            components.fragment == nil, allowsQuery || components.query == nil,
+            let match = components.percentEncodedPath.wholeMatch(of: /\/files\/[A-Za-z0-9]{26}(|\/raw)/)
+        else { return nil }
+        return String(match.1)
+    }
+
     /// The origin of a script message's frame, as WebKit names it. A port of 0 is the scheme's default port.
     public func isInstanceOrigin(scheme: String, host: String, port: Int) -> Bool {
         var components = URLComponents()
@@ -78,6 +102,7 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
         }
         guard isUserInitiated else { return .cancel }
         if let id = threadID(in: url) { return .openThread(id) }
+        if isSharedFilePage(url), verb == "GET" { return .openFile(url) }
         guard let link = WebLinkRule.safeURL(url.absoluteString) else { return .cancel }
         return .openLink(link)
     }

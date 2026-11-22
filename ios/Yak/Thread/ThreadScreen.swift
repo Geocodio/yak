@@ -309,7 +309,7 @@ struct ThreadScreen: View {
 }
 
 /// A brief confirmation that the link is on the clipboard. It leaves by itself.
-private struct CopiedToast: View {
+struct CopiedToast: View {
     @State private var isShown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

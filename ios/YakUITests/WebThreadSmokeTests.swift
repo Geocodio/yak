@@ -265,6 +265,10 @@ import XCTest
         app.webViews["thread.web.copy"].buttons["Open a link"].tap()
         XCTAssertTrue(element("thread.web.notice").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(XCUIApplication(bundleIdentifier: "com.apple.SafariViewService").state == .runningForeground)
+        // The copy of a shared report's card is read-only too: Open says the app is offline and shows no viewer.
+        app.webViews["thread.web.copy"].links["Open report"].tap()
+        XCTAssertTrue(element("thread.web.notice").waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("fileViewer").exists)
         XCTAssertTrue(app.textFields["composer.field"].exists)
         try audit()
         try stub.setOnline(true)

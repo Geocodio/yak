@@ -12,6 +12,11 @@ extension PaneDescriptor {
 
 private final class RequestOwner {}
 
+private struct FileViewerItem: Identifiable {
+    let model: FileViewerModel
+    var id: String { model.url.absoluteString }
+}
+
 private struct ChatPane: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
@@ -23,6 +28,7 @@ private struct ChatPane: View {
     @Environment(SystemFeatures.self) private var system
     @State private var paneHeight: CGFloat = 600
     @State private var browserURL: BrowserLink?
+    @State private var fileViewer: FileViewerItem?
     /// Names this pane to the window's web conversation, which hands the page's requests to one pane at a time.
     @State private var requestOwner = RequestOwner()
 
@@ -75,6 +81,13 @@ private struct ChatPane: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("conversation")
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
+        .sheet(item: $fileViewer) { item in
+            FileViewerSheet(
+                model: item.model,
+                dataStore: PreviewWebData.store(for: thread.session.instance.id, purpose: .embed, defaults: defaults),
+                version: thread.session.appVersion, isOffline: thread.isOffline, isCovered: isCovered,
+                openThread: { openThread($0) })
+        }
     }
 
     /// A push or link named a message or card of the shown thread: the web conversation scrolls to it once its page is
@@ -82,6 +95,20 @@ private struct ChatPane: View {
     private func takeFocusRequest() {
         guard let request = scene.takeFocusRequest(forThread: thread.threadID) else { return }
         web?.focus(request)
+    }
+
+    /// A shared file's page opens in the viewer, which is signed in through the conversation's own session.
+    private func openFile(_ url: URL) {
+        let policy = web.map {
+            FileViewerPolicy(instanceURL: $0.instanceURL, allowsLoopbackHTTP: $0.allowsLoopbackHTTP)
+        }
+        guard let web, let policy, policy.canShow(url) else {
+            browserURL = BrowserLink(url: url)
+            return
+        }
+        fileViewer = FileViewerItem(
+            model: FileViewerModel(
+                url: url, policy: policy, isOnline: !thread.isOffline, renewSession: { await web.renewSession() }))
     }
 
     private func openThread(_ id: String) {
@@ -208,6 +235,7 @@ private struct ChatPane: View {
     private func handle(_ request: WebConversationRequest, thread: ThreadModel, scene: SceneModel) {
         switch request {
         case .link(let url): browserURL = BrowserLink(url: url)
+        case .file(let url): openFile(url)
         case .openThread(let id): openThread(id)
         case .openPane(let pane): open(pane, thread: thread, scene: scene)
         case .threadChanged(let id):

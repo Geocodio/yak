@@ -30,6 +30,9 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     private var pageLoads = 0
     private var expiresNextLoad = false
     private var isOnline = true
+    /// How the shared file pages answer: `ok`, `missing` (404), `forbidden` (403), `broken` (500) or `slow` (the page
+    /// waits 12 seconds). `POST /__stub/embed/file/<mode>` sets it.
+    var fileMode = "ok"
 
     func coreScenario(for scenario: String) -> String? {
         scenario == Self.workingScenario ? Scenario.oneThreadHeld.rawValue : Scenario.paired.rawValue
@@ -45,6 +48,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             redeems = 0
             pageLoads = 0
             expiresNextLoad = false
+            fileMode = "ok"
         }
     }
 
@@ -133,6 +137,11 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         case "/__stub/embed/expire" where request.method == "POST":
             lock.withLock { expiresNextLoad = true }
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data("expired".utf8)))
+        case let path where path.hasPrefix("/__stub/embed/file/") && request.method == "POST":
+            let mode = String(path.dropFirst("/__stub/embed/file/".count))
+            guard ["ok", "missing", "forbidden", "broken", "slow"].contains(mode) else { return nil }
+            lock.withLock { fileMode = mode }
+            return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(mode.utf8)))
         default:
             return nil
         }
@@ -144,6 +153,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         guard lock.withLock({ isOnline }) else { return StubReply(answer: .drop) }
         if request.path == Self.redeemPath, request.method == "POST" { return redeem(request) }
         if request.path.hasPrefix(Self.threadPrefix), request.method == "GET" { return page(request, context: context) }
+        if request.path.hasPrefix("/files/") { return sharedFile(request) }
         return nil
     }
 
@@ -172,6 +182,17 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
                 "Location": outcome.path, "Cache-Control": "no-store",
                 "Set-Cookie": "\(Self.cookieName)=\(outcome.session); Path=/; HttpOnly; SameSite=Lax",
             ])
+    }
+
+    /// Whether the request carries a session this stub redeemed; an expiry asked for with `expire` ends it once.
+    func hasSession(_ request: StubRequest) -> Bool {
+        lock.withLock { () -> Bool in
+            if expiresNextLoad {
+                expiresNextLoad = false
+                return false
+            }
+            return Self.sessionToken(in: request).map(sessions.contains) ?? false
+        }
     }
 
     private func page(_ request: StubRequest, context: StubContext) -> StubReply {
@@ -239,6 +260,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         h2 { font-size: 1.125rem; margin: 1rem 0 0.5rem; }
         p { color: var(--muted); margin: 0.25rem 0; }
         button { font: inherit; color: var(--text); background: var(--fill); border: 1px solid var(--line); border-radius: 0.5rem; min-height: 2.75rem; padding: 0 1rem; margin: 0 0.5rem 0.5rem 0; }
+        a.action { display: inline-block; font: inherit; color: var(--text); background: var(--fill); border: 1px solid var(--line); border-radius: 0.5rem; line-height: 2.75rem; padding: 0 1rem; margin: 0 0.5rem 0.5rem 0; text-decoration: none; }
         ul { padding-left: 1.25rem; }
         li { margin-bottom: 0.5rem; }
         [data-fragment-target] { outline: 2px solid var(--line); outline-offset: 2px; background: var(--fill); }
@@ -257,6 +279,11 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <button id="send-card" data-testid="embed-card">Answer the question</button>
         <button id="send-auth" data-testid="embed-auth">Expire the session</button>
         </div>
+        <section aria-label="Shared report" data-testid="embed-report">
+        <p>Weekly report.html</p>
+        <a id="open-report" class="action" href="/files/01HZX3K9ABCDEFGHJKMNPQRSTV" target="_blank" rel="noopener noreferrer" data-testid="embed-open-report">Open report</a>
+        <button id="copy-report" data-testid="embed-copy-report">Copy report link</button>
+        </section>
         <h2>Messages</h2>
         <ul id="messages" data-testid="embed-messages" aria-label="Messages"></ul>
         <h2>History</h2>
@@ -310,6 +337,11 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
           });
           el("send-card").addEventListener("click", function () {
             post({ type: "cardAnswered", card: "question", action: "answer", ok: true });
+          });
+          el("copy-report").addEventListener("click", function () {
+            navigator.clipboard.writeText(location.origin + "/files/01HZX3K9ABCDEFGHJKMNPQRSTV").then(
+              function () { el("last").textContent = "Copied the link"; },
+              function () { el("last").textContent = "Could not copy the link"; });
           });
           el("send-auth").addEventListener("click", function () { post({ type: "auth", state: "expired" }); });
           var outboxItems = [];

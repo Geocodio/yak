@@ -12,6 +12,8 @@ import YakKit
 /// carries each one out, because only it knows the thread model, the window's scene and the browser sheet.
 enum WebConversationRequest: Equatable {
     case link(URL)
+    /// A shared file's page of this instance, which opens in the app's file viewer.
+    case file(URL)
     /// A link to a thread of this instance, which opens in the app.
     case openThread(String)
     case openPane(EmbedPane)
@@ -299,6 +301,27 @@ final class WebConversationModel {
         }
     }
 
+    /// How often `renewSession` looks at the page's phase.
+    static let renewPollInterval: Duration = .milliseconds(100)
+
+    /// A new session for the data store the page uses, which another web view of the same store (the file viewer) is
+    /// signed in with. The page's own hand-off runs again, and this ends when the page is ready or has failed.
+    func renewSession() async -> Bool {
+        guard mode == .web, threadID != nil else { return false }
+        restart()
+        var waited = Duration.zero
+        while waited < machine.timing.failAfter {
+            switch machine.phase {
+            case .ready: return true
+            case .failed, .unsupported: return false
+            default: break
+            }
+            do { try await sleep(Self.renewPollInterval) } catch { return false }
+            waited += Self.renewPollInterval
+        }
+        return false
+    }
+
     func retry() {
         switch machine.phase {
         case .slow: restart()
@@ -410,9 +433,11 @@ final class WebConversationModel {
         if isOnline { scheduleCapture() }
     }
 
-    /// A link of the page: a thread of this instance opens in the app, anything else in the browser sheet.
+    /// A link of the page: a thread of this instance and a shared file's page open in the app, anything else in the
+    /// browser sheet.
     func open(link url: URL) {
-        handleRequest(policy.threadID(in: url).map(WebConversationRequest.openThread) ?? .link(url))
+        if let id = policy.threadID(in: url) { return handleRequest(.openThread(id)) }
+        handleRequest(policy.isSharedFilePage(url) ? .file(url) : .link(url))
     }
 
     /// A decoded message of the page. Messages that need the pane go to `handleRequest`.
