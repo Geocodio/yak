@@ -173,8 +173,8 @@ struct SettingsPrivacySection: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .disabled(!canClear)
         .accessibilityElement(children: .ignore)
+        .disabled(!canClear)
         .accessibilityLabel(
             "\(String(localized: "privacy.copies.title")), \(PrivacyRows.copiesSubtitle(row))"
         )

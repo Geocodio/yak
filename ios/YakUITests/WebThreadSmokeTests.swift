@@ -206,8 +206,8 @@ import XCTest
     private static let copyLook: TimeInterval = 10
 
     private func switchThread(to id: String) {
-        app.buttons["threads.button"].tap()
         let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
+        if !row.exists || !row.isHittable { app.buttons["threads.button"].tap() }
         XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
         row.tap()
     }
@@ -259,16 +259,17 @@ import XCTest
 
     private func openSettings() {
         let account = app.buttons["drawer.account"]
-        if !account.waitForExistence(timeout: Wait.appear) { app.buttons["threads.button"].tap() }
-        XCTAssertTrue(account.waitForExistence(timeout: Wait.appear))
+        if !account.isHittable { app.buttons["threads.button"].tap() }
+        let isHittable = NSPredicate(format: "isHittable == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: isHittable, object: account)], timeout: Wait.appear)
         account.tap()
         XCTAssertTrue(element("settings.screen").waitForExistence(timeout: Wait.firstLoad))
     }
 
-    /// Settings counts the saved copy, clears it after a confirmation, and the open thread then shows the plain offline
-    /// state instead of the copy.
+    /// Settings counts the saved copy and clears it after a confirmation; a thread opened offline after a relaunch then
+    /// has no copy to show.
     func testClearingTheOfflineCopiesFromSettingsRemovesTheCopyTheThreadShowed() throws {
-        try launch(scenario: "embed-basic")
+        try launch(scenario: "embed-basic", extraArguments: ["-yakTestKeepFiles", "fresh"])
         openThread()
         waitForPage()
         let row = element("settings.offlineCopies")
@@ -288,14 +289,15 @@ import XCTest
         let cleared = NSPredicate(format: "label == 'Clear offline copies, Cleared. No saved copies'")
         wait(for: [XCTNSPredicateExpectation(predicate: cleared, object: row)], timeout: Wait.appear)
         XCTAssertFalse(row.isEnabled)
-        app.buttons["Close"].firstMatch.tap()
+        // Relaunched with no connection, the thread has no copy to show.
+        app.terminate()
         try stub.setOnline(false)
-        XCTAssertTrue(element("thread.web.offlineLine").waitForExistence(timeout: Wait.appear))
-        switchThread(to: "a1b2c3d4")
-        XCTAssertTrue(element("thread.offline").waitForExistence(timeout: Wait.appear))
-        switchThread(to: "d0e515ef")
-        XCTAssertTrue(element("thread.offline").waitForExistence(timeout: Wait.appear))
-        XCTAssertFalse(element("thread.web.copyLine").exists)
+        app.launchArguments = [
+            "-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestKeepFiles", "again",
+        ]
+        app.launchRetryingOnce()
+        openThread()
+        XCTAssertFalse(element("thread.web.copyLine").waitForExistence(timeout: Self.copyLook))
         XCTAssertFalse(app.webViews["thread.web.copy"].exists)
     }
 

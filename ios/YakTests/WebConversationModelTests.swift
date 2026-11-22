@@ -292,6 +292,19 @@ private actor SleepGate {
         #expect(harness.page.redeems.isEmpty)
     }
 
+    @Test func clearingTheCopiesInSettingsFallsBackToTheOfflineStateAtOnceAndSavesAgainLater() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        await harness.store.removeAll()
+        NotificationCenter.default.post(name: .offlineCopiesCleared, object: nil)
+        #expect(await TestTimeScale.poll { harness.model.savedCopy == nil })
+        #expect(await TestTimeScale.poll { harness.model.loadPresentation == .offlineWithoutCopy })
+        #expect(await harness.store.save(Data("again".utf8), thread: "d0e515ef") == .saved)
+    }
+
     @Test func offlineWithoutACopyKeepsThePlainOfflineState() async {
         let harness = Harness()
         harness.model.connectivityChanged(isOnline: false)
