@@ -135,23 +135,6 @@ extension OfflineCopyStore {
         }
         return total
     }
-
-    /// Removes the copies of every instance. An instance with a live store goes through it, so the store's memory
-    /// follows the disk and keeps saving; the others have their folder removed. Returns the instances whose copies
-    /// could not be removed.
-    public static func removeAll(
-        of instances: [UUID], files: any FileStore, liveStores: [UUID: OfflineCopyStore]
-    ) async -> [UUID] {
-        var failed: [UUID] = []
-        for instance in instances {
-            if let store = liveStores[instance] {
-                if await !store.removeAll() { failed.append(instance) }
-            } else {
-                do { try files.remove(InstanceFolders.offlineCopies(instance)) } catch { failed.append(instance) }
-            }
-        }
-        return failed
-    }
 }
 
 /// The web archives of one instance's threads, on a `FileStore`, kept within `OfflineCopyLimits`. Archives are
@@ -260,19 +243,25 @@ public actor OfflineCopyStore {
     }
 
     /// The person's choice in Settings. The store stays usable: a thread is saved again the next time it is opened.
-    /// False when the folder could not be removed; the index is then read from disk again, so `entries()` tells what
-    /// remains.
+    /// An erased store still has its leftover files removed and stays erased. False when the folder could not be
+    /// removed completely; a usable store then does not count a half-removed folder as erased, so a failed clear never
+    /// turns copies off, and a retry removes the rest.
     @discardableResult public func removeAll() -> Bool {
-        guard isUsable() else { return true }
+        let wasUsable = isUsable()
         do {
             try files.remove(folder)
         } catch {
             logFailure("The offline copies could not be removed: \(type(of: error))")
-            index = nil
+            if wasUsable {
+                index = nil
+                hasIndexOnDisk = false
+            }
             return false
         }
-        index = OfflineCopyIndex()
-        hasIndexOnDisk = false
+        if wasUsable {
+            index = OfflineCopyIndex()
+            hasIndexOnDisk = false
+        }
         return true
     }
 

@@ -60,6 +60,17 @@ enum PrivacyRows {
         }
     }
 
+    /// The destructive button of the confirmation; without a known count it names none.
+    static func copiesConfirmButton(_ row: OfflineCopiesRow) -> String {
+        guard let count = row.confirmCount else { return String(localized: "privacy.copies.confirmButton.any") }
+        return String(localized: "privacy.copies.confirmButton \(count)")
+    }
+
+    static func copiesConfirmMessage(_ row: OfflineCopiesRow) -> String {
+        guard let count = row.confirmCount else { return String(localized: "privacy.copies.confirmMessage.any") }
+        return String(localized: "privacy.copies.confirmMessage \(count)")
+    }
+
     static func copiesFooter(limits: OfflineCopyLimits = .standard) -> String {
         String(localized: "privacy.copies.footer \(limits.maximumThreads) \(bytes(limits.maximumTotalBytes))")
     }
@@ -100,6 +111,7 @@ struct SettingsPrivacySection: View {
     let active: Instance
     @Bindable var model: SettingsModel
     @Environment(SystemFeatures.self) private var system
+    @Environment(\.scenePhase) private var scenePhase
     @State private var line = ThisDeviceLine.make(device: nil)
     @State private var hasLoaded = false
 
@@ -129,21 +141,20 @@ struct SettingsPrivacySection: View {
         .confirmationDialog(
             Text("privacy.copies.confirmTitle"), isPresented: $model.isConfirmingClear, titleVisibility: .visible
         ) {
-            Button("privacy.copies.confirmButton \(copyCount)", role: .destructive) {
+            Button(PrivacyRows.copiesConfirmButton(model.offlineCopies), role: .destructive) {
                 Task { await model.clearOfflineCopies() }
             }
         } message: {
-            Text("privacy.copies.confirmMessage \(copyCount)")
+            Text(verbatim: PrivacyRows.copiesConfirmMessage(model.offlineCopies))
         }
         .onChange(of: model.clearedCount) {
             AccessibilityNotification.Announcement(String(localized: "privacy.copies.announcement")).post()
         }
-    }
-
-    private var copyCount: Int {
-        switch model.offlineCopies {
-        case .saved(let summary), .failed(let summary): summary.threads
-        case .counting, .empty, .clearing, .cleared: 0
+        .onChange(of: model.failedClearCount) {
+            AccessibilityNotification.Announcement(String(localized: "privacy.copies.failed")).post()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.loadOfflineCopies() } }
         }
     }
 
@@ -169,7 +180,7 @@ struct SettingsPrivacySection: View {
                     subtitle(detail)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

@@ -29,6 +29,8 @@ final class SettingsModel {
     var isConfirmingClear = false
     /// Counts completed clears, so the screen can announce each one once.
     private(set) var clearedCount = 0
+    /// Counts clears that failed, so the screen can announce each one once.
+    private(set) var failedClearCount = 0
 
     /// The last loaded switches per instance in this run, shown at once while the next load runs.
     private static var savedPreferences: [UUID: NotificationPreferences] = [:]
@@ -173,14 +175,15 @@ final class SettingsModel {
 
     // MARK: Offline copies
 
-    /// Counts the saved copies of every paired instance from disk, off the main actor.
+    /// Counts the saved copies of every paired instance from disk, off the main actor. A count that finds copies
+    /// replaces "Cleared": the row never says cleared while a copy exists.
     func loadOfflineCopies() async {
         let summary = await recountOfflineCopies()
         if Task.isCancelled { return }
         switch offlineCopies {
-        case .counting, .saved, .empty: offlineCopies = OfflineCopiesRow.counted(summary)
+        case .counting, .saved, .empty, .cleared: offlineCopies = OfflineCopiesRow.counted(summary)
         case .failed: offlineCopies = .failed(summary)
-        case .clearing, .cleared: break
+        case .clearing: break
         }
     }
 
@@ -189,22 +192,28 @@ final class SettingsModel {
         isConfirmingClear = true
     }
 
-    /// Removes the copies of every paired instance. The row says "Cleared" only when a recount finds nothing left: a
-    /// capture that finished during the clear shows as the copies it left, and a refused removal as an error.
+    /// Removes the copies of every paired instance, one at a time on the main actor. The session check and the folder
+    /// removal of an instance without a session have no suspension point between them, so a session that starts during
+    /// the clear never has its folder deleted under it. The row says "Cleared" only when a recount finds nothing left:
+    /// a capture that finished during the clear shows as the copies it left, and a refused removal as an error.
     func clearOfflineCopies() async {
         isConfirmingClear = false
         guard offlineCopies.canClear else { return }
         offlineCopies = .clearing
         let ids = await app.instances.all().map(\.id)
-        var stores: [UUID: OfflineCopyStore] = [:]
+        var failed: [UUID] = []
         for id in ids {
-            if let session = app.sessions.existingSession(for: id) { stores[id] = await session.offlineCopies() }
+            if let session = app.sessions.existingSession(for: id) {
+                if await !session.offlineCopies().removeAll() { failed.append(id) }
+            } else {
+                do { try copyFiles.remove(InstanceFolders.offlineCopies(id)) } catch { failed.append(id) }
+            }
         }
-        let failed = await OfflineCopyStore.removeAll(of: ids, files: copyFiles, liveStores: stores)
-        NotificationCenter.default.post(name: .offlineCopiesCleared, object: nil)
+        if failed.count < ids.count { NotificationCenter.default.post(name: .offlineCopiesCleared, object: nil) }
         let remaining = await recountOfflineCopies(of: ids)
         if !failed.isEmpty {
             offlineCopies = .failed(remaining)
+            failedClearCount += 1
         } else if remaining.isEmpty {
             offlineCopies = .cleared
             clearedCount += 1
@@ -300,6 +309,15 @@ enum OfflineCopiesRow: Equatable {
 
     static func counted(_ summary: OfflineCopySummary) -> OfflineCopiesRow {
         summary.isEmpty ? .empty : .saved(summary)
+    }
+
+    /// The number the confirmation names; nil when no count is known, which asks without one.
+    var confirmCount: Int? {
+        switch self {
+        case .saved(let summary): summary.threads
+        case .failed(let summary): summary.isEmpty ? nil : summary.threads
+        case .counting, .empty, .clearing, .cleared: nil
+        }
     }
 
     var canClear: Bool {

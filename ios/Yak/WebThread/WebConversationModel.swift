@@ -675,8 +675,9 @@ extension WebConversationModel {
 
     /// The person cleared the saved copies in Settings: a copy on screen gives way to the plain offline state at once.
     /// The store keeps saving, so the next online visit saves the thread again.
-    fileprivate func copiesWereCleared() {
+    func copiesWereCleared() {
         readTask?.cancel()
+        copyTask?.cancel()
         copyThreadIDs = []
         savedCopy = nil
         if mode == .web, threadID != nil { apply(.offlineCopyChanged(isAvailable: false)) }

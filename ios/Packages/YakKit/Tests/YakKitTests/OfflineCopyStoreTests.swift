@@ -213,18 +213,23 @@ func aThreadIDThatIsNotAnIDIsNeverUsedAsAPath(thread: String) async {
     #expect(try files.list(InstanceFolders.offlineCopies(instance)).isEmpty)
 }
 
-// MARK: Clearing every instance from Settings
+// MARK: Clearing from Settings
 
-/// Refuses to remove the folders of the listed instances, as a disk that cannot be written would.
+/// Refuses to remove the listed paths, as a disk that cannot be written would. With `losesIndexFirst`, a refused
+/// removal of a folder has already deleted its index file, as a removal that fails part-way does.
 private final class RefusingRemovalStore: FileStore, @unchecked Sendable {
     let inner = InMemoryFileStore()
     var refused: Set<String> = []
+    var losesIndexFirst = false
     func read(_ path: String) throws(FileStoreError) -> Data? { try inner.read(path) }
     func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
         try inner.write(data, to: path, protection: protection)
     }
     func remove(_ path: String) throws(FileStoreError) {
-        if refused.contains(path) { throw .unreadable }
+        if refused.contains(path) {
+            if losesIndexFirst { try inner.remove("\(path)/index.json") }
+            throw .unreadable
+        }
         try inner.remove(path)
     }
     func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
@@ -244,48 +249,59 @@ private let otherInstance = UUID()
     #expect(OfflineCopyStore.summary(of: [], files: files).isEmpty)
 }
 
-@Test func clearingEveryInstanceRemovesLiveAndStorelessCopiesAndKeepsSaving() async {
+@Test func clearingAStoreKeepsItSavingAndTheNextCountSeesOnlyWhatIsNew() async {
     let files = InMemoryFileStore()
     let live = makeStore(files: files)
-    let storeless = OfflineCopyStore(instance: otherInstance, files: files)
     _ = await live.save(archive(10), thread: id(1))
-    _ = await storeless.save(archive(10), thread: id(2))
-    let failed = await OfflineCopyStore.removeAll(
-        of: [instance, otherInstance], files: files, liveStores: [instance: live])
-    #expect(failed.isEmpty)
-    #expect(OfflineCopyStore.summary(of: [instance, otherInstance], files: files).isEmpty)
+    #expect(await live.removeAll())
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).isEmpty)
     #expect(await live.entries().isEmpty)
     #expect(await live.copy(thread: id(1)) == nil)
-    // The store is not turned off: the next visit online saves a copy again.
-    #expect(await live.save(archive(7), thread: id(1)) == .saved)
+    // A capture that lands after the clear shows in the next count, and the store was not turned off.
+    #expect(await live.save(archive(7), thread: id(2)) == .saved)
     #expect(OfflineCopyStore.summary(of: [instance], files: files) == OfflineCopySummary(threads: 1, bytes: 7))
 }
 
-@Test func anInstanceThatCannotBeClearedIsReportedAndKeepsItsCopies() async {
+@Test func aRefusedRemovalIsReportedAndKeepsTheCopies() async {
     let files = RefusingRemovalStore()
     let live = makeStore(files: files)
-    let storeless = OfflineCopyStore(instance: otherInstance, files: files)
     _ = await live.save(archive(10), thread: id(1))
-    _ = await storeless.save(archive(10), thread: id(2))
     files.refused = [InstanceFolders.offlineCopies(instance)]
-    var failed = await OfflineCopyStore.removeAll(
-        of: [instance, otherInstance], files: files, liveStores: [instance: live])
-    #expect(failed == [instance])
+    #expect(await !live.removeAll())
     #expect(await live.entries().map(\.threadID) == [id(1)])
-    #expect(OfflineCopyStore.summary(of: [instance, otherInstance], files: files).threads == 1)
-    files.refused = [InstanceFolders.offlineCopies(otherInstance)]
-    failed = await OfflineCopyStore.removeAll(of: [otherInstance], files: files, liveStores: [:])
-    #expect(failed == [otherInstance])
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).threads == 1)
 }
 
-@Test func aCaptureThatLandsAfterTheClearShowsInTheNextCount() async {
+@Test func aRemovalThatFailsAfterTheIndexIsGoneNeverTurnsCopiesOffAndARetryFinishes() async {
+    let files = RefusingRemovalStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    let folder = InstanceFolders.offlineCopies(instance)
+    files.refused = [folder]
+    files.losesIndexFirst = true
+    #expect(await !live.removeAll())
+    // The index file is gone but the store is not treated as erased: it still saves.
+    #expect(await live.save(archive(3), thread: id(2)) == .saved)
+    #expect(await live.entries().map(\.threadID) == [id(2)])
+    files.refused = []
+    #expect(await live.removeAll())
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).isEmpty)
+    #expect(try! files.inner.list(folder).isEmpty)
+    #expect(await live.save(archive(4), thread: id(3)) == .saved)
+}
+
+@Test func clearingAnErasedStoreRemovesLeftoverFilesAndItStaysErased() async throws {
     let files = InMemoryFileStore()
     let live = makeStore(files: files)
     _ = await live.save(archive(10), thread: id(1))
-    _ = await OfflineCopyStore.removeAll(of: [instance], files: files, liveStores: [instance: live])
-    #expect(OfflineCopyStore.summary(of: [instance], files: files).isEmpty)
-    _ = await live.save(archive(4), thread: id(2))
-    #expect(OfflineCopyStore.summary(of: [instance], files: files) == OfflineCopySummary(threads: 1, bytes: 4))
+    await live.invalidate()
+    let folder = InstanceFolders.offlineCopies(instance)
+    try files.write(archive(5), to: "\(folder)/\(id(9)).webarchive", protection: .complete)
+    #expect(await live.removeAll())
+    #expect(try files.list(folder).isEmpty)
+    #expect(await live.save(archive(1), thread: id(2)) == .notSaved)
+    #expect(await live.entries().isEmpty)
+    #expect(try files.list(folder).isEmpty)
 }
 
 @Test func clearingTheCopiesLeavesTheUnsentMessagesAlone() async throws {
@@ -294,6 +310,6 @@ private let otherInstance = UUID()
     _ = await live.save(archive(10), thread: id(1))
     let outboxFile = "\(InstanceFolders.outbox(instance))/queue.json"
     try files.write(Data("unsent".utf8), to: outboxFile, protection: .complete)
-    _ = await OfflineCopyStore.removeAll(of: [instance], files: files, liveStores: [instance: live])
+    await live.removeAll()
     #expect(try files.read(outboxFile) == Data("unsent".utf8))
 }

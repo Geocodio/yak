@@ -12,8 +12,10 @@ final class SessionRegistry {
     @ObservationIgnored private var sessions: [UUID: InstanceSession] = [:]
 
     init(
-        instances: InstanceStore, tokens: any TokenStore, makeEnvironment: @escaping @Sendable () -> SessionEnvironment
+        instances: InstanceStore, tokens: any TokenStore, makeEnvironment: @escaping @Sendable () -> SessionEnvironment,
+        files: (any FileStore)? = nil
     ) {
+        self.files = files ?? makeEnvironment().files
         self.instances = instances
         self.tokens = tokens
         self.makeEnvironment = makeEnvironment
@@ -29,8 +31,8 @@ final class SessionRegistry {
         return session
     }
 
-    /// The files the sessions keep their caches in, for reading what they hold without a session.
-    var files: any FileStore { makeEnvironment().files }
+    /// The files the sessions keep their caches in, held once, for reading what they hold without a session.
+    let files: any FileStore
 
     /// The session of the instance if one exists; never creates one.
     func existingSession(for instance: UUID) -> InstanceSession? { sessions[instance] }

@@ -71,13 +71,14 @@ private func makeSettingsRig(isAvailable: Bool = true, copyFiles: (any FileStore
     await rig.transport.on("PUT notifications", status: 200, body: updatedJSON)
     await rig.transport.on("POST push-tokens/alert/test", status: 200, body: #"{"status":"sent"}"#)
     let transport = rig.transport
+    let environment = rig.environment
     let app = AppModel(
         instances: rig.store, tokens: rig.tokens,
         makeClient: { url in
             APIClient(
                 baseURL: url, token: nil, transport: transport, appVersion: "1.0.0", systemDescription: "Test")
         },
-        push: rig.controller)
+        makeEnvironment: { environment }, push: rig.controller)
     let clock = StepClock()
     let removed = SettingsRig.Removals()
     let model = SettingsModel(
@@ -409,11 +410,71 @@ private func makeSettingsRig(isAvailable: Bool = true, copyFiles: (any FileStore
         #expect(rig.model.offlineCopies == .failed(OfflineCopySummary(threads: 1, bytes: 500)))
         #expect(rig.model.offlineCopies.canClear)
         #expect(rig.model.clearedCount == 0)
+        #expect(rig.model.failedClearCount == 1)
         #expect(PrivacyRows.copiesDetail(rig.model.offlineCopies) == "1 thread, 500 bytes")
         #expect(PrivacyRows.copiesSubtitle(rig.model.offlineCopies).hasPrefix("Could not clear all copies. Try again."))
         refusing.refused = []
         await rig.model.clearOfflineCopies()
         #expect(rig.model.offlineCopies == .cleared)
+    }
+
+    @Test func anInstanceWithASessionIsClearedThroughItsStoreAndKeepsSaving() async throws {
+        let rig = try await makeSettingsRig()
+        let session = rig.app.sessions.session(for: rig.rig.other)
+        let store = await session.offlineCopies()
+        _ = await store.save(Data(count: 100), thread: "t0000001")
+        await saveCopies(rig, home: 1, other: 0)
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .saved(OfflineCopySummary(threads: 2, bytes: 1100)))
+        await rig.model.clearOfflineCopies()
+        #expect(rig.model.offlineCopies == .cleared)
+        #expect(await store.entries().isEmpty)
+        // The session's store was cleared, not erased: it saves again and the next count sees it.
+        #expect(await store.save(Data(count: 50), thread: "t0000002") == .saved)
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .saved(OfflineCopySummary(threads: 1, bytes: 50)))
+    }
+
+    @Test func aCountThatFindsCopiesReplacesCleared() async throws {
+        let rig = try await makeSettingsRig()
+        await saveCopies(rig, home: 1, other: 0)
+        await rig.model.loadOfflineCopies()
+        await rig.model.clearOfflineCopies()
+        #expect(rig.model.offlineCopies == .cleared)
+        // The app became active again after a capture finished elsewhere.
+        await saveCopies(rig, home: 2, other: 0)
+        await rig.model.loadOfflineCopies()
+        #expect(rig.model.offlineCopies == .saved(OfflineCopySummary(threads: 2, bytes: 2000)))
+        #expect(rig.model.offlineCopies.canClear)
+    }
+
+    @Test func theConfirmationNeverNamesZeroCopies() {
+        let some = OfflineCopiesRow.saved(OfflineCopySummary(threads: 3, bytes: 10))
+        #expect(some.confirmCount == 3)
+        #expect(PrivacyRows.copiesConfirmButton(some) == "Clear 3 copies")
+        #expect(PrivacyRows.copiesConfirmButton(.saved(OfflineCopySummary(threads: 1, bytes: 10))) == "Clear 1 copy")
+        let unknown = OfflineCopiesRow.failed(OfflineCopySummary())
+        #expect(unknown.canClear && unknown.confirmCount == nil)
+        #expect(PrivacyRows.copiesConfirmButton(unknown) == "Clear copies")
+        #expect(!PrivacyRows.copiesConfirmMessage(unknown).contains("0"))
+        #expect(PrivacyRows.copiesConfirmMessage(some).hasPrefix("The saved copies of 3 threads"))
+        let failedWithSome = OfflineCopiesRow.failed(OfflineCopySummary(threads: 2, bytes: 10))
+        #expect(PrivacyRows.copiesConfirmButton(failedWithSome) == "Clear 2 copies")
+    }
+
+    @Test func theRegistryHoldsOneFileStoreForEveryRead() async throws {
+        let rig = try await makePushRig()
+        let environment = rig.environment
+        let calls = CallCounter()
+        let registry = SessionRegistry(
+            instances: rig.store, tokens: rig.tokens,
+            makeEnvironment: {
+                calls.increment()
+                return environment
+            })
+        #expect((registry.files as AnyObject) === rig.files)
+        #expect((registry.files as AnyObject) === (registry.files as AnyObject))
+        #expect(calls.value == 1)
     }
 
     @Test func clearingTellsOpenCopyViewsAndKeepsTheUnsentMessages() async throws {
@@ -453,4 +514,11 @@ private final class RefusingRemovalFiles: FileStore, @unchecked Sendable {
         try inner.remove(path)
     }
     func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
+}
+
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.withLock { count } }
+    func increment() { lock.withLock { count += 1 } }
 }

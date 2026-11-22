@@ -9894,6 +9894,16 @@
         }
       }
     },
+    "privacy.copies.confirmButton.any" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear copies"
+          }
+        }
+      }
+    },
     "privacy.copies.confirmMessage %lld" : {
       "localizations" : {
         "en" : {
@@ -9912,6 +9922,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmMessage.any" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved copies are removed from this iPhone. A thread is saved again the next time you open it online. Unsent messages stay."
           }
         }
       }
