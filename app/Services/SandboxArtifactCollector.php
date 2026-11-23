@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\SandboxShell;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,21 @@ use Illuminate\Support\Facades\Storage;
  */
 class SandboxArtifactCollector
 {
+    /**
+     * Runs a collect-and-persist section as the only one for this task.
+     * The turn finisher and the run's finish job both collect for the same
+     * task; the second one waits, then finds the files already persisted.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function exclusive(YakTask $task, callable $callback, int $waitSeconds = 120): mixed
+    {
+        return Cache::lock("artifacts:collect:{$task->id}", 300)->block($waitSeconds, $callback);
+    }
+
     /**
      * Pull all artifacts from the sandbox to the local artifacts disk.
      *

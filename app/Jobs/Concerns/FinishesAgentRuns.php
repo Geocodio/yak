@@ -85,8 +85,10 @@ trait FinishesAgentRuns
 
         // Pull .yak-artifacts/ out of the sandbox, then turn the files into
         // Artifact rows and start the render so they are visible before CI ends.
-        SandboxArtifactCollector::collect($shell, $container, $this->task);
-        ArtifactPersister::persist($this->task);
+        SandboxArtifactCollector::exclusive($this->task, function () use ($shell, $container): void {
+            SandboxArtifactCollector::collect($shell, $container, $this->task);
+            ArtifactPersister::persist($this->task);
+        });
 
         $this->handleSuccess($repository, $result, $shell, $container, $recorder);
     }
