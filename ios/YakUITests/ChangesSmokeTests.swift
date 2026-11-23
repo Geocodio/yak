@@ -32,7 +32,7 @@ import XCTest
         XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(element("drawer.taskLabel").exists)
         row.tap()
-        XCTAssertTrue(element("thread.strip").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(element("composer.field").waitForExistence(timeout: Wait.firstLoad))
         XCTAssertFalse(app.otherElements["SFSafariView"].exists)
     }
 
@@ -47,7 +47,7 @@ import XCTest
             URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "k3m9p2qa"),
         ]
         app.open(try XCTUnwrap(components.url))
-        XCTAssertTrue(element("thread.strip").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(element("composer.field").waitForExistence(timeout: Wait.firstLoad))
     }
 
     /// The drawer has the Observations tile and no Tasks tile.
