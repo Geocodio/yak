@@ -43,6 +43,38 @@ it('pulls a file by reading it as base64', function () {
     unlink($local);
 });
 
+it('pulls a large file in bounded chunks instead of one read', function () {
+    $chunk = str_repeat('a', 3 * 1024 * 1024);
+    $this->sandboxes->queueExecResult(Process::result(base64_encode($chunk)));
+    $this->sandboxes->queueExecResult(Process::result(base64_encode('tail')));
+    $local = tempnam(sys_get_temp_dir(), 'shell');
+
+    ThreadShell::for($this->thread)->pullFile('x', '/workspace/big.bin', $local);
+
+    expect(filesize($local))->toBe(strlen($chunk) + 4)
+        ->and($this->sandboxes->calls)->toHaveCount(2)
+        ->and($this->sandboxes->calls[1]['arguments']['command'][2])->toContain('skip=1');
+    unlink($local);
+});
+
+it('pulls a directory by archiving it in the sandbox and unpacking locally', function () {
+    $source = sys_get_temp_dir() . '/shell-src-' . uniqid();
+    mkdir("{$source}/.yak-artifacts", recursive: true);
+    file_put_contents("{$source}/.yak-artifacts/shot.png", 'png-bytes');
+    $tarball = tempnam(sys_get_temp_dir(), 'shell');
+    Process::run(['tar', '-cf', $tarball, '-C', $source, '.yak-artifacts']);
+    $destination = sys_get_temp_dir() . '/shell-dst-' . uniqid();
+
+    $this->sandboxes->queueExecResult(Process::result("/tmp/tmp.abc\n"));
+    $this->sandboxes->queueExecResult(Process::result(base64_encode(file_get_contents($tarball))));
+
+    ThreadShell::for($this->thread)->pullDirectory('x', '/workspace/.yak-artifacts', $destination);
+
+    expect(file_get_contents("{$destination}/.yak-artifacts/shot.png"))->toBe('png-bytes')
+        ->and(last($this->sandboxes->calls)['arguments']['command'][2])->toContain('rm -f');
+    Process::run(['rm', '-rf', $source, $destination, $tarball]);
+});
+
 it('pushes a file by piping it as base64', function () {
     $local = tempnam(sys_get_temp_dir(), 'shell');
     file_put_contents($local, 'payload');
