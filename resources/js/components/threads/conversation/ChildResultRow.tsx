@@ -27,8 +27,8 @@ export function ChildResultRow({ item }: { item: ConversationItem }) {
             <div className="flex items-center gap-2.5 px-3 py-2.5">
                 {isFailed ? <ChildStateDot state="failed" /> : <GitFork size={16} aria-hidden className="shrink-0 text-muted" />}
                 <span className="min-w-0 flex-1 text-body">
-                    <span className="font-medium" data-testid="child-result-title">{isFailed ? `Failed: ${result.reason ?? 'the sub-thread did not finish'}` : `Result from ${result.title}`}</span>{' '}
-                    <span className="text-muted">· {isFailed ? `${result.title} · ` : ''}{result.kind} · {time}</span>
+                    <span className="font-medium" data-testid="child-result-title">{isFailed ? `Failed: ${result.title}` : `Result from ${result.title}`}</span>{' '}
+                    <span className="text-muted">· {result.kind} · {time}</span>
                 </span>
                 <Link href={show.url(result.childThreadId)} className="shrink-0 text-accent-text hover:underline" data-testid="child-result-open">Open sub-thread</Link>
                 <button

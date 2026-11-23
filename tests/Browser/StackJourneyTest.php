@@ -206,7 +206,8 @@ it('shows a sub-thread result as a collapsed row that opens, and a failure alrea
 
     $page->assertSeeIn('[data-testid="child-result-1"] [data-testid="child-result-body"]', 'README.md')
         ->assertPresent('[data-testid="child-result-2"] [data-testid="child-result-body"]')
-        ->assertSeeIn('[data-testid="child-result-2"]', 'Failed: Sub-thread builder failed before finishing.')
+        ->assertSeeIn('[data-testid="child-result-2"] [data-testid="child-result-title"]', 'Failed: Build the client')
+        ->assertSeeIn('[data-testid="child-result-2"]', 'Sub-thread builder failed before finishing.')
         ->assertMissing('[data-testid="stack-messages"]')
         ->assertNoJavaScriptErrors();
 });
