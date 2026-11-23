@@ -58,5 +58,19 @@ it('drops a question or option whose text field is not a scalar', function () {
 
     expect(ClarificationQuestion::fromArray(['id' => ['x'], 'question' => 'Which?', 'options' => $options]))->toBeNull()
         ->and(ClarificationQuestion::fromArray(['id' => 'scope', 'question' => 'Which?', 'header' => ['h'], 'options' => $options])?->toArray())
-        ->toBe(['id' => 'scope', 'header' => 'scope', 'question' => 'Which?', 'options' => [['label' => 'Small', 'description' => ''], ['label' => 'Large', 'description' => '']], 'multi_select' => false]);
+        ->toBe(['id' => 'scope', 'header' => 'scope', 'question' => 'Which?', 'options' => [['label' => 'Small', 'description' => '', 'preview' => ''], ['label' => 'Large', 'description' => '', 'preview' => '']], 'multi_select' => false]);
+});
+
+it('keeps an option preview and defaults it to empty', function () {
+    $question = ClarificationQuestion::fromArray([
+        'id' => 'q1', 'header' => 'Layout', 'question' => 'Which layout?',
+        'options' => [
+            ['label' => 'Inline', 'description' => 'Under the option', 'preview' => '![Inline mockup](inline.png)'],
+            ['label' => 'Split', 'description' => 'Side panel'],
+        ],
+    ]);
+
+    expect($question->options[0]['preview'])->toBe('![Inline mockup](inline.png)')
+        ->and($question->options[1]['preview'])->toBe('')
+        ->and($question->toArray()['options'][0]['preview'])->toBe('![Inline mockup](inline.png)');
 });
