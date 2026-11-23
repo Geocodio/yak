@@ -8,6 +8,7 @@ use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Events\ThreadSandboxSlotFreed;
+use App\Models\SandboxEviction;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
@@ -118,6 +119,8 @@ class ThreadSandboxesCommand extends Command
             if ($candidate->fresh()?->sandbox_state !== ThreadSandboxState::Stopped) {
                 return;
             }
+
+            SandboxEviction::query()->create(['reason' => EvictionReason::MemoryFloor, 'created_at' => now()]);
         }
     }
 

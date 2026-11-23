@@ -7,6 +7,7 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Models\Repository;
+use App\Models\SandboxEviction;
 use App\Models\Thread;
 use App\Services\Datasets\DatasetClones;
 use App\Services\Stacks\ResearchChildRunner;
@@ -390,6 +391,8 @@ class ThreadSandbox
                 // The candidate could not be stopped; do not loop on it.
                 return $this->waitForSlot($thread);
             }
+
+            SandboxEviction::query()->create(['reason' => $reason, 'created_at' => now()]);
         }
 
         return true;
