@@ -694,6 +694,7 @@ return [
     */
 
     'threads' => [
+        'artifact_pull_max_bytes' => (int) env('YAK_THREADS_ARTIFACT_PULL_MAX_BYTES', 256 * 1024 * 1024),
         'auth_proxy_validation_address' => env('YAK_THREADS_AUTH_PROXY_VALIDATION_ADDRESS'),
         'usage_limit_fallback_minutes' => (int) env('YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES', 60),
         'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
