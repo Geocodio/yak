@@ -128,8 +128,11 @@ trait FinishesResearchRuns
 
         // A research run can record a walkthrough. Its shot clips only exist
         // inside the sandbox, and the persister hands them to the renderer.
-        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-        $hasWalkthrough = collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
+        $hasWalkthrough = SandboxArtifactCollector::exclusive($this->task, function () use ($sandbox, $containerName): bool {
+            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+
+            return collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
+        });
         $taskUrl = TaskPageUrl::for($this->task);
 
         $this->task->update([
