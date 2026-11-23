@@ -77,6 +77,28 @@ it('adds a counter suffix when the remote already has the branch', function () {
     expect($context['task']->refresh()->branch_name)->toBe('yak/ISSUE-42-3');
 });
 
+it('fails instead of reusing the branch name when the remote lookup fails', function () {
+    Queue::fake();
+    $shell = new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null, array $env = []): ProcessResult
+        {
+            if (str_contains($command, 'git ls-remote --heads origin')) {
+                return Process::result('', 'fatal: Authentication failed', 128);
+            }
+
+            return parent::run($containerName, $command, $timeout);
+        }
+    };
+    $context = pendingRunYak(['external_id' => 'ISSUE-42'], $shell);
+
+    (new RunYakJob($context['task']))->handle();
+
+    expect($context['task']->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($context['task']->error_log)->toContain('Authentication failed')
+        ->and($shell->commandsMatching('git checkout -B'))->toBe([]);
+});
+
 it('increments attempts when it claims the task', function () {
     Queue::fake();
     $context = pendingRunYak();
