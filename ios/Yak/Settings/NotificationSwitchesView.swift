@@ -34,7 +34,7 @@ struct NotificationSwitchesView: View {
     private var unavailable: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("settings.switches.unavailable \(model.active.name)")
-            Text(model.unavailableReason).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text(model.unavailableReason).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
@@ -54,7 +54,7 @@ struct NotificationSwitchesView: View {
                     if isSaving { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 }
             }
-            .tint(Color.yakAction)
+            .tint(Color.yakRust)
             .disabled(isDisabled || isSaving)
             .frame(minHeight: 44)
             .redacted(reason: showsSkeleton && isLoading ? .placeholder : [])
@@ -79,7 +79,7 @@ struct NotificationSwitchesView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(problem == .offline ? "settings.switches.offline" : "settings.switches.loadFailed")
                 if problem != .offline {
-                    Text(SettingsText.reason(problem)).font(.footnote.weight(.medium))
+                    Text(SettingsText.reason(problem)).font(.yak(.footnote, .medium))
                         .foregroundStyle(Color.yakMuted)
                     Button("common.retry") { Task { await model.retry() } }.buttonStyle(SecondaryButtonStyle())
                 }
@@ -121,10 +121,10 @@ struct SettingsHeaderRow: View {
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
-                text.font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
-                if let note { note.font(.footnote.weight(.medium)) }
+                text.font(.yak(.subheadline, .semibold)).accessibilityAddTraits(.isHeader)
+                if let note { note.font(.yak(.footnote, .medium)) }
                 if let alert {
-                    alert.font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    alert.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                         .accessibilityIdentifier("settings.switches.saveFailed")
                 }
             }

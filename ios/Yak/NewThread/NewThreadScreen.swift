@@ -164,9 +164,9 @@ private struct NewThreadContent: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("newThread.title").font(.title2.bold()).multilineTextAlignment(.center)
+            Text("newThread.title").font(.yak(.title2, .bold)).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-            Text("newThread.subtitle").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text("newThread.subtitle").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, hasNoRepositories ? 0 : 8)
@@ -186,10 +186,10 @@ private struct NewThreadContent: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "shippingbox").font(.largeTitle).foregroundStyle(Color.yakMuted)
+            Image(systemName: "shippingbox").font(.yak(.largeTitle)).foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true).padding(.bottom, 4)
-            Text("newThread.empty.title").font(.headline)
-            Text("newThread.empty.body").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text("newThread.empty.title").font(.yak(.headline))
+            Text("newThread.empty.body").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Button(action: openWeb) {
                 Text("newThread.empty.openWeb").fixedSize(horizontal: false, vertical: true)
@@ -204,8 +204,8 @@ private struct NewThreadContent: View {
     private var slowCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("load.slow.title").font(.headline).fixedSize(horizontal: false, vertical: true)
-                Text("newThread.slow.body").font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text("load.slow.title").font(.yak(.headline)).fixedSize(horizontal: false, vertical: true)
+                Text("newThread.slow.body").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             retryButton
@@ -217,10 +217,10 @@ private struct NewThreadContent: View {
 
     private func failedCard(_ problem: ThreadProblem) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle").font(.title).foregroundStyle(Color.yakMuted)
+            Image(systemName: "exclamationmark.triangle").font(.yak(.title)).foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             Text("newThread.failed").multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-            Text("newThread.failed.keep").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text("newThread.failed.keep").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             retryButton
         }
@@ -265,7 +265,7 @@ private struct NewThreadContent: View {
 
     private var offlineNotice: some View {
         Label {
-            Text("newThread.offline").font(.footnote).fixedSize(horizontal: false, vertical: true)
+            Text("newThread.offline").font(.yak(.footnote)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "wifi.slash").accessibilityHidden(true)
         }
@@ -276,7 +276,7 @@ private struct NewThreadContent: View {
 
     private func problemLine(_ text: String) -> some View {
         Label {
-            Text(text).font(.footnote).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(.yak(.footnote)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "exclamationmark.circle.fill").accessibilityHidden(true)
         }
@@ -430,7 +430,7 @@ private struct NewThreadContent: View {
                 Label("newThread.plus.file", systemImage: "doc")
             }
         } label: {
-            Image(systemName: "plus").font(.title3).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            Image(systemName: "plus").font(.yak(.title3)).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
         .tint(.primary).disabled(model.isLocked)
         .accessibilityLabel("newThread.plus").accessibilityIdentifier("newThread.plus")
@@ -577,9 +577,9 @@ private struct ChipLabel: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: systemImage).font(.footnote).accessibilityHidden(true)
-            text.font(.subheadline.weight(.medium)).lineLimit(1)
-            Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(Color.yakMuted)
+            Image(systemName: systemImage).font(.yak(.footnote)).accessibilityHidden(true)
+            text.font(.yak(.subheadline, .medium)).lineLimit(1)
+            Image(systemName: "chevron.down").font(.yak(.caption2, .bold)).foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
         }
         .foregroundStyle(.primary)
@@ -623,7 +623,7 @@ private struct PendingRow: View {
             case .queued, .sending, .slow:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small).accessibilityHidden(true)
-                    Text("newThread.starting").font(.subheadline.weight(.medium))
+                    Text("newThread.starting").font(.yak(.subheadline, .medium))
                 }
                 .accessibilityElement(children: .combine).accessibilityIdentifier("newThread.starting")
             case .waiting:
@@ -632,7 +632,7 @@ private struct PendingRow: View {
                     ("newThread.retrySend", "newThread.retrySend", { await model.retrySend() }),
                     ("newThread.remove", "newThread.remove", { await model.remove() }))
             case .refused(let refusal):
-                Text("newThread.refused \(refusal.message)").font(.subheadline).foregroundStyle(Color.yakDanger)
+                Text("newThread.refused \(refusal.message)").font(.yak(.subheadline)).foregroundStyle(Color.yakDanger)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("newThread.refused")
                 buttons(
                     ("newThread.edit", "newThread.edit", { await model.edit() }),
@@ -662,7 +662,8 @@ private struct PendingRow: View {
     }
 
     private func note(_ key: LocalizedStringKey, identifier: String) -> some View {
-        Text(key).font(.subheadline).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
+        Text(key).font(.yak(.subheadline)).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(
+            identifier)
     }
 
     private func action(_ key: LocalizedStringKey, identifier: String, run: @escaping () async -> Void)
@@ -688,7 +689,7 @@ private struct NewThreadAttachmentStrip: View {
                     HStack(spacing: 6) {
                         Image(systemName: attachment.contentType.hasPrefix("image/") ? "photo" : "doc")
                             .accessibilityHidden(true)
-                        Text(attachment.fileName).font(.footnote).lineLimit(1)
+                        Text(attachment.fileName).font(.yak(.footnote)).lineLimit(1)
                         Button {
                             Task { await model.removeAttachment(attachment) }
                         } label: {
@@ -728,7 +729,7 @@ private struct NewThreadModelPicker: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(verbatim: row.label)
                                     if let detail = row.detail {
-                                        Text(verbatim: detail).font(.footnote).foregroundStyle(Color.yakMuted)
+                                        Text(verbatim: detail).font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                                     }
                                 }
                                 Spacer(minLength: 8)

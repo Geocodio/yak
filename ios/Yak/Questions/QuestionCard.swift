@@ -115,10 +115,10 @@ struct QuestionCard: View {
 
     private func header(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("question.title").font(.headline).accessibilityAddTraits(.isHeader)
+            Text("question.title").font(.yak(.headline)).accessibilityAddTraits(.isHeader)
             if canAnswer, !model.isClosed, let index = stepIndex(flow) {
                 Text("question.progress \(index + 1) \(flow.questions.count)")
-                    .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .accessibilityIdentifier("question.progress")
             }
         }
@@ -148,7 +148,7 @@ struct QuestionCard: View {
         return VStack(alignment: .leading, spacing: 10) {
             questionText(item).accessibilityFocused($focusedStep, equals: index)
             if item.multiSelect {
-                Text("question.multiHint").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("question.multiHint").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
             ForEach(Array(item.options.enumerated()), id: \.offset) { optionIndex, option in
                 QuestionOptionButton(
@@ -172,9 +172,10 @@ struct QuestionCard: View {
 
     private func questionText(_ item: ClarificationQuestion) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: item.header).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-            Text(verbatim: item.question).font(.body).fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: item.header).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+            Text(verbatim: item.question).font(.yak(.body)).fixedSize(horizontal: false, vertical: true)
         }
+        .id(dynamicTypeSize)
         .accessibilityElement(children: .combine)
     }
 
@@ -229,7 +230,7 @@ struct QuestionCard: View {
 
     private func review(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("question.review.title").font(.subheadline.weight(.semibold))
+            Text("question.review.title").font(.yak(.subheadline, .semibold))
                 .accessibilityFocused($focusedStep, equals: -1)
             ForEach(Array(flow.questions.enumerated()), id: \.offset) { index, item in
                 QuestionReviewRow(
@@ -251,11 +252,11 @@ struct QuestionCard: View {
     private func reviewActions(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if isOffline, model.sending == .idle {
-                Text("question.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("question.offline").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.offline")
             }
             if model.isSlow {
-                Text("question.slow").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("question.slow").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.slow")
             }
             if case .failed(let message) = model.sending { errorLine(message) }
@@ -286,7 +287,7 @@ struct QuestionCard: View {
     }
 
     private func errorLine(_ message: String) -> some View {
-        Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+        Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
             .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.error")
     }
 
@@ -295,14 +296,14 @@ struct QuestionCard: View {
     /// The round closed while the card held answers: they stay in view until the person dismisses the card.
     private func closed(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("question.closed").font(.body.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+            Text("question.closed").font(.yak(.body, .medium)).fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("question.closed")
-            Text("question.closed.detail").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("question.closed.detail").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             ForEach(Array(flow.questions.enumerated()), id: \.offset) { _, item in
                 if let summary = flow.summary(for: item.id) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: item.header).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                        Text(verbatim: summary).font(.body)
+                        Text(verbatim: item.header).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                        Text(verbatim: summary).font(.yak(.body))
                     }
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading).questionFieldSurface()
                     .accessibilityElement(children: .combine)
@@ -310,7 +311,7 @@ struct QuestionCard: View {
             }
             let unsent = model.typedText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !unsent.isEmpty {
-                Text(verbatim: unsent).font(.body).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: unsent).font(.yak(.body)).padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .questionFieldSurface()
             }
         }
@@ -319,7 +320,7 @@ struct QuestionCard: View {
     private func readOnly(_ flow: QuestionFlow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(flow.questions.enumerated()), id: \.offset) { _, item in questionText(item) }
-            Text("question.readOnly").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("question.readOnly").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("question.readOnly")
         }
     }

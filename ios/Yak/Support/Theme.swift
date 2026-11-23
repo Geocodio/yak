@@ -7,10 +7,11 @@ extension Color {
     /// Links and plain actions: the rust as text color, which passes the contrast bar where the fill color does not.
     static let yakAction = Color("Action")
     static let yakDanger = Color("Danger")
-    /// Secondary text: the boards' `--tx2` a step stronger, so it keeps the contrast audit's bar on a card, a bubble,
-    /// a field and a disabled control.
+    /// Secondary text, placeholders and times: the web's `--text-2` (#62666D / #9499A1) is a step too light for the
+    /// audit on the tinted surfaces the app uses (a quiet fill, a dimmed card, a grouped list), so this is the
+    /// same hue a step stronger; the fainter `--text-3` is never used as text.
     static let yakMuted = board(
-        dark: 0xB0B4BB, light: 0x50545B, highContrast: BoardContrast(dark: 0xF1F2F4, light: 0x1C1D21))
+        dark: 0xB0B4BB, light: 0x50545B, highContrast: BoardContrast(dark: 0xE6E7EA, light: 0x282A30))
     /// A count badge: the primary label color with the page color on top, so the pair keeps its contrast in light and dark.
     static let yakBadge = Color.primary
     static let yakOnBadge = Color.yakBackground
@@ -22,7 +23,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.yak(.headline))
             .foregroundStyle(Color.yakOnRust)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
@@ -38,7 +39,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.yak(.headline))
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)

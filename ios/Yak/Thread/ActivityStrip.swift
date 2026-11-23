@@ -40,12 +40,12 @@ struct ActivityStrip: View {
         } label: {
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small).accessibilityHidden(true)
-                Text(verbatim: text).font(.subheadline).lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                Text(verbatim: text).font(.yak(.subheadline)).lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                     .truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)
-                Text("activity.steer").font(.subheadline.weight(.bold)).fixedSize()
+                Text("activity.steer").font(.yak(.subheadline, .bold)).fixedSize()
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .yakBarSurface(in: .capsule)
+            .yakBarSurface(in: .rect(cornerRadius: Design.Radius.card))
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
@@ -61,10 +61,10 @@ struct ActivityStrip: View {
         } label: {
             HStack(spacing: 8) {
                 Circle().fill(Color.primary).frame(width: 8, height: 8).accessibilityHidden(true)
-                title.font(.subheadline.weight(.medium)).lineLimit(2)
+                title.font(.yak(.subheadline, .medium)).lineLimit(2)
             }
             .padding(.horizontal, 14).frame(minHeight: 44)
-            .yakBarSurface(in: .capsule)
+            .yakBarSurface(in: .rect(cornerRadius: Design.Radius.card))
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)

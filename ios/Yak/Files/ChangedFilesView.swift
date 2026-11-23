@@ -84,15 +84,15 @@ struct ChangedFilesView: FilesModeView {
             NoticeLine(text: "list.offlineSaved", systemImage: "wifi.slash", identifier: "files.offlineNotice")
         } else if let problem = snapshot.problem {
             HStack {
-                ProblemCopy.message(problem, offline: "files.error.offline").font(.footnote.weight(.medium))
+                ProblemCopy.message(problem, offline: "files.error.offline").font(.yak(.footnote, .medium))
                 Spacer(minLength: 8)
-                Button("common.retry") { Task { await model.retry() } }.font(.footnote.weight(.semibold))
+                Button("common.retry") { Task { await model.retry() } }.font(.yak(.footnote, .semibold))
                     .frame(minHeight: 44)
             }
             .padding(.horizontal, 20).background(Color.primary.opacity(0.05)).accessibilityIdentifier("files.problem")
         }
         if let banner = banner(snapshot) {
-            Text(banner).font(sizeClass == .regular ? .subheadline.weight(.medium) : .footnote.weight(.medium))
+            Text(banner).font(sizeClass == .regular ? .yak(.subheadline, .medium) : .yak(.footnote, .medium))
                 .foregroundStyle(sizeClass == .regular ? Color.primary : Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.vertical, 8)
                 .background(Color.yakCard).fixedSize(horizontal: false, vertical: true)

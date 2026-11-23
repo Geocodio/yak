@@ -96,14 +96,14 @@ struct WorkspaceStateView: View {
         ScrollView {
             VStack(spacing: 14) {
                 if content.showsSkeleton { FileSkeletonRows(count: 8) }
-                Text(content.title).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
+                Text(content.title).font(.yak(.title3, .semibold)).multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 if let detail = content.detail {
-                    detail.font(.body).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
+                    detail.font(.yak(.body)).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
                 }
                 if let since = content.elapsedSince { ElapsedSeconds(since: since) }
                 if let message {
-                    Text(message).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(message).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                         .multilineTextAlignment(.center)
                 }
                 if let action = content.action {
@@ -114,7 +114,7 @@ struct WorkspaceStateView: View {
                             if isBusy { ProgressView() }
                             Text(action.title)
                         }
-                        .font(.headline).padding(.horizontal, 20).frame(minHeight: 44)
+                        .font(.yak(.headline)).padding(.horizontal, 20).frame(minHeight: 44)
                         .background(Color.primary.opacity(0.12), in: .capsule)
                     }
                     .buttonStyle(.plain).disabled(isBusy)
@@ -138,7 +138,7 @@ private struct ElapsedSeconds: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             let seconds = max(0, Int(timeline.date.timeIntervalSince(since)))
-            Text("terminal.step.seconds \(seconds)").font(.subheadline.weight(.medium)).monospacedDigit()
+            Text("terminal.step.seconds \(seconds)").font(.yak(.subheadline, .medium)).monospacedDigit()
                 .foregroundStyle(Color.yakMuted)
         }
     }

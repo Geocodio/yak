@@ -51,10 +51,27 @@ struct RowButtonStyle: ButtonStyle {
 
     private func fill(isPressed: Bool) -> Color {
         if isPressed { return Color.yakFillStrong }
-        return isSelected ? Color.yakFill : Color.clear
+        return isSelected ? Color.yakSelection : Color.clear
     }
 }
 
 extension ButtonStyle where Self == PressableButtonStyle {
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
+}
+
+/// A button with no fill at rest, which takes the quiet fill while pressed: the web's ghost button.
+struct GhostButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed ? Color.yakBubble : Color.clear, in: .rect(cornerRadius: Design.Radius.control)
+            )
+            .animation(Motion.resolve(Motion.quick, reduceMotion: reduceMotion), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == GhostButtonStyle {
+    static var ghost: GhostButtonStyle { GhostButtonStyle() }
 }

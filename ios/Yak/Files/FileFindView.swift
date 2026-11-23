@@ -53,14 +53,14 @@ struct FileFindView: View {
             case .results(let results, let truncated, let isPartial):
                 List {
                     ForEach(results) { result in resultRow(result) }.listRowInsets(EdgeInsets())
-                    if truncated { Text("files.find.truncated").font(.footnote).foregroundStyle(Color.yakMuted) }
-                    if isPartial { Text("files.find.partial").font(.footnote).foregroundStyle(Color.yakMuted) }
+                    if truncated { Text("files.find.truncated").font(.yak(.footnote)).foregroundStyle(Color.yakMuted) }
+                    if isPartial { Text("files.find.partial").font(.yak(.footnote)).foregroundStyle(Color.yakMuted) }
                 }
                 .listStyle(.plain)
             case .noMatch(let query, let isPartial):
                 VStack(spacing: 8) {
-                    Text("files.find.none \(query)").font(.body).multilineTextAlignment(.center)
-                    if isPartial { Text("files.find.partial").font(.footnote).foregroundStyle(Color.yakMuted) }
+                    Text("files.find.none \(query)").font(.yak(.body)).multilineTextAlignment(.center)
+                    if isPartial { Text("files.find.partial").font(.yak(.footnote)).foregroundStyle(Color.yakMuted) }
                 }
                 .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed:
@@ -82,8 +82,8 @@ struct FileFindView: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc.text").foregroundStyle(Color.yakMuted).frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: result.name).font(.body.monospaced())
-                    if !folder.isEmpty { Text(verbatim: folder).font(.caption).foregroundStyle(Color.yakMuted) }
+                    Text(verbatim: result.name).font(.yak(.body, isMonospaced: true))
+                    if !folder.isEmpty { Text(verbatim: folder).font(.yak(.caption)).foregroundStyle(Color.yakMuted) }
                 }
                 Spacer(minLength: 8)
                 if let mark = result.mark { FileMarkView(mark: mark) }

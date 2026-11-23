@@ -44,7 +44,7 @@ struct EnterAddressView: View {
         ScrollViewReader { scroller in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("address.title").font(.largeTitle.bold())
+                    Text("address.title").font(.yak(.largeTitle, .bold))
                     switch pairingModel.state {
                     case .problem(let problem):
                         PairingProblemView(problem: problem, address: address, isTypedAddress: true) {
@@ -111,7 +111,7 @@ struct EnterAddressView: View {
                     .disabled(isChecking)
                     .onSubmit { start(pairingModel) }
             }
-            .font(.body)
+            .font(.yak(.body))
             .padding(14)
             .frame(minHeight: 44)
             .background(.quaternary, in: .rect(cornerRadius: 12))
@@ -121,16 +121,16 @@ struct EnterAddressView: View {
             }
             if !model.network.isOnline {
                 Label("common.offline", systemImage: "wifi.slash")
-                    .font(.subheadline).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             } else if let problem = pairingModel.checkProblem, !isChecking {
-                Text(LocalizedStringKey(problem.titleKey)).font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text(LocalizedStringKey(problem.titleKey)).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             }
             if let info = pairingModel.confirmation, !isChecking {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(info.name).font(.headline)
-                        Text("address.found").font(.subheadline).foregroundStyle(Color.yakMuted)
+                        Text(info.name).font(.yak(.headline))
+                        Text("address.found").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -153,7 +153,7 @@ struct EnterAddressView: View {
             if isChecking {
                 SlowHint { retry(pairingModel) }
             }
-            Text("address.footnote").font(.footnote).foregroundStyle(Color.yakMuted)
+            Text("address.footnote").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
         }
         .animation(.spring, value: pairingModel.confirmation != nil)
         .animation(.spring, value: pairingModel.checkProblem)
@@ -165,11 +165,11 @@ struct EnterAddressView: View {
                 ProgressView().accessibilityHidden(true)
                 Text("address.waiting")
             }
-            Text("address.waitingDetail").font(.body).foregroundStyle(Color.yakMuted)
+            Text("address.waitingDetail").font(.yak(.body)).foregroundStyle(Color.yakMuted)
             #if DEBUG
                 // The nightly journeys approve through the web with this address; test mode only.
                 if TestMode.current() != nil, case .waitingForApproval(let url) = pairingModel.state {
-                    Text(verbatim: url.absoluteString).font(.caption2).foregroundStyle(Color.yakMuted)
+                    Text(verbatim: url.absoluteString).font(.yak(.caption2)).foregroundStyle(Color.yakMuted)
                         .accessibilityIdentifier("pairing.approvalURL")
                 }
             #endif
@@ -242,7 +242,7 @@ struct SlowHint: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if isSlow {
-                Text("common.slow").font(.footnote).foregroundStyle(Color.yakMuted)
+                Text("common.slow").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                 Button(actionTitle, action: retry).buttonStyle(SecondaryButtonStyle())
             }
         }

@@ -33,7 +33,7 @@ struct SheetHeader<Cancel: View, Confirm: View>: View {
     }
 
     private var titleText: some View {
-        Text(title).font(.headline).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        Text(title).font(.yak(.headline)).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
     }
 }

@@ -14,7 +14,7 @@ struct FilesBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let line = notice {
-                Text(verbatim: line).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                Text(verbatim: line).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("files.open.notice")
             }
             if dynamicTypeSize.isAccessibilitySize {

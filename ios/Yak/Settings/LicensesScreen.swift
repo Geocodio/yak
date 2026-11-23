@@ -8,8 +8,8 @@ struct LicensesScreen: View {
                 LicenseTextScreen(entry: entry)
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: entry.name).font(.body)
-                    Text(verbatim: entry.licenseName).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(verbatim: entry.name).font(.yak(.body))
+                    Text(verbatim: entry.licenseName).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
                 .frame(minHeight: 44, alignment: .leading)
             }
@@ -30,7 +30,7 @@ private struct LicenseTextScreen: View {
             if let text = LicenseList.text(for: entry, bundle: .main) {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(Array(paragraphs(text).enumerated()), id: \.offset) { _, paragraph in
-                        Text(verbatim: paragraph).font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+                        Text(verbatim: paragraph).font(.yak(.footnote, isMonospaced: true)).textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id(dynamicTypeSize)

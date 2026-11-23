@@ -36,7 +36,7 @@
 
         var body: some View {
             Text(verbatim: result)
-                .font(.caption2)
+                .font(.yak(.caption2))
                 .accessibilityIdentifier("intent.result")
                 .accessibilityLabel(Text(verbatim: result))
                 .allowsHitTesting(false)

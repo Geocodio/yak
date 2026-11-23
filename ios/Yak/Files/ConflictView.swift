@@ -14,7 +14,7 @@ struct ConflictView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(theirs == nil ? "files.conflict.deleted" : "files.conflict.title").font(.headline)
+            Text(theirs == nil ? "files.conflict.deleted" : "files.conflict.title").font(.yak(.headline))
                 .multilineTextAlignment(.center).padding(.horizontal, 16).padding(.top, 16)
             if theirs != nil { compare }
             actions
@@ -51,7 +51,7 @@ struct ConflictView: View {
 
     private func pane(title: LocalizedStringKey?, text: String, other: String) -> some View {
         VStack(spacing: 4) {
-            if let title { Text(title).font(.subheadline.weight(.semibold)) }
+            if let title { Text(title).font(.yak(.subheadline, .semibold)) }
             CodeTextView(
                 text: text, tintedLines: ChangedLines.indexes(in: text, comparedWith: other),
                 accessibilityIdentifier: "files.conflict.text", accessibilityLabel: "files.conflict.text.label")
@@ -79,7 +79,7 @@ struct ConflictView: View {
     }
 
     private func label(_ key: LocalizedStringKey) -> some View {
-        Text(key).font(.headline).frame(maxWidth: .infinity, minHeight: 44)
+        Text(key).font(.yak(.headline)).frame(maxWidth: .infinity, minHeight: 44)
             .background(Color.primary.opacity(0.12), in: .rect(cornerRadius: 12))
     }
 }

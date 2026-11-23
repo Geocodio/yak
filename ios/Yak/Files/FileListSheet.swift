@@ -45,26 +45,26 @@ struct FileListSheet: View {
             close()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(verbatim: letter(file.status)).font(.footnote.monospaced().weight(.semibold))
+                Text(verbatim: letter(file.status)).font(.yak(.footnote, .semibold, isMonospaced: true))
                     .foregroundStyle(Color.yakMuted).frame(width: 18).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: (file.path as NSString).lastPathComponent).font(.body.monospaced())
+                    Text(verbatim: (file.path as NSString).lastPathComponent).font(.yak(.body, isMonospaced: true))
                         .fixedSize(horizontal: false, vertical: true)
                     let folder = (file.path as NSString).deletingLastPathComponent
                     if !folder.isEmpty {
-                        Text(verbatim: folder).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        Text(verbatim: folder).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 8)
                 if let additions = file.additions, let deletions = file.deletions {
                     Text(verbatim: "+\(additions) \u{2212}\(deletions)").font(
-                        .footnote.monospacedDigit().weight(.medium)
+                        .yak(.footnote, .medium)
                     )
                     .foregroundStyle(Color.yakMuted).fixedSize()
                 }
                 if marks.isViewed(file) {
-                    Image(systemName: "checkmark").font(.footnote.weight(.semibold)).accessibilityHidden(true)
+                    Image(systemName: "checkmark").font(.yak(.footnote, .semibold)).accessibilityHidden(true)
                 }
             }
             .frame(minHeight: 44)

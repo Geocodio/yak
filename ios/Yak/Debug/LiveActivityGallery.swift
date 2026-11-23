@@ -68,7 +68,7 @@
                 .ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        Text(verbatim: stateName).font(.title2.weight(.semibold)).foregroundStyle(.white)
+                        Text(verbatim: stateName).font(.yak(.title2, .semibold)).foregroundStyle(.white)
                             .accessibilityIdentifier("gallery.state")
                         section("Lock screen") {
                             ThreadActivityLockScreenView(look: look(limited: false), host: Self.host)
@@ -101,7 +101,7 @@
         /// The system caps the text of a Live Activity at a large size whatever the person chose, so the previews do too.
         private func section(_ name: String, @ViewBuilder content: () -> some View) -> some View {
             VStack(alignment: .leading, spacing: 8) {
-                Text(verbatim: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.white)
+                Text(verbatim: name).font(.yak(.footnote, .semibold)).foregroundStyle(Color.white)
                 content().dynamicTypeSize(...DynamicTypeSize.xxLarge)
             }
         }

@@ -28,11 +28,11 @@ struct NoticeCard: View {
                     Image(systemName: "exclamationmark.circle").foregroundStyle(Color.yakMuted)
                         .accessibilityHidden(true)
                 }
-                Text(verbatim: notice.title).font(.subheadline.weight(.semibold))
+                Text(verbatim: notice.title).font(.yak(.subheadline, .semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
             if !notice.body.isEmpty {
-                Text(verbatim: notice.body).font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text(verbatim: notice.body).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if notice.kind == "usage_limit", let resetsAt = RelativeAge.parse(notice.resetsAt) {
@@ -90,7 +90,7 @@ private struct Countdown: View {
                     Text("chat.notice.resetsNow")
                 }
             }
-            .font(.subheadline.weight(.medium)).monospacedDigit()
+            .font(.yak(.subheadline, .medium)).monospacedDigit()
         }
         .accessibilityIdentifier("notice.countdown")
     }

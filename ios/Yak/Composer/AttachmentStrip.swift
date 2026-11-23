@@ -45,8 +45,10 @@ private struct AttachmentTile: View {
                 .accessibilityLabel(Text("attachment.remove \(attachment.reference)"))
                 .accessibilityIdentifier("composer.attachment.remove")
             }
-            Text(attachment.reference).font(.caption2).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(0.6)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2).frame(maxWidth: side)
+            Text(attachment.reference).font(.yak(.caption2)).foregroundStyle(.primary).lineLimit(1).minimumScaleFactor(
+                0.6
+            )
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2).frame(maxWidth: side)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("composer.attachment")
@@ -58,8 +60,8 @@ private struct AttachmentTile: View {
             Image(uiImage: image).resizable().scaledToFill().accessibilityHidden(true)
         } else {
             VStack(spacing: 4) {
-                Image(systemName: "doc").font(.title3)
-                Text(attachment.fileName).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
+                Image(systemName: "doc").font(.yak(.title3))
+                Text(attachment.fileName).font(.yak(.caption2)).lineLimit(2).multilineTextAlignment(.center)
             }
             .padding(4).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.08))
             .accessibilityElement(children: .combine)

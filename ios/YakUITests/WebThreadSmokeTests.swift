@@ -85,6 +85,22 @@ import XCTest
             timeout: Wait.appear)
     }
 
+    /// The Chat pane draws its own offline line only while it shows; on another pane the header says the connection is
+    /// down.
+    func testTheHeaderSaysOfflineWhileAnotherPaneShows() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        app.buttons["Open the files pane"].tap()
+        let files = app.descendants(matching: .any)["files"]
+        XCTAssertTrue(files.waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("thread.connection").exists)
+        try stub.setOnline(false)
+        XCTAssertTrue(element("thread.connection").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("thread.connection").label.hasPrefix("Offline"), element("thread.connection").label)
+        try stub.setOnline(true)
+    }
+
     func testAnExpiredSessionRenewsItself() throws {
         try launch(scenario: "embed-expired-once")
         openThread()

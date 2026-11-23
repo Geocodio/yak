@@ -26,13 +26,11 @@ struct ComposerBar: View {
     var body: some View {
         @Bindable var composer = composer
         VStack(alignment: .leading, spacing: 6) {
-            // The page leaves waiting messages out of its list, so they sit here, above the field.
-            if web?.mode == .web { QueuedChipsView(thread: thread) }
             if let problem = composer.problem {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: "exclamationmark.circle").foregroundStyle(Color.yakDanger)
                         .accessibilityHidden(true)
-                    Text(problem).font(.footnote).foregroundStyle(.primary)
+                    Text(problem).font(.yak(.footnote)).foregroundStyle(.primary)
                 }
                 .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Color.yakDanger.opacity(0.1), in: .rect(cornerRadius: 12))
@@ -57,6 +55,7 @@ struct ComposerBar: View {
                 }
             }
         }
+        .preference(key: ComposerFocusKey.self, value: isFocused)
         .background { shortcuts }
         .composerDropTarget(composer)
         #if DEBUG
@@ -93,16 +92,18 @@ struct ComposerBar: View {
                 ? "composer.steer"
                 : (isRetrying ? "composer.retry" : (isContinuing ? "composer.continue" : "composer.message")))
         // A vertical text field keeps the height of the largest text size it has seen, so each text size gets a new one.
-        return TextField(placeholder, text: text, axis: .vertical)
-            .id(dynamicTypeSize)
-            .lineLimit(isCollapsed ? 1...1 : 1...6)
-            .focused($isFocused)
-            .textInputAutocapitalization(.sentences)
-            .padding(.horizontal, 14).padding(.vertical, 11)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.bubble))
-            .accessibilityLabel("composer.field.label")
-            .accessibilityIdentifier("composer.field")
+        return TextField(text: text, prompt: Text(placeholder).foregroundStyle(Color.yakMuted), axis: .vertical) {
+            Text(placeholder)
+        }
+        .id(dynamicTypeSize)
+        .font(.yakField)
+        .lineLimit(isCollapsed ? 1...1 : 1...6)
+        .focused($isFocused)
+        .textInputAutocapitalization(.sentences)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.snug)
+        .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
+        .accessibilityLabel("composer.field.label")
+        .accessibilityIdentifier("composer.field")
     }
 
     /// A tap steers; a long press offers "Send after this turn" while a turn runs.
@@ -143,15 +144,18 @@ struct ComposerBar: View {
             Task { await composer.stop() }
         } label: {
             ZStack {
-                Circle().fill(Color.primary)
+                RoundedRectangle(cornerRadius: Design.Radius.control).fill(Color.yakBubble)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Design.Radius.control)
+                            .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line))
                 if composer.isStopping {
-                    ProgressView().tint(Color.yakBackground)
+                    ProgressView().tint(Color.yakText)
                 } else {
                     Image(systemName: "stop.fill").font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Color.yakBackground)
+                        .foregroundStyle(Color.yakText)
                 }
             }
-            .frame(width: 44, height: 44).contentShape(.circle)
+            .frame(width: 44, height: 44).contentShape(.rect(cornerRadius: Design.Radius.control))
         }
         .buttonStyle(.pressable).disabled(composer.isStopping)
         .accessibilityLabel("composer.stop.label").accessibilityIdentifier("composer.stop")
@@ -180,7 +184,7 @@ private struct SendGlyph: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Color.primary)
+            RoundedRectangle(cornerRadius: Design.Radius.control).fill(Color.primary)
             if isBusy {
                 ProgressView().tint(Color.yakBackground)
             } else {
@@ -188,7 +192,7 @@ private struct SendGlyph: View {
                     Color.yakBackground)
             }
         }
-        .frame(width: 44, height: 44).contentShape(.circle)
+        .frame(width: 44, height: 44).contentShape(.rect(cornerRadius: Design.Radius.control))
     }
 }
 
@@ -206,8 +210,8 @@ private struct UnavailableRow: View {
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
         layout {
             VStack(alignment: .leading, spacing: 2) {
-                title.font(.subheadline.weight(.semibold))
-                detail.font(.footnote).foregroundStyle(Color.primary.opacity(0.85))
+                title.font(.yak(.subheadline, .semibold))
+                detail.font(.yak(.footnote)).foregroundStyle(Color.primary.opacity(0.85))
             }
             .fixedSize(horizontal: false, vertical: true)
             if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: 0) }

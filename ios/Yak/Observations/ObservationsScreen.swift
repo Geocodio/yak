@@ -72,7 +72,7 @@ struct ObservationsScreen: View {
                 ProgressView().frame(maxWidth: .infinity).padding(16).listRowSeparator(.hidden)
             } else if snapshot.problem != nil, snapshot.nextPage != nil {
                 VStack(spacing: 8) {
-                    Text("list.moreFailed").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("list.moreFailed").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     RetryButton(identifier: "observations.retryMore") { Task { await model.loadMore() } }
                 }
                 .padding(16).listRowSeparator(.hidden)
@@ -112,9 +112,9 @@ struct ObservationsScreen: View {
             Circle().fill(isActed ? Color.green : Color.primary.opacity(0.35)).frame(width: 10, height: 10)
                 .padding(.top, 7).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: row.summary).font(.body).foregroundStyle(.primary).multilineTextAlignment(.leading)
-                Text(verbatim: subtitle).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                Text(verbatim: row.createdAgo).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(verbatim: row.summary).font(.yak(.body)).foregroundStyle(.primary).multilineTextAlignment(.leading)
+                Text(verbatim: subtitle).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                Text(verbatim: row.createdAgo).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
             Spacer(minLength: 0)
         }
@@ -179,7 +179,7 @@ struct ObservationsScreen: View {
             next.outcome = outcome
             model.query = next
         } label: {
-            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            Text(title).font(.yak(.subheadline, .semibold)).foregroundStyle(.primary)
                 .padding(.horizontal, 12).frame(minHeight: 44)
                 .background(isSelected ? Color.primary.opacity(0.12) : Color.clear, in: .capsule)
                 .contentShape(.capsule)
@@ -212,7 +212,7 @@ struct ObservationsScreen: View {
                 systemName: model.query.repo == nil
                     ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill"
             )
-            .font(.title3).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            .font(.yak(.title3)).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
         .foregroundStyle(.primary)
         .accessibilityLabel("tasks.filter")

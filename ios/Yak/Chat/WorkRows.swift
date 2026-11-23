@@ -65,7 +65,7 @@ struct MilestoneGroupRow: View {
                 } label: {
                     HStack(spacing: Design.Space.tight) {
                         pill
-                        Image(systemName: "arrow.up.right").font(.caption2.weight(.semibold))
+                        Image(systemName: "arrow.up.right").font(.yak(.caption2, .semibold))
                             .foregroundStyle(milestone.tone.pillText).accessibilityHidden(true)
                     }
                     .frame(minHeight: Design.Size.control).contentShape(.rect)
@@ -90,7 +90,7 @@ struct RetryDivider: View {
             Group {
                 if let number = message.retryNumber { Text("chat.retry.number \(number)") } else { Text("chat.retry") }
             }
-            .font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText).fixedSize()
+            .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakCardSecondaryText).fixedSize()
             .accessibilityIdentifier("chat.retry")
             line
         }
@@ -142,7 +142,7 @@ struct ViaCaption: View {
                 text
             }
         }
-        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText)
+        .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakCardSecondaryText)
         .sheet(item: $browserURL) { BrowserSheet(url: $0.url).ignoresSafeArea() }
         .accessibilityIdentifier("chat.message.via")
     }

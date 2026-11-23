@@ -16,7 +16,7 @@ struct UploadLine: View {
             case .uploading(let percent): progress(percent: percent, isSlow: false)
             case .stalled(let percent): progress(percent: percent, isSlow: true)
             case .waitingForNetwork:
-                Text("chat.upload.waiting").font(.caption).foregroundStyle(Color.yakMuted)
+                Text("chat.upload.waiting").font(.yak(.caption)).foregroundStyle(Color.yakMuted)
                     .multilineTextAlignment(.trailing)
             case .failedInBackground: failed
             }
@@ -42,7 +42,7 @@ struct UploadLine: View {
                     Text("chat.upload.progress \(percent)")
                 }
             }
-            .font(.caption.monospacedDigit()).foregroundStyle(Color.yakMuted)
+            .font(.yak(.caption)).foregroundStyle(Color.yakMuted)
             .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityRepresentation { Text("chat.upload.progress.speech \(percent)") }
@@ -55,7 +55,7 @@ struct UploadLine: View {
                     .accessibilityHidden(true)
                 Text("chat.upload.failed")
             }
-            .font(.caption).foregroundStyle(Color.yakMuted).multilineTextAlignment(.trailing)
+            .font(.yak(.caption)).foregroundStyle(Color.yakMuted).multilineTextAlignment(.trailing)
             .fixedSize(horizontal: false, vertical: true)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { buttons }

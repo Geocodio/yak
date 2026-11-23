@@ -22,7 +22,7 @@ struct SubThreadRowView: View {
                     glyph.frame(width: 24, height: 24).padding(.top, 2).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         titleLine
-                        detailLine.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        detailLine.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,9 +40,9 @@ struct SubThreadRowView: View {
     private var titleLine: some View {
         VStack(alignment: .leading, spacing: 0) {
             if row.kind == .research {
-                Text("overview.child.research").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("overview.child.research").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
-            Text(row.title).font(.body).fixedSize(horizontal: false, vertical: true)
+            Text(row.title).font(.yak(.body)).fixedSize(horizontal: false, vertical: true)
         }
     }
 

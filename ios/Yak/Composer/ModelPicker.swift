@@ -63,7 +63,7 @@ struct ModelPicker: View {
                 }
             }
             Section {
-                Text("model.footer").font(.footnote).foregroundStyle(.primary.opacity(0.85))
+                Text("model.footer").font(.yak(.footnote)).foregroundStyle(.primary.opacity(0.85))
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
             }
@@ -99,7 +99,7 @@ private struct ModelRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         title
                         if let detail = row.detail {
-                            Text(detail).font(.footnote).foregroundStyle(.primary.opacity(0.75))
+                            Text(detail).font(.yak(.footnote)).foregroundStyle(.primary.opacity(0.75))
                         }
                     }
                     Spacer(minLength: 0)
@@ -127,9 +127,9 @@ private struct ModelRow: View {
 
     @ViewBuilder private var title: some View {
         if row.kind == .pinned {
-            Text("model.pinned \(row.label)").font(.body)
+            Text("model.pinned \(row.label)").font(.yak(.body))
         } else {
-            Text(verbatim: row.label).font(.body.weight(.medium))
+            Text(verbatim: row.label).font(.yak(.body, .medium))
         }
     }
 }

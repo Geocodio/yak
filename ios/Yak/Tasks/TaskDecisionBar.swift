@@ -23,7 +23,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         if shows {
             VStack(alignment: .leading, spacing: 10) {
                 if let message = model.message {
-                    Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("task.decision.message")
                     if model.canRetryAfterMessage {
                         Button {
@@ -36,7 +36,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
                     }
                 }
                 if model.isOffline, !isInCard {
-                    Text("task.decision.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("task.decision.offline").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         .accessibilityIdentifier("task.decision.offline")
                 }
                 content
@@ -69,7 +69,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
             VStack(alignment: .leading, spacing: 10) {
                 if !isInCard {
                     Text("task.decision.waiting \(asked.formatted(.list(type: .and)))").font(
-                        .subheadline.weight(.medium))
+                        .yak(.subheadline, .medium))
                 }
                 button("task.decision.withdraw", identifier: "task.decision.withdraw") {
                     Task { await model.decide(.withdraw) }
@@ -77,7 +77,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
             }
         case .linkGitHub:
             VStack(alignment: .leading, spacing: 10) {
-                if !isInCard { Text("task.decision.link").font(.subheadline.weight(.medium)) }
+                if !isInCard { Text("task.decision.link").font(.yak(.subheadline, .medium)) }
                 if let url = model.linkGitHubURL {
                     button("task.decision.linkButton", identifier: "task.decision.link", kind: .primary) {
                         openWeb(url)
@@ -90,7 +90,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         case .noWriteAccess:
             VStack(alignment: .leading, spacing: 10) {
                 if !isInCard {
-                    Text("task.decision.noWriteAccess \(model.repositoryName)").font(.subheadline.weight(.medium))
+                    Text("task.decision.noWriteAccess \(model.repositoryName)").font(.yak(.subheadline, .medium))
                         .accessibilityIdentifier("task.decision.noWriteAccess")
                 }
                 if let checkAgain {
@@ -104,7 +104,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
             }
         case .accessCheckFailed:
             VStack(alignment: .leading, spacing: 10) {
-                if !isInCard { Text("task.decision.accessFailed").font(.subheadline.weight(.medium)) }
+                if !isInCard { Text("task.decision.accessFailed").font(.yak(.subheadline, .medium)) }
                 Button {
                     if let checkAgain { checkAgain() } else { Task { await model.retry() } }
                 } label: {
@@ -113,7 +113,7 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
                 .quietStyle(isInCard: isInCard, kind: .primary).accessibilityIdentifier("task.decision.retry")
             }
         case .decided(let status, let by):
-            Text(Self.decidedText(status, by: by)).font(.subheadline.weight(.semibold))
+            Text(Self.decidedText(status, by: by)).font(.yak(.subheadline, .semibold))
                 .accessibilityIdentifier("task.decision.decided")
         }
     }
@@ -124,12 +124,12 @@ struct TaskDecisionBar<Model: CoOwnerDecisionHost>: View {
         } else if model.isApproving {
             HStack(spacing: 10) {
                 ProgressView()
-                Text("task.approve.opening").font(.subheadline.weight(.semibold))
+                Text("task.approve.opening").font(.yak(.subheadline, .semibold))
             }
             .accessibilityElement(children: .combine).accessibilityIdentifier("task.decision.approving")
         } else {
             if !isInCard, case let reasons = model.holdReasons, !reasons.isEmpty {
-                Text(verbatim: reasons.joined(separator: " ")).font(.subheadline.weight(.medium))
+                Text(verbatim: reasons.joined(separator: " ")).font(.yak(.subheadline, .medium))
                     .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
             }
             let blocked = model.isSending || model.isOffline

@@ -324,7 +324,7 @@ struct InstanceShell: View {
     /// A window that was asked for a thread of another instance says so for a few seconds.
     @ViewBuilder private var otherInstanceNotice: some View {
         if scene.showsOtherInstanceNotice {
-            Text("window.otherInstance").font(.footnote.weight(.medium)).multilineTextAlignment(.center)
+            Text("window.otherInstance").font(.yak(.footnote, .medium)).multilineTextAlignment(.center)
                 .padding(12).frame(maxWidth: 420)
                 .background(Color.yakCard, in: .rect(cornerRadius: 16))
                 .padding(.bottom, 72)

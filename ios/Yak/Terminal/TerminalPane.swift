@@ -116,7 +116,7 @@ struct TerminalPane: View {
         Button {
             model.jumpToEnd()
         } label: {
-            Label("terminal.jump", systemImage: "arrow.down.to.line").font(.subheadline.weight(.semibold))
+            Label("terminal.jump", systemImage: "arrow.down.to.line").font(.yak(.subheadline, .semibold))
         }
         .buttonStyle(TerminalActionStyle())
         .accessibilityIdentifier("terminal.jump")

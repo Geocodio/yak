@@ -12,36 +12,31 @@ struct DrawerRowView: View {
     var isRunning = false
     /// True for the thread the window shows.
     var isSelected = false
+    /// The long-press preview shows the whole title and subtitle.
+    var showsEverything = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var indicatorSize = 22.0
+    @ScaledMetric(relativeTo: .body) private var indicatorSize = 12.0
     @ScaledMetric(relativeTo: .body) private var indentation = 18.0
 
     var body: some View {
         HStack(spacing: 0) {
             if row.depth > 0 { nesting }
             Button(action: open) {
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: Design.Space.snug) {
                     if !isLarge {
                         DrawerIndicator(indicator: row.indicator)
                             .frame(width: indicatorSize, height: indicatorSize)
-                            .padding(.top, 1)
+                            .padding(.top, Design.Space.small)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        if isTask {
-                            HStack(spacing: Design.Space.tight) {
-                                Image(systemName: "checklist")
-                                Text("drawer.taskLabel")
-                            }
-                            .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
-                            .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
+                        title
+                        HStack(spacing: Design.Space.small) {
+                            if isTask { taskBadge }
+                            Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
                         }
-                        Text(row.title).font(.yakRowTitle).fontWeight(row.indicator == .unseen ? .bold : nil)
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
-                        Text(subtitle).font(.footnote)
-                            .foregroundStyle(row.indicator == .blocked ? Color.yakCardDangerText : Color.yakMuted)
-                            .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
@@ -54,7 +49,7 @@ struct DrawerRowView: View {
                     if isRunning { ProgressView().frame(width: 22, height: 22) }
                     if !isLarge { trailing(isInline: false) }
                 }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.medium : 8))
+                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.snug : 8))
                 .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
                 .padding(.vertical, 8)
                 .frame(minHeight: isLarge ? 44 : Design.Size.row)
@@ -67,7 +62,7 @@ struct DrawerRowView: View {
             .accessibilityIdentifier("drawer.row.\(row.id)")
             if row.childCount > 0 {
                 Button(action: toggle) {
-                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.yak(.footnote, .semibold))
                         .foregroundStyle(Color.yakMuted)
                         .rotationEffect(.degrees(row.isExpanded ? 90 : 0))
                         .frame(width: 44, height: 44).contentShape(.rect)
@@ -78,18 +73,55 @@ struct DrawerRowView: View {
                 .accessibilityIdentifier("drawer.toggle.\(row.id)")
             }
         }
-        .background(
-            row.indicator == .needsYou ? Color.yakAction.opacity(0.14) : Color.clear,
-            in: .rect(cornerRadius: Design.Radius.row))
+    }
+
+    /// The title; an unread thread's is semibold, with a small dot after it.
+    private var title: some View {
+        let isUnread = row.indicator == .unseen
+        var name = AttributedString(row.title)
+        name.font = isUnread ? .yak(.subheadline, .semibold) : .yakRowTitle
+        name.foregroundColor = .yakText
+        if isUnread {
+            var dot = AttributedString(" \u{25CF}")
+            dot.font = .system(size: 6)
+            dot.foregroundColor = .yakInfo
+            name += dot
+        }
+        return Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+    }
+
+    /// The mark of a task item: a small badge on the quiet fill, as the board's source badge.
+    private var taskBadge: some View {
+        HStack(spacing: Design.Space.tight) {
+            Image(systemName: "checklist").imageScale(.small)
+            Text("drawer.taskLabel")
+        }
+        .font(.yak(.caption, .medium)).foregroundStyle(Color.yakText)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
+        .background(Color.yakBubble, in: .rect(cornerRadius: 4))
+        .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
+    }
+
+    /// A question reads in the brand color and a block in the failure color; everything else is quiet.
+    private var subtitleColor: Color {
+        switch row.indicator {
+        case .needsYou: .yakSlate
+        case .blocked: .yakCardDangerText
+        default: .yakMuted
+        }
     }
 
     /// A neutral hairline that shows the nesting.
     private var nesting: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 12 + (isLarge ? 14 : indentation) * CGFloat(row.depth - 1))
-            Rectangle().fill(Color.primary.opacity(0.15)).frame(width: 1)
+            Rectangle().fill(Color.yakLine).frame(width: Design.Space.line)
         }
     }
+
+    /// Above the default text size a title and a subtitle wrap, so no size cuts them short; at the default they end in an
+    /// ellipsis after one line, as on the board.
+    private var wrapsLines: Bool { isLarge || showsEverything || dynamicTypeSize > .large }
 
     /// At accessibility text sizes the title needs the whole width, so the age and the lock go under the subtitle.
     private var isLarge: Bool { dynamicTypeSize.isAccessibilitySize }
@@ -98,9 +130,9 @@ struct DrawerRowView: View {
         let layout =
             isInline ? AnyLayout(HStackLayout(spacing: 8)) : AnyLayout(VStackLayout(alignment: .trailing, spacing: 4))
         layout {
-            if let age { Text(age).font(.footnote).foregroundStyle(Color.yakMuted) }
+            if let age { Text(age).font(.yak(.caption)).foregroundStyle(Color.yakMuted) }
             if row.isPrivate {
-                Image(systemName: "lock.fill").font(.caption).foregroundStyle(Color.yakMuted)
+                Image(systemName: "lock.fill").font(.yak(.caption)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
             }
         }
@@ -163,39 +195,29 @@ struct DrawerRowView: View {
 /// because the subtitle says the same in words.
 struct DrawerIndicator: View {
     let indicator: DrawerRow.Indicator
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isSpinning = false
 
     var body: some View {
         Group {
             switch indicator {
-            case .needsYou: dot(Color.yakAction)
-            case .unseen: dot(.blue)
-            case .blocked: dot(Color.yakCardDangerText)
-            case .running:
-                Circle().trim(from: 0, to: 0.7).stroke(Color.yakMuted, style: .init(lineWidth: 2, lineCap: .round))
-                    .frame(width: 14, height: 14)
-                    .rotationEffect(.degrees(isSpinning ? 360 : 0))
-                    .animation(
-                        StillMotion.isOn(reduceMotion: reduceMotion)
-                            ? nil : .linear(duration: 1.1).repeatForever(autoreverses: false),
-                        value: isSpinning
-                    )
-                    .onAppear { isSpinning = true }
+            case .needsYou: dot(Color.yakWarningDot)
+            case .blocked: dot(Color.yakFailure)
+            case .running: dot(Color.yakSlate)
             case .paused: glyph("pause.fill")
-            case .stopped, .closed: glyph("checkmark")
             case .waiting: glyph("clock")
             case .notSent: glyph("arrow.up.circle").symbolVariant(.slash)
-            case .other: Circle().stroke(Color.primary.opacity(0.3), lineWidth: 1.5).frame(width: 10, height: 10)
+            case .unseen: dot(Color.yakInfo)
+            case .stopped: glyph("stop.fill")
+            case .closed: Circle().strokeBorder(Color.yakFaint, lineWidth: 1.5).frame(width: 8, height: 8)
+            case .other: glyph("circle.dotted")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityHidden(true)
     }
 
-    private func dot(_ color: Color) -> some View { Circle().fill(color).frame(width: 10, height: 10) }
+    private func dot(_ color: Color) -> some View { Circle().fill(color).frame(width: 8, height: 8) }
 
     private func glyph(_ name: String) -> some View {
-        Image(systemName: name).font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
+        Image(systemName: name).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
     }
 }

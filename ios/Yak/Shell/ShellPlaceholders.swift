@@ -12,9 +12,9 @@ struct ThreadPlaceholder: View {
         NavigationStack {
             VStack(spacing: 16) {
                 if isNewThread {
-                    Text("shell.newThreadTitle").font(.title2.bold())
+                    Text("shell.newThreadTitle").font(.yak(.title2, .bold))
                 } else if let title {
-                    Text(title).font(.title2.bold()).multilineTextAlignment(.center)
+                    Text(title).font(.yak(.title2, .bold)).multilineTextAlignment(.center)
                 } else {
                     Text("shell.noThread").foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
                 }

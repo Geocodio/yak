@@ -14576,46 +14576,6 @@
         }
       }
     },
-    "web.copy.line.failed %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not load the latest. Showing the saved copy from %@"
-          }
-        }
-      }
-    },
-    "web.copy.line.offline %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Offline. Showing the saved copy from %@"
-          }
-        }
-      }
-    },
-    "web.copy.line.reconnecting %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back online. Loading the latest. Showing the saved copy from %@"
-          }
-        }
-      }
-    },
-    "web.copy.line.slow %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Still loading the latest. Showing the saved copy from %@"
-          }
-        }
-      }
-    },
     "web.failed.crashed" : {
       "localizations" : {
         "en" : {
@@ -14662,6 +14622,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The conversation took too long to load. Try again."
+          }
+        }
+      }
+    },
+    "web.copy.line.detail %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the saved copy from %@"
+          }
+        }
+      }
+    },
+    "web.copy.line.failed.lead" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not load the latest."
+          }
+        }
+      }
+    },
+    "web.copy.line.offline.lead" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline."
+          }
+        }
+      }
+    },
+    "web.copy.line.reconnecting.lead" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back online. Loading the latest."
+          }
+        }
+      }
+    },
+    "web.copy.line.slow.lead" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still loading the latest."
           }
         }
       }

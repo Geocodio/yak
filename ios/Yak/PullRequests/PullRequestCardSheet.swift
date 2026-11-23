@@ -86,7 +86,7 @@ struct PullRequestCardSheet: View {
             if let problem = model.problem {
                 Section {
                     HStack {
-                        ProblemCopy.message(problem, offline: "pullRequest.stale").font(.footnote.weight(.medium))
+                        ProblemCopy.message(problem, offline: "pullRequest.stale").font(.yak(.footnote, .medium))
                         Spacer(minLength: 8)
                         Button("common.retry") { Task { await model.reload() } }.accessibilityIdentifier(
                             "pullRequest.retry")
@@ -96,12 +96,12 @@ struct PullRequestCardSheet: View {
             }
             if model.editAvailability(isOnline: !thread.isOffline) == .offline {
                 Section {
-                    Label("pullRequest.order.editOffline", systemImage: "wifi.slash").font(.footnote.weight(.medium))
+                    Label("pullRequest.order.editOffline", systemImage: "wifi.slash").font(.yak(.footnote, .medium))
                         .accessibilityIdentifier("pullRequest.order.offline")
                 }
             }
             if let notice = model.orderNotice {
-                Section { Text(verbatim: notice).font(.footnote.weight(.medium)) }
+                Section { Text(verbatim: notice).font(.yak(.footnote, .medium)) }
                     .accessibilityIdentifier("pullRequest.order.notice")
             }
             if let banner = model.banner { bannerSection(banner) }
@@ -111,7 +111,7 @@ struct PullRequestCardSheet: View {
                     ForEach(model.withoutPullRequest, id: \.repo) { item in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: item.repo)
-                            Text(verbatim: item.note).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                            Text(verbatim: item.note).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         }
                         .accessibilityElement(children: .combine)
                     }
@@ -123,7 +123,7 @@ struct PullRequestCardSheet: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(model.expectations, id: \.self) { Text(verbatim: $0) }
                     }
-                    .foregroundStyle(.primary).font(.footnote.weight(.medium))
+                    .foregroundStyle(.primary).font(.yak(.footnote, .medium))
                 }
             }
         }
@@ -137,7 +137,7 @@ struct PullRequestCardSheet: View {
             Section {
                 ForEach(Array(model.openRows.enumerated()), id: \.element.id) { index, row in
                     HStack(spacing: 12) {
-                        Text(verbatim: "\(index + 1)").font(.body.monospacedDigit().weight(.medium))
+                        Text(verbatim: "\(index + 1)").font(.yak(.body, .medium))
                             .foregroundStyle(Color.yakMuted).frame(minWidth: 24)
                             .accessibilityHidden(true)
                         Text(verbatim: row.title).frame(minHeight: 44, alignment: .leading)
@@ -161,7 +161,7 @@ struct PullRequestCardSheet: View {
                     Task { await model.moveRows(from: source, to: destination) }
                 }
             } footer: {
-                Text("pullRequest.order.footer")
+                Text("pullRequest.order.footer").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             }
         }
         .environment(\.editMode, .constant(.active))
@@ -173,7 +173,7 @@ struct PullRequestCardSheet: View {
 
     @ViewBuilder private var orderStatus: some View {
         if let notice = model.orderNotice {
-            Section { Text(verbatim: notice).font(.footnote.weight(.medium)) }
+            Section { Text(verbatim: notice).font(.yak(.footnote, .medium)) }
                 .accessibilityIdentifier("pullRequest.order.notice")
         }
         switch model.orderState {
@@ -181,7 +181,7 @@ struct PullRequestCardSheet: View {
             Section {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("list.slow").font(.footnote.weight(.medium))
+                    Text("list.slow").font(.yak(.footnote, .medium))
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -189,7 +189,7 @@ struct PullRequestCardSheet: View {
         case .failed(let message):
             Section {
                 HStack {
-                    Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                     Spacer(minLength: 8)
                     Button("common.retry") { Task { await model.retryOrder() } }
                         .accessibilityIdentifier("pullRequest.order.retry")
@@ -203,8 +203,8 @@ struct PullRequestCardSheet: View {
     private func bannerSection(_ banner: PullRequestBanner) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: banner.title).font(.subheadline.weight(.semibold))
-                Text(verbatim: banner.body).font(.footnote.weight(.medium))
+                Text(verbatim: banner.title).font(.yak(.subheadline, .semibold))
+                Text(verbatim: banner.body).font(.yak(.footnote, .medium))
             }
             .foregroundStyle(.primary)
             .listRowBackground(tint(banner.tone))
@@ -224,16 +224,17 @@ struct PullRequestCardSheet: View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(verbatim: row.title).font(.headline).fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: row.title).font(.yak(.headline)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
-                    Text(stateWord(row.state)).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(stateWord(row.state)).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                 }
-                Text(checksLine(row.checks)).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(checksLine(row.checks)).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                 if case .failing(_, _, let excerpt?) = row.checks {
-                    Text(verbatim: excerpt).font(.footnote.monospaced()).fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: excerpt).font(.yak(.footnote, isMonospaced: true)).fixedSize(
+                        horizontal: false, vertical: true)
                 }
                 if let waitsFor = row.waitsFor {
-                    Text(verbatim: waitsFor).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(verbatim: waitsFor).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -255,7 +256,7 @@ struct PullRequestCardSheet: View {
         if state == .sending || state == .sent {
             HStack {
                 if state == .sending { ProgressView() }
-                Text(state == .sent ? "pullRequest.fix.sent" : "pullRequest.fix").font(.body.weight(.medium))
+                Text(state == .sent ? "pullRequest.fix.sent" : "pullRequest.fix").font(.yak(.body, .medium))
                     .foregroundStyle(Color.yakMuted).frame(minHeight: 44)
             }
             .accessibilityElement(children: .combine).accessibilityIdentifier("pullRequest.askToFix.\(id)")
@@ -268,7 +269,7 @@ struct PullRequestCardSheet: View {
             .foregroundStyle(.primary).accessibilityIdentifier("pullRequest.askToFix.\(id)")
         }
         if case .failed(let message)? = state {
-            Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+            Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                 .accessibilityIdentifier("pullRequest.fix.error.\(id)")
         }
     }

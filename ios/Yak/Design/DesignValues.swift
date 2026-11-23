@@ -49,14 +49,19 @@ enum Design {
     enum Radius {
         static let small: CGFloat = 8
         static let code: CGFloat = 6
-        static let key: CGFloat = 14
-        static let card: CGFloat = 14
+        /// A button and a field: `--radius-control`.
+        static let control: CGFloat = 6
+        /// A badge or a strip: `--radius-chip`.
+        static let chip: CGFloat = 5
+        static let key: CGFloat = 6
+        /// A card and the composer: `--radius-card`.
+        static let card: CGFloat = 8
         /// A code block and a table in the chat.
         static let block: CGFloat = 10
-        static let row: CGFloat = 18
-        static let group: CGFloat = 20
+        static let row: CGFloat = 6
+        static let group: CGFloat = 8
         static let question: CGFloat = 26
-        static let bar: CGFloat = 30
+        static let bar: CGFloat = 8
         static let bubble: CGFloat = 22
         static let bubbleTail: CGFloat = 8
         /// The pane's own corners in a layout with two panes.
@@ -90,7 +95,7 @@ enum Design {
         /// The widest a person's message bubble grows.
         static let bubbleMaximumWidth: CGFloat = 300
         /// The drawer's search field and new thread button.
-        static let bar: CGFloat = 52
+        static let bar: CGFloat = 44
         static let key: CGFloat = 44
         static let chip: CGFloat = 36
         /// The drawer's filter chip when it shows its name.
@@ -103,7 +108,7 @@ enum Design {
         static let paneItemWidth: CGFloat = 50
         static let paneItemHeight: CGFloat = 50
         static let smallChip: CGFloat = 32
-        static let row: CGFloat = 60
+        static let row: CGFloat = 52
         static let listRow: CGFloat = 50
         static let option: CGFloat = 52
         static let statusColumn: CGFloat = 20
@@ -152,46 +157,65 @@ extension Color {
 
     /// The page: `--bg`.
     static let yakBackground = board(dark: 0x0F1011, light: 0xFBFBFC)
-    /// Grouped rows and panels: `--card`.
-    static let yakCard = board(dark: 0x1B1C1F, light: 0xFFFFFF)
-    /// Message bubbles and chips on a card: `--bub`.
-    static let yakBubble = board(dark: 0x26272B, light: 0xECEEF1)
-    /// The bars and the question card, opaque: `--gl` laid over the page.
-    static let yakBar = board(dark: 0x1F2024, light: 0xFFFFFF)
-    /// The hairline around a bar: `--gb`.
-    static let yakBarBorder = board(
-        dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.14, lightAlpha: 0.08,
-        highContrast: BoardContrast(darkAlpha: 0.45, lightAlpha: 0.4))
-    /// A quiet control's fill, opaque: `--fill` laid over the page, so text on it keeps its contrast.
+    /// The drawer's surface: `--sidebar`.
+    static let yakSidebar = board(dark: 0x141517, light: 0xF5F6F8)
+    /// Grouped rows, panels and fields: `--panel`.
+    static let yakCard = board(dark: 0x171819, light: 0xFFFFFF)
+    /// Message bubbles, chips and the quiet fill of a control on a panel: `--panel-2`.
+    static let yakBubble = board(
+        dark: 0x232427, light: 0xEEF0F2, highContrast: BoardContrast(dark: 0x3A3B3E, light: 0xDCDCDE))
+    /// The composer card and the sheets' bars, opaque: `--panel`.
+    static let yakBar = board(dark: 0x171819, light: 0xFFFFFF)
+    /// The line around a field, a card and a button: `--border-strong`.
+    static let yakBorderStrong = board(
+        dark: 0x303137, light: 0xE0E1E6, highContrast: BoardContrast(dark: 0x8A8D95, light: 0x6A6D75))
+    /// The border of a bar's chip: `--border-strong`.
+    static let yakBarBorder = yakBorderStrong
+    /// A quiet control's fill, opaque: `--panel-2`.
     static let yakFill = board(
-        dark: 0x262729, light: 0xEBEBEC, highContrast: BoardContrast(dark: 0x3A3B3E, light: 0xDCDCDE))
-    /// A pressed or selected control's fill, opaque: `--fill2` laid over the page.
+        dark: 0x232427, light: 0xEEF0F2, highContrast: BoardContrast(dark: 0x3A3B3E, light: 0xDCDCDE))
+    /// A pressed or selected control's fill, opaque: `--border-strong`'s tone, the web's pressed fill.
     static let yakFillStrong = board(
-        dark: 0x2D2E30, light: 0xE2E2E3, highContrast: BoardContrast(dark: 0x4A4B4E, light: 0xCBCBCD))
-    /// `--fill` laid over a bar, for a control inside the bar (the bar is lighter than the page in dark).
+        dark: 0x303137, light: 0xE0E1E6, highContrast: BoardContrast(dark: 0x4A4B4E, light: 0xCBCBCD))
+    /// A control inside the composer card: `--panel-2`.
     static let yakBarFill = board(
-        dark: 0x35363A, light: 0xF0F0F0, highContrast: BoardContrast(dark: 0x45464A, light: 0xDCDCDE))
-    /// `--fill2` laid over a bar, for a selected or pressed control inside the bar.
+        dark: 0x232427, light: 0xEEF0F2, highContrast: BoardContrast(dark: 0x45464A, light: 0xDCDCDE))
+    /// A selected or pressed control inside the composer card.
     static let yakBarFillStrong = board(
-        dark: 0x3E3F43, light: 0xE6E6E6, highContrast: BoardContrast(dark: 0x55565A, light: 0xCBCBCD))
-    /// The line between rows: `--line`.
+        dark: 0x303137, light: 0xE0E1E6, highContrast: BoardContrast(dark: 0x55565A, light: 0xCBCBCD))
+    /// The line between rows and under and above a bar: `--border`.
     static let yakLine = board(
-        dark: 0xFFFFFF, light: 0x000000, darkAlpha: 0.09, lightAlpha: 0.08,
-        highContrast: BoardContrast(darkAlpha: 0.35, lightAlpha: 0.35))
+        dark: 0x232428, light: 0xEBECEF, highContrast: BoardContrast(dark: 0x8A8D95, light: 0x6A6D75))
+    /// The selected row: `--brand-soft`.
+    static let yakSelection = board(
+        dark: 0x7F9CB4, light: 0x4A6580, darkAlpha: 0.16, lightAlpha: 0.12,
+        highContrast: BoardContrast(darkAlpha: 0.3, lightAlpha: 0.22))
     /// The terminal's page: `--term`.
     static let yakTerminal = Color(red: 8 / 255, green: 9 / 255, blue: 10 / 255)
     /// Text on the page: `--tx`.
-    static let yakText = board(dark: 0xF1F2F4, light: 0x1C1D21)
-    /// The accent as a fill: `--acc`.
+    static let yakText = board(dark: 0xE6E7EA, light: 0x282A30)
+    /// The accent as a fill: `--accent`.
     static let yakAccent = board(dark: 0xD58F71, light: 0xB45C35)
     /// Success and a running step: `--ok`.
     static let yakOK = board(dark: 0x6FBE68, light: 0x3E8E38)
-    /// Waiting and a warning: `--wn` in dark; in light a darker orange, so it reads as text on a light surface.
-    static let yakWarning = board(dark: 0xE8985A, light: 0x9E5400)
+    /// Warning text: `--warn` in dark; in light a darker orange, because the web's `#D97A22` is under 4.5 to 1 as text.
+    static let yakWarning = board(
+        dark: 0xE8985A, light: 0x9E5400, highContrast: BoardContrast(dark: 0xFFB27A, light: 0x6E3A00))
+    /// A thread waiting for an answer, as a dot: `--warn`.
+    static let yakWarningDot = board(dark: 0xE8985A, light: 0xD97A22)
+    /// Blocked, as a dot: `--fail`.
+    static let yakFailure = board(dark: 0xE0655F, light: 0xC93F3B)
     /// A step that has news: `--info`.
     static let yakInfo = board(dark: 0x6FA6D8, light: 0x3D7CB8)
-    /// Icons of the drawer's two shortcuts: `--slate`.
-    static let yakSlate = board(dark: 0x7F9CB4, light: 0x4A6580)
+    /// Running, a selected row's tone and the shortcut icons: `--brand`.
+    static let yakSlate = board(
+        dark: 0x7F9CB4, light: 0x4A6580, highContrast: BoardContrast(dark: 0xB8CFE3, light: 0x2F4A66))
+    /// The soft shadow under a card: `--shadow-card`.
+    static let yakShadow = board(dark: 0x000000, light: 0x282A30, darkAlpha: 0.45, lightAlpha: 0.10)
+    /// The faintest text color, for marks that are not text: `--text-3`.
+    static let yakFaint = board(dark: 0x62666E, light: 0x9598A1)
+    /// Text on the accent: `--accent-ink`.
+    static let yakAccentInk = board(dark: 0x101014, light: 0xFFFFFF)
 }
 
 /// The colors of the cards, pills and chips that show the work of a thread, from the work boards.
@@ -205,7 +229,8 @@ extension Color {
     static let yakCardButton = board(dark: 0x3A3A3C, light: 0xE5E5EA)
     static let yakCardPrimary = board(dark: 0xFFFFFF, light: 0x1C1C1E)
     static let yakCardPrimaryText = board(dark: 0x000000, light: 0xFFFFFF)
-    static let yakCardDangerText = board(dark: 0xFF8A80, light: 0xA0201A)
+    static let yakCardDangerText = board(
+        dark: 0xFF8A80, light: 0xA0201A, highContrast: BoardContrast(dark: 0xFFC2BA, light: 0x8A1812))
     static let yakCardSeparator = board(dark: 0x3A3A3C, light: 0xD1D1D6)
     static let yakCardSecondaryText = board(dark: 0xD1D1D6, light: 0x3A3A3C)
     static let yakPillNeutral = board(dark: 0x2C2C2E, light: 0xE5E5EA)
@@ -222,20 +247,87 @@ extension Color {
     static let yakDotNeutral = board(dark: 0x8E8E93, light: 0x8E8E93)
 }
 
-/// The boards' text styles. Each one is a system text style, so it follows Dynamic Type.
+/// The type scale of the web theme: IBM Plex Sans and IBM Plex Mono, bundled with the app. Every style takes the point
+/// size of the system text style it stands for at the default size and scales with it, so Dynamic Type works. Views
+/// pick a text style and a weight; none names a font file.
 extension Font {
-    /// Titles in the top row: 15 pt semibold.
-    static let yakBarTitle = Font.subheadline.weight(.semibold)
-    /// Row title: 17 pt medium.
-    static let yakRowTitle = Font.body.weight(.medium)
-    /// Row detail and the time: 14 pt.
-    static let yakRowDetail = Font.footnote.weight(.medium)
-    /// A group's heading: 14 pt semibold.
-    static let yakGroupHeading = Font.footnote.weight(.semibold)
-    /// A chip and a terminal key: 14 pt semibold or medium.
-    static let yakChip = Font.footnote.weight(.semibold)
+    /// The point sizes of the system text styles at the default content size.
+    static func yakPointSize(of style: Font.TextStyle) -> CGFloat { baseSize(of: style) }
+
+    private static func baseSize(of style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 34
+        case .title: 28
+        case .title2: 22
+        case .title3: 20
+        case .headline, .body: 17
+        case .callout: 16
+        case .subheadline: 15
+        case .footnote: 13
+        case .caption: 12
+        case .caption2: 11
+        @unknown default: 17
+        }
+    }
+
+    /// Whether Bold Text is on. Turning it on restarts the phone, so the answer holds for the life of the app; the
+    /// launch argument `-yakTestBoldText YES` shows it in a test, which a simulator cannot be told to do.
+    static let yakIsBoldText: Bool = {
+        #if DEBUG
+            if UserDefaults.standard.bool(forKey: "yakTestBoldText") { return true }
+        #endif
+        if Thread.isMainThread { return MainActor.assumeIsolated { UIAccessibility.isBoldTextEnabled } }
+        return DispatchQueue.main.sync { MainActor.assumeIsolated { UIAccessibility.isBoldTextEnabled } }
+    }()
+
+    /// The face for a weight: regular, medium, or semibold for anything heavier, in sans and in mono. With Bold Text
+    /// each weight is one step heavier, and the bold face is bundled for the top step. The italics are bundled too; the
+    /// system finds them from the family when emphasis asks for the italic trait.
+    static func yakFaceName(weight: Font.Weight, isMonospaced: Bool, isBoldText: Bool = false) -> String {
+        let prefix = isMonospaced ? "IBMPlexMono" : "IBMPlexSans"
+        let rank: Int
+        switch weight {
+        case .ultraLight, .thin, .light, .regular: rank = 0
+        case .medium: rank = 1
+        default: rank = 2
+        }
+        switch rank + (isBoldText ? 1 : 0) {
+        case 0: return prefix
+        case 1: return prefix + "-Medm"
+        case 2: return prefix + "-SmBld"
+        default: return isMonospaced ? prefix + "-SmBld" : prefix + "-Bold"
+        }
+    }
+
+    /// A text style in Plex, scaling with Dynamic Type.
+    static func yak(_ style: Font.TextStyle, _ weight: Font.Weight? = nil, isMonospaced: Bool = false) -> Font {
+        // The system's headline is semibold; so is this one unless a weight is given.
+        let weight = weight ?? (style == .headline ? .semibold : .regular)
+        return .custom(
+            yakFaceName(weight: weight, isMonospaced: isMonospaced, isBoldText: yakIsBoldText),
+            size: baseSize(of: style), relativeTo: style)
+    }
+
+    /// Titles in the header: 15 pt semibold.
+    static let yakBarTitle = Font.yak(.subheadline, .semibold)
+    /// Row title: 15 pt, regular; an unread row is semibold.
+    static let yakRowTitle = Font.yak(.subheadline)
+    /// Row detail and the time: 13 pt.
+    static let yakRowDetail = Font.yak(.footnote)
+    /// A group's heading: 13 pt semibold.
+    static let yakGroupHeading = Font.yak(.footnote, .semibold)
+    /// A chip and a terminal key: 13 pt medium.
+    static let yakChip = Font.yak(.footnote, .medium)
     /// The terminal: 13 pt monospaced.
-    static let yakTerminal = Font.system(.footnote, design: .monospaced)
+    static let yakTerminal = Font.yak(.footnote, isMonospaced: true)
+    /// The message field: 16 pt.
+    static let yakField = Font.yak(.callout)
+}
+
+extension View {
+    /// The app's default text: Plex at the body size. The root and the root of every cover that is not presented from
+    /// inside it use this one modifier.
+    func yakRootFont() -> some View { font(.yak(.body)) }
 }
 
 extension EnvironmentValues {
@@ -259,15 +351,15 @@ extension ShapeStyle where Self == PageStyle {
 }
 
 extension View {
-    /// A card's background with a hairline around it, so a card on a page of its own color keeps its edge.
+    /// A card's background with a line around it, so a card on a page of its own color keeps its edge.
     func yakCardSurface<S: InsettableShape>(in shape: S) -> some View {
         background(Color.yakCard, in: shape).overlay(
-            shape.strokeBorder(Color.yakLine, lineWidth: Design.Space.hairline))
+            shape.strokeBorder(Color.yakLine, lineWidth: Design.Space.line))
     }
 
     /// A bar's surface and hairline on a chip that floats above the bar.
     func yakBarSurface<S: InsettableShape>(in shape: S) -> some View {
         background(Color.yakBar, in: shape).overlay(
-            shape.strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+            shape.strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.line))
     }
 }

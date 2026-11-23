@@ -7,7 +7,7 @@ struct OpenPullRequestButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
+            .font(.yak(.subheadline, .semibold))
             .foregroundStyle(isEnabled ? Color.yakOnRust : Color.yakMuted)
             .padding(.horizontal, 14).frame(minHeight: 44)
             .background(isEnabled ? Color.yakRust : Color(.systemGray5), in: .capsule)
@@ -29,7 +29,7 @@ struct OpenPullRequestButton: View {
                     .padding(.horizontal, 14).frame(minHeight: 44)
                     .background(Color(.systemGray5), in: .capsule)
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            .font(.yak(.subheadline, .semibold)).foregroundStyle(.primary)
             .accessibilityLabel(Text("files.open.number.label \(number)"))
             .accessibilityIdentifier("files.openPullRequest")
         case .held:
@@ -64,7 +64,7 @@ struct OpenPullRequestButton: View {
     }
 
     private func neutral(_ title: LocalizedStringKey) -> some View {
-        Text(title).font(.subheadline.weight(.semibold)).padding(.horizontal, 14).frame(minHeight: 44)
+        Text(title).font(.yak(.subheadline, .semibold)).padding(.horizontal, 14).frame(minHeight: 44)
             .background(Color(.systemGray5), in: .capsule).opacity(0.6)
             .accessibilityIdentifier("files.openPullRequest")
     }

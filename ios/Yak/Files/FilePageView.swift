@@ -51,20 +51,20 @@ struct FilePageView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(verbatim: name).font(.title3.monospaced().weight(.semibold))
+                Text(verbatim: name).font(.yak(.title3, .semibold, isMonospaced: true))
                     .fixedSize(horizontal: false, vertical: true).accessibilityLabel(Text("files.file.label \(name)"))
                     .accessibilityAddTraits(.isHeader).accessibilityIdentifier("files.file.title")
                 Spacer(minLength: 8)
                 counts
             }
-            Text(verbatim: folder).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text(verbatim: folder).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
             if let old = file.oldPath, file.status == .renamed {
-                Text("files.renamedFrom \(old)").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("files.renamedFrom \(old)").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if isThrowaway {
-                Text("files.notInPullRequest").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("files.notInPullRequest").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("files.notInPullRequest")
             }
             // Two actions that must not clip stack at accessibility text sizes, as the bar below does.
@@ -90,7 +90,7 @@ struct FilePageView: View {
                 } icon: {
                     Image(systemName: "pencil").accessibilityHidden(true)
                 }
-                .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+                .font(.yak(.footnote, .semibold)).frame(minHeight: 44)
             }
             .foregroundStyle(.primary).accessibilityIdentifier("files.page.edit")
         }
@@ -103,7 +103,7 @@ struct FilePageView: View {
             } icon: {
                 Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
             }
-            .font(.footnote.weight(.semibold)).frame(minHeight: 44)
+            .font(.yak(.footnote, .semibold)).frame(minHeight: 44)
         }
         .foregroundStyle(.primary)
         .accessibilityLabel(Text(isViewed ? "files.viewed.label.on" : "files.viewed.label.off"))
@@ -116,7 +116,7 @@ struct FilePageView: View {
                 Text(verbatim: "+\(additions)").foregroundStyle(Color.diffAdded)
                 Text(verbatim: "\u{2212}\(deletions)").foregroundStyle(Color.diffRemoved)
             }
-            .font(.footnote.monospacedDigit().weight(.semibold)).fixedSize()
+            .font(.yak(.footnote, .semibold)).fixedSize()
             .accessibilityElement(children: .combine).accessibilityLabel(
                 Text("files.counts.label \(additions) \(deletions)"))
         }
@@ -146,7 +146,7 @@ struct FilePageView: View {
             }
         case .failed(let problem):
             VStack(spacing: 10) {
-                ProblemCopy.message(problem, offline: "files.error.offline").font(.subheadline.weight(.medium))
+                ProblemCopy.message(problem, offline: "files.error.offline").font(.yak(.subheadline, .medium))
                     .multilineTextAlignment(.center)
                 RetryButton(identifier: "files.page.retry", action: retry)
             }
@@ -164,9 +164,9 @@ struct FilePageView: View {
         @ViewBuilder actions: () -> Actions
     ) -> some View {
         VStack(spacing: 10) {
-            Text(title).font(.headline).multilineTextAlignment(.center)
+            Text(title).font(.yak(.headline)).multilineTextAlignment(.center)
             if let detail {
-                Text(detail).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(detail).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                     .multilineTextAlignment(.center)
             }
             actions()

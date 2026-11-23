@@ -258,7 +258,7 @@ struct ChatView: View {
         VStack(spacing: 8) {
             if let line = thread.actionLine {
                 Text(line)
-                    .font(.subheadline).multilineTextAlignment(.center)
+                    .font(.yak(.subheadline)).multilineTextAlignment(.center)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(Color.yakCard, in: .rect(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
@@ -271,7 +271,7 @@ struct ChatView: View {
             if !isNearBottom {
                 Button(action: jumpToLatest) {
                     Label("chat.jumpToLatest", systemImage: "arrow.down")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.yak(.subheadline, .semibold))
                         .padding(.horizontal, 16).frame(minHeight: 44)
                         .background(Color.yakCard, in: .capsule)
                         .overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
@@ -310,7 +310,7 @@ private struct HistoryRow: View {
         Group {
             if state == .failed {
                 VStack(spacing: 8) {
-                    Text("chat.history.failed").font(.subheadline).foregroundStyle(Color.yakMuted)
+                    Text("chat.history.failed").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                         .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                     Button(action: retry) { Text("common.retry").fixedSize(horizontal: false, vertical: true) }
                         .buttonStyle(.bordered).tint(.primary).controlSize(.large)
@@ -319,7 +319,7 @@ private struct HistoryRow: View {
             } else {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small).accessibilityHidden(true)
-                    Text("chat.history.loading").font(.subheadline).foregroundStyle(Color.yakMuted)
+                    Text("chat.history.loading").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -334,8 +334,8 @@ private struct HistoryRow: View {
 private struct EmptyChat: View {
     var body: some View {
         VStack(spacing: 6) {
-            Text("chat.empty.title").font(.headline)
-            Text("chat.empty.body").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text("chat.empty.title").font(.yak(.headline))
+            Text("chat.empty.body").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
         }
         .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         .padding(24).frame(maxWidth: 420)

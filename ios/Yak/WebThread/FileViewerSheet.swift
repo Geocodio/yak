@@ -60,7 +60,7 @@ struct FileViewerSheet: View {
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .principal) {
                     Text(model.title ?? String(localized: "viewer.title.fallback"))
-                        .font(.headline).lineLimit(1).truncationMode(.middle)
+                        .font(.yak(.headline)).lineLimit(1).truncationMode(.middle)
                         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("fileViewer.title")
                 }
                 ToolbarItem(placement: .primaryAction) { menu }

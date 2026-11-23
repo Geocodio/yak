@@ -13,7 +13,9 @@ struct ThreadsButton: View {
                     if needsYouCount > 0 {
                         // The system strip of a folding phone drops a button with a text badge, so the badge is a plain dot.
                         // The label carries the count.
-                        Circle().fill(Color.red).frame(width: 10, height: 10).padding(6).accessibilityHidden(true)
+                        Circle().fill(Color.yakWarningDot).frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(Color.yakBackground, lineWidth: 2))
+                            .padding(5).accessibilityHidden(true)
                     }
                 }
                 .contentShape(.rect)

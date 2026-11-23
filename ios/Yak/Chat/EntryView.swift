@@ -29,7 +29,7 @@ private struct DayDivider: View {
             case .date(let date): Text(date, format: .dateTime.year().month(.abbreviated).day())
             }
         }
-        .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+        .font(.yak(.caption, .semibold)).foregroundStyle(Color.yakText)
         .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
         .frame(maxWidth: .infinity).padding(.top, 6)
         .accessibilityAddTraits(.isHeader)
@@ -43,7 +43,7 @@ private struct WaitingRowView: View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small).accessibilityHidden(true)
             Text(waiting.isQueued ? "chat.waiting.queued" : "chat.waiting.active")
-                .font(.subheadline).foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
+                .font(.yak(.subheadline)).foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("chat.waiting")
@@ -119,7 +119,7 @@ private struct PersonMessageView: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             if let otherName, message.via == nil {
-                Text(otherName).font(.caption).foregroundStyle(Color.yakMuted)
+                Text(otherName).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
             }
             if let via = message.via {
                 ViaCaption(
@@ -152,7 +152,7 @@ private struct PersonMessageView: View {
     private var pendingLine: some View {
         HStack(spacing: 0) {
             Text(isQueued ? "chat.message.sendsAfterTurn" : "chat.message.waitingToBeRead")
-                .font(.caption).foregroundStyle(Color.yakMuted)
+                .font(.yak(.caption)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
             if let uuid = message.uuid {
                 Menu {
@@ -204,7 +204,7 @@ private struct DeliveredView: View {
         VStack(alignment: .trailing, spacing: 4) {
             MessageBubble { Text(verbatim: String(delivery.text.prefix(displayedTextLimit))).textSelection(.enabled) }
             if delivery.status == .queued {
-                Text("chat.message.sendsAfterTurn").font(.caption).foregroundStyle(Color.yakMuted)
+                Text("chat.message.sendsAfterTurn").font(.yak(.caption)).foregroundStyle(Color.yakMuted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -221,8 +221,8 @@ struct AttachmentChip: View {
         HStack(spacing: 8) {
             Image(systemName: isImage ? "photo" : "doc").foregroundStyle(Color.yakMuted).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: title).font(.footnote.weight(.medium))
-                if !detail.isEmpty { Text(verbatim: detail).font(.caption2).foregroundStyle(Color.yakMuted) }
+                Text(verbatim: title).font(.yak(.footnote, .medium))
+                if !detail.isEmpty { Text(verbatim: detail).font(.yak(.caption2)).foregroundStyle(Color.yakMuted) }
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -257,7 +257,7 @@ struct EditQueuedSheet: View {
                     .accessibilityLabel("chat.message.editField")
                     .accessibilityIdentifier("message.edit.field")
                 if let problem {
-                    Text(problem).font(.subheadline).foregroundStyle(Color.yakDanger)
+                    Text(problem).font(.yak(.subheadline)).foregroundStyle(Color.yakDanger)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("message.edit.problem")
                 }
@@ -347,11 +347,11 @@ private struct ThinkingRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             DisclosureButton(isExpanded: expanded, toggle: { isExpanded = !expanded }) {
-                Text("chat.thinking").font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text("chat.thinking").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             }
             .accessibilityIdentifier("thinking.\(item.key)")
             if expanded, let text = item.text {
-                Text(verbatim: String(text.prefix(displayedTextLimit))).font(.subheadline).foregroundStyle(
+                Text(verbatim: String(text.prefix(displayedTextLimit))).font(.yak(.subheadline)).foregroundStyle(
                     Color.yakMuted
                 )
                 .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
@@ -371,16 +371,16 @@ private struct EditsRow: View {
         VStack(alignment: .leading, spacing: 6) {
             DisclosureButton(isExpanded: expanded, toggle: { isExpanded = !expanded }) {
                 InlineOrStacked {
-                    Text("chat.edits.summary \(item.files.count)").font(.subheadline.weight(.medium))
+                    Text("chat.edits.summary \(item.files.count)").font(.yak(.subheadline, .medium))
                     Text("chat.edits.counts \(item.added) \(item.removed)")
-                        .font(.subheadline).monospacedDigit().foregroundStyle(Color.yakMuted)
+                        .font(.yak(.subheadline)).monospacedDigit().foregroundStyle(Color.yakMuted)
                 }
             }
             .accessibilityIdentifier("edits.\(item.key)")
             if expanded {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(item.files, id: \.self) { path in
-                        Text(verbatim: path).font(.footnote.monospaced()).foregroundStyle(Color.yakMuted)
+                        Text(verbatim: path).font(.yak(.footnote, isMonospaced: true)).foregroundStyle(Color.yakMuted)
                             .textSelection(.enabled)
                             .accessibilityLabel(Text("chat.edits.file \(path)"))
                     }
@@ -412,7 +412,7 @@ struct DisclosureButton<Label: View>: View {
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: 8) {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.right").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0)).accessibilityHidden(true)
                 label.fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -432,9 +432,10 @@ private struct ResultView: View {
         if item.isError {
             VStack(alignment: .leading, spacing: 6) {
                 Label("chat.result.failed", systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                    .font(.yak(.subheadline, .semibold)).foregroundStyle(.primary)
                 if let text = item.text, !text.isEmpty {
-                    Text(verbatim: String(text.prefix(displayedTextLimit))).font(.subheadline).textSelection(.enabled)
+                    Text(verbatim: String(text.prefix(displayedTextLimit))).font(.yak(.subheadline)).textSelection(
+                        .enabled)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(14)

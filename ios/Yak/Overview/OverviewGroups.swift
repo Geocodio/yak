@@ -33,9 +33,9 @@ struct OverviewRow<Subtitle: View, Trailing: View>: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                title.font(isMonospaced ? .callout.monospaced() : .body)
+                title.font(isMonospaced ? .yak(.callout, isMonospaced: true) : .yak(.body))
                     .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
-                subtitle.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                subtitle.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -72,7 +72,7 @@ struct CopyButton: View {
                     Image(systemName: "doc.on.doc")
                 }
             }
-            .font(.subheadline.weight(.medium)).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
+            .font(.yak(.subheadline, .medium)).frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
         .buttonStyle(.plain).foregroundStyle(.primary)
         .accessibilityLabel(isCopied ? Text("overview.copied") : Text(label))
@@ -165,7 +165,7 @@ struct GroupNotice: View {
         -> some View
     {
         VStack(alignment: .leading, spacing: 10) {
-            text.font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            text.font(.yak(.subheadline)).fixedSize(horizontal: false, vertical: true)
             action()
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -282,7 +282,7 @@ struct LinksGroupView: View {
         if links.isEmpty, load == .ready {
             rows.append(
                 AnyView(
-                    Text("overview.links.empty").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("overview.links.empty").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16).accessibilityIdentifier("overview.links.empty")))
@@ -317,7 +317,7 @@ struct LinksGroupView: View {
                 OverviewRow(title: title, isMonospaced: false) {
                     subtitle
                 } trailing: {
-                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                    Image(systemName: "chevron.right").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
                         .accessibilityHidden(true)
                 }
                 .contentShape(.rect)
@@ -501,9 +501,9 @@ struct SetupOutputSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text(row.repo).font(.headline)
+                Text(row.repo).font(.yak(.headline))
                 if let error = row.error { Text(error).foregroundStyle(Color.yakWarning) }
-                Text(row.output ?? "").font(.callout.monospaced()).textSelection(.enabled)
+                Text(row.output ?? "").font(.yak(.callout, isMonospaced: true)).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("overview.setupOutput.text")
             }

@@ -58,7 +58,8 @@ struct DrawerView: View {
         } message: {
             Text("overview.drop.message")
         }
-        .background(Color.yakBackground)
+        .background(Color.yakSidebar)
+        .overlay(alignment: .trailing) { Rectangle().fill(Color.yakLine).frame(width: Design.Space.line) }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer")
         .onChange(of: scene.searchFocusRequest) { isSearchFocused = true }
@@ -104,7 +105,7 @@ struct DrawerView: View {
         Button(action: openSwitcher) {
             HStack(spacing: 6) {
                 instanceName
-                Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
+                Image(systemName: "chevron.up.chevron.down").font(.yak(.footnote, .semibold))
                     .foregroundStyle(Color.yakMuted)
             }
             .frame(minHeight: 44).contentShape(.rect)
@@ -117,7 +118,7 @@ struct DrawerView: View {
 
     private var accountButton: some View {
         Button(action: openAccount) {
-            Text(initials).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            Text(initials).font(.yak(.subheadline, .semibold)).foregroundStyle(.primary)
                 .lineLimit(1).fixedSize().dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 .padding(8).frame(minWidth: 36, minHeight: 36)
                 .background(Color.primary.opacity(0.1), in: .capsule)
@@ -137,15 +138,16 @@ struct DrawerView: View {
     @ViewBuilder private var instanceName: some View {
         let name = Text(instance.name).multilineTextAlignment(.leading)
         if dynamicTypeSize.isAccessibilitySize {
-            name.font(.title3.bold()).fixedSize(horizontal: false, vertical: true)
+            name.font(.yak(.headline, .semibold)).fixedSize(horizontal: false, vertical: true)
         } else {
-            name.font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.6).fixedSize(horizontal: false, vertical: true)
+            name.font(.yak(.headline, .semibold)).lineLimit(2).minimumScaleFactor(0.6).fixedSize(
+                horizontal: false, vertical: true)
         }
     }
 
     private func banner(_ name: String) -> some View {
         HStack {
-            Text("signedIn.signedInAs \(name)").font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            Text("signedIn.signedInAs \(name)").font(.yak(.subheadline)).fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button {
                 scene.justPairedUserName = nil
@@ -166,14 +168,20 @@ struct DrawerView: View {
         Button {
             setObservationsOpen(true)
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "eye").font(.body.weight(.semibold)).accessibilityHidden(true)
-                Text("drawer.tile.observations").font(.subheadline.weight(.medium))
+            // At accessibility sizes the icon sits above the name, which then keeps its whole width.
+            let layout =
+                dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
+            layout {
+                Image(systemName: "eye").font(.system(.body, weight: .light)).accessibilityHidden(true)
+                Text("drawer.tile.observations").font(.yak(.subheadline, .medium))
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))
-            .contentShape(.rect(cornerRadius: Design.Radius.row))
+            .yakCardSurface(in: .rect(cornerRadius: Design.Radius.card))
+            .contentShape(.rect(cornerRadius: Design.Radius.card))
         }
         .buttonStyle(.pressable)
         .accessibilityIdentifier("drawer.tile.observations")
@@ -223,8 +231,7 @@ struct DrawerView: View {
                                 .transition(.opacity)
                         }
                     } header: {
-                        Text(title(of: section.kind)).font(.subheadline.weight(.semibold))
-                            .foregroundStyle(section.kind == .needsYou ? Color.yakAction : Color.yakMuted)
+                        sectionHeading(section)
                             .textCase(nil)
                             .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 12 : 20)
                             .padding(.top, 6)
@@ -257,7 +264,7 @@ struct DrawerView: View {
             .contextMenu {
                 if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
             } preview: {
-                DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false)
+                DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false, showsEverything: true)
                     .frame(minWidth: 280)
                     .onAppear { if isSubThread { drawer.menuOpening(row) } }
             }
@@ -347,7 +354,7 @@ struct DrawerView: View {
     /// The server's sentence about a refused action, above the bottom controls.
     @ViewBuilder private func actionLine(_ drawer: DrawerModel?) -> some View {
         if let line = drawer?.actionLine {
-            Text(line).font(.footnote.weight(.medium)).foregroundStyle(.primary)
+            Text(line).font(.yak(.footnote, .medium)).foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20).padding(.vertical, 10)
@@ -355,6 +362,21 @@ struct DrawerView: View {
                 .accessibilityIdentifier("drawer.actionLine")
                 .transition(.opacity)
         }
+    }
+
+    /// A section's name in the quiet color, with a count in a pill for the threads that need the person.
+    private func sectionHeading(_ section: DrawerSection) -> some View {
+        HStack(spacing: Design.Space.compact) {
+            Text(title(of: section.kind)).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
+            if section.kind == .needsYou {
+                Text(section.rows.count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(
+                    Color.yakMuted
+                )
+                .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
+                .background(Color.yakBubble, in: .capsule)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func title(of kind: DrawerSection.Kind) -> LocalizedStringKey {
@@ -388,7 +410,7 @@ struct DrawerView: View {
 
     private func notice(_ text: Text, systemImage: String) -> some View {
         Label {
-            text.font(.footnote.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+            text.font(.yak(.footnote, .medium)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: systemImage).accessibilityHidden(true)
         }
@@ -472,12 +494,13 @@ struct DrawerView: View {
         let showsIcon = !isCompact && !dynamicTypeSize.isAccessibilitySize
         let message = VStack(spacing: 8) {
             if showsIcon {
-                Image(systemName: systemImage).font(.largeTitle).foregroundStyle(Color.yakMuted)
+                Image(systemName: systemImage).font(.yak(.largeTitle)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true).padding(.bottom, 4)
             }
-            title.font(isCompact ? .subheadline.weight(.semibold) : .headline).multilineTextAlignment(.center)
+            title.font(isCompact ? .yak(.subheadline, .semibold) : .yak(.headline, .semibold)).multilineTextAlignment(
+                .center)
             if let detail {
-                detail.font(isCompact ? .footnote : .subheadline).foregroundStyle(Color.yakMuted)
+                detail.font(isCompact ? .yak(.footnote) : .yak(.subheadline)).foregroundStyle(Color.yakMuted)
                     .multilineTextAlignment(.center)
             }
         }
@@ -526,7 +549,7 @@ struct DrawerView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
         return layout {
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.body).foregroundStyle(Color.yakMuted)
+                Image(systemName: "magnifyingglass").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
                 TextField(
                     "drawer.search", text: searchBinding, prompt: Text("drawer.search").foregroundStyle(Color.yakMuted)
@@ -549,27 +572,30 @@ struct DrawerView: View {
                 }
                 if !isOneRow { filterMenu(showsName: true) }
             }
-            .padding(.leading, Design.Space.rowInset).padding(.trailing, Design.Space.small)
+            .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.tight)
             .frame(minHeight: Design.Size.bar)
-            .background(Color.yakBar, in: .capsule)
-            .overlay(Capsule().stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.control)
+                    .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line))
             HStack(spacing: 8) {
                 if isOneRow { filterMenu(showsName: false) }
                 Button {
                     scene.openNewThread(repo: nil, text: nil)
                 } label: {
-                    Image(systemName: "square.and.pencil").font(.body.weight(.semibold))
-                        .foregroundStyle(Color.yakOnRust)
+                    Image(systemName: "square.and.pencil").font(.yak(.body, .semibold))
+                        .foregroundStyle(Color.yakAccentInk)
                         .frame(minWidth: Design.Size.bar, minHeight: Design.Size.bar)
-                        .background(Color.yakRust, in: .circle)
-                        .contentShape(.circle)
+                        .background(Color.yakAccent, in: .rect(cornerRadius: Design.Radius.control))
+                        .contentShape(.rect(cornerRadius: Design.Radius.control))
                 }
                 .accessibilityLabel("shell.startThread")
                 .accessibilityIdentifier("drawer.newThread")
             }
         }
-        .padding(.horizontal, Design.Space.barInset).padding(.vertical, Design.Space.compact)
-        .background(Color.yakBackground)
+        .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.snug)
+        .background(Color.yakSidebar)
+        .overlay(alignment: .top) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
     }
 
     private var searchBinding: Binding<String> {
@@ -587,18 +613,18 @@ struct DrawerView: View {
         } label: {
             HStack(spacing: 4) {
                 if showsName {
-                    Text(name(of: filter)).font(.subheadline.weight(.semibold))
+                    Text(name(of: filter)).font(.yak(.footnote, .medium))
                 } else {
-                    Image(systemName: icon(of: filter)).font(.body.weight(.semibold))
+                    Image(systemName: icon(of: filter)).font(.yak(.body, .semibold))
                 }
-                Image(systemName: "chevron.down").font(.caption2.weight(.bold)).accessibilityHidden(true)
+                Image(systemName: "chevron.down").font(.yak(.caption2, .bold)).accessibilityHidden(true)
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, Design.Space.medium).frame(
                 minHeight: showsName ? Design.Size.filterChip : Design.Size.control
             )
-            .background(Color.yakFill, in: .capsule)
-            .contentShape(.capsule)
+            .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.control))
+            .contentShape(.rect(cornerRadius: Design.Radius.control))
         }
         .tint(.primary)
         .accessibilityLabel(label(of: filter))
@@ -669,7 +695,7 @@ private struct DrawerLoading: View {
         VStack(alignment: .leading, spacing: 18) {
             if isSlow || hasWaitedLong {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("drawer.slow").font(.footnote).foregroundStyle(Color.yakMuted)
+                    Text("drawer.slow").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(action: retry) { Text("common.retry") }.buttonStyle(SecondaryButtonStyle())
                         .accessibilityIdentifier("drawer.retry")

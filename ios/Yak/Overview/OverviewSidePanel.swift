@@ -23,19 +23,19 @@ struct OverviewPanelHeader: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("pane.overview").font(.headline)
+                Text("pane.overview").font(.yak(.headline))
                 HStack(spacing: 6) {
                     Circle().fill(dotColor).frame(width: 8, height: 8).accessibilityHidden(true)
-                    activity.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    activity.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
                 if let started = PeopleGroupView(people: content.people, now: Date()).startedByText {
-                    started.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    started.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine).accessibilityAddTraits(.isHeader)
             Button(action: close) {
-                Image(systemName: "xmark").font(.body.weight(.semibold)).frame(width: 44, height: 44)
+                Image(systemName: "xmark").font(.yak(.body, .semibold)).frame(width: 44, height: 44)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain).foregroundStyle(.primary)

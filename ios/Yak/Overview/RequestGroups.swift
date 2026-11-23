@@ -30,7 +30,7 @@ struct RequestGroupView: View {
         OverviewRow(title: Text(title)) {
             EmptyView()
         } trailing: {
-            value().font(.body).multilineTextAlignment(.trailing)
+            value().font(.yak(.body)).multilineTextAlignment(.trailing)
         }
     }
 

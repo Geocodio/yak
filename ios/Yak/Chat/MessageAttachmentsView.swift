@@ -32,7 +32,7 @@ struct MessageAttachmentsView: View {
                     .accessibilityIdentifier("message.\(messageKey).attachment.\(row.id)")
             }
             if hiddenCount > 0 {
-                Text("chat.attachments.more \(hiddenCount)").font(.footnote).foregroundStyle(Color.yakMuted)
+                Text("chat.attachments.more \(hiddenCount)").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             }
         }
         .padding(.top, 2)
@@ -68,7 +68,7 @@ private struct AttachmentTile: View {
             ZStack(alignment: .bottomLeading) {
                 content
                 if let reference = row.reference {
-                    Text(verbatim: reference).font(.caption2.weight(.medium)).padding(.horizontal, 8).padding(
+                    Text(verbatim: reference).font(.yak(.caption2, .medium)).padding(.horizontal, 8).padding(
                         .vertical, 3
                     )
                     .background(Color.yakBackground, in: .capsule).padding(6)
@@ -115,14 +115,14 @@ private struct AttachmentTile: View {
 
     private func placeholder(symbol: String, text: LocalizedStringKey?) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: symbol).font(.title2).accessibilityHidden(true)
-            if let text { Text(text).font(.caption) }
+            Image(systemName: symbol).font(.yak(.title2)).accessibilityHidden(true)
+            if let text { Text(text).font(.yak(.caption)) }
         }
         .foregroundStyle(Color.yakMuted).frame(width: side, height: side).background(Color.yakFill)
     }
 
     private var unavailable: some View {
-        Text("chat.attachment.webOnly").font(.caption2).foregroundStyle(Color.yakMuted).padding(8)
+        Text("chat.attachment.webOnly").font(.yak(.caption2)).foregroundStyle(Color.yakMuted).padding(8)
             .frame(width: side, height: side).background(Color.yakFill)
     }
 
@@ -195,22 +195,22 @@ private struct AttachmentFileRow: View {
                 HStack(spacing: 10) {
                     Image(systemName: "doc").foregroundStyle(Color.yakMuted).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: row.title).font(.body).lineLimit(1).truncationMode(.middle)
+                        Text(verbatim: row.title).font(.yak(.body)).lineLimit(1).truncationMode(.middle)
                         if row.openURL == nil {
-                            Text("chat.attachment.webOnly").font(.footnote).foregroundStyle(Color.yakMuted)
+                            Text("chat.attachment.webOnly").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                         } else {
-                            Text(verbatim: row.detail).font(.footnote).foregroundStyle(Color.yakMuted)
+                            Text(verbatim: row.detail).font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                         }
                     }
                     Spacer(minLength: 0)
                     if isOpening {
                         ProgressView()
                     } else if row.openURL != nil {
-                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(Color.yakMuted)
+                        Image(systemName: "chevron.right").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                             .accessibilityHidden(true)
                     }
                 }
-                if failed { Text("chat.attachment.failed").font(.footnote).foregroundStyle(Color.yakMuted) }
+                if failed { Text("chat.attachment.failed").font(.yak(.footnote)).foregroundStyle(Color.yakMuted) }
             }
             .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 52)
             .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.row))

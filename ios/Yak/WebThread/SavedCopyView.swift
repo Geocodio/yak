@@ -22,30 +22,24 @@ struct SavedCopyLine: View {
 
     var body: some View {
         let stamp = SavedCopyStamp.text(for: savedAt)
-        VStack(alignment: .leading, spacing: Design.Space.tight) {
-            text(stamp: stamp).font(.footnote.weight(.medium)).foregroundStyle(Color.yakText)
-                .fixedSize(horizontal: false, vertical: true)
+        InsetStrip(lead: lead, detail: String(localized: "web.copy.line.detail \(stamp)")) {
             if state == .failed {
                 Button(action: retry) { Text("common.retry").fixedSize(horizontal: false, vertical: true) }
-                    .font(.footnote.weight(.semibold)).foregroundStyle(Color.yakText).underline()
+                    .font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText).underline()
                     .frame(minHeight: Design.Size.control, alignment: .leading).contentShape(.rect)
                     .accessibilityIdentifier("thread.web.copyRetry")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Design.Space.pageInset).padding(.vertical, Design.Space.compact)
-        .background(Color.yakFill)
-        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("thread.web.copyLine")
         .id(stamp)
     }
 
-    private func text(stamp: String) -> Text {
+    private var lead: String {
         switch state {
-        case .offline: Text("web.copy.line.offline \(stamp)")
-        case .reconnecting: Text("web.copy.line.reconnecting \(stamp)")
-        case .slow: Text("web.copy.line.slow \(stamp)")
-        case .failed: Text("web.copy.line.failed \(stamp)")
+        case .offline: String(localized: "web.copy.line.offline.lead")
+        case .reconnecting: String(localized: "web.copy.line.reconnecting.lead")
+        case .slow: String(localized: "web.copy.line.slow.lead")
+        case .failed: String(localized: "web.copy.line.failed.lead")
         }
     }
 }

@@ -40,8 +40,8 @@ struct ThreadCardHost: View {
 
     private func repositoryQuestion(_ question: RepositoryQuestion, canAnswer: Bool) -> some View {
         CardContainer(kind: "repository_question", tone: .neutral, paneHeight: paneHeight) {
-            Text(verbatim: question.prompt).font(.headline).accessibilityAddTraits(.isHeader)
-            Text("thread.card.repository.body").font(.subheadline)
+            Text(verbatim: question.prompt).font(.yak(.headline)).accessibilityAddTraits(.isHeader)
+            Text("thread.card.repository.body").font(.yak(.subheadline))
         } pinned: {
             VStack(spacing: Design.Space.compact) {
                 ForEach(question.options, id: \.self) { option in
@@ -49,7 +49,7 @@ struct ThreadCardHost: View {
                         Task { await cards.send(.answerRepository(repo: option)) }
                     } label: {
                         HStack(spacing: Design.Space.compact) {
-                            Text(verbatim: option).font(.body.weight(.medium)).multilineTextAlignment(.leading)
+                            Text(verbatim: option).font(.yak(.body, .medium)).multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
                             if cards.sending == .answerRepository(repo: option) { ProgressView() }
                         }
@@ -69,16 +69,16 @@ struct ThreadCardHost: View {
 
     private func earlyWarning(_ row: EarlyWarningRow, _ notice: EarlyWarningNotice) -> some View {
         CardContainer(kind: "early_warning", tone: .warn, paneHeight: paneHeight) {
-            Text("thread.card.early.title").font(.headline).accessibilityAddTraits(.isHeader)
-            Text("thread.card.early.body").font(.subheadline)
+            Text("thread.card.early.title").font(.yak(.headline)).accessibilityAddTraits(.isHeader)
+            Text("thread.card.early.body").font(.yak(.subheadline))
             if let first = notice.areas.first {
                 VStack(alignment: .leading, spacing: Design.Space.nudge) {
                     HStack(spacing: Design.Space.small) {
-                        Text(verbatim: first.name).font(.body)
+                        Text(verbatim: first.name).font(.yak(.body))
                         TonePill(text: Self.riskText(first.risk), tone: Self.riskTone(first.risk))
                     }
                     ForEach(Array(notice.areas.dropFirst().enumerated()), id: \.offset) { _, area in
-                        Text(verbatim: "\(area.name), \(Self.riskText(area.risk).lowercased())").font(.footnote)
+                        Text(verbatim: "\(area.name), \(Self.riskText(area.risk).lowercased())").font(.yak(.footnote))
                             .foregroundStyle(Color.yakCardSecondaryText)
                     }
                 }
@@ -103,7 +103,7 @@ struct ThreadCardHost: View {
                 }
                 .disabled(cards.isSending || cards.isOffline)
             case .asked(let name):
-                Text("task.asked \(name)").font(.subheadline.weight(.medium))
+                Text("task.asked \(name)").font(.yak(.subheadline, .medium))
                     .accessibilityIdentifier("thread.card.early.asked")
             case .none: EmptyView()
             }
@@ -150,13 +150,13 @@ struct ThreadCardHost: View {
                         checkAgain: { Task { await cards.checkAccess() } },
                         openFiles: openFiles, openWeb: openWeb, requestChanges: { isRequestingChanges = true })
                     if cards.isOffline, !decision.isNothingToDecide {
-                        Text("thread.card.offline.decide").font(.footnote.weight(.medium)).foregroundStyle(
+                        Text("thread.card.offline.decide").font(.yak(.footnote, .medium)).foregroundStyle(
                             Color.yakCardSecondaryText
                         )
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.offline")
                     }
                     if cards.isApprovalSlow {
-                        Text("thread.card.approveSlow").font(.footnote.weight(.medium)).foregroundStyle(
+                        Text("thread.card.approveSlow").font(.yak(.footnote, .medium)).foregroundStyle(
                             Color.yakCardSecondaryText
                         )
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.slow")
@@ -176,22 +176,22 @@ struct ThreadCardHost: View {
     {
         switch decision {
         case .waitingForOthers(let asked):
-            Text("thread.card.coOwner.waiting \(asked.formatted(.list(type: .and)))").font(.headline)
+            Text("thread.card.coOwner.waiting \(asked.formatted(.list(type: .and)))").font(.yak(.headline))
                 .accessibilityAddTraits(.isHeader)
-            Text("thread.card.coOwner.waitingBody").font(.subheadline)
+            Text("thread.card.coOwner.waitingBody").font(.yak(.subheadline))
         case .linkGitHub:
-            Text("thread.card.coOwner.linkTitle").font(.headline).accessibilityAddTraits(.isHeader)
-            Text("thread.card.coOwner.linkBody \(repo)").font(.subheadline)
+            Text("thread.card.coOwner.linkTitle").font(.yak(.headline)).accessibilityAddTraits(.isHeader)
+            Text("thread.card.coOwner.linkBody \(repo)").font(.yak(.subheadline))
         default:
-            Text("thread.card.coOwner.title").font(.headline).accessibilityAddTraits(.isHeader)
+            Text("thread.card.coOwner.title").font(.yak(.headline)).accessibilityAddTraits(.isHeader)
             switch decision {
             case .noWriteAccess:
-                Text("thread.card.coOwner.noAccess \(repo)").font(.subheadline)
+                Text("thread.card.coOwner.noAccess \(repo)").font(.yak(.subheadline))
                 VStack(alignment: .leading, spacing: Design.Space.nudge) {
                     if let login = panel.viewer.login {
-                        Text("thread.card.coOwner.linkedAs \(login)").font(.body)
+                        Text("thread.card.coOwner.linkedAs \(login)").font(.yak(.body))
                     }
-                    Text("thread.card.coOwner.askAdmin").font(.footnote.weight(.medium)).foregroundStyle(
+                    Text("thread.card.coOwner.askAdmin").font(.yak(.footnote, .medium)).foregroundStyle(
                         Color.yakCardSecondaryText)
                 }
                 .workBox()
@@ -200,14 +200,14 @@ struct ThreadCardHost: View {
                     verbatim: ([panel.holdReasons.joined(separator: " ")].filter { !$0.isEmpty }
                         + [askedLine(panel, decision)].compactMap { $0 }).joined(separator: " ")
                 )
-                .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                .font(.yak(.subheadline)).fixedSize(horizontal: false, vertical: true)
                 if !panel.filePaths.isEmpty {
                     let more = max(
                         (panel.stat?.files ?? panel.filePaths.count) - min(Self.shownFileCount, panel.filePaths.count),
                         0)
                     VStack(alignment: .leading, spacing: Design.Space.nudge) {
                         ForEach(panel.filePaths.prefix(Self.shownFileCount), id: \.self) { path in
-                            Text(verbatim: path).font(.footnote.monospaced())
+                            Text(verbatim: path).font(.yak(.footnote, isMonospaced: true))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         if more > 0 {
@@ -217,13 +217,13 @@ struct ThreadCardHost: View {
                     .workBox().accessibilityElement(children: .combine)
                 } else if let stat = panel.stat {
                     Text("thread.card.coOwner.files \(stat.files) \(stat.additions) \(stat.deletions)")
-                        .font(.footnote.monospaced())
+                        .font(.yak(.footnote, isMonospaced: true))
                         .workBox()
                 }
                 if case .accessCheckFailed = decision {
                     VStack(alignment: .leading, spacing: Design.Space.nudge) {
-                        Text("thread.card.coOwner.checkFailed").font(.subheadline.weight(.semibold))
-                        Text("thread.card.coOwner.checkFailedBody").font(.footnote.weight(.medium))
+                        Text("thread.card.coOwner.checkFailed").font(.yak(.subheadline, .semibold))
+                        Text("thread.card.coOwner.checkFailedBody").font(.yak(.footnote, .medium))
                             .foregroundStyle(Color.yakCardSecondaryText)
                     }
                     .workBox(fill: Tone.bad.surface)
@@ -233,7 +233,7 @@ struct ThreadCardHost: View {
     }
 
     @ViewBuilder private func moreFilesLink(_ more: Int) -> some View {
-        let label = Text("thread.card.coOwner.moreFiles \(more)").font(.subheadline.weight(.medium))
+        let label = Text("thread.card.coOwner.moreFiles \(more)").font(.yak(.subheadline, .medium))
             .fixedSize(horizontal: false, vertical: true)
         if let openFiles {
             Button(action: openFiles) { label.frame(minHeight: Design.Size.control, alignment: .leading) }
@@ -263,17 +263,17 @@ struct ThreadCardHost: View {
             }
         let hasButtons = canRetry || canSetUp || !moveTargets.isEmpty
         return CardContainer(kind: "stopped", tone: tone, paneHeight: paneHeight) {
-            Text(verbatim: stop.summary).font(.headline).accessibilityAddTraits(.isHeader)
+            Text(verbatim: stop.summary).font(.yak(.headline)).accessibilityAddTraits(.isHeader)
             if let detail = stop.detail, !detail.isEmpty {
                 DisclosureButton(isExpanded: isExpanded, toggle: { isExpanded.toggle() }) {
-                    Text("thread.card.stopped.details").font(.subheadline.weight(.medium))
+                    Text("thread.card.stopped.details").font(.yak(.subheadline, .medium))
                 }
                 .accessibilityIdentifier("thread.card.stopped.details")
                 if isExpanded {
-                    Text(verbatim: detail).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    Text(verbatim: detail).font(.yak(.subheadline)).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Text(verbatim: stop.nextStep).font(.subheadline.weight(.medium))
+            Text(verbatim: stop.nextStep).font(.yak(.subheadline, .medium))
                 .fixedSize(horizontal: false, vertical: true)
         } pinned: {
             if hasButtons {
@@ -309,7 +309,7 @@ struct ThreadCardHost: View {
             }
         } label: {
             buttonLabel("thread.card.stopped.moveElsewhere", isRunning: isMoving)
-                .font(.headline).foregroundStyle(.primary)
+                .font(.yak(.headline)).foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, minHeight: Design.Size.cardButton)
                 .background(Color.yakCardButton, in: .rect(cornerRadius: Design.Radius.key))
         }
@@ -334,20 +334,20 @@ struct ThreadCardHost: View {
     /// of the last action with a way to try again.
     @ViewBuilder private func footer(hasButtons: Bool) -> some View {
         if !canDrive {
-            Text("thread.card.reader").font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText)
+            Text("thread.card.reader").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakCardSecondaryText)
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.reader")
         } else if cards.isOffline, hasButtons, cards.state.coOwnerDecision == nil {
-            Text("thread.card.offline.other").font(.footnote.weight(.medium)).foregroundStyle(
+            Text("thread.card.offline.other").font(.yak(.footnote, .medium)).foregroundStyle(
                 Color.yakCardSecondaryText
             )
             .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.offline")
         }
         if cards.isAlreadyAnswered {
-            Text("thread.card.alreadyAnswered").font(.footnote.weight(.semibold))
+            Text("thread.card.alreadyAnswered").font(.yak(.footnote, .semibold))
                 .accessibilityIdentifier("thread.card.alreadyAnswered")
         }
         if cards.state.coOwnerDecision == nil, let message = cards.message {
-            Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+            Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                 .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("thread.card.message")
             if cards.canRetryAfterMessage {
                 Button {

@@ -29,7 +29,7 @@ struct InstanceSwitcher: View {
                     ForEach(instances) { instance in row(instance) }
                 } footer: {
                     if let failedName = switcher.failedName {
-                        Text("switcher.switchFailed \(failedName)").foregroundStyle(.primary)
+                        Text("switcher.switchFailed \(failedName)").font(.yak(.footnote)).foregroundStyle(.primary)
                             .accessibilityIdentifier("switcher.failed")
                     }
                 }
@@ -92,11 +92,11 @@ struct InstanceSwitcher: View {
             HStack(spacing: 12) {
                 InstanceTintTile(instance: instance)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(instance.name).font(.body).foregroundStyle(Color.primary)
+                    Text(instance.name).font(.yak(.body)).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(instance.url.host() ?? instance.url.absoluteString).font(.footnote.weight(.medium))
+                    Text(instance.url.host() ?? instance.url.absoluteString).font(.yak(.footnote, .medium))
                         .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
-                    Text(statusLine(instance)).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(statusLine(instance)).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)

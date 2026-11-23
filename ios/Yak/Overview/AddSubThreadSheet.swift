@@ -158,7 +158,7 @@ private struct AddSubThreadForm: View {
             .disabled(isLocked).accessibilityIdentifier("addSubThread.name")
             if model.draft.trimmedName.count >= 50 {
                 Text("addSubThread.name.count \(model.draft.trimmedName.count) \(SubThreadDraft.maximumNameLength)")
-                    .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
             error(for: "name", local: [.noName, .nameTooLong])
         }
@@ -167,7 +167,7 @@ private struct AddSubThreadForm: View {
 
     private var briefField: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("addSubThread.brief.label").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("addSubThread.brief.label").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             TextField(
                 "addSubThread.brief.label", text: $model.draft.brief, prompt: Text("addSubThread.brief.prompt"),
                 axis: .vertical
@@ -185,7 +185,7 @@ private struct AddSubThreadForm: View {
             ?? (touched.contains(field)
                 ? model.draft.problem.flatMap { local.contains($0) ? AddSubThreadModel.sentence(for: $0) : nil } : nil)
         if let sentence {
-            Text(sentence).font(.footnote.weight(.medium)).foregroundStyle(Color.yakWarning)
+            Text(sentence).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakWarning)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("addSubThread.\(field).error")
         }
@@ -209,7 +209,7 @@ private struct AddSubThreadForm: View {
                 kindOptions.pickerStyle(.segmented)
             }
             if model.draft.kind == .research {
-                Text("addSubThread.kind.researchNote").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("addSubThread.kind.researchNote").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             error(for: "kind", local: [])
@@ -239,7 +239,7 @@ private struct AddSubThreadForm: View {
                     Text(model.modelLabel ?? String(localized: "addSubThread.model.same")).foregroundStyle(
                         Color.yakMuted)
                 }
-                Image(systemName: "chevron.up.chevron.down").font(.footnote).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.up.chevron.down").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 44).contentShape(.rect)
@@ -251,7 +251,7 @@ private struct AddSubThreadForm: View {
         switch model.load {
         case .ready:
             if let account = model.parentAccountName {
-                Text("addSubThread.runsOn \(account)").font(.footnote.weight(.medium)).foregroundStyle(Color.primary)
+                Text("addSubThread.runsOn \(account)").font(.yak(.footnote, .medium)).foregroundStyle(Color.primary)
             }
         case .slow:
             HStack {
@@ -259,7 +259,7 @@ private struct AddSubThreadForm: View {
                 Button("common.retry") { Task { await model.retry() } }.accessibilityIdentifier("addSubThread.retry")
             }
         case .failed(.offline):
-            Text("addSubThread.offline").font(.footnote.weight(.medium)).foregroundStyle(Color.primary)
+            Text("addSubThread.offline").font(.yak(.footnote, .medium)).foregroundStyle(Color.primary)
                 .accessibilityIdentifier("addSubThread.offline")
         case .failed:
             HStack {
@@ -275,7 +275,7 @@ private struct AddSubThreadForm: View {
     }
 
     private func notice(_ text: String, identifier: String) -> some View {
-        Text(text).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakWarning)
+        Text(text).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakWarning)
             .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier(identifier)
     }

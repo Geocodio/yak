@@ -38,9 +38,9 @@ struct MoreOptionsSheet: View {
                 ExtraRepositoryRow(model: model, extra: extra)
             }
             if model.options == nil {
-                Text("newThread.more.notLoaded").font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text("newThread.more.notLoaded").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             } else if addable.isEmpty && model.form.extraRepositories.isEmpty {
-                Text("newThread.more.none").font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text("newThread.more.none").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             } else if !addable.isEmpty {
                 Menu {
                     ForEach(addable, id: \.slug) { repository in
@@ -54,9 +54,9 @@ struct MoreOptionsSheet: View {
                 .accessibilityIdentifier("newThread.more.add")
             }
         } header: {
-            Text("newThread.more.repositories")
+            Text("newThread.more.repositories").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
         } footer: {
-            Text("newThread.more.repositoriesFooter")
+            Text("newThread.more.repositoriesFooter").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
         }
     }
 
@@ -73,7 +73,7 @@ struct MoreOptionsSheet: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(verbatim: account.name)
                                 if !account.usable {
-                                    Text(verbatim: account.status).font(.footnote).foregroundStyle(Color.yakMuted)
+                                    Text(verbatim: account.status).font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                                 }
                             }
                             Spacer(minLength: 8)
@@ -88,7 +88,7 @@ struct MoreOptionsSheet: View {
                     .accessibilityAddTraits(account.id == model.form.accountID ? .isSelected : [])
                 }
             } header: {
-                Text("newThread.more.account")
+                Text("newThread.more.account").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             }
         }
     }
@@ -103,7 +103,7 @@ private struct ExtraRepositoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(verbatim: name).font(.body.weight(.medium)).lineLimit(2)
+                Text(verbatim: name).font(.yak(.body, .medium)).lineLimit(2)
                 if model.checkingAccess.contains(extra.repo) {
                     ProgressView().controlSize(.small).accessibilityLabel(Text("newThread.more.checking"))
                 }
@@ -124,12 +124,12 @@ private struct ExtraRepositoryRow: View {
             }
             if let access = model.access[extra.repo], !access.allowed {
                 Text(access.reason ?? String(localized: "newThread.more.refusedNoReason"))
-                    .font(.footnote).foregroundStyle(Color.yakDanger).fixedSize(horizontal: false, vertical: true)
+                    .font(.yak(.footnote)).foregroundStyle(Color.yakDanger).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("newThread.more.refused")
             } else if model.accessCheckFailed.contains(extra.repo) {
                 HStack {
-                    Text("newThread.more.checkFailed").font(.footnote).foregroundStyle(Color.yakMuted)
-                    Button("common.retry") { model.checkAccess(extra.repo) }.font(.footnote)
+                    Text("newThread.more.checkFailed").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+                    Button("common.retry") { model.checkAccess(extra.repo) }.font(.yak(.footnote))
                         .buttonStyle(.borderless)
                 }
             }

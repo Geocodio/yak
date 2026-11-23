@@ -36,13 +36,13 @@ struct StateMessage<Actions: View>: View {
         ScrollView {
             VStack(spacing: 10) {
                 if !dynamicTypeSize.isAccessibilitySize {
-                    Image(systemName: systemImage).font(.largeTitle).foregroundStyle(Color.yakMuted)
+                    Image(systemName: systemImage).font(.yak(.largeTitle)).foregroundStyle(Color.yakMuted)
                         .accessibilityHidden(true).padding(.bottom, 4)
                 }
-                title.font(.headline).multilineTextAlignment(.center)
+                title.font(.yak(.headline)).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail {
-                    detail.font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    detail.font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                         .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(spacing: 10) { actions }.padding(.top, 8)
@@ -121,7 +121,7 @@ struct NoticeLine: View {
 
     var body: some View {
         Label {
-            Text(text).font(.footnote.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+            Text(text).font(.yak(.footnote, .medium)).fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: systemImage).accessibilityHidden(true)
         }

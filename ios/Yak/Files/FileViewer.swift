@@ -33,7 +33,7 @@ struct FileViewer: View {
             VStack(spacing: 12) {
                 FileSkeletonRows(count: 12)
                 if isSlow {
-                    Text("files.slow").font(.body).foregroundStyle(Color.yakMuted)
+                    Text("files.slow").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                     Button("files.retry") { Task { await document.reload() } }.frame(minHeight: 44)
                         .accessibilityIdentifier("files.state.action")
                 }
@@ -47,7 +47,7 @@ struct FileViewer: View {
                     tokens: document.highlightedSource == content.content ? document.tokens : [],
                     wrapsLines: document.wrapsLines)
                 if document.colorsStop {
-                    Text("files.viewer.colorsStop").font(.footnote).foregroundStyle(Color.yakMuted)
+                    Text("files.viewer.colorsStop").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(12)
                 }
             }
@@ -88,8 +88,8 @@ struct FileHeader: View {
         let name = (path as NSString).lastPathComponent
         let folder = (path as NSString).deletingLastPathComponent
         VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: name).font(.headline.monospaced())
-            folderLine(folder).font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text(verbatim: name).font(.yak(.headline, isMonospaced: true))
+            folderLine(folder).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
@@ -118,12 +118,12 @@ struct FileLine: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            text.font(.subheadline.weight(.medium))
+            text.font(.yak(.subheadline, .medium))
             if !actions.isEmpty {
                 HStack(spacing: 16) {
                     ForEach(actions.indices, id: \.self) { index in
                         Button(actions[index].title, action: actions[index].run)
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).underline().frame(
+                            .font(.yak(.subheadline, .semibold)).foregroundStyle(Color.primary).underline().frame(
                                 minHeight: 44
                             ).contentShape(.rect)
                             .accessibilityIdentifier(actions[index].identifier)
@@ -131,8 +131,9 @@ struct FileLine: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 8)
-        .background(Color.primary.opacity(0.07))
+        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 8)
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.chip))
+        .padding(.horizontal, 12).padding(.top, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(identifier)
     }
@@ -148,7 +149,7 @@ struct FileViewerBarRow: View {
             Button {
                 Task { await model.closeFile() }
             } label: {
-                Label("files.viewer.back", systemImage: "chevron.left").font(.subheadline.weight(.semibold))
+                Label("files.viewer.back", systemImage: "chevron.left").font(.yak(.subheadline, .semibold))
                     .padding(.horizontal, 10).frame(minHeight: 44).contentShape(.rect)
             }
             .buttonStyle(.plain).accessibilityIdentifier("files.viewer.back")
@@ -157,7 +158,7 @@ struct FileViewerBarRow: View {
                 Button {
                     model.thread.files.requestedDiffPath = document.path
                 } label: {
-                    Text("files.viewer.diff").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                    Text("files.viewer.diff").font(.yak(.subheadline, .semibold)).foregroundStyle(Color.primary)
                         .underline()
                         .padding(.horizontal, 10)
                         .frame(minHeight: 44).contentShape(.rect)
@@ -168,7 +169,7 @@ struct FileViewerBarRow: View {
                 Button {
                     Task { _ = await document.edit() }
                 } label: {
-                    Text("files.viewer.edit").font(.subheadline.weight(.semibold)).padding(.horizontal, 16)
+                    Text("files.viewer.edit").font(.yak(.subheadline, .semibold)).padding(.horizontal, 16)
                         .frame(minHeight: 44).background(Color.primary.opacity(0.12), in: .capsule)
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("files.viewer.edit")

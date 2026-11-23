@@ -26,6 +26,7 @@ struct ThreadLayoutView: View {
     @State private var liveFraction: Double?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.webConversation) private var web
     /// The least height a stacked slot keeps: its marker and its bar.
     @ScaledMetric(relativeTo: .body) private var minimumSlotHeight: CGFloat = 150
 
@@ -88,7 +89,17 @@ struct ThreadLayoutView: View {
     private func layout(_ plan: SlotPlan) -> some View {
         let focused = paneInFocus(plan)
         return VStack(spacing: 0) {
-            if singlePlacement.hidesTitle, let line = thread.connectionLine { ConnectionBanner(line: line) }
+            // The saved page of the web conversation carries its own line.
+            if singlePlacement.hidesTitle,
+                let line = HeaderConnection.line(
+                    thread.connectionLine, isWebConversation: web?.mode == .web, chatIsVisible: focused == .chat,
+                    chatShowsOwnLine: web.map {
+                        ($0.savedCopy != nil && $0.savedCopyState != nil) || $0.showsOfflineLine
+                    }
+                        ?? false)
+            {
+                ConnectionBanner(line: line)
+            }
             ZStack {
                 PaneHost(
                     thread: thread, focused: focused, slots: model, pickCount: scene.panePickCount,

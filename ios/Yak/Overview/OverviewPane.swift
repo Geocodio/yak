@@ -115,7 +115,7 @@ private struct OverviewScroll: View {
                 Button {
                     isShareOpen = true
                 } label: {
-                    Label("thread.menu.share", systemImage: "person.2").font(.body.weight(.medium))
+                    Label("thread.menu.share", systemImage: "person.2").font(.yak(.body, .medium))
                         .frame(minHeight: 44).padding(.horizontal, 16)
                 }
                 .buttonStyle(.plain).foregroundStyle(.primary)
@@ -165,7 +165,7 @@ private struct OverviewScroll: View {
 
     private func line(_ text: Text, identifier: String, retry showsRetry: Bool) -> some View {
         HStack(spacing: 12) {
-            text.font(.subheadline.weight(.medium)).foregroundStyle(Color.yakWarning)
+            text.font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakWarning)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if showsRetry {
