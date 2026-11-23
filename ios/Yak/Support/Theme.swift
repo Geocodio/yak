@@ -7,10 +7,11 @@ extension Color {
     /// Links and plain actions: the rust as text color, which passes the contrast bar where the fill color does not.
     static let yakAction = Color("Action")
     static let yakDanger = Color("Danger")
-    /// Secondary text, placeholders and times: `--text-2`, a step darker in light (#5C6067 for #62666D) so that it keeps 4.5 to 1 on the
-    /// pressed fill as well as on the page, a panel and the quiet fill; the web's fainter `--text-3` is not used as text.
+    /// Secondary text, placeholders and times: the web's `--text-2` (#62666D / #9499A1) is a step too light for the
+    /// audit on the tinted surfaces the app uses (a quiet fill, a dimmed card, a grouped list), so this is the
+    /// same hue a step stronger; the fainter `--text-3` is never used as text.
     static let yakMuted = board(
-        dark: 0x9499A1, light: 0x5C6067, highContrast: BoardContrast(dark: 0xE6E7EA, light: 0x282A30))
+        dark: 0xB0B4BB, light: 0x50545B, highContrast: BoardContrast(dark: 0xE6E7EA, light: 0x282A30))
     /// A count badge: the primary label color with the page color on top, so the pair keeps its contrast in light and dark.
     static let yakBadge = Color.primary
     static let yakOnBadge = Color.yakBackground

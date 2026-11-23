@@ -13,8 +13,6 @@ struct ThreadTitle: View {
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
         if let action {
             Button(action: action) { content }
@@ -32,15 +30,13 @@ struct ThreadTitle: View {
             HStack(spacing: 8) {
                 statusMark.accessibilityHidden(true)
                 Text(title).font(.yakBarTitle).foregroundStyle(Color.yakText)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1).truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1).truncationMode(.tail)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityValue(statusText)
             }
             if let meta {
                 Text(verbatim: meta).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1).truncationMode(.middle)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1).truncationMode(.middle)
                     .padding(.leading, markSize + 8)
                     .accessibilityIdentifier("thread.meta")
             }
@@ -71,28 +67,6 @@ struct ThreadTitle: View {
         case .attention: Text("thread.status.attention")
         case .neutral: Text("")
         }
-    }
-}
-
-/// The flat bar at the top of a thread: the threads button, the title and the menu, on the page color with a rule
-/// under it.
-struct ThreadHeader<Title: View, Leading: View, Trailing: View>: View {
-    let title: Title
-    @ViewBuilder let leading: Leading
-    @ViewBuilder let trailing: Trailing
-
-    var body: some View {
-        HStack(spacing: 0) {
-            leading
-            title
-            trailing
-        }
-        .foregroundStyle(Color.yakText).tint(Color.yakText)
-        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-        .padding(.horizontal, Design.Space.tight)
-        .frame(minHeight: 56)
-        .background(Color.yakBackground.ignoresSafeArea(edges: .top))
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
     }
 }
 

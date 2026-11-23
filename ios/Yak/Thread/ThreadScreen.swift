@@ -117,23 +117,9 @@ struct ThreadScreen: View {
         let focused = focusedBinding(thread)
         return NavigationStack {
             VStack(spacing: 0) {
-                // The header is the app's own flat bar, not the system's: it sits on the page color with a rule under
-                // it, like the web page's header.
+                // A rule under the bar, which is flat on the page color.
                 if !placement.hidesTitle {
-                    ThreadHeader(
-                        title: ThreadTitle(
-                            title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
-                            tone: thread.statusTone,
-                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
-                        )
-                        // The drawer leaves a sliver of the thread beside it, receded to half; the title does not
-                        // reach into it.
-                        .opacity(isCoveredByDrawer ? 0 : 1)
-                    ) {
-                        if isCompactWidth { threadsButton }
-                    } trailing: {
-                        threadMenu(thread, shownPane: focused.wrappedValue)
-                    }
+                    Rectangle().fill(Color.yakLine).frame(height: Design.Space.line)
                 }
                 HStack(spacing: 0) {
                     // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
@@ -155,8 +141,27 @@ struct ThreadScreen: View {
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(Color.yakBackground, for: .navigationBar)
             .toolbar {
+                if !placement.hidesTitle {
+                    if isCompactWidth {
+                        ToolbarItem(placement: .topBarLeading) { threadsButton }
+                            .sharedBackgroundVisibility(.hidden)
+                    }
+                    ToolbarItem(placement: .principal) {
+                        ThreadTitle(
+                            title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
+                            tone: thread.statusTone,
+                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
+                        .sharedBackgroundVisibility(.hidden)
+                }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(
                         panes: thread.panes, focused: focused, thread: thread, marks: stripMarks,
