@@ -26,6 +26,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -34,7 +35,7 @@ use Illuminate\Support\Str;
  * that need the viewer, each with its sub-threads nested underneath.
  *
  * A row is `array{id: string, title: string, repo: string, status: string,
- * needsYouReason: ?string, needsYouLabel: ?string, isPrivate: bool, isShared: bool,
+ * needsYouReason: ?string, needsYouLabel: ?string, needsYouDetail: ?string, isPrivate: bool, isShared: bool,
  * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
  * source: array{key: string, label: string, reference: ?string, url: ?string}, starter: array{key: string, name: string, avatarUrl: ?string}, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
  * children: list<array<string, mixed>>}`.
@@ -44,6 +45,9 @@ use Illuminate\Support\Str;
 class ThreadList
 {
     public const LIKE_ESCAPE = '!';
+
+    /** The label of a thread whose latest task failed; a new task in the thread clears it. */
+    private const FAILED_LABEL = 'Failed';
 
     /**
      * @param  list<string>  $sources
@@ -69,9 +73,9 @@ class ThreadList
             ->with([
                 'creator:id,name,avatar_url',
                 'children.creator:id,name,avatar_url',
-                'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
+                'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status', DB::raw('SUBSTR(error_log, 1, 300) AS error_log')])->orderBy('id'),
                 'children' => fn (Relation $relation) => self::scopeChildren($relation, $user, $status),
-                'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
+                'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status', DB::raw('SUBSTR(error_log, 1, 300) AS error_log')])->orderBy('id'),
             ])
             ->orderByRaw('last_activity_at is null')
             ->orderByDesc('last_activity_at')
@@ -333,6 +337,7 @@ class ThreadList
             'status' => self::status($thread, $run)->value,
             'needsYouReason' => $reason?->value,
             'needsYouLabel' => $label,
+            'needsYouDetail' => $label === self::FAILED_LABEL ? Str::limit((string) $thread->tasks->last()?->error_log, 200) : null,
             'isPrivate' => $isPrivate,
             'isShared' => $isShared,
             'isUnattended' => $thread->created_by_user_id === null,
@@ -386,6 +391,10 @@ class ThreadList
 
         if ($thread->blocked_reason === ThreadBlockReason::RepositorySetupFailed) {
             return [NeedsYouReason::Blocked, 'Repository setup failed'];
+        }
+
+        if ($thread->blocked_reason === null && $thread->tasks->last()?->status === TaskStatus::Failed) {
+            return [NeedsYouReason::Blocked, self::FAILED_LABEL];
         }
 
         if ($thread->blocked_reason !== null) {

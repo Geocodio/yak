@@ -40,6 +40,7 @@
             "isUnattended": false,
             "isUnread": false,
             "lastActivityAt": "2026-11-15T11:00:00+00:00",
+            "needsYouDetail": null,
             "needsYouLabel": "Asked you a question",
             "needsYouReason": "question",
             "ownerInitials": null,
