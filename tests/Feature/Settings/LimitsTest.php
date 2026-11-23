@@ -43,7 +43,9 @@ it('treats a config admin as an admin', function (): void {
 });
 
 it('lists every setting with its default and current value', function (): void {
-    config(['yak.threads.awake_cap' => 8, 'yak.sandbox.memory_limit' => '6GB']);
+    $settings = app(EditableSettings::class);
+    $settings->store($settings->definitionForKey('yak.sandbox.memory_limit'), 6);
+    $settings->refresh();
 
     $this->actingAs($this->admin)->get(route('settings.limits'))
         ->assertOk()
@@ -54,7 +56,9 @@ it('lists every setting with its default and current value', function (): void {
             ->where('groups.0.settings.0.id', 'awake_cap')
             ->where('groups.0.settings.0.default', 8)
             ->where('groups.0.settings.0.isOverridden', false)
-            ->where('groups.0.settings.3.default', 6)
+            ->where('groups.0.settings.3.default', 8)
+            ->where('groups.0.settings.3.value', 6)
+            ->where('groups.0.settings.3.isOverridden', true)
             ->where('groups.0.settings.3.unit', 'GB')
             ->missing('suggestion'));
 });

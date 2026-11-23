@@ -53,6 +53,15 @@ it('never suggests more than double the limit', function (): void {
     expect($result['state'])->toBe('up')->and($result['suggested'])->toBe(16);
 });
 
+it('suggests at least one more sandbox when a small limit leaves room', function (): void {
+    config(['yak.threads.awake_cap' => 2]);
+    sampleAt(2, 0.45, 0.1, cap: 2);
+
+    $result = app(CapacitySuggestion::class)->compute();
+
+    expect($result['state'])->toBe('up')->and($result['suggested'])->toBe(3);
+});
+
 it('suggests a lower limit when either peak goes over 90 percent', function (): void {
     sampleAt(8, 0.4, 0.93);
 

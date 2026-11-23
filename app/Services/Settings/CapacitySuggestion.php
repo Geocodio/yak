@@ -61,7 +61,7 @@ class CapacitySuggestion
         [$state, $suggested] = match (true) {
             $atLimit->isEmpty() && $evictions === 0 => ['wait', null],
             $highestPeak > 0.9 || $evictions > 0 => ['down', max(1, min($cap - 1, (int) floor($cap * self::TARGET_RATIO / max($highestPeak, 0.01))))],
-            $memoryPeak < 0.5 && $cpuPeak < 0.5 => ['up', min($cap * 2, (int) floor($cap * self::TARGET_RATIO / max($highestPeak, 0.01)))],
+            $memoryPeak < 0.5 && $cpuPeak < 0.5 => ['up', max($cap + 1, min($cap * 2, (int) floor($cap * self::TARGET_RATIO / max($highestPeak, 0.01))))],
             default => ['fits', null],
         };
 
