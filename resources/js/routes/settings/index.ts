@@ -5,6 +5,7 @@ import notifications1ce82a from './notifications'
 import video6ca361 from './video'
 import claudeAccounts97a877 from './claude-accounts'
 import devices95ecd0 from './devices'
+import limits826b1a from './limits'
 import people9bdfa7 from './people'
 import sshKeysBc2a90 from './ssh-keys'
 /**
@@ -228,6 +229,50 @@ devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\Settings\LimitsController::limits
+* @see [unknown]:0
+* @route '/settings/limits'
+*/
+export const limits = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: limits.url(options),
+    method: 'get',
+})
+
+limits.definition = {
+    methods: ["get","head"],
+    url: '/settings/limits',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Settings\LimitsController::limits
+* @see [unknown]:0
+* @route '/settings/limits'
+*/
+limits.url = (options?: RouteQueryOptions) => {
+    return limits.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Settings\LimitsController::limits
+* @see [unknown]:0
+* @route '/settings/limits'
+*/
+limits.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: limits.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\LimitsController::limits
+* @see [unknown]:0
+* @route '/settings/limits'
+*/
+limits.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: limits.url(options),
+    method: 'head',
+})
+
+/**
 * @see \App\Http\Controllers\Settings\PeopleController::people
 * @see app/Http/Controllers/Settings/PeopleController.php:16
 * @route '/settings/people'
@@ -322,6 +367,7 @@ const settings = {
     video: Object.assign(video, video6ca361),
     claudeAccounts: Object.assign(claudeAccounts, claudeAccounts97a877),
     devices: Object.assign(devices, devices95ecd0),
+    limits: Object.assign(limits, limits826b1a),
     people: Object.assign(people, people9bdfa7),
     sshKeys: Object.assign(sshKeys, sshKeysBc2a90),
 }
