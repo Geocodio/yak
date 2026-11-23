@@ -24,6 +24,14 @@ it('holds a rename away from a floor path', function () {
     expect(ApprovalFloor::heldPaths($files))->toBe(['.yak/config.yml']);
 });
 
+it('holds the files that set Yak review policy', function (string $path) {
+    expect(ApprovalFloor::heldPaths([['filename' => $path]]))->toBe([$path]);
+})->with(['.yak/config.yml', '.yak/risk-profile.yml']);
+
+it('lets the rest of .yak through', function (string $path) {
+    expect(ApprovalFloor::heldPaths([['filename' => $path]]))->toBe([]);
+})->with(['.yak/setup.sh', '.yak/preview.yml']);
+
 it('lets ordinary files and dependency manifests through', function (string $path) {
     expect(ApprovalFloor::heldPaths([['filename' => $path]]))->toBe([]);
 })->with([
