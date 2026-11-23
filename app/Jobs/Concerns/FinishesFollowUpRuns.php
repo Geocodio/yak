@@ -100,6 +100,14 @@ trait FinishesFollowUpRuns
                 'model_used' => config('yak.default_model'),
             ]);
 
+            // A CI result only acts on a task that is running or waiting on CI.
+            // A follow-up reaching here still pending (a task whose earlier
+            // run ended before opening a PR) moves on so the hand-off below
+            // opens the PR for the branch that is already pushed.
+            if ($this->task->status === TaskStatus::Pending) {
+                $this->task->update(['status' => TaskStatus::Running]);
+            }
+
             TaskLogger::info($this->task, 'Follow-up produced no commits; skipping push');
 
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();

@@ -134,11 +134,11 @@ function pendingRunYak(array $taskAttributes = [], ?FakeSandboxManager $shell = 
  * @param  class-string  $job
  * @param  string|array<string, mixed>  $result  a summary, or a full result event
  */
-function finishTaskTurn(string $job, YakTask $task, FakeSandboxManager $shell, string|array $result, TaskRunKind $kind = TaskRunKind::FollowUp, TurnState $state = TurnState::Completed): TaskRun
+function finishTaskTurn(string $job, YakTask $task, FakeSandboxManager $shell, string|array $result, TaskRunKind $kind = TaskRunKind::FollowUp, TurnState $state = TurnState::Completed, TaskStatus $status = TaskStatus::Running): TaskRun
 {
     fakeAfterTurnCollaborators(shell: $shell);
     $thread = Thread::factory()->create(['repo' => $task->repo, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-test']);
-    YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id, 'status' => TaskStatus::Running->value]);
+    YakTask::query()->whereKey($task->id)->update(['thread_id' => $thread->id, 'status' => $status->value]);
     $task->refresh();
 
     $run = TaskRun::factory()->create([
