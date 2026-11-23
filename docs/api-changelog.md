@@ -59,3 +59,13 @@ New field on task show, so the protocol stays 1: `stop`, null unless the task fa
 New field on thread show, so the protocol stays 1: `composer.turn`, null unless a turn is running. It then carries `steps` (Claude's own steps this turn, not its agents'), `limit` (null when the turn has no step limit), `canAddSteps` and `stepsToAdd`. `POST threads/{thread}/step-limit` on the web raises the limit of the running turn by `stepsToAdd`.
 
 A message sent while Claude waits on a question, with files, answers the question and queues the files for the next message when Claude cannot take them now. `POST threads/{thread}/messages` then returns `status: "queued"` and a `notice` ("Your files go to Claude with the next message."); the queued message appears in the thread `messages` with its attachments. No new fields, so the protocol stays 1.
+
+#### Star, close, delete and search (2026-11-23)
+
+New endpoints, so the protocol stays 1. `POST threads/{thread}/star` takes `{ "starred": true|false }` and sets the star, so a repeat changes nothing. `POST threads/{thread}/close` closes the thread (a closed thread never reopens, so there is no reopen); closing a closed thread changes nothing. Both answer with the thread's row in the shape `GET threads` uses (`type` `thread`, `source`, `isStarred`, `status`, and the rest). `DELETE threads/{thread}` removes the thread, its sub-threads, sandboxes, runs, tasks and attachments, never the GitHub branch or pull request, and answers `{ "id", "status": "deleted" }`; it answers 409 `sandbox_unavailable` and removes nothing while a sandbox could not be destroyed. Star needs read access; close and delete need drive rights (a share recipient gets 403), as on the web. A hidden thread answers 404.
+
+`GET search?q=` (2 to 100 characters, else 422; 30 requests a minute) returns `{ "results": [...] }`: up to 10 threads, 10 repositories and 10 pull requests the person may see. Each result has `type` (`thread`, `repository` or `pull_request`; treat an unknown value as a row to show by title), `id`, `title`, `subtitle`, `threadId` (the thread to open, or null), `path` (the web path, or null) and `url` (the GitHub address, or null).
+
+Thread rows already carry `source` (`key`, `label`, `reference`, `url`); an unknown `key` shows its `label`.
+
+Contract fixtures: `thread-star`, `thread-close`, `thread-deleted` and `search`.
