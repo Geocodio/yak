@@ -123,6 +123,12 @@ test('a failed opening frees the button and says why, even after the page reload
         ->click('[data-testid="open-pull-request"]')
         ->assertSeeIn('[data-testid="open-pull-request"]', 'Opening PR…');
 
+    // The button turns busy before the request lands, so finish() only counts once the server holds the claim.
+    for ($attempt = 0; $attempt < 100 && $thread->fresh()->pull_request_opening_state !== 'opening'; $attempt++) {
+        $page->wait(0.1);
+    }
+    expect($thread->fresh()->pull_request_opening_state)->toBe('opening');
+
     $task = YakTask::query()->where('thread_id', $thread->id)->firstOrFail();
     app(PullRequestOpening::class)->finish($task, new RuntimeException('GitHub PR creation failed: Validation Failed'));
 
