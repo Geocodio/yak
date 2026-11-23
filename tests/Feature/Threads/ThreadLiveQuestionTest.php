@@ -574,14 +574,14 @@ function flowQuestion(): array
     ];
 }
 
-it('collects shared files before recording a question that references one', function () {
+it('collects the shared files a question references', function () {
     $artifacts = Mockery::spy(ThreadArtifacts::class);
     app()->instance(ThreadArtifacts::class, $artifacts);
     [$thread, , $task] = threadWithRunningTurn();
 
     questionLineFor($thread, [flowQuestion()]);
 
-    $artifacts->shouldHaveReceived('collectShared')->once()->with(Mockery::on(fn (Thread $given): bool => $given->is($thread)));
+    $artifacts->shouldHaveReceived('collectShared')->once()->with(Mockery::on(fn (Thread $given): bool => $given->is($thread)), ['flow.png']);
     expect($task->refresh()->liveClarificationRound())->not->toBeNull();
 });
 

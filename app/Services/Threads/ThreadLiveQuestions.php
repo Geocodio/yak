@@ -466,13 +466,15 @@ class ThreadLiveQuestions
      */
     private function collectAttachments(Thread $thread, YakTask $task, array $questions): void
     {
-        if (QuestionAttachments::fileNames($questions) === []) {
+        $names = QuestionAttachments::fileNames($questions);
+
+        if ($names === []) {
             return;
         }
 
-        DB::afterCommit(function () use ($thread, $task): void {
+        DB::afterCommit(function () use ($thread, $task, $names): void {
             try {
-                app(ThreadArtifacts::class)->collectShared($thread);
+                app(ThreadArtifacts::class)->collectShared($thread, $names);
                 $this->events->opened($task);
             } catch (Throwable $exception) {
                 report($exception);
