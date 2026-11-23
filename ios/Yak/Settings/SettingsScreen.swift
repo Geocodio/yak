@@ -35,7 +35,7 @@ struct SettingsScreen: View {
                 NotificationSwitchesView(model: model)
                 permission
                 if model.canPush { TestNotificationRow(model: model) }
-                SettingsPrivacySection(app: app, active: model.active)
+                SettingsPrivacySection(app: app, active: model.active, model: model)
                 SettingsAboutSection()
             }
             .id(dynamicTypeSize)

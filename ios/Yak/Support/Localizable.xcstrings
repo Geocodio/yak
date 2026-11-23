@@ -9842,6 +9842,182 @@
         }
       }
     },
+    "privacy.copies.announcement" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline copies cleared"
+          }
+        }
+      }
+    },
+    "privacy.copies.cleared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cleared. No saved copies"
+          }
+        }
+      }
+    },
+    "privacy.copies.clearing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clearing"
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmButton %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Clear %lld copy"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Clear %lld copies"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmButton.any" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear copies"
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmMessage %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The saved copy of %lld thread is removed from this iPhone. A thread is saved again the next time you open it online. Unsent messages stay."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The saved copies of %lld threads are removed from this iPhone. A thread is saved again the next time you open it online. Unsent messages stay."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmMessage.any" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The saved copies are removed from this iPhone. A thread is saved again the next time you open it online. Unsent messages stay."
+          }
+        }
+      }
+    },
+    "privacy.copies.confirmTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear offline copies?"
+          }
+        }
+      }
+    },
+    "privacy.copies.counting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counting"
+          }
+        }
+      }
+    },
+    "privacy.copies.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not clear all copies. Try again."
+          }
+        }
+      }
+    },
+    "privacy.copies.footer %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak keeps a read-only copy of the last %lld threads you opened on each instance, up to %@, to read when you are offline. Unsent messages are kept apart and are never cleared here."
+          }
+        }
+      }
+    },
+    "privacy.copies.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No saved copies"
+          }
+        }
+      }
+    },
+    "privacy.copies.summary %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld thread, %@"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld threads, %@"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "privacy.copies.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear offline copies"
+          }
+        }
+      }
+    },
     "privacy.device.beforeMe" : {
       "localizations" : {
         "en" : {
