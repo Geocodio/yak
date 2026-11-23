@@ -297,3 +297,35 @@ test('the maximum wait restarts when a dashboard retry goes back to CI', functio
 
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
 });
+
+it('opens the pull request instead of failing when every run on the branch head passed', function () {
+    Queue::fake();
+    fakeWorkflowRuns([
+        ['id' => 2, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'success'],
+        ['id' => 3, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'skipped'],
+        ['id' => 1, 'head_sha' => 'old', 'status' => 'completed', 'conclusion' => 'failure'],
+    ]);
+
+    $task = slowGitHubTask();
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->is($task) && $job->passed && $job->commitSha === 'new');
+    Queue::assertNotPushed(SendNotificationJob::class);
+    expect($task->refresh()->status)->toBe(TaskStatus::AwaitingCi);
+});
+
+it('still fails when one run on the branch head failed', function () {
+    Queue::fake();
+    fakeWorkflowRuns([
+        ['id' => 2, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'success'],
+        ['id' => 3, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'failure'],
+    ]);
+
+    $task = slowGitHubTask();
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+});

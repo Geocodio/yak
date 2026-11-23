@@ -12,6 +12,7 @@ use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StopNotifier;
+use App\Services\Tasks\TaskActions;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Attributes\Description;
@@ -79,6 +80,19 @@ class TimeoutAwaitingCiCommand extends Command
                 continue;
             }
 
+            // A branch whose newest commit passed every check has nothing to wait for, so it gets its pull request.
+            $greenHeadSha = $isCiStillPending ? null : $this->greenHeadSha($task);
+
+            if ($greenHeadSha !== null) {
+                TaskLogger::info($task, 'CI timeout reached but every check on the branch passed, opening the pull request', ['head_sha' => $greenHeadSha]);
+
+                ProcessCIResultJob::dispatch($task, passed: true, commitSha: $greenHeadSha);
+
+                $this->components->info("Opened the pull request for task #{$task->id} (CI green on GitHub)");
+
+                continue;
+            }
+
             $task->update([
                 'status' => TaskStatus::Failed,
                 'completed_at' => now(),
@@ -131,6 +145,37 @@ class TimeoutAwaitingCiCommand extends Command
     }
 
     /**
+     * The branch's newest commit when GitHub reports at least one workflow run
+     * on it and every run passed. Null when any run failed or is unfinished,
+     * when there are none, and when GitHub cannot say.
+     */
+    private function greenHeadSha(YakTask $task): ?string
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($installationId === 0
+            || $task->branch_name === null
+            || $repository === null
+            || $repository->settings()->ciSystem() !== 'github_actions') {
+            return null;
+        }
+
+        try {
+            $runs = app(GitHubAppService::class)->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, $task->branch_name);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $hasOnlyPassingRuns = $runs !== [] && array_filter(
+            $runs,
+            fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run) || ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true),
+        ) === [];
+
+        return $hasOnlyPassingRuns ? $runs[0]['head_sha'] : null;
+    }
+
+    /**
      * When the task last handed its branch to CI: the end of the latest agent
      * run or a dashboard retry that went back to waiting on CI, whichever is
      * later, or the task's last update when neither is recorded.
@@ -143,7 +188,7 @@ class TimeoutAwaitingCiCommand extends Command
             ->max('agent_finished_at');
 
         $lastCiResume = $task->logs()
-            ->where('message', self::CI_RESUMED_LOG_MESSAGE)
+            ->whereIn('message', [self::CI_RESUMED_LOG_MESSAGE, TaskActions::RECOVERY_RERUN_LOG_MESSAGE])
             ->max('created_at');
 
         $candidates = array_filter([$lastAgentFinish, $lastCiResume]);
