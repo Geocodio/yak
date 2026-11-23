@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\DataTransferObjects\TaskStop;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
@@ -95,8 +96,10 @@ class ReapOrphanedTasksCommand extends Command
 
         Repository::markSetupFailedFor($task);
 
-        if ($task->thread !== null) {
-            $this->stopThreadTurn($task);
+        $thread = $task->thread;
+
+        if ($thread !== null) {
+            $this->stopThreadTurn($thread, $task);
         } else {
             $this->destroyTaskSandbox($task, $sandbox);
         }
@@ -107,14 +110,14 @@ class ReapOrphanedTasksCommand extends Command
     /**
      * The thread keeps its sandbox for the next message; only the stuck turn ends.
      */
-    private function stopThreadTurn(YakTask $task): void
+    private function stopThreadTurn(Thread $thread, YakTask $task): void
     {
         try {
-            app(ThreadTurns::class)->stop($task->thread);
+            app(ThreadTurns::class)->stop($thread);
         } catch (\Throwable $e) {
             Log::channel('yak')->warning('Stopping the thread turn failed during reap', [
                 'task_id' => $task->id,
-                'thread_id' => $task->thread_id,
+                'thread_id' => $thread->id,
                 'error' => $e->getMessage(),
             ]);
         }
