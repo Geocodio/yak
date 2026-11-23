@@ -86,7 +86,7 @@ it('shows repo and pull request for repo children in the stack listing', functio
 
     $text = app(StackToolRouter::class)->handle($this->root, new YakToolCall('c1', 'list_threads', []))->content;
 
-    expect($text)->toContain('web-copy (implement, queued) in acme-web, https://github.com/acme-web/pull/9');
+    expect($text)->toContain('web-copy (implement, starting) in acme-web, https://github.com/acme-web/pull/9');
 });
 
 it('closes only the child when its pull request merges', function () {

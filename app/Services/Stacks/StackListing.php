@@ -3,6 +3,7 @@
 namespace App\Services\Stacks;
 
 use App\Enums\StackThreadMessageKind;
+use App\Enums\ThreadKind;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Services\Threads\ThreadTurns;
@@ -39,24 +40,31 @@ class StackListing
         return $rows;
     }
 
+    /**
+     * The one mapping from a sub-thread's facts to its state, for every surface. `queued` means waiting for a
+     * free spot and only applies to a child with its own sandbox; a child that has not run yet is `starting`.
+     *
+     * @return 'closed'|'failed'|'done'|'queued'|'starting'|'working'|'waiting'
+     */
+    public static function resolveState(bool $isOpen, bool $hasFailed, bool $hasResult, bool $isQueuedForSlot, bool $isResearch, bool $hasRuns, bool $isActive): string
+    {
+        return match (true) {
+            ! $isOpen => 'closed',
+            $hasFailed => 'failed',
+            $hasResult => 'done',
+            $isQueuedForSlot && ! $isResearch => 'queued',
+            ! $hasRuns => 'starting',
+            $isActive => 'working',
+            default => 'waiting',
+        };
+    }
+
     public static function state(Thread $thread): string
     {
-        if (! $thread->isOpen()) {
-            return 'closed';
-        }
+        $isOpen = $thread->isOpen();
+        $hasFailed = $isOpen && StackThreadMessage::query()->where('from_thread_id', $thread->id)->where('kind', StackThreadMessageKind::Failure)->exists();
+        $hasRuns = $isOpen && $thread->runs()->exists();
 
-        if (StackThreadMessage::query()->where('from_thread_id', $thread->id)->where('kind', StackThreadMessageKind::Failure)->exists()) {
-            return 'failed';
-        }
-
-        if ($thread->result_summary !== null) {
-            return 'done';
-        }
-
-        if ($thread->queued_for_slot_at !== null || ! $thread->runs()->exists()) {
-            return 'queued';
-        }
-
-        return ThreadTurns::activeTurn($thread) !== null ? 'working' : 'waiting';
+        return self::resolveState($isOpen, $hasFailed, $thread->result_summary !== null, $thread->queued_for_slot_at !== null, $thread->kind === ThreadKind::Research, $hasRuns, $hasRuns && ThreadTurns::activeTurn($thread) !== null);
     }
 }
