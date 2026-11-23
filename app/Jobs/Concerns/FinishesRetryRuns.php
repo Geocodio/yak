@@ -152,6 +152,15 @@ trait FinishesRetryRuns
     {
         $this->task->update($this->postAgentUpdate($repository, $result));
 
+        // A branch whose newest commit already passed CI and has no pull
+        // request gets one now: no CI event is coming for an unchanged head.
+        if ($this->task->pr_url === null && $this->hasOnlyPassingCiRuns($repository)) {
+            TaskLogger::info($this->task, 'No new changes and CI already passed -- opening the pull request', ['branch' => $this->task->branch_name]);
+            ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
+
+            return;
+        }
+
         if (! $this->rerunFailedCiJobs($repository)) {
             $this->handleError('Retry made no changes to the branch, so CI could not run again on it.');
 
@@ -162,6 +171,26 @@ trait FinishesRetryRuns
 
         $message = YakPersonality::generate(NotificationType::Progress, "Retry made no changes on {$this->task->branch_name} -- rerunning the failed CI jobs before opening a PR.");
         SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
+    }
+
+    private function hasOnlyPassingCiRuns(Repository $repository): bool
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($repository->settings()->ciSystem() !== 'github_actions' || $installationId === 0) {
+            return false;
+        }
+
+        try {
+            $runs = app(GitHubAppService::class)->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $runs !== [] && array_filter(
+            $runs,
+            fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run) || ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true),
+        ) === [];
     }
 
     private function rerunFailedCiJobs(Repository $repository): bool

@@ -93,6 +93,15 @@ test('a follow-up with no new commits opens the pull request for a pushed branch
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job): bool => $job->passed);
 });
 
+test('a follow-up with no new commits on a task awaiting CI hands the branch to PR creation', function () {
+    $task = pendingFollowUpTask(['pr_url' => null, 'pr_number' => null]);
+
+    finishTaskTurn(FinishFollowUpTurnJob::class, $task, (new FakeSandboxManager)->setCommitCount(0), 'Open the PR', status: TaskStatus::AwaitingCi);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job): bool => $job->passed);
+});
+
 test('the finisher pushes and awaits CI when the commit count check fails', function () {
     $task = pendingFollowUpTask();
     $shell = (new FakeSandboxManager)->failCommand('rev-list --count');

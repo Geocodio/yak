@@ -722,7 +722,27 @@ class TaskActions
         return $task->mode === TaskMode::Fix
             && ! $task->targets_external_pr
             && $task->branch_name !== null
-            && $task->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->exists();
+            && ($task->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->exists() || $this->remoteHasBranch($task));
+    }
+
+    /**
+     * A run can push its branch and then fail before CI reports, so GitHub is
+     * asked too. A lookup that cannot answer counts as no branch.
+     */
+    private function remoteHasBranch(YakTask $task): bool
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($installationId === 0 || $repository === null) {
+            return false;
+        }
+
+        try {
+            return app(GitHubAppService::class)->getBranchHeadSha($installationId, $repository->github_full_name, (string) $task->branch_name) !== null;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**
