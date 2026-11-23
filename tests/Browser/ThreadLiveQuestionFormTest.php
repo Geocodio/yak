@@ -1,9 +1,12 @@
 <?php
 
 use App\Enums\RunnerState;
+use App\Models\Artifact;
 use App\Models\PendingSteeringMessage;
+use App\Models\YakTask;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\FakeBrokerStreams;
+use App\Services\Threads\ThreadArtifacts;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\ParseMultipartBody;
@@ -93,4 +96,67 @@ it('shows the files of an answer as a queued message when Claude cannot take the
         ->assertPresent('[data-testid="queued-message-' . $queued->id . '"] [aria-label="1 attached"]')
         ->assertSee('Your files go to Claude with the next message.')
         ->assertNoJavaScriptErrors();
+});
+
+/** Saves shared files on the thread's task, the way a collection leaves them, and keeps the sandbox out of the question. */
+function sharedQuestionFiles(YakTask $task, array $names): void
+{
+    app()->instance(ThreadArtifacts::class, Mockery::spy(ThreadArtifacts::class));
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==');
+
+    foreach ($names as $name) {
+        Storage::disk('artifacts')->put("shared/{$name}", str_ends_with($name, '.html') ? '<!doctype html><p>Mockup</p>' : $png);
+        Artifact::factory()->shared($name)->create(['yak_task_id' => $task->id]);
+    }
+}
+
+it('shows context attachments at rest and hides them on request', function () {
+    Storage::fake('artifacts');
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    sharedQuestionFiles($task, ['flow.png']);
+    questionLineFor($thread, [[
+        'question' => "Which flow?\n\n![Flow today](flow.png)",
+        'header' => 'Flow',
+        'options' => [['label' => 'Mirror', 'description' => 'Same as owned'], ['label' => 'Strict', 'description' => 'Refuse']],
+        'multiSelect' => false,
+    ]]);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="question-context"] img[alt="Flow today"]')
+        ->assertDontSee('![Flow today]')
+        ->click('[data-testid="question-context-toggle"]')
+        ->assertMissing('[data-testid="question-context"] img')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows option attachments as cards in Claude\'s order', function () {
+    Storage::fake('artifacts');
+    [$thread, , $task, $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    sharedQuestionFiles($task, ['b.html', 'c.png']);
+    questionLineFor($thread, [[
+        'question' => 'Which approach?',
+        'header' => 'Approach',
+        'options' => [
+            ['label' => 'Alpha', 'description' => 'No picture'],
+            ['label' => 'Bravo', 'description' => 'A mockup', 'preview' => '![Bravo mockup](b.html)'],
+            ['label' => 'Charlie', 'description' => 'A chart', 'preview' => '![Charlie chart](c.png)'],
+        ],
+        'multiSelect' => false,
+    ]]);
+
+    $page = visit("/threads/{$thread->public_id}")
+        ->assertCount('[data-testid="question-option-card"]', 2)
+        ->assertVisible('[data-testid="question-option-card"] iframe[sandbox="allow-scripts"]')
+        ->assertVisible('[data-testid="question-option-card"] img[alt="Charlie chart"]');
+
+    expect($page->script('[...document.querySelectorAll(\'[data-testid="question-q1"] [role="radio"]\')].map((el) => el.innerText.trim().split(String.fromCharCode(10))[0])'))->toBe(['Alpha', 'Bravo', 'Charlie', 'Other']);
+
+    $page->click('[data-testid="question-q1"] [role="radio"] >> nth=1')
+        ->click('[data-testid="questions-submit"]')
+        ->assertMissing('[data-testid="questions-form"]');
+
+    $command = collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'answer_question');
+    expect((array) $command['answers'])->toBe(['Which approach?' => 'Bravo']);
 });
