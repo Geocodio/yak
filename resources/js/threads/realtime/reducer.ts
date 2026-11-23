@@ -20,6 +20,7 @@ export function initialEventState(): ThreadEventState {
         thread: null,
         questionOpen: null,
         children: {},
+        childResults: [],
         repositories: {},
         agents: {},
         viewers: [],
@@ -83,6 +84,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const data = event.data as ThreadEventEnvelope<'child'>['data'];
 
             return { ...next, children: { ...state.children, [data.childThreadId]: { sequence: state.children[data.childThreadId]?.sequence ?? event.sequence, data } } };
+        }
+        case 'child.result': {
+            const data = event.data as ThreadEventEnvelope<'child.result'>['data'];
+
+            return state.childResults.some((result) => result.data.id === data.id) ? next : { ...next, childResults: [...state.childResults, { sequence: event.sequence, data: { ...data, at: event.createdAt } }] };
         }
         case 'repository': {
             const data = event.data as ThreadEventEnvelope<'repository'>['data'];

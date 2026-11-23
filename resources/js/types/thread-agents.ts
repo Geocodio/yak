@@ -47,7 +47,7 @@ export type ThreadSubThread = {
     name: string;
     title: string;
     kind: string;
-    state: 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
+    state: 'starting' | 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
     step: string | null;
     branch: string | null;
     pullRequestUrl: string | null;

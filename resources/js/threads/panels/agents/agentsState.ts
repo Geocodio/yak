@@ -242,11 +242,19 @@ export function childrenSignature(children: Record<string, { data: { state: stri
 }
 
 /**
+ * The state a sub-thread row or card shows. The server never reports a research sub-thread as waiting for a free
+ * spot (it shares this thread's sandbox), so an older stored card that says so reads as Starting.
+ */
+export function childDisplayState<S extends string>(state: S, kind: string | undefined): S | 'starting' {
+    return state === 'queued' && kind === 'research' ? 'starting' : state;
+}
+
+/**
  * The live card of each sub-thread laid over the rows a prop loaded: the card's events arrive before the props reload,
  * so every surface that lists sub-threads (the sidebar group, the Agents tab) shows the state the conversation shows.
  * Card, stack and Agents rows share one state vocabulary.
  */
-export function overlayChildren<T extends { id: string; state: string; step: string | null }>(
+export function overlayChildren<T extends { id: string; state: string; step: string | null; kind?: string }>(
     rows: T[],
     live: Record<string, { data: { state: string; step: string | null } }>,
 ): T[] {
@@ -257,6 +265,25 @@ export function overlayChildren<T extends { id: string; state: string; step: str
     return rows.map((row) => {
         const card = live[row.id]?.data;
 
-        return card === undefined ? row : { ...row, state: card.state, step: card.step };
+        return card === undefined ? row : { ...row, state: childDisplayState(card.state, row.kind), step: card.step };
     });
+}
+
+/** The agents of one merged follow-up run: in the order they finished, and how the row names them. */
+export function continuedParts(agents: AgentRowData[]): { named: AgentRowData[]; more: number; verb: string; after: string | null } {
+    const ordered = [...agents].sort((a, b) => (a.finishedAt ?? '').localeCompare(b.finishedAt ?? '') || a.id.localeCompare(b.id));
+    const statuses = new Set(ordered.map((agent) => agent.status));
+    const verb = statuses.size === 1 ? (ordered[0].status === 'completed' ? 'finished' : ordered[0].status) : 'ended';
+    const named = ordered.length <= 2 ? ordered : ordered.slice(0, 2);
+
+    return { named, more: ordered.length - named.length, verb, after: ordered.length === 1 ? formatAgentDuration(agentDurationMs(ordered[0], 0)) : null };
+}
+
+/** "X finished after 39s.", "X and Y finished.", "X, Y and 2 more finished." */
+export function continuedLabel(agents: AgentRowData[]): string {
+    const { named, more, verb, after } = continuedParts(agents);
+    const names = named.map(agentTitle);
+    const who = more > 0 ? `${names.join(', ')} and ${more} more` : names.join(' and ');
+
+    return `${who} ${verb}${after === null ? '' : ` after ${after}`}.`;
 }

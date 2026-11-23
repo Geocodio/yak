@@ -6,7 +6,10 @@ use App\Enums\StackThreadMessageKind;
 use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Services\Threads\ThreadEventPublisher;
+use App\Support\Markdown;
+use App\Support\SecretRedactor;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -50,6 +53,32 @@ class ChildCardPublisher
             ]);
         } catch (Throwable $exception) {
             Log::channel('yak')->warning('Child card could not be published', ['thread_id' => $child->id, 'error' => $exception->getMessage()]);
+        }
+    }
+
+    /**
+     * Puts a delivered result or failure into the parent's conversation as a stored `child.result` event, at the
+     * point it reached the parent. The text is rendered as Markdown here so the page only has to show it.
+     */
+    public function publishResult(StackThreadMessage $row): void
+    {
+        try {
+            $child = Thread::query()->withoutGlobalScopes()->findOrFail($row->from_thread_id);
+            $isFailure = $row->kind === StackThreadMessageKind::Failure;
+            $text = Str::limit(SecretRedactor::redact($row->text), 8000, '...');
+
+            $this->events->append($row->to_thread_id, 'child.result', [
+                'id' => $row->id,
+                'childThreadId' => $child->public_id,
+                'title' => $child->title,
+                'kind' => $child->kind->value,
+                'state' => $isFailure ? 'failed' : 'done',
+                'reason' => $isFailure ? Str::limit(trim(Str::before($text, "\n")), 160) : null,
+                'html' => Markdown::toHtml($text),
+                'text' => $text,
+            ]);
+        } catch (Throwable $exception) {
+            Log::channel('yak')->warning('Child result could not be published', ['message_id' => $row->id, 'error' => $exception->getMessage()]);
         }
     }
 

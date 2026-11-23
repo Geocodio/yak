@@ -157,6 +157,24 @@ it('says "<agent> finished after <duration>. Claude continued." before the reply
         ->assertNoJavaScriptErrors();
 });
 
+it('names every agent a merged follow-up run took in, in finish order', function () {
+    $first = ThreadAgent::factory()->finished()->create(['thread_id' => Thread::factory(), 'task_id' => 'afirst', 'tool_use_id' => 'toolu_first', 'description' => 'Build company mockups', 'finished_at' => now()->subSeconds(20)]);
+    [$thread, $firstRun, $sequence] = agentThread($this->owner, $first);
+    $first->forceFill(['thread_id' => $thread->id])->save();
+    $second = ThreadAgent::factory()->finished()->create(['thread_id' => $thread->id, 'task_id' => 'asecond', 'tool_use_id' => 'toolu_second', 'description' => 'Review the mockups', 'finished_at' => now()->subSeconds(10)]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $firstRun->yak_task_id, 'thread_id' => $thread->id, 'kind' => 'agent_follow_up', 'turn_state' => 'completed', 'started_at' => now()->subMinutes(1), 'num_turns' => 1, 'total_ms' => 5000]);
+    ThreadAgent::query()->whereKey([$first->id, $second->id])->update(['follow_up_run_id' => $run->id]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => $sequence, 'type' => 'turn', 'payload' => ['turnId' => $run->id, 'state' => 'running']]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => $sequence + 1, 'type' => 'entry', 'payload' => ['role' => 'assistant', 'messageId' => 'm9', 'blocks' => [['type' => 'text', 'text' => 'Both are in.']]]]);
+    ThreadEvent::factory()->create(['thread_id' => $thread->id, 'sequence' => $sequence + 2, 'type' => 'turn', 'payload' => ['turnId' => $run->id, 'state' => 'completed']]);
+    $thread->forceFill(['event_sequence' => $sequence + 2])->save();
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="agent-continued-row"]', 'Build company mockups and Review the mockups finished. Claude continued.')
+        ->assertScript('document.querySelectorAll(\'[data-testid="agent-continued-row"]\').length', 1)
+        ->assertNoJavaScriptErrors();
+});
+
 it('shows the running count above the composer, opens the panel and stops everything after an inline confirm', function () {
     useThrowawayRedis();
     $thread = Thread::factory()->private($this->owner)->create(['runner_state' => RunnerState::Idle]);

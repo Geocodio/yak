@@ -1,8 +1,8 @@
 import type { StepView } from '@/components/activity/types';
-import type { ChildCardData, RepositoryCardData } from '@/types/thread-events';
+import type { ChildCardData, ChildResultData, RepositoryCardData } from '@/types/thread-events';
 
 export type ConversationItem = {
-    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'repository' | 'agent';
+    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'childResult' | 'repository' | 'agent';
     key: string;
     sequence: number;
     role: 'assistant';
@@ -23,6 +23,7 @@ export type ConversationItem = {
     added?: number;
     removed?: number;
     child?: ChildCardData;
+    childResult?: ChildResultData;
     repository?: RepositoryCardData;
     /** The tool call of an `agent` item; the agent started by it carries the same id. */
     toolUseId?: string;
