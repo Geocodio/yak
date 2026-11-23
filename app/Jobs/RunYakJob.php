@@ -207,6 +207,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         $baseBranchName = GitOperations::branchName($this->task->external_id);
         $defaultBranch = $repository->default_branch;
 
+        $this->configureGitAccess($shell, '');
         $shell->run('', "cd {$workspacePath} && git fetch origin {$defaultBranch}", timeout: 60);
 
         // Avoid colliding with branches from previous attempts that may
@@ -215,6 +216,11 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             $baseBranchName,
             function (string $candidate) use ($shell, $workspacePath): bool {
                 $result = $shell->run('', "cd {$workspacePath} && git ls-remote --heads origin " . escapeshellarg($candidate), timeout: 30);
+
+                // A failed lookup prints nothing; treating that as "free" would reuse a branch this task already pushed.
+                if ($result->exitCode() !== 0) {
+                    throw new \RuntimeException("Could not check whether branch '{$candidate}' exists on the remote: {$result->errorOutput()}");
+                }
 
                 return trim($result->output()) !== '';
             },
