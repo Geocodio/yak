@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { KindIcon } from '@/components/threads/stack/KindIcon';
 import { StatePill } from '@/components/threads/stack/StatePill';
 import { show } from '@/routes/threads';
+import { childDisplayState } from '@/threads/panels/agents/agentsState';
 import { drop, split, takeOver } from '@/routes/threads/stack';
 import type { ConversationItem } from './conversationItem';
 import { MergeDecisionFold } from './MergeDecisionFold';
@@ -13,7 +14,7 @@ import { MergeDecisionFold } from './MergeDecisionFold';
  * A failed child offers the person three ways out; each needs the right to drive the stack.
  */
 export function ChildCard({ item, canDrive }: { item: ConversationItem; canDrive: boolean }) {
-    const child = item.child;
+    const child = item.child === undefined ? undefined : { ...item.child, state: childDisplayState(item.child.state, item.child.kind) };
     const [hasActed, setHasActed] = useState(false);
 
     if (!child) {
@@ -44,7 +45,7 @@ export function ChildCard({ item, canDrive }: { item: ConversationItem; canDrive
 
             {subLine && <p className="mt-1 text-[12px] text-muted" data-testid="child-card-subline">{subLine}</p>}
             {child.question && <p className="mt-2 rounded-chip bg-warn-soft px-2.5 py-1.5 text-[12.5px] text-body" data-testid="child-card-question">Asks you: {child.question}</p>}
-            {child.state === 'queued' && <p className="mt-1 text-[12px] text-muted" data-testid="child-card-queued">Starts when another sub-thread finishes</p>}
+            {child.state === 'queued' && <p className="mt-1 text-[12px] text-muted" data-testid="child-card-queued">Waiting for a free spot. Starts when another sub-thread finishes.</p>}
             {child.mergedAt && <MergeDecisionFold decision={child.decision} conflictResolved={child.conflictResolved} />}
 
             {child.state === 'working' && child.step && <p className="mt-1 text-[12px] text-muted" data-testid="child-card-step">{child.step}</p>}

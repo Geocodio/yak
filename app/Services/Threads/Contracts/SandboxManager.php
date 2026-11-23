@@ -47,5 +47,12 @@ interface SandboxManager
 
     public function availableMemoryBytes(): int;
 
+    public function totalMemoryBytes(): int;
+
+    /** The 1 minute load average divided by the core count, from 0 to 1. */
+    public function cpuUsedRatio(): float;
+
+    public function cpuCores(): int;
+
     public function poolUsedPercent(): float;
 }

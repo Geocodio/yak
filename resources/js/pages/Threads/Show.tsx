@@ -34,7 +34,9 @@ import { ThreadPhoneTabs } from '@/threads/dock/ThreadPhoneTabs';
 import { useDockState } from '@/threads/dock/useDockState';
 import { dockPanelsFor, type PanelProps } from '@/threads/panels';
 import { AgentsProvider } from '@/threads/panels/agents/AgentsContext';
-import { agentTitle } from '@/threads/panels/agents/agentsState';
+import { agentTitle, childrenSignature, overlayChildren } from '@/threads/panels/agents/agentsState';
+import { refreshThreadList } from '@/lib/threadStar';
+import type { ThreadEventState } from '@/types/thread-events';
 import { log as agentLog } from '@/routes/threads/agents';
 import type { ThreadAgent } from '@/types/thread-agents';
 import '@/threads/panels/index';
@@ -92,7 +94,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     });
     const walkthroughStartAt = walkthroughRequest.threadId === thread.id ? walkthroughRequest.seconds : null;
     const [liveAgents, setLiveAgents] = useState<Record<string, ThreadAgent>>({});
-    const [liveChildren, setLiveChildren] = useState('');
+    const [liveChildren, setLiveChildren] = useState<ThreadEventState['children']>({});
     const [liveSteps, setLiveSteps] = useState(0);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     useEffect(() => setSelectedAgentId(null), [thread.id]);
@@ -101,7 +103,15 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     const [isAddingSubThread, setIsAddingSubThread] = useState(false);
     const [isTeleportOpen, setIsTeleportOpen] = useState(false);
     const [isMoving, setIsMoving] = useState(false);
-    const { stack, reload: reloadStack } = useStack(thread, !isEmbed);
+    const { stack: loadedStack, reload: reloadStack } = useStack(thread, !isEmbed);
+    const stack = useMemo(() => (loadedStack === null ? null : { ...loadedStack, children: overlayChildren(loadedStack.children, liveChildren) }), [loadedStack, liveChildren]);
+    // The left thread list is its own fetch; a sub-thread's card event reads it again at once instead of on its next tick.
+    const liveChildrenSignature = childrenSignature(liveChildren);
+    useEffect(() => {
+        if (liveChildrenSignature !== '') {
+            refreshThreadList();
+        }
+    }, [liveChildrenSignature]);
     usePullRequestToasts(thread, pullRequest, publishWarning);
     const { diff, isLoading: isDiffLoading } = useThreadDiff(thread, null, !isEmbed);
     const canAddSubThread = canDrive && stack !== null && stack.canDrive && stack.isRoot && thread.ownerSide === 'yak' && thread.status === 'open';
@@ -263,7 +273,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     useCommandPaletteActions(THREAD_GROUP, threadActions);
 
     return (
-        <AgentsProvider threadId={thread.id} canDrive={canDrive} loaded={agents} live={liveAgents} childrenSignature={liveChildren} selectedId={selectedAgentId} onSelect={setSelectedAgentId} openPanel={openAgentsPanel} openFullLog={openAgentLog}>
+        <AgentsProvider threadId={thread.id} canDrive={canDrive} loaded={agents} live={liveAgents} liveChildren={liveChildren} selectedId={selectedAgentId} onSelect={setSelectedAgentId} openPanel={openAgentsPanel} openFullLog={openAgentLog}>
             <Head title={thread.title} />
 
             {!isEmbed && <ThreadHeader

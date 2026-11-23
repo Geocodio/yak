@@ -13,7 +13,7 @@ const BUTTON = 'inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rou
 const PRIMARY = 'inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-[8px] border border-accent bg-accent px-2.5 py-1 text-[12.5px] text-accent-ink no-underline hover:opacity-90';
 
 /** Open for a report (the viewer in a new tab), View for an image (the lightbox), Download for the rest. */
-export function OpenFileButton({ file, className }: { file: SharedFile; className?: string }) {
+export function OpenFileButton({ file, className }: { file: Pick<SharedFile, 'name' | 'kind' | 'url'>; className?: string }) {
     const [isViewing, setIsViewing] = useState(false);
     const embed = useEmbed();
     const action = openAction(file);

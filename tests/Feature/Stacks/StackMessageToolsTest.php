@@ -72,7 +72,7 @@ it('lists the stack with states', function () {
 
     $result = app(YakToolRouter::class)->handle($parent, new YakToolCall('c1', 'list_threads', []));
 
-    expect($result->content)->toContain('- main (root, queued)')
+    expect($result->content)->toContain('- main (root, starting)')
         ->toContain('- docs (implement, done): Found it.')
         ->toContain('- old (implement, closed)');
 });

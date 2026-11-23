@@ -7,7 +7,9 @@ use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 
@@ -166,4 +168,31 @@ test('a reaped setup task fails its repository setup and releases the tasks park
     expect($repository->fresh()->setup_status)->toBe('failed')
         ->and($parked->fresh()->resume_after_setup_at)->toBeNull()
         ->and($parked->fresh()->stop_summary)->toContain("couldn't get its workspace for acme/parked-setup ready");
+});
+
+test('stops the turn of a reaped thread task and leaves its sandbox alone', function () {
+    Queue::fake();
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->running()->create(['thread_id' => $thread->id, 'updated_at' => now()->subMinutes(30)]);
+    $turns = Mockery::mock(ThreadTurns::class);
+    $turns->shouldReceive('stop')->once()->with(Mockery::on(fn (Thread $stopped): bool => $stopped->is($thread)));
+    app()->instance(ThreadTurns::class, $turns);
+
+    $this->artisan('yak:reap-orphaned-tasks', ['--minutes' => 15])->assertSuccessful();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    Process::assertNothingRan();
+});
+
+test('spares a thread task whose turn waits on an unanswered live question', function () {
+    Queue::fake();
+    $task = YakTask::factory()->running()->create([
+        'thread_id' => Thread::factory()->create()->id,
+        'updated_at' => now()->subMinutes(30),
+        'clarification_rounds' => [['questions' => [], 'answers' => null, 'live' => true]],
+    ]);
+
+    $this->artisan('yak:reap-orphaned-tasks', ['--minutes' => 15])->assertSuccessful();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Running);
 });

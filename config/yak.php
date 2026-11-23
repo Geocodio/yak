@@ -289,6 +289,13 @@ return [
     // waiting until this many minutes after its last push.
     'ci_max_wait_minutes' => (int) env('YAK_CI_MAX_WAIT_MINUTES', 180),
 
+    // yak:recover-stopped-tasks only touches tasks Yak itself stopped within
+    // window_hours, and acts at most max_attempts times per task.
+    'self_recovery' => [
+        'window_hours' => (int) env('YAK_SELF_RECOVERY_WINDOW_HOURS', 24),
+        'max_attempts' => (int) env('YAK_SELF_RECOVERY_MAX_ATTEMPTS', 1),
+    ],
+
     'video' => [
         // Where VideoRenderer stages clips for Remotion. Must be writable by
         // the queue worker user (www-data); /app/video/public is root-owned
@@ -585,16 +592,18 @@ return [
         // Largest classifier prompt (concerns plus diff), in characters.
         'classifier_max_diff_characters' => 200000,
 
-        // Files that decide how Yak itself behaves in a repository. A diff
-        // touching them always needs a human, whatever the repository says.
+        // Files that decide how Yak reviews and approves a repository. A diff
+        // touching them always needs a human, whatever the repository says, so
+        // a PR cannot loosen the policy it is judged by. The rest of .yak/
+        // (setup.sh, preview.yml) is reviewed like ordinary code.
         'config_floor_paths' => [
-            '.yak/**', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
+            '.yak/config.yml', '.yak/risk-profile.yml', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
         ],
 
         // The hard floor: a diff touching any of these always needs a human.
         // Repository-agnostic and not repository editable.
         'approval_veto_paths' => [
-            '.yak/**', 'AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS',
+            '.yak/config.yml', '.yak/risk-profile.yml', 'AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS',
             '.claude/**', '.github/**', '.drone*', '.gitlab-ci.yml', '.circleci/**', 'Jenkinsfile',
             'Dockerfile*', '**/Dockerfile*', 'docker/**', 'docker-compose*', 'compose.yml', 'compose.yaml',
             '.dockerignore', 'ansible/**', '*.tf', '*.tfvars', 'Procfile',
@@ -692,6 +701,7 @@ return [
     */
 
     'threads' => [
+        'artifact_pull_max_bytes' => (int) env('YAK_THREADS_ARTIFACT_PULL_MAX_BYTES', 256 * 1024 * 1024),
         'auth_proxy_validation_address' => env('YAK_THREADS_AUTH_PROXY_VALIDATION_ADDRESS'),
         'usage_limit_fallback_minutes' => (int) env('YAK_THREADS_USAGE_LIMIT_FALLBACK_MINUTES', 60),
         'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),

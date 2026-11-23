@@ -39,6 +39,8 @@ use Illuminate\Support\Str;
  * Flattens the root {@see YakTask} of a follow-up chain (plus the whole
  * chain) into the prop shape `Tasks/Show` renders. Business logic ported
  * from the deleted TaskDetail component.
+ *
+ * @phpstan-import-type QuestionProp from ThreadQuestionData
  */
 final class TaskDetailData
 {
@@ -751,7 +753,7 @@ final class TaskDetailData
     }
 
     /**
-     * @return list<array{id: string, header: string, question: string, multiSelect: bool, options: list<array{label: string, description: string}>}>|null
+     * @return list<QuestionProp>|null
      */
     private static function questions(YakTask $head): ?array
     {
@@ -761,13 +763,7 @@ final class TaskDetailData
 
         $questions = $head->pendingClarificationQuestions();
 
-        return $questions === [] ? null : array_map(fn ($question): array => [
-            'id' => $question->id,
-            'header' => $question->header,
-            'question' => $question->question,
-            'multiSelect' => $question->multiSelect,
-            'options' => $question->options,
-        ], $questions);
+        return $questions === [] ? null : ThreadQuestionData::questions($head, $questions);
     }
 
     private static function pullRequestLabel(YakTask $task): string

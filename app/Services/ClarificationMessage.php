@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\YakTask;
 use App\Services\Threads\ThreadLiveQuestions;
+use App\Support\QuestionAttachments;
 use App\Support\TaskPageUrl;
 
 /**
@@ -42,7 +43,9 @@ class ClarificationMessage
                 ->map(fn (array $option, int $index): string => ($index + 1) . '. ' . $option['label'] . ($option['description'] !== '' ? ": {$option['description']}" : ''))
                 ->implode("\n");
 
-            return "{$question->question}\n{$numbered}\n\nReply with a number, or write your own answer.";
+            $text = QuestionAttachments::strip($question->question);
+
+            return "{$text}\n{$numbered}\n\nReply with a number, or write your own answer.";
         }
 
         $headers = collect($questions)->map(fn ($question): string => $question->header)->implode(', ');

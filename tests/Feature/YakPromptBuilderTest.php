@@ -761,3 +761,67 @@ it('writes a short repo and number commit reference for a review task and its fo
     'linear issue' => ['ENG-123', 'ENG-123'],
     'teleport' => ['TELEPORT-UD9UWYPH', 'TELEPORT-UD9UWYPH'],
 ]);
+
+it('tells Claude how to attach visuals to a live question', function () {
+    config(['yak.threads.ask_user_question' => true]);
+    $task = YakTask::factory()->pending()->create(['source' => 'slack', 'description' => 'The checkout page is broken']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, ['requester_name' => 'Alice']);
+
+    expect($prompt)->toContain('![Short caption](file-name.html)')
+        ->toContain('Never draw ASCII art')
+        ->toContain('Option previews only work when `multiSelect` is false.');
+});
+
+function answeredClarificationRound(string $question, string $answer, ?string $consumedAt): array
+{
+    return [
+        'questions' => [['id' => 'q1', 'header' => 'Scope', 'question' => $question, 'options' => [], 'multi_select' => false]],
+        'summary' => '',
+        'asked_at' => now()->toIso8601String(),
+        'answers' => ['q1' => ['choices' => [$answer], 'other' => null]],
+        'note' => null,
+        'answered_by' => 'Sam',
+        'answered_at' => now()->toIso8601String(),
+        'consumed_at' => $consumedAt,
+    ];
+}
+
+test('task and retry prompts carry the rounds the person already answered', function () {
+    $task = YakTask::factory()->make([
+        'description' => 'Add export',
+        'source' => 'slack',
+        'clarification_rounds' => [answeredClarificationRound('Which format?', 'CSV', now()->toIso8601String())],
+    ]);
+
+    foreach ([YakPromptBuilder::taskPrompt($task), YakPromptBuilder::retryPrompt($task, 'failure')] as $prompt) {
+        expect($prompt)->toContain('Questions already answered')
+            ->toContain('Q: Which format?')
+            ->toContain('A: CSV');
+    }
+});
+
+test('prompts without answered rounds are unchanged', function () {
+    $task = YakTask::factory()->make(['description' => 'Add export', 'source' => 'slack']);
+
+    expect(YakPromptBuilder::taskPrompt($task))->not->toContain('Questions already answered')
+        ->and(YakPromptBuilder::retryPrompt($task, 'failure'))->not->toContain('Questions already answered');
+});
+
+test('the task prompt leaves out the answers the resume prompt is about to send', function () {
+    $task = YakTask::factory()->make([
+        'description' => 'Add export',
+        'source' => 'slack',
+        'clarification_rounds' => [
+            answeredClarificationRound('Which format?', 'CSV', now()->toIso8601String()),
+            answeredClarificationRound('Which delimiter?', 'Semicolon', null),
+        ],
+    ]);
+
+    $taskPrompt = YakPromptBuilder::taskPrompt($task);
+    $resumePrompt = YakPromptBuilder::clarificationAnswersPrompt($task);
+
+    expect($taskPrompt)->toContain('Which format?')->not->toContain('Which delimiter?')
+        ->and($resumePrompt)->toContain('Which delimiter?')->not->toContain('Which format?')
+        ->and(substr_count($taskPrompt . $resumePrompt, 'Which delimiter?'))->toBe(1);
+});

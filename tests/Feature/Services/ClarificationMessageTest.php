@@ -1,5 +1,6 @@
 <?php
 
+use App\DataTransferObjects\ClarificationQuestion;
 use App\Enums\TaskStatus;
 use App\Models\Thread;
 use App\Models\YakTask;
@@ -73,3 +74,12 @@ it('points to the form with wording that fits the question count', function (int
     'one' => [1, 'Please answer the question on the form: {link}'],
     'several' => [3, 'There are 3 questions, so please answer them together on the form: {link}'],
 ]);
+
+it('leaves attachment references out of an inline question', function () {
+    $task = YakTask::factory()->create(['source' => 'slack']);
+    $question = sampleQuestion('scope', ['Small', 'Large']);
+    $task->recordClarificationRound([new ClarificationQuestion($question->id, $question->header, "Which scope?\n\n![Flow today](flow.png)", $question->options)], 'Summary');
+
+    expect(ClarificationMessage::asked($task->fresh()))->toStartWith("Which scope?\n1. Small")
+        ->not->toContain('flow.png');
+});

@@ -27,6 +27,7 @@ class StackResultBatcher
     public function __construct(
         private readonly StackMessenger $messenger,
         private readonly StackMessageInbox $inbox,
+        private readonly ChildCardPublisher $cards,
     ) {}
 
     public function deliverDue(CarbonImmutable $now): int
@@ -93,6 +94,10 @@ class StackResultBatcher
 
         try {
             $this->deliver($parent, $claimed);
+
+            if ($parent->isOpen()) {
+                $claimed->each(fn (StackThreadMessage $row) => $this->cards->publishResult($row));
+            }
         } catch (Throwable $exception) {
             StackThreadMessage::query()->whereKey($claimed->modelKeys())->update(['delivered_at' => null]);
 

@@ -130,3 +130,39 @@ test('the sub-thread signature changes when a sub-thread appears or changes stat
     assert.notEqual(queued, working);
     assert.equal(working, childrenSignature({ c1: { sequence: 9, data: { state: 'working' } } }));
 });
+
+test('overlayChildren lays the live card state over loaded rows and leaves others alone', async () => {
+    const { overlayChildren } = await import('./agentsState.ts');
+    const rows = [{ id: 'a', state: 'queued', step: null, title: 'A' }, { id: 'b', state: 'done', step: null, title: 'B' }];
+
+    assert.equal(overlayChildren(rows, {}), rows);
+
+    const result = overlayChildren(rows, { a: { sequence: 3, data: { state: 'working', step: 'Reading' } } });
+
+    assert.deepEqual(result[0], { id: 'a', state: 'working', step: 'Reading', title: 'A' });
+    assert.equal(result[1], rows[1]);
+});
+
+test('overlayChildren never turns a research sub-thread into one waiting for a spot', async () => {
+    const { overlayChildren, childDisplayState } = await import('./agentsState.ts');
+    const rows = [{ id: 'r', kind: 'research', state: 'starting', step: null }, { id: 'i', kind: 'implement', state: 'starting', step: null }];
+    const live = { r: { sequence: 1, data: { state: 'queued', step: null } }, i: { sequence: 2, data: { state: 'queued', step: null } } };
+    const result = overlayChildren(rows, live);
+
+    assert.equal(result[0].state, 'starting');
+    assert.equal(result[1].state, 'queued');
+    assert.equal(childDisplayState('queued', 'mockup'), 'queued');
+    assert.equal(childDisplayState('working', 'research'), 'working');
+});
+
+test('the continued row names every agent of the run in finish order', async () => {
+    const { continuedLabel } = await import('./agentsState.ts');
+    const done = (id, finishedAt, durationMs = 0) => agent(id, { status: 'completed', finishedAt, durationMs });
+    const [x, y, z, w] = [done('X', '2026-11-20T10:00:03Z', 39000), done('Y', '2026-11-20T10:00:01Z'), done('Z', '2026-11-20T10:00:02Z'), done('W', '2026-11-20T10:00:04Z')];
+
+    assert.equal(continuedLabel([x]), 'X finished after 39s.');
+    assert.equal(continuedLabel([x, y]), 'Y and X finished.');
+    assert.equal(continuedLabel([x, y, z]), 'Y, Z and 1 more finished.');
+    assert.equal(continuedLabel([x, y, z, w]), 'Y, Z and 2 more finished.');
+    assert.equal(continuedLabel([x, agent('F', { status: 'failed', finishedAt: '2026-11-20T10:00:09Z' })]), 'X and F ended.');
+});

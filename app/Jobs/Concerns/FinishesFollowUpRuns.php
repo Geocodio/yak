@@ -48,8 +48,10 @@ trait FinishesFollowUpRuns
         // Questions ignored at the round limit must not reach the output.
         $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
-        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-        ArtifactPersister::persist($this->task);
+        SandboxArtifactCollector::exclusive($this->task, function () use ($sandbox, $containerName): void {
+            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+            ArtifactPersister::persist($this->task);
+        });
 
         $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
     }
@@ -97,6 +99,14 @@ trait FinishesFollowUpRuns
                 'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
                 'model_used' => config('yak.default_model'),
             ]);
+
+            // A CI result only acts on a task that is running or waiting on CI.
+            // A follow-up reaching here still pending (a task whose earlier
+            // run ended before opening a PR) moves on so the hand-off below
+            // opens the PR for the branch that is already pushed.
+            if ($this->task->status === TaskStatus::Pending) {
+                $this->task->update(['status' => TaskStatus::Running]);
+            }
 
             TaskLogger::info($this->task, 'Follow-up produced no commits; skipping push');
 

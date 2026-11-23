@@ -2,7 +2,8 @@ import { router } from '@inertiajs/react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasMutationsInFlight } from '@/threads/realtime/useRefreshThreadProps';
 import type { ThreadAgent, ThreadAgentsData } from '@/types/thread-agents';
-import { countRunning, mergeAgents, type AgentRowData } from './agentsState';
+import type { ThreadEventState } from '@/types/thread-events';
+import { childrenSignature, countRunning, mergeAgents, overlayChildren, type AgentRowData } from './agentsState';
 
 export type AgentsContextValue = {
     threadId: string;
@@ -79,7 +80,7 @@ export function AgentsProvider({
     canDrive,
     loaded = EMPTY,
     live,
-    childrenSignature = '',
+    liveChildren = {},
     selectedId,
     onSelect,
     openPanel,
@@ -90,7 +91,7 @@ export function AgentsProvider({
     canDrive: boolean;
     loaded?: ThreadAgentsData;
     live: Record<string, ThreadAgent>;
-    childrenSignature?: string;
+    liveChildren?: ThreadEventState['children'];
     selectedId: string | null;
     onSelect: (id: string | null) => void;
     openPanel: (agentId?: string) => void;
@@ -98,6 +99,7 @@ export function AgentsProvider({
     children: ReactNode;
 }) {
     const rows = useMemo(() => mergeAgents(loaded.agents, live), [loaded.agents, live]);
+    const subThreads = useMemo(() => overlayChildren(loaded.subThreads, liveChildren), [loaded.subThreads, liveChildren]);
     const running = useMemo(() => countRunning(rows), [rows]);
     const isRunningAny = running.agents + running.workflows > 0;
     const [now, setNow] = useState(() => Date.now());
@@ -114,11 +116,11 @@ export function AgentsProvider({
     }, [isRunningAny]);
 
     const signature = rows.map((agent) => `${agent.id}:${agent.status}:${agent.stopRequestedAt ?? ''}:${agent.followUpTurnId ?? ''}`).join('|');
-    useReloadAgents(`${threadId}|${signature}|${childrenSignature}`, rows.some((agent) => agent.status === 'running' && agent.messages.some((message) => message.forwardedAt === null)));
+    useReloadAgents(`${threadId}|${signature}|${childrenSignature(liveChildren)}`, rows.some((agent) => agent.status === 'running' && agent.messages.some((message) => message.forwardedAt === null)));
 
     const value = useMemo<AgentsContextValue>(
-        () => ({ threadId, canDrive, rows, main: loaded.main, subThreads: loaded.subThreads, running, now, selectedId, select: onSelect, openPanel, openFullLog }),
-        [threadId, canDrive, rows, loaded.main, loaded.subThreads, running, now, selectedId, onSelect, openPanel, openFullLog],
+        () => ({ threadId, canDrive, rows, main: loaded.main, subThreads, running, now, selectedId, select: onSelect, openPanel, openFullLog }),
+        [threadId, canDrive, rows, loaded.main, subThreads, running, now, selectedId, onSelect, openPanel, openFullLog],
     );
 
     return <AgentsContext.Provider value={value}>{children}</AgentsContext.Provider>;

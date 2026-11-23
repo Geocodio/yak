@@ -12,7 +12,7 @@ export function SettingsLayout({ slug, children }: { slug: SettingsSlug; childre
         <AppLayout>
             <PageHeader crumbs={['Settings', label]} />
             <div className="min-h-0 flex-1 overflow-auto">
-                <div className={`mx-auto w-full px-4 py-8 sm:px-8 ${isWide ? 'max-w-5xl' : 'max-w-[560px]'}`}>
+                <div className={`mx-auto w-full px-4 py-8 sm:px-8 ${isWide ? 'max-w-5xl' : slug === 'limits' ? 'max-w-[640px]' : 'max-w-[560px]'}`}>
                     <h1 className="text-[18px] font-semibold">{label}</h1>
                     {item?.description ? <p className="mb-6 text-muted">{item.description}</p> : null}
                     {children}

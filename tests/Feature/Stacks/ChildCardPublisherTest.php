@@ -37,7 +37,7 @@ it('appends one stored child event to the parent stream', function () {
             'name' => 'scout',
             'kind' => 'research',
             'model' => 'haiku',
-            'state' => 'queued',
+            'state' => 'starting',
             'step' => null,
             'resultSummary' => null,
             'branch' => null,
@@ -83,7 +83,7 @@ it('publishes a card when a child is spawned and when it ends', function () {
 
     expect(childEvents($root))->toHaveCount(1)
         ->and(childEvents($root)[0]['childThreadId'])->toBe($spawned->public_id)
-        ->and(childEvents($root)[0]['state'])->toBe('queued');
+        ->and(childEvents($root)[0]['state'])->toBe('starting');
 });
 
 it('publishes the open question of a waiting child and the file totals of its diff', function () {

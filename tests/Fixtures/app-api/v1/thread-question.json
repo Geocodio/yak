@@ -205,17 +205,22 @@
         "expiresAt": "2026-11-16T12:00:00+00:00",
         "questions": [
             {
+                "context": [],
                 "header": "On failure",
                 "id": "on_failure",
                 "multiSelect": false,
                 "options": [
                     {
+                        "attachments": [],
                         "description": "Keep the batch going.",
-                        "label": "Mark the row as failed"
+                        "label": "Mark the row as failed",
+                        "previewHtml": null
                     },
                     {
+                        "attachments": [],
                         "description": "Stop at the first failure.",
-                        "label": "Fail the whole batch"
+                        "label": "Fail the whole batch",
+                        "previewHtml": null
                     }
                 ],
                 "question": "When all retries fail, what should happen to the row?"

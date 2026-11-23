@@ -1,11 +1,11 @@
 import type { SettingsNavSection } from '@geocodio/console-ui';
-import { Activity, Bell, Inbox, KeyRound, Monitor, Puzzle, Server, Type, User, UserRound, Users, Video as VideoIcon, Zap } from 'lucide-react';
+import { Activity, Bell, Gauge, Inbox, KeyRound, Monitor, Puzzle, Server, Type, User, UserRound, Users, Video as VideoIcon, Zap } from 'lucide-react';
 import { createElement } from 'react';
 import { channels, mcp, prompts, skills, system } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
-import { linear, notifications, video } from '@/routes/settings';
+import { limits, linear, notifications, video } from '@/routes/settings';
 
-export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'people' | 'ssh-keys' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'system';
+export type SettingsSlug = 'profile' | 'claude-accounts' | 'devices' | 'people' | 'ssh-keys' | 'notifications' | 'prompts' | 'skills' | 'mcp' | 'linear' | 'video' | 'channels' | 'limits' | 'system';
 
 const icon = (component: typeof User) => createElement(component, { size: 15 });
 
@@ -95,6 +95,14 @@ export const SETTINGS_SECTIONS: SettingsNavSection[] = [
                 keywords: ['admin', 'role', 'members', 'users'],
             },
             { slug: 'channels', href: channels.url(), label: 'Channels', icon: icon(Inbox), description: 'Slack, Linear, Sentry, and email inputs.' },
+            {
+                slug: 'limits',
+                href: limits.url(),
+                label: 'Limits',
+                icon: icon(Gauge),
+                description: 'How much Yak runs at once, how long things are kept, and how much it may spend. Only admins see this page. Changes apply to the next sandbox, task or cleanup run.',
+                keywords: ['capacity', 'sandboxes', 'budget', 'retention', 'memory', 'cap'],
+            },
             { slug: 'system', href: system.url(), label: 'System', icon: icon(Activity), description: 'Health and logs of the Yak installation.' },
         ],
     },

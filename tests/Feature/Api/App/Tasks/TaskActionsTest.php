@@ -90,9 +90,11 @@ it('resumes CI after a timeout and checks the build once', function () {
     config()->set('yak.channels.github.installation_id', 99999);
     GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
     Repository::factory()->create(['slug' => 'example/api', 'github_full_name' => 'example/api', 'ci_system' => 'github_actions']);
-    Http::fake(['api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [
-        ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'success'],
-    ]])]);
+    Http::fake([
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
+        'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'success'],
+        ]])]);
     $task = actionTask($this->user, ['branch_name' => 'yak/upgrade-payments-sdk', 'attempts' => 1, 'error_log' => TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX . ' 30 minutes']);
 
     $this->postJson(appTaskPath($task, '/retry'), [], $this->headers)->assertOk()->assertExactJson(['status' => 'queued']);
@@ -336,6 +338,7 @@ it('reruns the failed CI jobs once even when a second retry starts while the fir
 
             return Http::response([], 201);
         },
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => function () use (&$isNested, $task) {
             if (! $isNested) {
                 $isNested = true;
@@ -362,6 +365,7 @@ it('falls back to the agent retry on the branch when GitHub refuses the rerun fo
 
             return Http::response(['message' => 'refused'], $refusal);
         },
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]),
     ]);
 
@@ -382,6 +386,7 @@ it('falls back to the agent retry once when two retries start together and GitHu
 
             return Http::response(['message' => 'refused'], 403);
         },
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => function () use (&$isNested, $task) {
             if (! $isNested) {
                 $isNested = true;
@@ -403,6 +408,7 @@ it('keeps waiting for CI when GitHub accepts one rerun and refuses another for g
     Http::fake([
         'api.github.com/repos/example/api/actions/runs/2/rerun-failed-jobs' => Http::response([], 201),
         'api.github.com/repos/example/api/actions/runs/3/rerun-failed-jobs' => Http::response(['message' => 'disabled'], 403),
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [
             ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure'],
             ['id' => 3, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure'],
@@ -419,6 +425,7 @@ it('treats a GitHub rate limit refusal as passing and puts the task back', funct
     $task = timeoutCiTask($this->user);
     Http::fake([
         'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => Http::response(['message' => 'rate limit'], 403, $headers),
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]),
     ]);
 
@@ -432,6 +439,7 @@ it('puts the task back and answers 503 when the rerun fails in passing', functio
     $task = timeoutCiTask($this->user);
     Http::fake([
         'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => Http::response(['message' => 'busy'], $status),
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => [['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]]),
     ]);
 
@@ -450,6 +458,7 @@ it('bounds every GitHub call of an app retry to two and three seconds', function
 
             return Http::response([], 201);
         },
+        'api.github.com/repos/example/api/branches/*' => Http::response(['commit' => ['sha' => 'new222']]),
         'api.github.com/repos/example/api/actions/runs*' => function ($request, array $options) use (&$recorded) {
             $recorded[] = $options + ['u' => $request->url()];
 

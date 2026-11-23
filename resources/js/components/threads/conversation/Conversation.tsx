@@ -1,4 +1,3 @@
-import { childrenSignature } from '@/threads/panels/agents/agentsState';
 import { router, usePoll } from '@inertiajs/react';
 import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
@@ -11,6 +10,7 @@ import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
+import { ChildResultRow } from './ChildResultRow';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
@@ -41,6 +41,7 @@ import { placeContinuedRows } from './placeContinuedRows';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
 import { continuedByRun } from '@/threads/panels/agents/agentsState';
 import type { ThreadAgent } from '@/types/thread-agents';
+import type { ThreadEventState } from '@/types/thread-events';
 
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
@@ -48,6 +49,10 @@ Object.assign(window, { __mergeConversation: mergeConversation, __createReadTrac
 function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels: Record<string, string>; item: ConversationItem; canDrive: boolean; isLast: boolean; threadId: string }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
+    }
+
+    if (item.kind === 'childResult') {
+        return <ChildResultRow item={item} />;
     }
 
     if (item.kind === 'repository') {
@@ -97,7 +102,7 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, childrenSignature: string) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, children: ThreadEventState['children']) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     // The feed knows where the turn started; the run before the active one is the fallback.
     const { entries, liveSteps, lastSequence, connection, link, agents: liveAgents, children: liveChildren } = useConversation(threadId, messages, runs.at(-2)?.afterSequence ?? 0);
     const agents = useAgents();
@@ -111,8 +116,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
-    const liveChildrenSignature = childrenSignature(liveChildren);
-    useEffect(() => onAgentsChange?.(liveAgents, liveChildrenSignature), [liveAgents, liveChildrenSignature, onAgentsChange]);
+    useEffect(() => onAgentsChange?.(liveAgents, liveChildren), [liveAgents, liveChildren, onAgentsChange]);
     useEffect(() => onLiveStepsChange?.(liveSteps), [liveSteps, onLiveStepsChange]);
     // The person's own message always comes into view, also after they scrolled up.
     useEffect(() => {
@@ -194,8 +198,8 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                         return (
                             <Fragment key={entry.item.key}>
                                 {before}
-                                {(continuedBefore.get(index) ?? []).map((agent) => (
-                                    <AgentContinuedRow key={`agent-continued-${agent.id}`} agent={agent} />
+                                {(continuedBefore.get(index) ?? []).map((group) => (
+                                    <AgentContinuedRow key={`agent-continued-${group[0].id}`} agents={group} />
                                 ))}
                                 <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
                                 {(footersAfter.get(index) ?? []).map((run) => (

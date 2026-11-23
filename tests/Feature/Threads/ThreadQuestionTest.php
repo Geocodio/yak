@@ -80,11 +80,12 @@ it('shows the open question in camelCase', function () {
             'id' => 'on_failure',
             'header' => 'On failure',
             'question' => 'When all retries fail, what should happen to the row?',
-            'options' => [
-                ['label' => 'Mark the row as failed', 'description' => 'Keep the batch going.'],
-                ['label' => 'Fail the whole batch', 'description' => 'Stop at the first failure.'],
-            ],
             'multiSelect' => false,
+            'context' => [],
+            'options' => [
+                ['label' => 'Mark the row as failed', 'description' => 'Keep the batch going.', 'attachments' => [], 'previewHtml' => null],
+                ['label' => 'Fail the whole batch', 'description' => 'Stop at the first failure.', 'attachments' => [], 'previewHtml' => null],
+            ],
         ]],
     ]);
 });

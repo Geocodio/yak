@@ -54,6 +54,7 @@ it('answers some questions, skips one, uses other and the note, and sends', func
         ->assertDisabled('[data-testid="questions-submit"]')
         ->click('[data-testid="question-scope"] >> text=Small')
         ->assertEnabled('[data-testid="questions-submit"]')
+        ->click('[data-testid="questions-next"]')
         ->click('[data-testid="question-data"] >> text=Other')
         ->fill('[data-testid="question-data-other"]', 'Use staging')
         ->fill('[data-testid="questions-note"]', 'Thanks')

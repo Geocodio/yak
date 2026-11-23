@@ -24,8 +24,8 @@ test('an admin sees the awake sandboxes card with the slot summary', function ()
     $admin = User::factory()->create();
     $other = User::factory()->create(['name' => 'Tessa Teammate']);
     config(['claude-accounts.admin_user_ids' => [$admin->id], 'yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 4]);
-    foreach ([$other, $other, $other, $other] as $owner) {
-        Thread::factory()->create(['owner_user_id' => $owner->id, 'sandbox_state' => ThreadSandboxState::Running]);
+    foreach ([$other, $other, $other, $other] as $index => $owner) {
+        Thread::factory()->create(['owner_user_id' => $owner->id, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => "yak-thread-{$index}"]);
     }
     $this->actingAs($admin);
 

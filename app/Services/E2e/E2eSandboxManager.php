@@ -78,6 +78,21 @@ final class E2eSandboxManager implements SandboxManager
         return (new FakeSandboxManager)->availableMemoryBytes();
     }
 
+    public function totalMemoryBytes(): int
+    {
+        return (new FakeSandboxManager)->totalMemoryBytes();
+    }
+
+    public function cpuUsedRatio(): float
+    {
+        return (new FakeSandboxManager)->cpuUsedRatio();
+    }
+
+    public function cpuCores(): int
+    {
+        return (new FakeSandboxManager)->cpuCores();
+    }
+
     public function poolUsedPercent(): float
     {
         return (new FakeSandboxManager)->poolUsedPercent();

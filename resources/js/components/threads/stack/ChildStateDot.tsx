@@ -2,7 +2,8 @@ import { cn } from '@geocodio/console-ui';
 import type { ChildCardState } from '@/types/thread-events';
 
 const DOT: Record<ChildCardState, string> = {
-    queued: 'border border-brand',
+    starting: 'border border-brand',
+    queued: 'border border-idle',
     working: 'bg-brand',
     waiting: 'bg-warn',
     done: 'bg-ok',
@@ -11,12 +12,13 @@ const DOT: Record<ChildCardState, string> = {
 };
 
 export const CHILD_STATE_LABEL: Record<ChildCardState, string> = {
-    queued: 'Waiting for a slot',
+    starting: 'Starting',
+    queued: 'Waiting',
     working: 'Working',
-    waiting: 'Waiting',
-    done: 'Finished',
+    waiting: 'Needs you',
+    done: 'Done',
     failed: 'Failed',
-    closed: 'Closed',
+    closed: 'Stopped',
 };
 
 /** A status dot, never a stripe: filled for live states, hollow for ones that are not running. */
@@ -26,6 +28,7 @@ export function ChildStateDot({ state }: { state: ChildCardState }) {
 
 /** Tinted whole-pill surfaces, one per state. */
 export const CHILD_STATE_PILL: Record<ChildCardState, string> = {
+    starting: 'bg-brand-soft text-brand',
     queued: 'border border-hair text-muted',
     working: 'bg-brand-soft text-brand',
     waiting: 'bg-warn-soft text-body',

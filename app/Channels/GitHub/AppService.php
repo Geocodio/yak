@@ -574,40 +574,50 @@ class AppService
     }
 
     /**
-     * The workflow runs for the newest commit pushed to a branch. Runs are
-     * listed newest first, so the first run's head SHA identifies the
-     * branch's latest push; runs of older commits are left out. Throws when
-     * GitHub cannot be reached or refuses the request, so the caller can
-     * tell "no runs" apart from "could not find out".
+     * The workflow runs for the commit the base repository's branch points at
+     * right now. The head SHA comes from the repository itself, never from the
+     * runs, and only runs of that exact commit that were started by this
+     * repository count, so a fork's branch of the same name or a run for an
+     * older commit can never stand in for the head. A branch that does not
+     * exist has no runs. Throws when GitHub cannot be reached or refuses the
+     * request, so the caller can tell "no runs" apart from "could not find out".
      *
      * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
      * @return list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>
      */
     public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch, bool $isTimeBounded = false): array
     {
-        /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null}> $runs */
+        $headSha = $this->findBranchHeadSha($installationId, $repoSlug, $branch, $isTimeBounded);
+
+        if ($headSha === null) {
+            return [];
+        }
+
+        /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null, head_repository?: array{full_name?: string}|null}> $runs */
         $runs = $this->installationClient($installationId, $isTimeBounded)
             ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
                 'branch' => $branch,
+                'head_sha' => $headSha,
                 'per_page' => 30,
             ])
             ->throw()
             ->json('workflow_runs', []);
 
-        if ($runs === []) {
-            return [];
-        }
+        $ownRuns = array_filter($runs, function (array $run) use ($headSha, $repoSlug): bool {
+            $headRepository = $run['head_repository']['full_name'] ?? null;
 
-        $latestSha = (string) ($runs[0]['head_sha'] ?? '');
+            return ($run['head_sha'] ?? '') === $headSha
+                && ($headRepository === null || strcasecmp($headRepository, $repoSlug) === 0);
+        });
 
         return array_values(array_map(
             fn (array $run): array => [
                 'id' => (int) ($run['id'] ?? 0),
-                'head_sha' => $latestSha,
+                'head_sha' => $headSha,
                 'status' => $run['status'] ?? null,
                 'conclusion' => $run['conclusion'] ?? null,
             ],
-            array_filter($runs, fn (array $run): bool => ($run['head_sha'] ?? '') === $latestSha),
+            $ownRuns,
         ));
     }
 
@@ -649,6 +659,25 @@ class AppService
         }
 
         $sha = $response->json('commit.sha');
+
+        return is_string($sha) ? $sha : null;
+    }
+
+    /**
+     * The commit SHA a branch points at, or null only when GitHub says the
+     * branch does not exist. Any other failure throws, so a caller never
+     * mistakes an outage or a missing permission for a missing branch.
+     */
+    public function findBranchHeadSha(int $installationId, string $repoSlug, string $branch, bool $isTimeBounded = false): ?string
+    {
+        $response = $this->installationClient($installationId, $isTimeBounded)
+            ->get("https://api.github.com/repos/{$repoSlug}/branches/" . rawurlencode($branch));
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        $sha = $response->throw()->json('commit.sha');
 
         return is_string($sha) ? $sha : null;
     }

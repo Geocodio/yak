@@ -5,6 +5,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishRetryTurnJob;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
@@ -65,6 +66,7 @@ test('a retry that leaves the branch unchanged reruns the failed CI jobs instead
     $task = unchangedRetryTask();
     Http::fake([
         'api.github.com/repos/org/flaky/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
         'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
             ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'failure'],
         ]]),
@@ -80,12 +82,28 @@ test('a retry that leaves the branch unchanged reruns the failed CI jobs instead
 
 test('a retry that leaves the branch unchanged fails at once when no CI jobs can rerun', function () {
     $task = unchangedRetryTask();
-    Http::fake(['api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => []])]);
+    Http::fake([
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => []])]);
 
     finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'Nothing to change.', TaskRunKind::Retry);
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)
         ->and($task->fresh()->error_log)->toContain('Retry made no changes');
+});
+
+test('a retry that leaves a green branch without a pull request opens the pull request', function () {
+    $task = unchangedRetryTask();
+    Http::fake([
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'success'],
+        ]])]);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'The work is already on the branch.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job): bool => $job->passed);
 });
 
 test('a retry runs on the yak-claude queue with the budget and repo middleware', function () {
