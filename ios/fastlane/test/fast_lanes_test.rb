@@ -109,6 +109,20 @@ class FastLanesTest < Minitest::Test
     assert_empty FastLanes.failed_tests({"testNodes" => []})
   end
 
+  def test_failed_tests_names_swift_testing_identifiers
+    test_case = ->(path, result = "Failed") { {"nodeType" => "Test Case", "result" => result, "nodeIdentifierURL" => "test://com.apple.xcode/Yak/#{path}"} }
+    results = {"testNodes" => [{"nodeType" => "Test Plan", "children" => [{"nodeType" => "Unit test bundle", "children" => [
+      test_case.call("YakTests/topLevel()"),
+      {"nodeType" => "Test Suite", "children" => [
+        test_case.call("YakTests/Outer/Inner/nested()"),
+        test_case.call("YakTests/Suite/rows(_:)?args=abc"),
+        test_case.call("YakTests/Suite/passes()", "Passed")
+      ]}
+    ]}]}]}
+    assert_equal ["YakTests/topLevel()", "YakTests/Outer/Inner/nested()", "YakTests/Suite/rows(_:)"], FastLanes.failed_tests(results)
+    assert_raises(ArgumentError) { FastLanes.failed_tests({"testNodes" => [test_case.call("").merge("nodeIdentifierURL" => "nothing")]}) }
+  end
+
   def test_runner_never_started
     assert FastLanes.runner_never_started?("x\nYakUITests-Runner encountered an error (Failed to establish communication with the test runner. (Underlying Error: Channel disconnected))")
     assert FastLanes.runner_never_started?("Test Suite 'Selected tests' passed\nExecuted 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds\n")

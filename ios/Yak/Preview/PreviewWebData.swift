@@ -12,6 +12,12 @@ import YakKit
 @MainActor
 enum PreviewWebData {
     static let eraseLimit: Duration = .seconds(5)
+    /// How often a store is removed while WebKit still lists it after a removal that reported success.
+    static let removalAttempts = 5
+    /// How many checks in a row must find the store unlisted after a removal.
+    static let unlistedChecks = 3
+    /// The pause before each check whether WebKit still lists a removed store.
+    static let removalPause: Duration = .seconds(1)
     /// Instance ids whose store could not be erased yet.
     static let pendingKey = "yak.preview.pendingErase"
     /// Every store id `store(for:defaults:)` handed out and not yet erased; the sweep only looks at these.
@@ -32,12 +38,55 @@ enum PreviewWebData {
         return await erase(instanceID: instanceID, defaults: defaults)
     }
 
-    /// Removes the store within `eraseLimit`; on a failure or a timeout the instance is recorded as pending.
-    static func erase(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
-        await serialized { await eraseNow(instanceID: instanceID, defaults: defaults) }
+    /// Removes one store by identifier.
+    typealias Removal = @MainActor @Sendable (UUID) async throws -> Void
+    /// Lists the identifiers of the stores WebKit has.
+    typealias Listing = @MainActor @Sendable () async -> [UUID]
+
+    static let liveRemoval: Removal = { try await WKWebsiteDataStore.remove(forIdentifier: $0) }
+    static let liveListing: Listing = { await WKWebsiteDataStore.allDataStoreIdentifiers }
+
+    /// Removes the store within `eraseLimit` and checks that WebKit no longer lists it, removing it again while it
+    /// does. On a failure, a timeout or a store that is still listed, the instance is recorded as pending and the
+    /// store stays in the known record, so the next sweep tries again.
+    static func erase(
+        instanceID: UUID, defaults: any KeyValueStore, remove: @escaping Removal = liveRemoval,
+        listStores: @escaping Listing = liveListing, pause: Duration = removalPause
+    ) async -> Bool {
+        await serialized {
+            await eraseNow(
+                instanceID: instanceID, defaults: defaults, remove: remove, listStores: listStores, pause: pause)
+        }
     }
 
-    private static func eraseNow(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
+    /// Removes `storeID` and returns true only when WebKit has not listed it for `unlistedChecks` checks in a row, one
+    /// every `pause`. A removal that reports success is usually followed by WebKit listing the store again a moment
+    /// later (its network session writes into it as it closes), so a listed store is removed again, `removalAttempts`
+    /// removals at most.
+    private static func removeUntilUnlisted(
+        _ storeID: UUID, remove: @escaping Removal, listStores: @escaping Listing, pause: Duration
+    ) async -> Bool {
+        for _ in 1...removalAttempts {
+            guard await bounded({ try await remove(storeID) }) else { return false }
+            var isListed = false
+            for _ in 1...unlistedChecks {
+                try? await Task.sleep(for: pause)
+                let listed = await bounded(returning: nil, limit: eraseLimit, { Optional(await listStores()) })
+                if listed?.contains(storeID) ?? true {
+                    isListed = true
+                    break
+                }
+            }
+            if !isListed { return true }
+        }
+        log("A web data store is still listed after it was removed")
+        return false
+    }
+
+    private static func eraseNow(
+        instanceID: UUID, defaults: any KeyValueStore, remove: @escaping Removal, listStores: @escaping Listing,
+        pause: Duration
+    ) async -> Bool {
         let known = read(knownStoresKey, in: defaults) as Set<UUID>
         let isPending = (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID)
         // A store never handed out has nothing to erase; a pending instance retries every store it can have, so an
@@ -47,12 +96,11 @@ enum PreviewWebData {
         startWebKit()
         var isEveryStoreRemoved = true
         for storeID in doomed {
-            let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
-            if isRemoved {
-                update(knownStoresKey, in: defaults) { $0.remove(storeID) }
-            } else {
-                isEveryStoreRemoved = false
-            }
+            let isRemoved = await removeUntilUnlisted(
+                storeID, remove: remove, listStores: listStores, pause: pause)
+            // A store that was removed can be listed again by a process that still holds it. Its id stays in the
+            // known record, and the next sweep drops it once WebKit no longer lists the store, or removes it again.
+            if !isRemoved { isEveryStoreRemoved = false }
         }
         if isEveryStoreRemoved {
             update(pendingKey, in: defaults) { $0.remove(instanceID) }
@@ -66,19 +114,19 @@ enum PreviewWebData {
     /// At launch: erases the stores this feature handed out whose instance is gone, needs pairing or is pending.
     static func sweep(
         instances: InstanceStore, defaults: any KeyValueStore,
-        listStores: @escaping @MainActor @Sendable () async -> [UUID] = {
-            await WKWebsiteDataStore.allDataStoreIdentifiers
-        },
-        limit: Duration = eraseLimit
+        listStores: @escaping Listing = liveListing, remove: @escaping Removal = liveRemoval,
+        limit: Duration = eraseLimit, pause: Duration = removalPause
     ) async {
         await serialized {
-            await sweepNow(instances: instances, defaults: defaults, listStores: listStores, limit: limit)
+            await sweepNow(
+                instances: instances, defaults: defaults, listStores: listStores, remove: remove, limit: limit,
+                pause: pause)
         }
     }
 
     private static func sweepNow(
         instances: InstanceStore, defaults: any KeyValueStore,
-        listStores: @escaping @MainActor @Sendable () async -> [UUID], limit: Duration
+        listStores: @escaping Listing, remove: @escaping Removal, limit: Duration, pause: Duration
     ) async {
         let all = await instances.all()
         var keep: [UUID] = []
@@ -98,10 +146,11 @@ enum PreviewWebData {
         }
         let doomed = PreviewDataStoreID.toErase(existing: existing, known: known, keep: keep, pending: pending)
         for storeID in doomed {
-            let isRemoved = await bounded { try await WKWebsiteDataStore.remove(forIdentifier: storeID) }
-            if isRemoved { update(knownStoresKey, in: defaults) { $0.remove(storeID) } }
+            _ = await removeUntilUnlisted(storeID, remove: remove, listStores: listStores, pause: pause)
         }
-        // A known store that no longer exists needs no erase; a pending instance whose store is gone is done.
+        // A known store that WebKit did not list at the start needs no erase, and a pending instance whose stores were
+        // not listed is done. A store removed just now stays recorded: a process that still holds it can make WebKit
+        // list it again, and the next sweep removes it again or drops it once it is gone.
         update(knownStoresKey, in: defaults) { $0.formIntersection(existing) }
         update(pendingKey, in: defaults) { ids in
             ids = ids.filter { id in PreviewDataStoreID.allStores(for: id).contains { existing.contains($0) } }

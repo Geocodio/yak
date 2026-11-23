@@ -290,6 +290,9 @@ platform :ios do
     FileUtils.rm_rf(retry_path)
     selection = failed.map { |test| "-only-testing:#{test}" }.join(" ")
     UI.user_error!("Failed again on retry: #{failed.join(", ")}") unless run_test_step(yield(selection, retry_path), device, retry_path)
+    # A selection that matches nothing still ends in a passing xcodebuild, so the retry must show that it ran every test.
+    ran = JSON.parse(`xcrun xcresulttool get test-results summary --path #{retry_path.shellescape} --compact`)["totalTestCount"].to_i
+    UI.user_error!("The retry ran #{ran} tests for #{failed.size} failed ones (#{selection}); not treating it as a pass") if ran < failed.size
     notice = "Passed on retry (failed once on this run): #{failed.join(", ")}"
     UI.important(notice)
     puts "::warning title=Flaky UI test::#{notice}" if ci?
