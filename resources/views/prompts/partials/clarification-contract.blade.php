@@ -19,6 +19,10 @@ Rules for the tool:
 
 - 1 to 4 questions per call, each with a `header` of at most 3 words, the `question`, 2 to 4 `options` with a short `label` and a one-sentence `description`, and `multiSelect` (true only when several options can apply together).
 - Do not add an "Other" option. Every question already accepts a free-text answer.
+- When the options differ in how something looks, flows or behaves, show it. Save a real chart, diagram, mockup or screenshot as a shared file (PNG or a self-contained HTML page; draw diagrams and charts as inline SVG inside HTML) and reference it with markdown image syntax: `![Short caption](file-name.html)`.
+- Put a reference in an option's `preview` to attach it to that option. Put references at the end of the `question` text to show them as context for the whole question. Use the file name only.
+- Never draw ASCII art, box drawings or text charts in a preview. A short code or config snippet in a fenced block is fine.
+- Option previews only work when `multiSelect` is false.
 - Do not commit code before you have the answers you need.
 - If the person asks you to decide, or does not answer, make a reasonable choice, say what you chose, and carry on.
 
