@@ -91,6 +91,21 @@ test('closing a thread destroys its sandbox and marks it closed', function () {
         ->and($thread->close_reason)->toBe('manual');
 });
 
+test('closing the thread being read leaves it, closing from the sidebar list stays put', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create();
+    $other = Thread::factory()->create();
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('destroy')->twice();
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $this->actingAs($user)->from(route('threads.show', $thread))->post(route('threads.close', $thread))
+        ->assertRedirect(route('home'));
+
+    $this->actingAs($user)->from(route('threads.show', $thread))->post(route('threads.close', $other))
+        ->assertRedirect(route('threads.show', $thread));
+});
+
 test('a viewer of a shared private thread cannot close or delete it', function () {
     $owner = User::factory()->create();
     $guest = User::factory()->create();

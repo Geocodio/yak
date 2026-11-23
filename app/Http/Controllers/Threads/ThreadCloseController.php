@@ -18,6 +18,13 @@ class ThreadCloseController extends Controller
 
         $closer->close($thread, 'manual');
 
-        return back()->with('success', 'Thread closed.');
+        // Closing from the sidebar list leaves the person on the page they are reading.
+        if (! str_contains(url()->previous(), $thread->public_id)) {
+            return back()->with('success', 'Thread closed.');
+        }
+
+        $parent = $thread->parent_thread_id === null ? null : Thread::query()->withoutGlobalScopes()->find($thread->parent_thread_id);
+
+        return ($parent === null ? redirect()->route('home') : redirect()->route('threads.show', $parent))->with('success', 'Thread closed.');
     }
 }
