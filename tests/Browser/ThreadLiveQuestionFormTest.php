@@ -44,9 +44,12 @@ it('lets Claude decide from the live question form', function () {
     $this->actingAs($user);
     questionLineFor($thread, [widthQuestion()]);
 
-    visit("/threads/{$thread->public_id}")
-        ->click('[data-testid="questions-decide"]')
-        ->assertMissing('[data-testid="questions-form"]');
+    $page = visit("/threads/{$thread->public_id}");
+
+    // The question reaches the page through the events request, so the form is not there at load.
+    waitUntilPresent($page, '[data-testid="questions-decide"]');
+    $page->click('[data-testid="questions-decide"]');
+    waitUntilPresent($page, '[data-testid="questions-form"]', isPresent: false);
 
     expect(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'decline_question')['message'])->toBe('The person asked you to decide.');
 });
