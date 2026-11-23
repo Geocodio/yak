@@ -15168,6 +15168,146 @@
         }
       }
     },
+    "viewer.failed.crashed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file page stopped working. Try again."
+          }
+        }
+      }
+    },
+    "viewer.failed.network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file could not be loaded. Check the connection and try again."
+          }
+        }
+      }
+    },
+    "viewer.failed.server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server could not show this file. Try again in a moment."
+          }
+        }
+      }
+    },
+    "viewer.failed.session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file could not be opened because its session could not be renewed. Try again."
+          }
+        }
+      }
+    },
+    "viewer.failed.timeout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file took too long to load. Try again."
+          }
+        }
+      }
+    },
+    "viewer.failed.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not available."
+          }
+        }
+      }
+    },
+    "viewer.handedOff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a page. It opens in a preview instead."
+          }
+        }
+      }
+    },
+    "viewer.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading the file"
+          }
+        }
+      }
+    },
+    "viewer.menu.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File actions"
+          }
+        }
+      }
+    },
+    "viewer.offline.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file loads when the connection returns."
+          }
+        }
+      }
+    },
+    "viewer.openSafari" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Safari"
+          }
+        }
+      }
+    },
+    "viewer.page.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared file"
+          }
+        }
+      }
+    },
+    "viewer.slow.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app keeps trying. The file shows when it loads."
+          }
+        }
+      }
+    },
+    "viewer.title.fallback" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File"
+          }
+        }
+      }
+    },
     "walkthrough.expired" : {
       "localizations" : {
         "en" : {
