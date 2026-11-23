@@ -4,10 +4,10 @@ type RunEnd = { runId: string; afterSequence: number };
 /**
  * Where each "agent finished, Claude continued" row belongs: before the first event of the run that the agent's end
  * started, which is the first event after the run before it ended. A run none of whose events are loaded gets no row.
- * The result is keyed by the entry's index.
+ * The result is keyed by the entry's index and holds one group of agents per run, so one row names every agent a run took in.
  */
-export function placeContinuedRows<T>(entries: ReadonlyArray<Placeable>, runs: RunEnd[], byRun: Map<number, T[]>): Map<number, T[]> {
-    const placed = new Map<number, T[]>();
+export function placeContinuedRows<T>(entries: ReadonlyArray<Placeable>, runs: RunEnd[], byRun: Map<number, T[]>): Map<number, T[][]> {
+    const placed = new Map<number, T[][]>();
     const ordered = [...runs].sort((a, b) => Number(a.runId) - Number(b.runId));
 
     ordered.forEach((run, position) => {
@@ -21,7 +21,7 @@ export function placeContinuedRows<T>(entries: ReadonlyArray<Placeable>, runs: R
         const index = entries.findIndex((entry) => entry.type === 'event' && entry.item !== undefined && entry.item.sequence > boundary);
 
         if (index !== -1) {
-            placed.set(index, [...(placed.get(index) ?? []), ...continued]);
+            placed.set(index, [...(placed.get(index) ?? []), continued]);
         }
     });
 

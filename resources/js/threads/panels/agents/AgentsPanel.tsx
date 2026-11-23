@@ -89,7 +89,7 @@ function SubThreadRow({ subThread }: { subThread: ThreadSubThread }) {
         .join(' · ');
 
     return (
-        <li className="flex items-start gap-1" data-testid="agents-subthread-row" data-thread-id={subThread.id}>
+        <li className="flex items-start gap-1" data-testid="agents-subthread-row" data-thread-id={subThread.id} data-state={subThread.state}>
             <Link href={show.url(subThread.id)} className={cn(rowClass, 'flex-1 pl-2 hover:bg-panel-2')}>
                 <span className="mt-[7px]">
                     <ChildStateDot state={subThread.state} />

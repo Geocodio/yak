@@ -1,6 +1,6 @@
-import { Button, ConfirmDialog } from '@geocodio/console-ui';
+import { Button, ConfirmDialog, Menu } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
-import { Layers, Plus } from 'lucide-react';
+import { Layers, MoreHorizontal, OctagonX, Plus } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { THREAD_GROUP, stackActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
@@ -9,18 +9,19 @@ import type { PanelProps } from '@/threads/panels';
 import { OverviewGroup } from '../environment/OverviewRow';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
 import { SUB_THREAD_DEFINITION } from '@/threads/panels/agents/words';
-import { AwakeLimitStepper } from './AwakeLimitStepper';
+import { AwakeLimitEditor, AwakeLimitSummary, useAwakeLimit } from './AwakeLimit';
 import { ChildRow } from './ChildRow';
-import { StackMessages } from './StackMessages';
 
 /**
- * The first Overview group once a thread has sub-threads, or is one: status and diff counts of each,
- * the Awake at once stepper, and Stop stack. Adding a sub-thread lives here, in the composer menu and in the command palette.
+ * The first Overview group once a thread has sub-threads, or is one: each sub-thread with its state, why a waiting
+ * one waits, how many with their own sandbox run at once, and Stop all sub-threads in the overflow menu. Adding a sub-thread lives here, in the composer menu and in the command palette.
  */
 export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAddSubThread }: PanelProps) {
     const agents = useAgents();
     const [isConfirmingStop, setIsConfirmingStop] = useState(false);
     const [isStopping, setIsStopping] = useState(false);
+    const [isEditingLimit, setIsEditingLimit] = useState(false);
+    const { save: saveLimit, isSaving: isSavingLimit } = useAwakeLimit(thread.id, reloadStack);
 
     const children = stack?.children;
     const reloadRef = useRef(reloadStack);
@@ -39,6 +40,9 @@ export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAdd
         return null;
     }
 
+    const hasOwnSandboxChild = stack.children.some((child) => child.kind !== 'research');
+    const waiting = { awake: stack.limit.awake, current: stack.limit.current, max: stack.limit.max, canRaise: stack.canDrive && stack.isRoot, isSaving: isSavingLimit, onRaise: () => saveLimit(stack.limit.current + 1) };
+
     const stopStack = () => {
         router.post(stop.url(thread.id), {}, { preserveScroll: true, onStart: () => setIsStopping(true), onFinish: () => { setIsStopping(false); setIsConfirmingStop(false); reloadStack(); } });
     };
@@ -56,6 +60,16 @@ export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAdd
                         <button type="button" onClick={onAddSubThread} aria-label="Add a sub-thread" title="Add a sub-thread" className="ml-auto inline-flex size-[26px] cursor-pointer items-center justify-center rounded-[6px] text-muted hover:bg-panel-2 hover:text-body" data-testid="stack-add">
                             <Plus size={13} aria-hidden />
                         </button>
+                    )}
+                    {stack.canStop && stack.children.length > 0 && (
+                        <Menu
+                            trigger={<MoreHorizontal size={13} aria-hidden />}
+                            aria-label="Sub-threads menu"
+                            className={onAddSubThread === undefined ? 'ml-auto size-[26px] px-0' : 'size-[26px] px-0'}
+                            align="end"
+                            items={[{ key: 'stop', label: 'Stop all sub-threads', icon: <OctagonX size={13} />, danger: true, testId: 'stack-stop', onSelect: () => setIsConfirmingStop(true) }]}
+                            data-testid="stack-menu"
+                        />
                     )}
                 </>
             }
@@ -81,26 +95,22 @@ export function StackGroup({ thread, stack = null, reloadStack = () => {}, onAdd
 
                 {stack.children.length > 0 && (
                     <ul className="divide-y divide-hair overflow-hidden rounded-[10px] border border-hair bg-panel">
-                        {stack.children.map((child) => <ChildRow key={child.id} child={child} onChanged={reloadStack} />)}
+                        {stack.children.map((child) => <ChildRow key={child.id} child={child} waiting={waiting} onChanged={reloadStack} />)}
                     </ul>
                 )}
 
-                {stack.isRoot && <AwakeLimitStepper threadId={thread.id} current={stack.limit.current} max={stack.limit.max} awake={stack.limit.awake} waiting={stack.limit.waiting} canDrive={stack.canDrive} onChanged={reloadStack} />}
-
-                <StackMessages messages={stack.messages} />
-
-                {stack.canStop && stack.children.length > 0 && (
-                    <div>
-                        <Button variant="secondary" onClick={() => setIsConfirmingStop(true)} data-testid="stack-stop">Stop stack</Button>
-                    </div>
-                )}
+                {hasOwnSandboxChild && stack.isRoot && (isEditingLimit ? (
+                    <AwakeLimitEditor current={stack.limit.current} max={stack.limit.max} isSaving={isSavingLimit} onSave={(limit) => saveLimit(limit, () => setIsEditingLimit(false))} onCancel={() => setIsEditingLimit(false)} />
+                ) : (
+                    <AwakeLimitSummary current={stack.limit.current} canDrive={stack.canDrive} onChange={() => setIsEditingLimit(true)} />
+                ))}
             </div>
             <ConfirmDialog
                 open={isConfirmingStop}
                 onOpenChange={setIsConfirmingStop}
-                title="Stop the whole stack?"
+                title="Stop all sub-threads?"
                 body="Every running turn in this thread and its sub-threads stops, and waiting sub-threads are dropped. Nothing is deleted."
-                confirmLabel="Stop stack"
+                confirmLabel="Stop all sub-threads"
                 onConfirm={stopStack}
                 busy={isStopping}
                 confirmTestId="stack-stop-confirm"

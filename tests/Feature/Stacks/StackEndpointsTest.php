@@ -35,7 +35,7 @@ it('returns the stack for a root and for a child', function () {
         ->assertJsonPath('parent', null)
         ->assertJsonPath('children.0.id', $this->child->public_id)
         ->assertJsonPath('children.0.name', 'builder')
-        ->assertJsonPath('children.0.state', 'queued')
+        ->assertJsonPath('children.0.state', 'starting')
         ->assertJsonPath('limit.current', 3)
         ->assertJsonPath('canDrive', true)
         ->assertJsonPath('canStop', true);

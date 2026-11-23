@@ -2,7 +2,7 @@ import type { ModelFamily } from '@/types/claudeAccounts';
 
 /** Mirrors the array shape in `App\Http\Resources\StackData`. */
 
-export type StackChildState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
+export type StackChildState = 'starting' | 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
 
 export type StackChild = {
     id: string;

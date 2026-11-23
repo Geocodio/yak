@@ -43,6 +43,8 @@ function queueRecording(FakeSandboxManager $sandboxes, array $files): void
     File::deleteDirectory($source);
 
     $sandboxes->queueExecResult(Process::result('', '', 0));
+    $sandboxes->queueExecResult(Process::result());
+    $sandboxes->queueExecResult(Process::result((string) strlen($archive)));
     $sandboxes->queueExecResult(Process::result(base64_encode($archive)));
 }
 

@@ -1,11 +1,11 @@
 import { Button, IconButton, cn } from '@geocodio/console-ui';
 import { Check, ChevronDown, ChevronUp, ScrollText } from 'lucide-react';
-import { useId, useState } from 'react';
+import { Fragment, useId, useState } from 'react';
 import { useEmbed } from '@/embed/useEmbed';
 import { AgentLog } from '@/threads/panels/agents/AgentLog';
 import { AgentStatusDot } from '@/threads/panels/agents/AgentStatusDot';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
-import { agentDurationMs, agentTitle, cardSubtitle, formatAgentDuration, isRunning, workflowPhases, type AgentRowData, type WorkflowPhase } from '@/threads/panels/agents/agentsState';
+import { agentTitle, cardSubtitle, continuedParts, isRunning, workflowPhases, type AgentRowData, type WorkflowPhase } from '@/threads/panels/agents/agentsState';
 import { StopAgentButton } from '@/threads/panels/agents/StopControls';
 
 const TILE: Record<WorkflowPhase['state'], string> = { done: 'bg-ok-soft text-body', running: 'bg-brand-soft text-brand', waiting: 'bg-panel-2 text-muted' };
@@ -111,23 +111,31 @@ export function AgentItemCard({ toolUseId, fallbackTitle }: { toolUseId: string;
 }
 
 /** The line between an agent ending and Claude's reply to it: nobody wrote a message, the agent's end started the turn. */
-export function AgentContinuedRow({ agent }: { agent: AgentRowData }) {
+export function AgentContinuedRow({ agents: group }: { agents: AgentRowData[] }) {
     const agents = useAgents();
     const isEmbed = useEmbed() !== null;
-    const text = formatAgentDuration(agentDurationMs(agent, 0));
+    const { named, more, verb, after } = continuedParts(group);
+    const name = (agent: AgentRowData) =>
+        isEmbed ? (
+            <span className="font-medium text-body">{agentTitle(agent)}</span>
+        ) : (
+            <button type="button" className="cursor-pointer font-medium text-body hover:underline" onClick={() => agents?.openPanel(agent.id)} data-testid="agent-continued-open">
+                {agentTitle(agent)}
+            </button>
+        );
 
     return (
-        <div className="ml-9 flex items-center gap-2 text-[13px] text-muted" data-testid="agent-continued-row" data-agent-id={agent.id}>
+        <div className="ml-9 flex items-center gap-2 text-[13px] text-muted" data-testid="agent-continued-row" data-agent-ids={group.map((agent) => agent.id).join(' ')}>
             <Check size={16} aria-hidden className="shrink-0" />
             <span>
-                {isEmbed ? (
-                    <span className="font-medium text-body">{agentTitle(agent)}</span>
-                ) : (
-                    <button type="button" className="cursor-pointer font-medium text-body hover:underline" onClick={() => agents?.openPanel(agent.id)} data-testid="agent-continued-open">
-                        {agentTitle(agent)}
-                    </button>
-                )}{' '}
-                {agent.status === 'completed' ? 'finished' : agent.status} after {text}. Claude continued.
+                {named.map((agent, index) => (
+                    <Fragment key={agent.id}>
+                        {index > 0 && (index === named.length - 1 && more === 0 ? ' and ' : ', ')}
+                        {name(agent)}
+                    </Fragment>
+                ))}
+                {more > 0 && ` and ${more} more`} {verb}
+                {after === null ? '' : ` after ${after}`}. Claude continued.
             </span>
         </div>
     );

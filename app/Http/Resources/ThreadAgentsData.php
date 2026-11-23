@@ -3,11 +3,13 @@
 namespace App\Http\Resources;
 
 use App\Enums\StackThreadMessageKind;
+use App\Enums\ThreadKind;
 use App\Models\StackThreadMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadAgent;
 use App\Models\ThreadAgentMessage;
+use App\Services\Stacks\StackListing;
 use App\Services\Threads\ThreadTurns;
 
 /**
@@ -19,7 +21,7 @@ use App\Services\Threads\ThreadTurns;
  * @phpstan-type AgentRow array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int}
  * @phpstan-type AgentRowWithMessages array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int, messages: list<AgentMessageRow>}
  * @phpstan-type AgentMessageRow array{id: int, text: string, authorName: ?string, sentAt: string, forwardedAt: ?string}
- * @phpstan-type SubThreadRow array{id: string, name: string, title: string, kind: string, state: 'queued'|'working'|'waiting'|'done'|'failed'|'closed', step: ?string, branch: ?string, pullRequestUrl: ?string}
+ * @phpstan-type SubThreadRow array{id: string, name: string, title: string, kind: string, state: 'starting'|'queued'|'working'|'waiting'|'done'|'failed'|'closed', step: ?string, branch: ?string, pullRequestUrl: ?string}
  */
 final class ThreadAgentsData
 {
@@ -122,14 +124,7 @@ final class ThreadAgentsData
                 'name' => $child->name,
                 'title' => $child->title,
                 'kind' => $child->kind->value,
-                'state' => match (true) {
-                    ! $child->isOpen() => 'closed',
-                    $failed->has($child->id) => 'failed',
-                    $child->result_summary !== null => 'done',
-                    $child->queued_for_slot_at !== null || ! $hasRuns->has($child->id) => 'queued',
-                    $active->has($child->id) => 'working',
-                    default => 'waiting',
-                },
+                'state' => StackListing::resolveState($child->isOpen(), $failed->has($child->id), $child->result_summary !== null, $child->queued_for_slot_at !== null, $child->kind === ThreadKind::Research, $hasRuns->has($child->id), $active->has($child->id)),
                 'step' => $child->current_step,
                 'branch' => $child->branch,
                 'pullRequestUrl' => $child->primaryRepository?->pull_request_url,
