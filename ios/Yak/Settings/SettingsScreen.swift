@@ -35,6 +35,7 @@ struct SettingsScreen: View {
                 NotificationSwitchesView(model: model)
                 permission
                 if model.canPush { TestNotificationRow(model: model) }
+                SettingsWebSection(instanceURL: model.active.url)
                 SettingsPrivacySection(app: app, active: model.active)
                 SettingsAboutSection()
             }

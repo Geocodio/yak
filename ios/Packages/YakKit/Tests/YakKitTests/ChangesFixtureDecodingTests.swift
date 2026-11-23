@@ -85,17 +85,6 @@ import Testing
         #expect(APIError.parse(status: status, body: try Fixtures.data(name)) != nil, "\(name)")
     }
 
-    @Test(arguments: ["tasks", "tasks-empty"])
-    func decodesTheTaskListFixtures(name: String) throws {
-        guard Self.isPresent(name) else { return }
-        let page = try JSONDecoder().decode(TaskListPage.self, from: Fixtures.data(name))
-        if name == "tasks-empty" {
-            #expect(page.tasks.isEmpty)
-        } else {
-            #expect(!page.tasks.isEmpty)
-        }
-    }
-
     @Test(arguments: ["task", "task-question", "task-read-only"])
     func decodesTheTaskFixtures(name: String) throws {
         guard Self.isPresent(name) else { return }

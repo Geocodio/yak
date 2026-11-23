@@ -1,6 +1,6 @@
 import XCTest
 
-/// The walkthrough player against the stub's sample video.
+/// Leftover screens against the stub server.
 @MainActor final class LeftoversSmokeTests: XCTestCase {
     private var stub: StubControl!
     private let app = XCUIApplication()
@@ -37,22 +37,5 @@ import XCTest
         let editor = app.textViews["files.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: Wait.firstLoad))
         XCTAssertTrue((editor.value as? String ?? "").contains("cold_start: npm run dev"))
-    }
-
-    func testWalkthroughPlaysAndCloses() throws {
-        try stub.play("task-walkthrough")
-        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
-        app.open(stub.taskLink)
-        let row = element("task.walkthrough")
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
-        row.tap()
-        XCTAssertTrue(element("walkthrough.player").waitForExistence(timeout: Wait.appear))
-        let failure = NSPredicate(format: "identifier BEGINSWITH 'walkthrough.failed.'")
-        XCTAssertFalse(app.descendants(matching: .any).matching(failure).firstMatch.waitForExistence(timeout: 10))
-        element("walkthrough.close").tap()
-        XCTAssertTrue(element("task.screen").waitForExistence(timeout: 10))
-        let log = try stub.walkthroughVideoLog()
-        XCTAssertTrue(log.contains { $0.path == "/__stub/walkthrough-video/sample.mp4" && $0.hasRange })
-        XCTAssertFalse(log.contains { $0.hasAuthorization })
     }
 }

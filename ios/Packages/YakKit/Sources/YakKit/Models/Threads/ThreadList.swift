@@ -23,11 +23,43 @@ public struct ThreadList: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case starred, needsYou, threads, needsYouCount, hasAnyThreads }
 
+    /// One item per thread. A task item whose thread has a row in the list lends its reason to that row when the
+    /// reason is more urgent, and leaves the list. A task item whose thread has no row becomes a thread row. A task
+    /// item without a thread stays a task item. Runs when the list is read, from the server or from the saved copy.
+    static func foldingTasks(into items: [NeedsYouItem], others: [ThreadRow]) -> [NeedsYouItem] {
+        var rows: [String: Int] = [:]
+        for (index, item) in items.enumerated() {
+            if case .thread(let row) = item { rows[row.id] = index }
+        }
+        let elsewhere = Set(others.flatMap(\.idsIncludingDescendants)).union(
+            items.flatMap { item -> [String] in
+                if case .thread(let row) = item { row.idsIncludingDescendants.filter { $0 != row.id } } else { [] }
+            })
+        var result = items
+        var removed: Set<Int> = []
+        for (index, item) in items.enumerated() {
+            guard case .task(let task) = item, let threadID = task.threadId, !threadID.isEmpty else { continue }
+            if let rowIndex = rows[threadID], case .thread(let row) = result[rowIndex] {
+                if task.needsYouReason.urgency > (row.needsYouReason?.urgency ?? 0) {
+                    result[rowIndex] = .thread(row.withReason(task.needsYouReason, label: task.needsYouLabel))
+                }
+                removed.insert(index)
+            } else if elsewhere.contains(threadID) {
+                removed.insert(index)
+            } else {
+                result[index] = .thread(ThreadRow(task: task, threadID: threadID))
+                rows[threadID] = index
+            }
+        }
+        return result.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
+    }
+
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         starred = try container.decodeIfPresent([ThreadRow].self, forKey: .starred) ?? []
-        needsYou = try container.decode([NeedsYouItem].self, forKey: .needsYou)
         threads = try container.decode([ThreadRow].self, forKey: .threads)
+        needsYou = Self.foldingTasks(
+            into: try container.decode([NeedsYouItem].self, forKey: .needsYou), others: starred + threads)
         needsYouCount = try container.decode(Int.self, forKey: .needsYouCount)
         hasAnyThreads = try container.decode(Bool.self, forKey: .hasAnyThreads)
     }
@@ -88,8 +120,44 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     }
 }
 
+extension NeedsYouReason {
+    /// How much the reason asks of the person: a decision or an answer, then a blocked thread, then a finished
+    /// thread not seen yet. Another reason, or none, counts as 0.
+    var urgency: Int {
+        switch self {
+        case .coOwner: 4
+        case .question: 3
+        case .blocked: 2
+        case .unseen: 1
+        default: 0
+        }
+    }
+}
+
+extension ThreadRow {
+    var idsIncludingDescendants: [String] { [id] + children.flatMap(\.idsIncludingDescendants) }
+
+    func withReason(_ reason: NeedsYouReason, label: String?) -> ThreadRow {
+        ThreadRow(
+            id: id, title: title, repo: repo, status: status, needsYouReason: reason, needsYouLabel: label,
+            isPrivate: isPrivate, isShared: isShared, isUnattended: isUnattended, isStarred: isStarred,
+            canDelete: canDelete, ownerInitials: ownerInitials, lastActivityAt: lastActivityAt, group: group,
+            children: children, step: step)
+    }
+
+    /// The row of a task item whose thread is not in the list.
+    init(task: TaskNeedsYou, threadID: String) {
+        self.init(
+            id: threadID, title: task.title, repo: "", status: .stopped, needsYouReason: task.needsYouReason,
+            needsYouLabel: task.needsYouLabel, isPrivate: task.isPrivate, isShared: false, isUnattended: false,
+            isStarred: false, canDelete: false, lastActivityAt: task.lastActivityAt, group: .today, children: [])
+    }
+}
+
 public struct TaskNeedsYou: Codable, Equatable, Sendable {
     public let taskId: LenientID
+    /// The thread the work lives on; nil for a task without one (a review, a setup run) and from older servers.
+    public let threadId: String?
     public let title: String
     public let needsYouReason: NeedsYouReason
     public let needsYouLabel: String?
@@ -98,10 +166,11 @@ public struct TaskNeedsYou: Codable, Equatable, Sendable {
     public let lastActivityAt: String?
 
     public init(
-        taskId: LenientID, title: String, needsYouReason: NeedsYouReason, needsYouLabel: String? = nil,
-        isPrivate: Bool = false, lastActivityAt: String? = nil
+        taskId: LenientID, threadId: String? = nil, title: String, needsYouReason: NeedsYouReason,
+        needsYouLabel: String? = nil, isPrivate: Bool = false, lastActivityAt: String? = nil
     ) {
         self.taskId = taskId
+        self.threadId = threadId
         self.title = title
         self.needsYouReason = needsYouReason
         self.needsYouLabel = needsYouLabel
@@ -110,12 +179,13 @@ public struct TaskNeedsYou: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case taskId, title, needsYouReason, needsYouLabel, isPrivate, lastActivityAt
+        case taskId, threadId, title, needsYouReason, needsYouLabel, isPrivate, lastActivityAt
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         taskId = try container.decode(LenientID.self, forKey: .taskId)
+        threadId = try? container.decodeIfPresent(LenientID.self, forKey: .threadId)?.value
         title = try container.decode(String.self, forKey: .title)
         needsYouReason = try container.decode(NeedsYouReason.self, forKey: .needsYouReason)
         needsYouLabel = try container.decodeIfPresent(String.self, forKey: .needsYouLabel)

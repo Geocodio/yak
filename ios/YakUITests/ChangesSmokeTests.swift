@@ -1,6 +1,6 @@
 import XCTest
 
-/// Smoke tests of the Tasks list, the task screen and the Observations list against the stub server.
+/// Smoke tests of the drawer's task items and the Observations list against the stub server.
 @MainActor final class ChangesSmokeTests: XCTestCase {
     private var stub: StubControl!
     private let app = XCUIApplication()
@@ -24,20 +24,20 @@ import XCTest
         app.buttons["threads.button"].tap()
     }
 
-    /// A task row of the drawer opens the native task screen, not a web page, and says it is a task.
-    func testADrawerTaskRowOpensTheNativeTaskScreen() throws {
+    /// A needs-you item that is a former task opens the thread the task lives on, and says it is a task.
+    func testADrawerTaskItemOpensItsThread() throws {
         try launch(scenario: "changes")
         openDrawerIfNeeded()
         let row = element("drawer.row.task:k3m9p2qa")
         XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(element("drawer.taskLabel").exists)
         row.tap()
-        XCTAssertTrue(element("task.decision.approve").waitForExistence(timeout: Wait.appear))
-        XCTAssertFalse(app.webViews.firstMatch.exists && app.otherElements["SFSafariView"].exists)
+        XCTAssertTrue(element("thread.strip").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertFalse(app.otherElements["SFSafariView"].exists)
     }
 
-    /// A task link that launches the app, with no thread restored, opens the native task screen.
-    func testATaskLinkAtColdStartOpensTheTaskScreen() throws {
+    /// A task link that launches the app, with no thread restored, opens the thread of the task.
+    func testATaskLinkAtColdStartOpensItsThread() throws {
         try stub.play("changes")
         app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
         var components = URLComponents()
@@ -47,21 +47,15 @@ import XCTest
             URLQueryItem(name: "instance", value: stub.url), URLQueryItem(name: "id", value: "k3m9p2qa"),
         ]
         app.open(try XCTUnwrap(components.url))
-        XCTAssertTrue(element("task.screen").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(element("thread.strip").waitForExistence(timeout: Wait.firstLoad))
     }
 
-    func testApprovingATaskShowsTheDecision() throws {
+    /// The drawer has the Observations tile and no Tasks tile.
+    func testTheDrawerHasNoTasksTile() throws {
         try launch(scenario: "changes")
         openDrawerIfNeeded()
-        app.buttons["drawer.tile.tasks"].tap()
-        let row = element("tasks.row.k3m9p2qa")
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
-        row.tap()
-        let approve = element("task.decision.approve")
-        XCTAssertTrue(approve.waitForExistence(timeout: Wait.appear))
-        approve.tap()
-        XCTAssertTrue(app.staticTexts["Approved by Test person"].waitForExistence(timeout: Wait.appear))
-        try audit()
+        XCTAssertTrue(app.buttons["drawer.tile.observations"].waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(app.buttons["drawer.tile.tasks"].exists)
     }
 
     func testObservationsListShowsTheOutcomes() throws {

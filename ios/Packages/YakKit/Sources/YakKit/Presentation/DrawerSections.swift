@@ -132,7 +132,8 @@ public enum DrawerSections {
 
     private static func indicator(of row: ThreadRow) -> DrawerRow.Indicator {
         switch row.needsYouReason {
-        case .question, .blocked, .coOwner: return .needsYou
+        case .question, .coOwner: return .needsYou
+        case .blocked: return .blocked
         case .unseen: return .unseen
         default: break
         }

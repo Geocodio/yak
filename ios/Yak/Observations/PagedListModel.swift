@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import YakKit
 
-/// A list that loads page by page: the Tasks list and the Observations list. Views read finished snapshots; the
+/// A list that loads page by page: the Observations list. Views read finished snapshots; the
 /// feed does the loading, the saved first page and the paging.
 @MainActor @Observable
 final class PagedListModel<
@@ -99,19 +99,7 @@ final class PagedListModel<
     }
 }
 
-typealias TaskListModel = PagedListModel<TaskListQuery, TaskRow, TaskListPage>
 typealias ObservationsModel = PagedListModel<ObservationQuery, ObservationRow, ObservationPage>
-
-extension PagedListModel where Query == TaskListQuery, Row == TaskRow, Page == TaskListPage {
-    static func tasks(session: InstanceSession) -> TaskListModel {
-        TaskListModel(
-            session: session, query: TaskListQuery(), cacheKey: .tasks, searchKey: \.search,
-            endpoint: { .tasks($0, page: $1) }, rows: { $0.tasks }, nextPage: { $0.nextPage })
-    }
-
-    var counts: TaskCounts? { latestPage?.counts }
-    var options: TaskListOptions? { latestPage?.options }
-}
 
 extension PagedListModel where Query == ObservationQuery, Row == ObservationRow, Page == ObservationPage {
     static func observations(session: InstanceSession) -> ObservationsModel {

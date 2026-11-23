@@ -185,3 +185,14 @@ extension ThreadEngine {
         await cache.removeQuestionDraft(thread: threadID) { $0 != currentRoundKey }
     }
 }
+
+/// The messages the server listed per field in `details.errors` of a refusal.
+func refusalFieldErrors(_ error: APIError) -> [String: [String]] {
+    var fieldErrors: [String: [String]] = [:]
+    if case .object(let fields)? = error.details["errors"] {
+        for (field, value) in fields {
+            if case .array(let messages) = value { fieldErrors[field] = messages.compactMap(\.stringValue) }
+        }
+    }
+    return fieldErrors
+}

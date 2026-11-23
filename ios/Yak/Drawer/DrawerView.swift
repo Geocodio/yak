@@ -14,7 +14,10 @@ struct DrawerView: View {
     let openSwitcher: () -> Void
     /// Reloads the list, or starts the session again while it is still signing in.
     let retry: () -> Void
-    let openTasksRoute: (TasksRoute?) -> Void
+    /// Shows or hides the Observations list in place of the thread screen.
+    let setObservationsOpen: (Bool) -> Void
+    /// Opens a task that has no thread; the shell finds where it lives.
+    let openTask: (String) -> Void
 
     @FocusState private var isSearchFocused: Bool
     @State private var dropTarget: DrawerRow?
@@ -156,48 +159,14 @@ struct DrawerView: View {
 
     // MARK: Tiles
 
-    /// Two tiles above the list: the Tasks list and the Observations list.
+    /// The Observations tile above the list.
     private var tiles: some View {
-        let count = drawer?.needsYouTaskCount ?? 0
-        let row = HStack(spacing: 10) {
-            tile("drawer.tile.tasks", systemImage: "checklist", badge: count, identifier: "drawer.tile.tasks") {
-                openTasksRoute(.tasks)
-            }
-            tile("drawer.tile.observations", systemImage: "eye", badge: 0, identifier: "drawer.tile.observations") {
-                openTasksRoute(.observations)
-            }
-        }
-        return Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) {
-                    tile("drawer.tile.tasks", systemImage: "checklist", badge: count, identifier: "drawer.tile.tasks") {
-                        openTasksRoute(.tasks)
-                    }
-                    tile(
-                        "drawer.tile.observations", systemImage: "eye", badge: 0, identifier: "drawer.tile.observations"
-                    ) {
-                        openTasksRoute(.observations)
-                    }
-                }
-            } else {
-                row
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 6)
-    }
-
-    private func tile(
-        _ title: LocalizedStringKey, systemImage: String, badge: Int, identifier: String, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
+        Button {
+            setObservationsOpen(true)
+        } label: {
             HStack(spacing: 8) {
-                Image(systemName: systemImage).font(.body.weight(.semibold)).accessibilityHidden(true)
-                Text(title).font(.subheadline.weight(.medium))
-                if badge > 0 {
-                    Text(verbatim: "\(badge)").font(.caption.weight(.bold)).foregroundStyle(Color.yakOnBadge)
-                        .padding(.horizontal, 7).padding(.vertical, 2).background(Color.yakBadge, in: .capsule)
-                        .accessibilityLabel("drawer.tile.tasksWaiting \(badge)")
-                }
+                Image(systemName: "eye").font(.body.weight(.semibold)).accessibilityHidden(true)
+                Text("drawer.tile.observations").font(.subheadline.weight(.medium))
             }
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 44)
@@ -205,7 +174,8 @@ struct DrawerView: View {
             .contentShape(.rect(cornerRadius: Design.Radius.row))
         }
         .buttonStyle(.pressable)
-        .accessibilityIdentifier(identifier)
+        .accessibilityIdentifier("drawer.tile.observations")
+        .padding(.horizontal, 16).padding(.vertical, 6)
     }
 
     // MARK: Content
@@ -399,9 +369,9 @@ struct DrawerView: View {
         switch row.target {
         case .thread(let id):
             isSearchFocused = false
-            openTasksRoute(nil)
+            setObservationsOpen(false)
             scene.open(thread: id, isCompactWidth: isCompactWidth)
-        case .task(let id): openTasksRoute(.task(id))
+        case .task(let id): openTask(id)
         case .unsentThread(let id):
             guard let item = drawer?.unsentItem(id), case .newThread(let draft) = item.target else {
                 scene.openNewThread(repo: nil, text: nil)
