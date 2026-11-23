@@ -84,8 +84,8 @@ it('turns a runner question line into the question prop and a question event', f
             'multiSelect' => true,
             'context' => [],
             'options' => [
-                ['label' => 'Contacts', 'description' => 'List and detail', 'attachment' => null, 'previewHtml' => null],
-                ['label' => 'Deals', 'description' => '', 'attachment' => null, 'previewHtml' => null],
+                ['label' => 'Contacts', 'description' => 'List and detail', 'attachments' => [], 'previewHtml' => null],
+                ['label' => 'Deals', 'description' => '', 'attachments' => [], 'previewHtml' => null],
             ],
         ])
         ->and($question['questions'][1]['multiSelect'])->toBeFalse()

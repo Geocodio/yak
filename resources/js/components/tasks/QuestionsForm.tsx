@@ -135,7 +135,7 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                                     data-testid="question-option-card"
                                 >
                                     {row}
-                                    {option.attachment !== null && <QuestionAttachment attachment={option.attachment} size="option" />}
+                                    {option.attachments.map((attachment) => <QuestionAttachment key={attachment.id} attachment={attachment} size="option" />)}
                                     {option.previewHtml !== null && <Prose html={option.previewHtml} className="px-1 text-[12.5px]" />}
                                 </div>
                             ) : (
@@ -204,7 +204,7 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
 }
 
-const hasAttachment = (option: QuestionOptionData): boolean => option.attachment !== null || option.previewHtml !== null;
+const hasAttachment = (option: QuestionOptionData): boolean => option.attachments.length > 0 || option.previewHtml !== null;
 
 /** What Claude attached to the whole question, open at rest so it reads before the options. */
 function QuestionContext({ attachments }: { attachments: QuestionAttachmentData[] }) {

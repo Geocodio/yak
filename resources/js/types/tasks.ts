@@ -149,7 +149,7 @@ export type AttachmentData = {
 /** A shared file Claude attached to a question, as context or to one option. */
 export type QuestionAttachmentData = { id: string; name: string; alt: string; kind: 'report' | 'image' | 'csv' | 'pdf' | 'text' | 'file'; url: string; rawUrl: string };
 
-export type QuestionOptionData = { label: string; description: string; attachment: QuestionAttachmentData | null; previewHtml: string | null };
+export type QuestionOptionData = { label: string; description: string; attachments: QuestionAttachmentData[]; previewHtml: string | null };
 
 export type QuestionData = {
     id: string;

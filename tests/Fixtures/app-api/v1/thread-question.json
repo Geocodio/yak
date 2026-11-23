@@ -211,13 +211,13 @@
                 "multiSelect": false,
                 "options": [
                     {
-                        "attachment": null,
+                        "attachments": [],
                         "description": "Keep the batch going.",
                         "label": "Mark the row as failed",
                         "previewHtml": null
                     },
                     {
-                        "attachment": null,
+                        "attachments": [],
                         "description": "Stop at the first failure.",
                         "label": "Fail the whole batch",
                         "previewHtml": null

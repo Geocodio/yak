@@ -106,10 +106,10 @@ it('shows context and option attachments that match shared files', function () {
             'url' => route('shared-files.show', ['publicId' => $flow->public_id]),
             'rawUrl' => route('shared-files.raw', ['publicId' => $flow->public_id]),
         ])
-        ->where('question.questions.0.options.0.attachment.id', $inline->public_id)
-        ->where('question.questions.0.options.0.attachment.kind', 'report')
+        ->where('question.questions.0.options.0.attachments.0.id', $inline->public_id)
+        ->where('question.questions.0.options.0.attachments.0.kind', 'report')
         ->where('question.questions.0.options.0.previewHtml', fn (string $html): bool => str_contains($html, 'Applies the plan.') && ! str_contains($html, 'inline.html'))
-        ->where('question.questions.0.options.1.attachment', null)
+        ->where('question.questions.0.options.1.attachments', [])
         ->where('question.questions.0.options.1.previewHtml', null));
 });
 
@@ -120,7 +120,7 @@ it('drops references that match no shared file', function () {
     $this->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
         ->where('question.questions.0.question', 'Which?')
         ->where('question.questions.0.context', [])
-        ->where('question.questions.0.options.0.attachment', null));
+        ->where('question.questions.0.options.0.attachments', []));
 });
 
 it('resolves the newest shared file of that name', function () {
@@ -144,4 +144,24 @@ it('shows answered rounds without attachment references', function () {
     [, $task] = attachmentQuestionThread();
 
     expect(ThreadBuilder::answerItems($task->clarificationRounds()[0])[0]['question'])->toBe('How should 3DS work?');
+});
+
+it('attaches every reference in an option preview, in order', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'status' => TaskStatus::AwaitingClarification]);
+    $task->recordClarificationRound([ClarificationQuestion::fromArray([
+        'id' => 'q1', 'header' => 'Layout', 'question' => 'Which layout?',
+        'options' => [
+            ['label' => 'Split', 'description' => '', 'preview' => '![Desktop](desktop.png) ![Phone](phone.png)'],
+            ['label' => 'Inline', 'description' => ''],
+        ],
+    ])], '');
+    Artifact::factory()->shared('desktop.png')->create(['yak_task_id' => $task->id]);
+    Artifact::factory()->shared('phone.png')->create(['yak_task_id' => $task->id]);
+    $this->actingAs(User::factory()->create());
+
+    $this->get("/threads/{$thread->public_id}")->assertInertia(fn (Assert $page) => $page
+        ->where('question.questions.0.options.0.attachments.0.alt', 'Desktop')
+        ->where('question.questions.0.options.0.attachments.1.alt', 'Phone')
+        ->where('question.questions.0.options.0.previewHtml', null));
 });

@@ -84,13 +84,13 @@
             "multiSelect": false,
             "options": [
                 {
-                    "attachment": null,
+                    "attachments": [],
                     "description": "",
                     "label": "Mark the row as failed",
                     "previewHtml": null
                 },
                 {
-                    "attachment": null,
+                    "attachments": [],
                     "description": "",
                     "label": "Fail the whole batch",
                     "previewHtml": null

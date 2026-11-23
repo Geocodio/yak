@@ -15,11 +15,11 @@ use Illuminate\Support\Collection;
  * answers (parked, or a running turn holding Claude's question open) and has questions left to answer.
  *
  * Claude attaches shared files with `![caption](file)` references: those at the end of the question text are
- * its context, the first in an option's preview is that option's attachment. References are resolved to the
+ * its context, those in an option's preview are that option's attachments. References are resolved to the
  * thread's shared files by name and removed from the text; a reference that matches no file is dropped.
  *
  * @phpstan-type QuestionAttachment array{id: string, name: string, alt: string, kind: 'report'|'image'|'csv'|'pdf'|'text'|'file', url: string, rawUrl: string}
- * @phpstan-type QuestionProp array{id: string, header: string, question: string, multiSelect: bool, context: list<QuestionAttachment>, options: list<array{label: string, description: string, attachment: QuestionAttachment|null, previewHtml: string|null}>}
+ * @phpstan-type QuestionProp array{id: string, header: string, question: string, multiSelect: bool, context: list<QuestionAttachment>, options: list<array{label: string, description: string, attachments: list<QuestionAttachment>, previewHtml: string|null}>}
  */
 class ThreadQuestionData
 {
@@ -67,7 +67,7 @@ class ThreadQuestionData
                 return [
                     'label' => $option['label'],
                     'description' => $option['description'],
-                    'attachment' => self::attachments($option['preview'], $files)[0] ?? null,
+                    'attachments' => self::attachments($option['preview'], $files),
                     'previewHtml' => $preview === '' ? null : Markdown::toHtml($preview),
                 ];
             }, $question->options),
