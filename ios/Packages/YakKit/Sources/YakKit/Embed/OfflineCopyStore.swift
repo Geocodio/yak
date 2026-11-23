@@ -107,6 +107,36 @@ public struct OfflineCopy: Equatable, Sendable {
     }
 }
 
+/// How many threads have a saved copy, and how many bytes they take.
+public struct OfflineCopySummary: Equatable, Sendable {
+    public var threads: Int
+    public var bytes: Int
+
+    public init(threads: Int = 0, bytes: Int = 0) {
+        self.threads = threads
+        self.bytes = bytes
+    }
+
+    public var isEmpty: Bool { threads == 0 }
+}
+
+extension OfflineCopyStore {
+    /// The copies of several instances, read from their index files; no session or store is made. An index that cannot
+    /// be read (a locked device) counts as empty.
+    public static func summary(of instances: [UUID], files: any FileStore) -> OfflineCopySummary {
+        var total = OfflineCopySummary()
+        for instance in instances {
+            let path = "\(InstanceFolders.offlineCopies(instance))/index.json"
+            guard let data = try? files.read(path, maximumBytes: 1_000_000),
+                let index = try? JSONDecoder().decode(OfflineCopyIndex.self, from: data)
+            else { continue }
+            total.threads += index.entries.count
+            total.bytes += index.totalBytes
+        }
+        return total
+    }
+}
+
 /// The web archives of one instance's threads, on a `FileStore`, kept within `OfflineCopyLimits`. Archives are
 /// `.complete` files, so they are unreadable while the device is locked.
 ///
@@ -212,16 +242,27 @@ public actor OfflineCopyStore {
         if (try? writeIndex(working)) != nil { index = working }
     }
 
-    /// Sign-out, instance removal, a revoked device, or the person's choice in Settings.
-    public func removeAll() {
-        guard isUsable() else { return }
+    /// The person's choice in Settings. The store stays usable: a thread is saved again the next time it is opened.
+    /// An erased store still has its leftover files removed and stays erased. False when the folder could not be
+    /// removed completely; a usable store then does not count a half-removed folder as erased, so a failed clear never
+    /// turns copies off, and a retry removes the rest.
+    @discardableResult public func removeAll() -> Bool {
+        let wasUsable = isUsable()
         do {
             try files.remove(folder)
         } catch {
             logFailure("The offline copies could not be removed: \(type(of: error))")
+            if wasUsable {
+                index = nil
+                hasIndexOnDisk = false
+            }
+            return false
         }
-        index = OfflineCopyIndex()
-        hasIndexOnDisk = false
+        if wasUsable {
+            index = OfflineCopyIndex()
+            hasIndexOnDisk = false
+        }
+        return true
     }
 
     // MARK: Files

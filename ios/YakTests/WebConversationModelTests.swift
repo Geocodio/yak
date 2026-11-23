@@ -292,6 +292,40 @@ private actor SleepGate {
         #expect(harness.page.redeems.isEmpty)
     }
 
+    @Test func clearingTheCopiesInSettingsFallsBackToTheOfflineStateAtOnceAndSavesAgainLater() async {
+        let harness = Harness()
+        _ = await harness.store.save(Data("saved".utf8), thread: "d0e515ef")
+        harness.model.connectivityChanged(isOnline: false)
+        harness.model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { harness.model.savedCopy != nil })
+        await harness.store.removeAll()
+        NotificationCenter.default.post(name: .offlineCopiesCleared, object: nil)
+        #expect(await TestTimeScale.poll { harness.model.savedCopy == nil })
+        #expect(await TestTimeScale.poll { harness.model.loadPresentation == .offlineWithoutCopy })
+        #expect(await harness.store.save(Data("again".utf8), thread: "d0e515ef") == .saved)
+    }
+
+    @Test func clearingTheCopiesEndsALookupThatIsStillWaiting() async {
+        let store = OfflineCopyStore(instance: UUID(), files: InMemoryFileStore())
+        _ = await store.save(Data("saved".utf8), thread: "d0e515ef")
+        let gate = LookupGate()
+        let model = WebConversationModel(
+            instanceURL: instanceURL, allowsLoopbackHTTP: false, mint: { _ in .failed(.network) },
+            copies: {
+                await gate.wait()
+                return store
+            })
+        model.configure(supportsEmbeddedThread: true)
+        model.connectivityChanged(isOnline: false)
+        model.show(thread: "d0e515ef")
+        #expect(await TestTimeScale.poll { model.phase == .failed(.network) })
+        model.copiesWereCleared()
+        await gate.release()
+        // The finished lookup would find the copy and show it; it was cancelled, so the plain state stays.
+        #expect(await !TestTimeScale.poll { model.phase == .offline || model.savedCopy != nil })
+        #expect(model.phase == .failed(.network))
+    }
+
     @Test func offlineWithoutACopyKeepsThePlainOfflineState() async {
         let harness = Harness()
         harness.model.connectivityChanged(isOnline: false)
@@ -976,5 +1010,21 @@ private func target(_ thread: String = "d0e515ef", _ fragment: String = "card-qu
         harness.model.setPageHidden(false)
         #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
         #expect(harness.model.pendingFocusTarget == nil)
+    }
+}
+
+private actor LookupGate {
+    private var isOpen = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func release() {
+        isOpen = true
+        for continuation in waiting { continuation.resume() }
+        waiting = []
     }
 }

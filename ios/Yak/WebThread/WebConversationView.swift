@@ -33,6 +33,11 @@ struct WebConversationView: UIViewRepresentable {
 
 /// A plain view the page sits in. A second pane may make its container before the first has gone, and adding the page
 /// to the new container takes it out of the old one.
+///
+/// The page is added after the container is in a window, on the next main queue turn, never in `init`. SwiftUI makes
+/// the container inside a view graph update. A page that holds the first responder gives it up when it moves, UIKit
+/// then asks SwiftUI for the next responder, and that read re-enters the same update and makes the container again,
+/// without end.
 @MainActor
 final class WebConversationContainer: UIView {
     let page: WebConversationPageView
@@ -41,7 +46,22 @@ final class WebConversationContainer: UIView {
         self.page = page
         super.init(frame: .zero)
         accessibilityIdentifier = "thread.web"
+        page.applyZoom(for: traitCollection.preferredContentSizeCategory)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: WebConversationContainer, _) in
+            view.page.applyZoom(for: view.traitCollection.preferredContentSizeCategory)
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        DispatchQueue.main.async { [weak self] in self?.adoptPage() }
+    }
+
+    /// Takes the page into this container, unless the container left its window or already holds the page.
+    private func adoptPage() {
         let webView = page.webView
+        guard window != nil, webView.superview !== self else { return }
         webView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(webView)
         NSLayoutConstraint.activate([
@@ -49,10 +69,6 @@ final class WebConversationContainer: UIView {
             webView.trailingAnchor.constraint(equalTo: trailingAnchor),
             webView.topAnchor.constraint(equalTo: topAnchor), webView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
-        page.applyZoom(for: traitCollection.preferredContentSizeCategory)
-        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: WebConversationContainer, _) in
-            view.page.applyZoom(for: view.traitCollection.preferredContentSizeCategory)
-        }
     }
 
     required init?(coder: NSCoder) { nil }

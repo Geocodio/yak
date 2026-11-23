@@ -127,6 +127,22 @@ import XCTest
         XCTAssertTrue(try embedState().contains("mints=1 redeems=1 loads=1"))
     }
 
+    /// A tap in the page gives the page the first responder. Switching threads then moves the page to a new container,
+    /// and the app must stay responsive.
+    func testSwitchingThreadsAfterATapInThePageKeepsTheAppResponsive() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        page("Ready").tap()
+        app.buttons["threads.button"].tap()
+        let other = app.descendants(matching: .any)["drawer.row.thread:a1b2c3d4"]
+        XCTAssertTrue(other.waitForExistence(timeout: Wait.appear))
+        other.tap()
+        XCTAssertTrue(page("Stub conversation a1b2c3d4").waitForExistence(timeout: Wait.appear))
+        app.buttons["threads.button"].tap()
+        XCTAssertTrue(app.otherElements["drawer"].waitForExistence(timeout: Wait.appear), "the app froze")
+    }
+
     private func threadLink(_ id: String, fragment: String) throws -> URL {
         var components = URLComponents()
         components.scheme = "yak"
@@ -206,8 +222,8 @@ import XCTest
     private static let copyLook: TimeInterval = 10
 
     private func switchThread(to id: String) {
-        app.buttons["threads.button"].tap()
         let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
+        if !row.exists || !row.isHittable { app.buttons["threads.button"].tap() }
         XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
         row.tap()
     }
@@ -255,6 +271,50 @@ import XCTest
         waitUntilGone(line)
         waitUntilGone(app.webViews["thread.web.copy"])
         waitForPage()
+    }
+
+    private func openSettings() {
+        let account = app.buttons["drawer.account"]
+        if !account.isHittable { app.buttons["threads.button"].tap() }
+        let isHittable = NSPredicate(format: "isHittable == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: isHittable, object: account)], timeout: Wait.appear)
+        account.tap()
+        XCTAssertTrue(element("settings.screen").waitForExistence(timeout: Wait.firstLoad))
+    }
+
+    /// Settings counts the saved copy and clears it after a confirmation; a thread opened offline after a relaunch then
+    /// has no copy to show.
+    func testClearingTheOfflineCopiesFromSettingsRemovesTheCopyTheThreadShowed() throws {
+        try launch(scenario: "embed-basic", extraArguments: ["-yakTestKeepFiles", "fresh"])
+        openThread()
+        waitForPage()
+        let row = element("settings.offlineCopies")
+        for attempt in 1...Self.copyAttempts {
+            saveTheCopy()
+            openSettings()
+            for _ in 0..<8 where !row.exists || !row.isHittable { app.swipeUp() }
+            if row.isEnabled { break }
+            XCTAssertLessThan(attempt, Self.copyAttempts, "the copy was never saved")
+            app.buttons["Close"].firstMatch.tap()
+        }
+        XCTAssertTrue(row.label.hasPrefix("Clear offline copies, 1 thread, "), row.label)
+        row.tap()
+        let confirm = app.buttons["Clear 1 copy"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: Wait.appear), app.debugDescription)
+        confirm.tap()
+        let cleared = NSPredicate(format: "label == 'Clear offline copies, Cleared. No saved copies'")
+        wait(for: [XCTNSPredicateExpectation(predicate: cleared, object: row)], timeout: Wait.appear)
+        XCTAssertFalse(row.isEnabled)
+        // Relaunched with no connection, the thread has no copy to show.
+        app.terminate()
+        try stub.setOnline(false)
+        app.launchArguments = [
+            "-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakTestKeepFiles", "again",
+        ]
+        app.launchRetryingOnce()
+        openThread()
+        XCTAssertFalse(element("thread.web.copyLine").waitForExistence(timeout: Self.copyLook))
+        XCTAssertFalse(app.webViews["thread.web.copy"].exists)
     }
 
     /// The copy outlives the app: a thread opened after a relaunch with no connection shows it, which also needs the

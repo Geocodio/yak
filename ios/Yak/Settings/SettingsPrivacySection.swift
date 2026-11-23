@@ -31,6 +31,50 @@ enum PrivacyRows {
             ? String(localized: "privacy.spotlight.on") : String(localized: "privacy.spotlight.off")
     }
 
+    static func bytes(_ count: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: .file)
+    }
+
+    static func copiesSummary(_ summary: OfflineCopySummary) -> String {
+        String(localized: "privacy.copies.summary \(summary.threads) \(bytes(summary.bytes))")
+    }
+
+    /// The count line under the title; a failed clear shows its error on a line of its own above.
+    static func copiesDetail(_ row: OfflineCopiesRow) -> String? {
+        if case .failed(let summary) = row { return summary.isEmpty ? nil : copiesSummary(summary) }
+        return copiesSubtitle(row)
+    }
+
+    /// Everything the row says, in one line for VoiceOver.
+    static func copiesSubtitle(_ row: OfflineCopiesRow) -> String {
+        switch row {
+        case .counting: String(localized: "privacy.copies.counting")
+        case .saved(let summary): copiesSummary(summary)
+        case .empty: String(localized: "privacy.copies.none")
+        case .clearing: String(localized: "privacy.copies.clearing")
+        case .cleared: String(localized: "privacy.copies.cleared")
+        case .failed(let summary):
+            summary.isEmpty
+                ? String(localized: "privacy.copies.failed")
+                : "\(String(localized: "privacy.copies.failed")) \(copiesSummary(summary))"
+        }
+    }
+
+    /// The destructive button of the confirmation; without a known count it names none.
+    static func copiesConfirmButton(_ row: OfflineCopiesRow) -> String {
+        guard let count = row.confirmCount else { return String(localized: "privacy.copies.confirmButton.any") }
+        return String(localized: "privacy.copies.confirmButton \(count)")
+    }
+
+    static func copiesConfirmMessage(_ row: OfflineCopiesRow) -> String {
+        guard let count = row.confirmCount else { return String(localized: "privacy.copies.confirmMessage.any") }
+        return String(localized: "privacy.copies.confirmMessage \(count)")
+    }
+
+    static func copiesFooter(limits: OfflineCopyLimits = .standard) -> String {
+        String(localized: "privacy.copies.footer \(limits.maximumThreads) \(bytes(limits.maximumTotalBytes))")
+    }
+
     /// `hasLoaded` is false until `me` answered.
     static func deviceSubtitle(line: ThisDeviceLine, hasLoaded: Bool, locale: Locale = .current) -> String {
         guard hasLoaded else { return String(localized: "privacy.device.beforeMe") }
@@ -65,7 +109,9 @@ enum PrivacyRows {
 struct SettingsPrivacySection: View {
     let app: AppModel
     let active: Instance
+    @Bindable var model: SettingsModel
     @Environment(SystemFeatures.self) private var system
+    @Environment(\.scenePhase) private var scenePhase
     @State private var line = ThisDeviceLine.make(device: nil)
     @State private var hasLoaded = false
 
@@ -83,9 +129,67 @@ struct SettingsPrivacySection: View {
             if system.spotlight.state == .failed {
                 note("privacy.spotlight.failed", identifier: "settings.spotlightPrivate.failed")
             }
+            copiesRow
             deviceRow
+        } footer: {
+            Text(verbatim: PrivacyRows.copiesFooter()).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("settings.offlineCopies.footer")
         }
         .task(id: "\(active.id)-\(app.refreshState)") { await loadDevice() }
+        .task { await model.loadOfflineCopies() }
+        .confirmationDialog(
+            Text("privacy.copies.confirmTitle"), isPresented: $model.isConfirmingClear, titleVisibility: .visible
+        ) {
+            Button(PrivacyRows.copiesConfirmButton(model.offlineCopies), role: .destructive) {
+                Task { await model.clearOfflineCopies() }
+            }
+        } message: {
+            Text(verbatim: PrivacyRows.copiesConfirmMessage(model.offlineCopies))
+        }
+        .onChange(of: model.clearedCount) {
+            AccessibilityNotification.Announcement(String(localized: "privacy.copies.announcement")).post()
+        }
+        .onChange(of: model.failedClearCount) {
+            AccessibilityNotification.Announcement(String(localized: "privacy.copies.failed")).post()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.loadOfflineCopies() } }
+        }
+    }
+
+    private var copiesRow: some View {
+        let row = model.offlineCopies
+        let canClear = row.canClear
+        return Button {
+            model.askToClearOfflineCopies()
+        } label: {
+            VStack(alignment: .leading, spacing: Design.Space.nudge) {
+                Text("privacy.copies.title").foregroundStyle(canClear ? Color.yakAction : Color.yakMuted)
+                if case .failed = row {
+                    Text("privacy.copies.failed").font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if row == .cleared {
+                    HStack(alignment: .firstTextBaseline, spacing: Design.Space.tight) {
+                        Image(systemName: "checkmark").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakOK)
+                            .accessibilityHidden(true)
+                        subtitle(PrivacyRows.copiesSubtitle(row))
+                    }
+                } else if let detail = PrivacyRows.copiesDetail(row) {
+                    subtitle(detail)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .disabled(!canClear)
+        .accessibilityLabel(
+            "\(String(localized: "privacy.copies.title")), \(PrivacyRows.copiesSubtitle(row))"
+        )
+        .accessibilityIdentifier("settings.offlineCopies")
     }
 
     private func lockRow(_ lock: AppLockController) -> some View {

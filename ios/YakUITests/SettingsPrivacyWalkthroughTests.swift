@@ -116,6 +116,51 @@ import XCTest
         try shoot("settings-privacy")
     }
 
+    /// The offline copies row in its four states: with a count, the confirmation, cleared and empty.
+    func testSettingsOfflineCopies() throws {
+        try start("embed-basic", paired: true)
+        try openThread()
+        let page = app.staticTexts["Ready"]
+        XCTAssertTrue(page.waitForExistence(timeout: 30))
+        let row = app.descendants(matching: .any)["settings.offlineCopies"]
+        for attempt in 1...4 {
+            // Leaving the foreground saves the page's copy at once.
+            XCUIDevice.shared.press(.home)
+            let isBackgrounded = NSPredicate(format: "state != %d", XCUIApplication.State.runningForeground.rawValue)
+            wait(for: [XCTNSPredicateExpectation(predicate: isBackgrounded, object: app)], timeout: 10)
+            app.activate()
+            let account = app.buttons["drawer.account"]
+            if !account.isHittable { app.buttons["threads.button"].tap() }
+            XCTAssertTrue(account.waitForExistence(timeout: 10))
+            account.tap()
+            let footer = app.descendants(matching: .any)["settings.offlineCopies.footer"]
+            for _ in 0..<8 where !footer.exists || !footer.isHittable { app.swipeUp() }
+            if row.isEnabled { break }
+            XCTAssertLessThan(attempt, 4, "the copy was never saved")
+            app.buttons["Close"].firstMatch.tap()
+        }
+        try shoot("settings-copies-row")
+        // The audit's text size pass resets the list's scroll position.
+        let footer = app.descendants(matching: .any)["settings.offlineCopies.footer"]
+        for _ in 0..<8 where !footer.exists || !footer.isHittable { app.swipeUp() }
+        app.swipeUp()
+        row.tap()
+        XCTAssertTrue(app.buttons["Clear 1 copy"].waitForExistence(timeout: 10))
+        try shoot("settings-copies-confirm", audits: false)
+        app.buttons["Clear 1 copy"].tap()
+        let cleared = NSPredicate(format: "label == 'Clear offline copies, Cleared. No saved copies'")
+        wait(for: [XCTNSPredicateExpectation(predicate: cleared, object: row)], timeout: 10)
+        try shoot("settings-copies-cleared")
+        app.buttons["Close"].firstMatch.tap()
+        let account = app.buttons["drawer.account"]
+        if !account.isHittable { app.buttons["threads.button"].tap() }
+        XCTAssertTrue(account.waitForExistence(timeout: 10))
+        account.tap()
+        for _ in 0..<8 where !footer.exists || !footer.isHittable { app.swipeUp() }
+        XCTAssertEqual(row.label, "Clear offline copies, No saved copies")
+        try shoot("settings-copies-empty")
+    }
+
     func testSettingsLockConfirming() throws {
         try start(
             "paired", paired: true, extraArguments: ["-yakTestAuthentication", "slow"])

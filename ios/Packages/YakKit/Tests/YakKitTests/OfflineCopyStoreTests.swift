@@ -10,7 +10,7 @@ private func id(_ number: Int) -> String { String(format: "t%07d", number) }
 private func archive(_ bytes: Int) -> Data { Data(repeating: 7, count: bytes) }
 
 private func makeStore(
-    files: InMemoryFileStore = InMemoryFileStore(), limits: OfflineCopyLimits = .standard,
+    files: any FileStore = InMemoryFileStore(), limits: OfflineCopyLimits = .standard,
     clock: ManualClock = ManualClock()
 ) -> OfflineCopyStore {
     OfflineCopyStore(instance: instance, files: files, clock: clock, limits: limits)
@@ -211,4 +211,105 @@ func aThreadIDThatIsNotAnIDIsNeverUsedAsAPath(thread: String) async {
     try files.remove(InstanceFolders.offlineCopies(instance))
     #expect(await store.save(archive(10), thread: id(1)) == .notSaved)
     #expect(try files.list(InstanceFolders.offlineCopies(instance)).isEmpty)
+}
+
+// MARK: Clearing from Settings
+
+/// Refuses to remove the listed paths, as a disk that cannot be written would. With `losesIndexFirst`, a refused
+/// removal of a folder has already deleted its index file, as a removal that fails part-way does.
+private final class RefusingRemovalStore: FileStore, @unchecked Sendable {
+    let inner = InMemoryFileStore()
+    var refused: Set<String> = []
+    var losesIndexFirst = false
+    func read(_ path: String) throws(FileStoreError) -> Data? { try inner.read(path) }
+    func write(_ data: Data, to path: String, protection: FileProtection) throws(FileStoreError) {
+        try inner.write(data, to: path, protection: protection)
+    }
+    func remove(_ path: String) throws(FileStoreError) {
+        if refused.contains(path) {
+            if losesIndexFirst { try inner.remove("\(path)/index.json") }
+            throw .unreadable
+        }
+        try inner.remove(path)
+    }
+    func list(_ folder: String) throws(FileStoreError) -> [String] { try inner.list(folder) }
+}
+
+private let otherInstance = UUID()
+
+@Test func theSummaryAddsUpEveryInstanceFromDiskWithoutAStore() async {
+    let files = InMemoryFileStore()
+    let first = makeStore(files: files)
+    let second = OfflineCopyStore(instance: otherInstance, files: files)
+    _ = await first.save(archive(10), thread: id(1))
+    _ = await first.save(archive(20), thread: id(2))
+    _ = await second.save(archive(5), thread: id(3))
+    let summary = OfflineCopyStore.summary(of: [instance, otherInstance, UUID()], files: files)
+    #expect(summary == OfflineCopySummary(threads: 3, bytes: 35))
+    #expect(OfflineCopyStore.summary(of: [], files: files).isEmpty)
+}
+
+@Test func clearingAStoreKeepsItSavingAndTheNextCountSeesOnlyWhatIsNew() async {
+    let files = InMemoryFileStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    #expect(await live.removeAll())
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).isEmpty)
+    #expect(await live.entries().isEmpty)
+    #expect(await live.copy(thread: id(1)) == nil)
+    // A capture that lands after the clear shows in the next count, and the store was not turned off.
+    #expect(await live.save(archive(7), thread: id(2)) == .saved)
+    #expect(OfflineCopyStore.summary(of: [instance], files: files) == OfflineCopySummary(threads: 1, bytes: 7))
+}
+
+@Test func aRefusedRemovalIsReportedAndKeepsTheCopies() async {
+    let files = RefusingRemovalStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    files.refused = [InstanceFolders.offlineCopies(instance)]
+    #expect(await !live.removeAll())
+    #expect(await live.entries().map(\.threadID) == [id(1)])
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).threads == 1)
+}
+
+@Test func aRemovalThatFailsAfterTheIndexIsGoneNeverTurnsCopiesOffAndARetryFinishes() async {
+    let files = RefusingRemovalStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    let folder = InstanceFolders.offlineCopies(instance)
+    files.refused = [folder]
+    files.losesIndexFirst = true
+    #expect(await !live.removeAll())
+    // The index file is gone but the store is not treated as erased: it still saves.
+    #expect(await live.save(archive(3), thread: id(2)) == .saved)
+    #expect(await live.entries().map(\.threadID) == [id(2)])
+    files.refused = []
+    #expect(await live.removeAll())
+    #expect(OfflineCopyStore.summary(of: [instance], files: files).isEmpty)
+    #expect(try! files.inner.list(folder).isEmpty)
+    #expect(await live.save(archive(4), thread: id(3)) == .saved)
+}
+
+@Test func clearingAnErasedStoreRemovesLeftoverFilesAndItStaysErased() async throws {
+    let files = InMemoryFileStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    await live.invalidate()
+    let folder = InstanceFolders.offlineCopies(instance)
+    try files.write(archive(5), to: "\(folder)/\(id(9)).webarchive", protection: .complete)
+    #expect(await live.removeAll())
+    #expect(try files.list(folder).isEmpty)
+    #expect(await live.save(archive(1), thread: id(2)) == .notSaved)
+    #expect(await live.entries().isEmpty)
+    #expect(try files.list(folder).isEmpty)
+}
+
+@Test func clearingTheCopiesLeavesTheUnsentMessagesAlone() async throws {
+    let files = InMemoryFileStore()
+    let live = makeStore(files: files)
+    _ = await live.save(archive(10), thread: id(1))
+    let outboxFile = "\(InstanceFolders.outbox(instance))/queue.json"
+    try files.write(Data("unsent".utf8), to: outboxFile, protection: .complete)
+    await live.removeAll()
+    #expect(try files.read(outboxFile) == Data("unsent".utf8))
 }
