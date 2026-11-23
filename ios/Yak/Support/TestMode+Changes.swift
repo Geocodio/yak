@@ -2,7 +2,7 @@
     import Foundation
 
     extension TestMode {
-        /// `-yakTestOpenTask <id>` opens that task's screen as a task link does.
+        /// `-yakTestOpenTask <id>` opens that task's thread as a task link does.
         static func taskToOpen(in defaults: UserDefaults = .standard) -> String? {
             value("yakTestOpenTask", in: defaults)
         }

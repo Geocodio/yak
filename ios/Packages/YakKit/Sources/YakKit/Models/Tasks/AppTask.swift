@@ -207,3 +207,25 @@ public struct CoOwnerCandidates: Codable, Equatable, Sendable {
         isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
     }
 }
+
+public struct TaskStatus: OpenValue {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+    public static let pending = TaskStatus(rawValue: "pending")
+    public static let running = TaskStatus(rawValue: "running")
+    public static let awaitingClarification = TaskStatus(rawValue: "awaiting_clarification")
+    public static let awaitingCI = TaskStatus(rawValue: "awaiting_ci")
+    public static let retrying = TaskStatus(rawValue: "retrying")
+    public static let awaitingCoOwner = TaskStatus(rawValue: "awaiting_co_owner")
+    public static let success = TaskStatus(rawValue: "success")
+    public static let failed = TaskStatus(rawValue: "failed")
+    public static let expired = TaskStatus(rawValue: "expired")
+    public static let cancelled = TaskStatus(rawValue: "cancelled")
+}
+
+public struct TaskRowPullRequest: Codable, Equatable, Sendable {
+    public let number: Int?
+    public let state: String
+    /// nil: shown as plain text, not a link.
+    public let url: String?
+}

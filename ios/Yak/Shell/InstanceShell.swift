@@ -17,10 +17,12 @@ struct InstanceShell: View {
     @State private var showsSwitcher = false
     /// The web conversation of this window and instance; its web view serves every thread the window shows.
     @State private var webConversation: WebConversationModel
-    /// The tasks area, when it is open in place of the thread screen.
-    @State private var tasksRoute: TasksRoute?
-    /// The thread the tasks route opened over; a different thread closes the route.
-    @State private var tasksOverThreadID: String?
+    /// The Observations list, when it is open in place of the thread screen.
+    @State private var isObservationsOpen = false
+    /// The thread the Observations list opened over; a different thread closes the list.
+    @State private var observationsOverThreadID: String?
+    /// Opens the thread of a task link, push or row.
+    @State private var taskOpener: TaskOpener
     /// The drawer moves only after the cold start has placed it; see `DrawerContainer.animates`.
     @State private var drawerAnimates = false
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -35,6 +37,24 @@ struct InstanceShell: View {
         self.session = session
         self.scene = scene
         _webConversation = State(initialValue: WebConversationModel(session: session))
+        let instanceURL = routedInstance.url
+        _taskOpener = State(
+            initialValue: TaskOpener(
+                resolve: { id in
+                    guard let client = await session.apiClient() else { return nil }
+                    return await TaskThreadResolver.resolve(taskID: id, client: client)
+                },
+                openThread: { [weak scene] threadID in
+                    scene?.open(thread: threadID, isCompactWidth: model.isCompactWidth)
+                },
+                openWebPage: { id in
+                    guard
+                        let page = WebLinkRule.safeURL(
+                            instanceURL.appending(path: "tasks").appending(path: id).absoluteString)
+                    else { return false }
+                    model.browserURL = page
+                    return true
+                }))
     }
 
     private var instance: Instance { storedInstance ?? routedInstance }
@@ -73,9 +93,19 @@ struct InstanceShell: View {
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: model.taskToOpen, initial: true) {
-            if let id = model.takeTaskToOpen(for: scene) { openTasks(.task(id)) }
+            if let id = model.takeTaskToOpen(for: scene) { taskOpener.open(taskID: id) }
         }
-        .onChange(of: scene.state.threadID) { _, new in if new != tasksOverThreadID { tasksRoute = nil } }
+        .onChange(of: scene.state.threadID) { _, new in
+            if new != observationsOverThreadID { isObservationsOpen = false }
+        }
+        .alert(taskProblemTitle, isPresented: taskProblemBinding) {
+            Button("task.problem.ok", role: .cancel) {}
+        } message: {
+            Text(taskProblemMessage)
+        }
+        .onChange(of: status) { _, new in if new == .active { taskOpener.sessionBecameActive() } }
+        .onChange(of: scene.state.threadID) { taskOpener.cancel() }
+        .onDisappear { taskOpener.cancel() }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .onChange(of: model.push?.pending, initial: true) { showPending() }
         .onChange(of: inputBlocked) { showPending() }
@@ -168,12 +198,13 @@ struct InstanceShell: View {
         DrawerView(
             model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
             openAccount: { scene.isSettingsOpen = true }, openSwitcher: { showsSwitcher = true },
-            retry: { Task { await retryList() } }, openTasksRoute: openTasks)
+            retry: { Task { await retryList() } }, setObservationsOpen: setObservationsOpen,
+            openTask: { taskOpener.open(taskID: $0) }, openingTaskID: taskOpener.openingID)
     }
 
     /// Names the screen the detail shows, so a change of screen cross-fades.
     private var screenIdentity: AnyHashable {
-        if let tasksRoute { return AnyHashable(tasksRoute) }
+        if isObservationsOpen { return AnyHashable("observations") }
         if scene.state.isNewThreadOpen { return AnyHashable("new") }
         return AnyHashable(scene.state.threadID)
     }
@@ -186,12 +217,10 @@ struct InstanceShell: View {
     }
 
     @ViewBuilder private var threadScreenContent: some View {
-        if let route = tasksRoute {
-            TasksNavigation(
-                route: route, session: session, scene: scene, instanceURL: instance.url,
-                openWeb: { model.browserURL = $0 }, close: { tasksRoute = nil }
-            )
-            .id(route)
+        if isObservationsOpen {
+            ObservationsNavigation(
+                session: session, openTask: { taskOpener.open(taskID: $0) }, openWeb: { model.browserURL = $0 },
+                close: { isObservationsOpen = false })
         } else if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
             ThreadScreen(
                 session: session, scene: scene, threadID: threadID,
@@ -225,10 +254,30 @@ struct InstanceShell: View {
     /// line of gray text on it would not keep its contrast.
     private var emptyDetailOpacity: Double { isCompactWidth && drawerBinding.wrappedValue ? 0 : 1 }
 
-    private func openTasks(_ route: TasksRoute?) {
-        tasksRoute = route
-        tasksOverThreadID = scene.state.threadID
-        if route != nil, isCompactWidth { scene.setDrawerOpen(false) }
+    private func setObservationsOpen(_ isOpen: Bool) {
+        isObservationsOpen = isOpen
+        observationsOverThreadID = scene.state.threadID
+        if isOpen, isCompactWidth { scene.setDrawerOpen(false) }
+    }
+
+    private var taskProblemBinding: Binding<Bool> {
+        Binding(get: { taskOpener.problem != nil }, set: { if !$0 { taskOpener.problem = nil } })
+    }
+
+    private var taskProblemTitle: LocalizedStringKey {
+        switch taskOpener.problem {
+        case .notFound: "task.notFound.title"
+        case .offline: "task.openOffline.title"
+        default: "task.openFailed.title"
+        }
+    }
+
+    private var taskProblemMessage: LocalizedStringKey {
+        switch taskOpener.problem {
+        case .notFound: "task.notFound.detail"
+        case .offline: "task.openOffline.detail"
+        default: "task.openFailed.detail"
+        }
     }
 
     private func problem(_ message: LocalizedStringKey) -> some View {

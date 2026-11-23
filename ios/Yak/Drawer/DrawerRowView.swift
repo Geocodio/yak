@@ -36,9 +36,11 @@ struct DrawerRowView: View {
                             .font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
                             .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
                         }
-                        Text(row.title).font(.yakRowTitle).foregroundStyle(.primary)
+                        Text(row.title).font(.yakRowTitle).fontWeight(row.indicator == .unseen ? .bold : nil)
+                            .foregroundStyle(.primary)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
-                        Text(subtitle).font(.footnote).foregroundStyle(Color.yakMuted)
+                        Text(subtitle).font(.footnote)
+                            .foregroundStyle(row.indicator == .blocked ? Color.yakCardDangerText : Color.yakMuted)
                             .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
@@ -169,7 +171,7 @@ struct DrawerIndicator: View {
             switch indicator {
             case .needsYou: dot(Color.yakAction)
             case .unseen: dot(.blue)
-            case .blocked: dot(.orange)
+            case .blocked: dot(Color.yakCardDangerText)
             case .running:
                 Circle().trim(from: 0, to: 0.7).stroke(Color.yakMuted, style: .init(lineWidth: 2, lineCap: .round))
                     .frame(width: 14, height: 14)

@@ -154,7 +154,7 @@ final class AppModel {
     private(set) var launchLink: DeepLink?
     /// The task page to show in the in-app browser.
     var browserURL: URL? { didSet { claimPresenter() } }
-    /// A task link or push waiting for the shell to open its native screen.
+    /// A task link or push waiting for the shell to open the thread the task lives on.
     var taskToOpen: String?
     /// An instance a link named that this phone is not paired with; the shell shows the connect flow for it.
     var addressToConnect: URL? { didSet { claimPresenter() } }
@@ -339,7 +339,7 @@ final class AppModel {
         }
     }
 
-    /// A task page of a paired instance: the native screen, or the browser when the id is not a native one.
+    /// A task page of a paired instance: the thread it lives on, or the browser when the id is not a native one.
     /// The address always comes from a paired instance, and the browser takes only a safe https address.
     private func openTask(page: URL) {
         if let id = TaskLink.id(from: page) {
