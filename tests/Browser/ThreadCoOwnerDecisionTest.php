@@ -112,11 +112,13 @@ it('lets the requester pick a co-owner from the early warning card', function ()
     Cache::put("co-owner:write-access:{$repository->id}:{$cory->github_id}", 'write', now()->addMinutes(10));
     $this->actingAs($requester);
 
-    visit('/threads/' . Thread::query()->findOrFail($task->thread_id)->public_id)
-        ->assertVisible('[data-testid="card-early-warning"]')
-        ->assertSeeIn('[data-testid="card-early-warning"]', 'API response pipeline (high risk)')
-        ->assertPresent('[data-testid="early-warning-picker"] input[role="combobox"]')
-        ->assertNoJavaScriptErrors();
+    $page = visit('/threads/' . Thread::query()->findOrFail($task->thread_id)->public_id);
+    $page->assertVisible('[data-testid="card-early-warning"]')
+        ->assertSeeIn('[data-testid="card-early-warning"]', 'API response pipeline (high risk)');
+
+    // The combobox renders once the candidates request has answered.
+    waitUntilPresent($page, '[data-testid="early-warning-picker"] input[role="combobox"]');
+    $page->assertNoJavaScriptErrors();
 });
 
 it('shows a refused decision in the card and keeps the request pending', function () {
@@ -245,12 +247,12 @@ it('loads the candidates, picks one and the early warning card goes away', funct
     Cache::put("co-owner:write-access:{$repository->id}:{$cory->github_id}", 'write', now()->addMinutes(10));
     $this->actingAs($requester);
 
-    visit('/threads/' . Thread::query()->findOrFail($task->thread_id)->public_id)
-        ->click('[data-testid="early-warning-picker"] input[role="combobox"]')
-        ->click('text=Cory Mawhorter, write access')
-        ->wait(2)
-        ->assertMissing('[data-testid="card-early-warning"]')
-        ->assertNoJavaScriptErrors();
+    $page = visit('/threads/' . Thread::query()->findOrFail($task->thread_id)->public_id);
+    waitUntilPresent($page, '[data-testid="early-warning-picker"] input[role="combobox"]');
+    $page->click('[data-testid="early-warning-picker"] input[role="combobox"]')
+        ->click('text=Cory Mawhorter, write access');
+    waitUntilPresent($page, '[data-testid="card-early-warning"]', isPresent: false);
+    $page->assertNoJavaScriptErrors();
 
     expect($task->fresh()->tagged_co_owner_user_id)->toBe($cory->id);
 });
