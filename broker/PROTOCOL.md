@@ -33,6 +33,8 @@ One field, `command`, holding a JSON object with a `type`:
 | `end` | none | Writes an `end` line: finish the current work and exit. |
 | `kill` | none | Kills this channel's runner process tree with the full kill script. Other runners in the same container are untouched. |
 | `tool_result` | `call_id`, `is_error`, `content` | Writes the answer to a `yak.tool_call` (section 4) to the runner's stdin. |
+| `answer_question` | `id`, `answers` (object of question text to answer text) | Writes an `answer_question` line: the person's answer to an open AskUserQuestion. |
+| `decline_question` | `id`, `message` | Writes a `decline_question` line: Claude reads `message` as the refused tool's result. |
 
 The broker deletes every inbound entry after processing it, whether or not it parses. A `turn` or `steer` with no live runner produces a broker line `{"type":"broker.no_runner","uuid":"..."}` (`call_id` for a `tool_result`).
 
@@ -76,6 +78,8 @@ In (broker to runner):
 - `set_effort`: `effort` (string or null)
 - `end`: finish the current work and exit.
 - `tool_result`: see section 4.
+- `answer_question`: `id`, `answers`
+- `decline_question`: `id`, `message`
 
 Out (runner to broker): every SDK message as one JSON line, unchanged, plus runner lines `runner.started`, `runner.interrupted` (as soon as the runner has passed an `interrupt` to the SDK), `runner.error`, `runner.exit_after_result` and `runner.done`, plus `yak.tool_call` (section 4).
 

@@ -40,6 +40,10 @@ type command struct {
 	CallID  string  `json:"call_id"`
 	IsError bool    `json:"is_error"`
 	Content string  `json:"content"`
+	// ID, Answers and Message carry answer_question and decline_question to the runner's question bridge.
+	ID      string          `json:"id"`
+	Answers json.RawMessage `json:"answers"`
+	Message string          `json:"message"`
 }
 
 type userMessage struct {
@@ -444,6 +448,10 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 		b.write(state, map[string]string{"type": "set_model", "model": cmd.Model})
 	case "set_effort":
 		b.write(state, map[string]any{"type": "set_effort", "effort": cmd.Effort})
+	case "answer_question":
+		b.write(state, map[string]any{"type": "answer_question", "id": cmd.ID, "answers": cmd.Answers})
+	case "decline_question":
+		b.write(state, map[string]any{"type": "decline_question", "id": cmd.ID, "message": cmd.Message})
 	case "kill":
 		b.kill(ctx, state)
 		state.mu.Lock()

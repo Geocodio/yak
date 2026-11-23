@@ -737,3 +737,18 @@ func TestSetEffortIsWrittenToRunnerStdinWithNullPassedThrough(t *testing.T) {
 		t.Fatalf("stdin lines = %v", lines[1:])
 	}
 }
+
+func TestQuestionAnswersAndDeclinesAreWrittenToRunnerStdin(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":`+startLine+`}`)
+	h.command("threads:1", `{"type":"answer_question","id":"q-1","answers":{"Which plan?":"Mirror owned"}}`)
+	h.command("threads:1", `{"type":"decline_question","id":"q-2","message":"Let Claude decide"}`)
+	waitFor(t, func() bool {
+		process := h.spawner.process(0)
+		return process != nil && len(process.stdin.Lines()) == 3
+	})
+	lines := h.spawner.process(0).stdin.Lines()
+	if lines[1] != `{"answers":{"Which plan?":"Mirror owned"},"id":"q-1","type":"answer_question"}` || lines[2] != `{"id":"q-2","message":"Let Claude decide","type":"decline_question"}` {
+		t.Fatalf("stdin lines = %v", lines[1:])
+	}
+}

@@ -27,6 +27,8 @@ function fakeTurnCollaborators(bool $slotFree = true, ?SandboxWake $wake = null)
     $fakes['concurrency']->shouldReceive('release')->byDefault();
     $fakes['sandbox']->shouldReceive('ensureAwake')->andReturn($wake ?? SandboxWake::ready())->byDefault();
     $fakes['sandbox']->shouldReceive('pauseIfIdle')->byDefault();
+    $fakes['sandbox']->shouldReceive('holdAwake')->byDefault();
+    $fakes['sandbox']->shouldReceive('releaseHold')->byDefault();
 
     app()->instance(ThreadCommands::class, $fakes['commands']);
     app()->instance(AccountConcurrency::class, $fakes['concurrency']);

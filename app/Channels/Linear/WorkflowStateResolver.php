@@ -65,7 +65,7 @@ class WorkflowStateResolver
         try {
             $response = Http::withToken($accessToken)
                 ->post(self::GRAPHQL_ENDPOINT, [
-                    'query' => 'query($issueId: String!) { issue(id: $issueId) { team { states: workflowStates { nodes { id name type position } } } } }',
+                    'query' => 'query($issueId: String!) { issue(id: $issueId) { team { states { nodes { id name type position } } } } }',
                     'variables' => ['issueId' => $issueId],
                 ]);
         } catch (ConnectionException $e) {
