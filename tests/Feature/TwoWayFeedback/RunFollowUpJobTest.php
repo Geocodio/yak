@@ -83,6 +83,16 @@ test('the finisher skips the push and resolves when there are no new commits', f
     Queue::assertPushed(ProcessCIResultJob::class);
 });
 
+test('a follow-up with no new commits opens the pull request for a pushed branch that has none', function () {
+    $task = pendingFollowUpTask(['pr_url' => null, 'pr_number' => null]);
+
+    finishTaskTurn(FinishFollowUpTurnJob::class, $task, (new FakeSandboxManager)->setCommitCount(0), 'Open the PR', status: TaskStatus::Pending);
+
+    // A pending task is not actionable for a CI result, so the finisher moves it on before handing over.
+    expect($task->fresh()->status)->toBe(TaskStatus::Running);
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job): bool => $job->passed);
+});
+
 test('the finisher pushes and awaits CI when the commit count check fails', function () {
     $task = pendingFollowUpTask();
     $shell = (new FakeSandboxManager)->failCommand('rev-list --count');
