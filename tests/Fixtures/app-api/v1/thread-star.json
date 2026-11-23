@@ -10,6 +10,7 @@
     "isUnattended": false,
     "isUnread": false,
     "lastActivityAt": "<volatile:null>",
+    "needsYouDetail": null,
     "needsYouLabel": null,
     "needsYouReason": null,
     "ownerInitials": null,

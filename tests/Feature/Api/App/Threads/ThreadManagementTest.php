@@ -1,11 +1,16 @@
 <?php
 
+use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadShareMode;
 use App\Enums\ThreadStatus;
 use App\Models\Thread;
 use App\Models\ThreadStar;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadSharing;
+use Illuminate\Database\QueryException;
 use Tests\Support\ContractFixture;
 
 function managedThread(array $state = []): array
@@ -103,3 +108,73 @@ it('refuses without a token, with a revoked phone and with a computer token', fu
     $this->json($method, $path, $body, $computerHeaders)->assertUnauthorized();
     expect(Thread::query()->find($thread->id)->status)->toBe(ThreadStatus::Open);
 })->with([['POST', '/star'], ['POST', '/close'], ['DELETE', '']]);
+
+it('answers 409 with a fixed sentence and deletes nothing when a sandbox cannot be destroyed', function () {
+    [$thread, , $headers] = managedThread(['sandbox_state' => ThreadSandboxState::Running]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('destroy')->andReturnNull();
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $this->deleteJson(appThreadPath($thread), [], $headers)->assertStatus(409)
+        ->assertExactJson(['error' => 'sandbox_unavailable', 'message' => 'The sandbox could not be destroyed yet. Try again in a moment.']);
+
+    expect(Thread::query()->whereKey($thread->id)->exists())->toBeTrue()->and(YakTask::query()->whereKey($task->id)->exists())->toBeTrue();
+});
+
+it('answers the generic 503 without SQL text when the database fails inside the deleter', function () {
+    [$thread, , $headers] = managedThread();
+    $sandbox = Mockery::mock(ThreadSandbox::class);
+    $sandbox->shouldReceive('destroy')->andThrow(new QueryException('mysql', 'select secret_column from threads', [], new RuntimeException('SQLSTATE[HY000] secret_column')));
+    app()->instance(ThreadSandbox::class, $sandbox);
+
+    $response = $this->deleteJson(appThreadPath($thread), [], $headers)->assertStatus(503);
+
+    expect($response->json())->toBe(['error' => 'unavailable', 'message' => 'Yak cannot answer right now. Try again in a moment.'])
+        ->and($response->getContent())->not->toContain('secret_column');
+});
+
+it('does not answer 409 for a failure after the rows were removed', function () {
+    [$thread, , $headers] = managedThread();
+    $streams = Mockery::mock(BrokerStreams::class);
+    $streams->shouldReceive('unregister')->andThrow(new RuntimeException('broker said secret'));
+    app()->instance(BrokerStreams::class, $streams);
+    $response = $this->deleteJson(appThreadPath($thread), [], $headers);
+
+    expect($response->status())->not->toBe(409)->and($response->getContent())->not->toContain('secret')
+        ->and(Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->exists())->toBeFalse();
+});
+
+it('creates the star once when the row already exists', function () {
+    [$thread, $user, $headers] = managedThread();
+    ThreadStar::query()->create(['user_id' => $user->id, 'thread_id' => $thread->id]);
+
+    $this->postJson(appThreadPath($thread, '/star'), ['starred' => true], $headers)->assertOk()->assertJsonPath('isStarred', true);
+    expect(ThreadStar::query()->count())->toBe(1);
+});
+
+it('stars, closes and deletes a sub-thread alone, with the root privacy and no delete flag', function () {
+    $owner = User::factory()->create();
+    $root = privateThreadOf($owner, ['title' => 'Root']);
+    $child = Thread::factory()->child($root)->create(['title' => 'Child']);
+    $headers = phoneHeadersFor($owner);
+
+    $this->postJson(appThreadPath($child, '/star'), ['starred' => true], $headers)->assertOk()
+        ->assertJsonPath('id', $child->public_id)->assertJsonPath('isStarred', true)->assertJsonPath('isPrivate', true)->assertJsonPath('canDelete', false);
+    $this->postJson(appThreadPath($child, '/close'), [], $headers)->assertOk()->assertJsonPath('status', 'closed')->assertJsonPath('isPrivate', true);
+    expect($root->fresh()->status)->toBe(ThreadStatus::Open);
+
+    $this->deleteJson(appThreadPath($child), [], $headers)->assertOk();
+    expect(Thread::query()->withoutGlobalScopes()->whereKey($child->id)->exists())->toBeFalse()
+        ->and(Thread::query()->withoutGlobalScopes()->whereKey($root->id)->exists())->toBeTrue();
+});
+
+it('lets a team member who is not the owner close and delete a team thread, as the web does', function () {
+    [$thread] = managedThread();
+    $member = User::factory()->create();
+    $headers = phoneHeadersFor($member);
+
+    $this->postJson(appThreadPath($thread, '/close'), [], $headers)->assertOk()->assertJsonPath('status', 'closed');
+    $this->deleteJson(appThreadPath($thread), [], $headers)->assertOk();
+    expect(Thread::query()->withoutGlobalScopes()->whereKey($thread->id)->exists())->toBeFalse();
+});

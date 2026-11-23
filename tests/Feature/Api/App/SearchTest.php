@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
@@ -64,4 +65,36 @@ it('throttles search', function () {
     }
 
     $this->getJson('/api/app/v1/search?q=uploads', $headers)->assertTooManyRequests();
+});
+
+it('returns a reviewed pull request without a thread', function () {
+    $user = User::factory()->create();
+    PrReview::factory()->create(['repo' => 'example/billing', 'pr_number' => 7, 'pr_url' => 'https://github.com/example/billing/pull/7']);
+
+    $result = $this->getJson('/api/app/v1/search?q=billing', phoneHeadersFor($user))->assertOk()->json('results.0');
+
+    expect($result)->toMatchArray(['type' => 'pull_request', 'threadId' => null, 'url' => 'https://github.com/example/billing/pull/7'])
+        ->and($result['path'])->toStartWith('/');
+});
+
+it('keeps the pull request of a hidden thread out of the results', function () {
+    $owner = User::factory()->create();
+    $thread = privateThreadOf($owner, ['title' => 'Hidden work', 'repo' => 'example/hidden']);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/hidden', 'pull_request_number' => 5, 'pull_request_url' => 'https://github.com/example/hidden/pull/5']);
+
+    $types = fn (User $user): array => array_column($this->getJson('/api/app/v1/search?q=hidden', phoneHeadersFor($user))->assertOk()->json('results'), 'type');
+
+    expect($types($owner))->toContain('pull_request')->and($types(User::factory()->create()))->toBe([]);
+});
+
+it('counts searches in their own bucket', function () {
+    $user = User::factory()->create();
+    $headers = phoneHeadersFor($user);
+
+    foreach (range(1, 31) as $ignored) {
+        $this->getJson('/api/app/v1/search?q=uploads', $headers);
+    }
+
+    $this->getJson('/api/app/v1/search?q=uploads', $headers)->assertTooManyRequests();
+    $this->getJson('/api/app/v1/threads/new/repository-access', $headers)->assertStatus(422);
 });
