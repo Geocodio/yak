@@ -289,6 +289,13 @@ return [
     // waiting until this many minutes after its last push.
     'ci_max_wait_minutes' => (int) env('YAK_CI_MAX_WAIT_MINUTES', 180),
 
+    // yak:recover-stopped-tasks only touches tasks Yak itself stopped within
+    // window_hours, and acts at most max_attempts times per task.
+    'self_recovery' => [
+        'window_hours' => (int) env('YAK_SELF_RECOVERY_WINDOW_HOURS', 24),
+        'max_attempts' => (int) env('YAK_SELF_RECOVERY_MAX_ATTEMPTS', 1),
+    ],
+
     'video' => [
         // Where VideoRenderer stages clips for Remotion. Must be writable by
         // the queue worker user (www-data); /app/video/public is root-owned

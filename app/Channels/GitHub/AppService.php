@@ -654,6 +654,25 @@ class AppService
     }
 
     /**
+     * The commit SHA a branch points at, or null only when GitHub says the
+     * branch does not exist. Any other failure throws, so a caller never
+     * mistakes an outage or a missing permission for a missing branch.
+     */
+    public function findBranchHeadSha(int $installationId, string $repoSlug, string $branch): ?string
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/branches/" . rawurlencode($branch));
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        $sha = $response->throw()->json('commit.sha');
+
+        return is_string($sha) ? $sha : null;
+    }
+
+    /**
      * The raw contents of a file at a ref, or null when the file does not exist.
      *
      * Any other failure throws, so callers never mistake a GitHub outage or a
