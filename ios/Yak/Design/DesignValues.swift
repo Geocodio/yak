@@ -100,7 +100,7 @@ enum Design {
         static let uploadBarWidth: CGFloat = 160
         static let uploadBarHeight: CGFloat = 3
         /// One item of the pane row on a wide screen.
-        static let paneItemWidth: CGFloat = 62
+        static let paneItemWidth: CGFloat = 50
         static let paneItemHeight: CGFloat = 50
         static let smallChip: CGFloat = 32
         static let row: CGFloat = 60

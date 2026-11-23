@@ -7,6 +7,11 @@ struct ThreadLoadView: View {
     let presentation: ThreadLoadPresentation
     let retry: () -> Void
     let openThreads: () -> Void
+    /// What the offline state says under its title.
+    var offlineBody: LocalizedStringKey = "load.offline.body"
+    /// The line beside the spinner, and what the slow card says under its title.
+    var loadingText: LocalizedStringKey = "load.loading"
+    var slowBody: LocalizedStringKey = "load.slow.body"
 
     var body: some View {
         switch presentation {
@@ -24,7 +29,7 @@ struct ThreadLoadView: View {
             }
         case .offlineWithoutCopy:
             message(
-                title: "load.offline.title", body: "load.offline.body", systemImage: "wifi.slash",
+                title: "load.offline.title", body: offlineBody, systemImage: "wifi.slash",
                 identifier: "thread.offline"
             ) { EmptyView() }
         case .serverError(let text):
@@ -44,7 +49,7 @@ struct ThreadLoadView: View {
     private var loadingLine: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small).accessibilityHidden(true)
-            Text("load.loading").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text(loadingText).font(.subheadline).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20)
@@ -59,7 +64,7 @@ struct ThreadLoadView: View {
 
     /// The explanation under the dimmed bubbles, with Retry beside it where the width or the height is short of room.
     private var slowCard: some View {
-        SlowCard(retry: retryButton)
+        SlowCard(retry: retryButton, explanation: slowBody)
             .padding(.horizontal, 16)
             .accessibilityElement(children: .contain).accessibilityIdentifier("thread.slow")
     }
@@ -97,6 +102,7 @@ struct ThreadLoadView: View {
 /// The explanation and Retry of the slow state.
 private struct SlowCard<Retry: View>: View {
     let retry: Retry
+    let explanation: LocalizedStringKey
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -126,7 +132,7 @@ private struct SlowCard<Retry: View>: View {
     private var texts: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("load.slow.title").font(.headline).fixedSize(horizontal: false, vertical: true)
-            Text("load.slow.body").font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text(explanation).font(.subheadline).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

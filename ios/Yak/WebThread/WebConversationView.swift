@@ -173,13 +173,19 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
         let type = navigationAction.navigationType
+        // A link with a target (`_blank`) asks for a new window, which has no frame yet. It is a link of the main frame
+        // for the rule: cancelling it here would end it before `createWebViewWith` could ever hear of it.
+        let target = navigationAction.targetFrame
         let decision = policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod,
-            isMainFrame: navigationAction.targetFrame?.isMainFrame ?? false,
+            isMainFrame: target?.isMainFrame ?? navigationAction.sourceFrame.isMainFrame,
             isUserInitiated: type == .linkActivated || type == .formSubmitted)
         switch decision {
-        case .allow: return .allow
+        case .allow: return target == nil ? .cancel : .allow
         case .cancel: return .cancel
+        case .openFile(let url):
+            model?.handleRequest(.file(url))
+            return .cancel
         case .openLink(let url):
             model?.open(link: url)
             return .cancel
@@ -228,12 +234,14 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        let type = navigationAction.navigationType
         switch policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod, isMainFrame: true,
-            isUserInitiated: true)
+            isUserInitiated: type == .linkActivated || type == .formSubmitted)
         {
         case .openLink(let url): model?.open(link: url)
         case .openThread(let id): model?.handleRequest(.openThread(id))
+        case .openFile(let url): model?.handleRequest(.file(url))
         case .allow, .cancel: break
         }
         return nil
