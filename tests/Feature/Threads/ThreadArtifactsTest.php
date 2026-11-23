@@ -8,11 +8,14 @@ use App\Models\Artifact;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\SandboxArtifactCollector;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeSandboxManager;
 use App\Services\Threads\ThreadArtifacts;
 use App\Services\Threads\TurnFinisher;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -113,4 +116,19 @@ it('refreshes the body of an open pull request when screenshots were collected',
     app(ThreadArtifacts::class)->collect($this->thread);
 
     Queue::assertPushed(CreatePullRequestJob::class, fn (CreatePullRequestJob $job) => $job->refreshOnly);
+});
+
+it('runs one collection per task at a time so a second collector cannot move files out from under the first', function () {
+    $ran = false;
+    $heldElsewhere = Cache::lock("artifacts:collect:{$this->task->id}", 60);
+    $heldElsewhere->get();
+
+    expect(fn () => SandboxArtifactCollector::exclusive($this->task, function () use (&$ran): void {
+        $ran = true;
+    }, waitSeconds: 0))->toThrow(LockTimeoutException::class);
+    expect($ran)->toBeFalse();
+
+    $heldElsewhere->release();
+
+    expect(SandboxArtifactCollector::exclusive($this->task, fn (): string => 'done', waitSeconds: 0))->toBe('done');
 });

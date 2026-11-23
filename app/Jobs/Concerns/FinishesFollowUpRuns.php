@@ -48,8 +48,10 @@ trait FinishesFollowUpRuns
         // Questions ignored at the round limit must not reach the output.
         $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
-        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-        ArtifactPersister::persist($this->task);
+        SandboxArtifactCollector::exclusive($this->task, function () use ($sandbox, $containerName): void {
+            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+            ArtifactPersister::persist($this->task);
+        });
 
         $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
     }
