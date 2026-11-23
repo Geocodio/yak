@@ -200,6 +200,7 @@ class VisibilityRoutes
             'settings.github.connect', 'settings.github.callback', 'settings.github.disconnect',
             'settings.linear', 'settings.linear.update', 'settings.linear.disconnect',
             'settings.video', 'settings.video.update', 'settings.video.logo.destroy', 'settings.video.reset', 'settings.video.sample',
+            'settings.limits', 'settings.limits.update', 'settings.limits.reset',
             'profile.edit', 'profile.update', 'profile.direct-messages.update', 'profile.email-addresses.store',
             'profile.email-addresses.destroy', 'profile.email-addresses.resend', 'verification.resend', 'account.destroy',
             'email-addresses.confirm.show', 'email-addresses.confirm',
