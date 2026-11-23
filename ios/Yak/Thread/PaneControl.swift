@@ -186,26 +186,25 @@ private struct PaneRowButton: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(spacing: Design.Space.line) {
-                Image(systemName: descriptor.symbol).font(.body)
-                    .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
-                Text(descriptor.name).font(.caption2.weight(.semibold)).lineLimit(1).fixedSize(
-                    horizontal: true, vertical: false)
-            }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
-            .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
-            .background(
-                mark == nil && isSelected ? Color.yakBarFillStrong : .clear,
-                in: .rect(cornerRadius: Design.Radius.row)
-            )
-            .modifier(PaneMarkLabel(mark: mark))
-            .contentShape(.rect)
-            .hoverEffect(.highlight)
+            // An icon alone: every pane button has the same width, and no name has to fit. The name is the
+            // accessibility label and the large content title.
+            Image(systemName: descriptor.symbol).font(.body)
+                .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
+                .foregroundStyle(.primary)
+                .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
+                .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
+                .background(
+                    mark == nil && isSelected ? Color.yakBarFillStrong : .clear,
+                    in: .rect(cornerRadius: Design.Radius.row)
+                )
+                .modifier(PaneMarkLabel(mark: mark))
+                .contentShape(.rect)
+                .hoverEffect(.highlight)
         }
         .buttonStyle(.pressable)
         .secondPaneContextMenu(for: descriptor.id)
         .accessibilityLabel(Text(descriptor.name))
+        .accessibilityShowsLargeContentViewer { Label(descriptor.name, systemImage: descriptor.symbol) }
         .accessibilityValue(valueText)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("pane.row.\(descriptor.id.rawValue)")
@@ -322,21 +321,18 @@ struct PaneStripToolbar: ToolbarContent {
         return Button {
             focused = id
         } label: {
-            VStack(spacing: 2) {
-                Image(systemName: descriptor.symbol)
-                    .overlay(alignment: .topTrailing) {
-                        PaneBadge.make(descriptor, thread).map {
-                            PaneBadgeView(badge: $0).offset(x: 6, y: -3)
-                        }
+            // An icon alone, as in the pane row: no name has to fit the strip.
+            Image(systemName: descriptor.symbol)
+                .overlay(alignment: .topTrailing) {
+                    PaneBadge.make(descriptor, thread).map {
+                        PaneBadgeView(badge: $0).offset(x: 6, y: -3)
                     }
-                // Fit: caption2 on one line passes the contrast audit and leaves room for a fifth caption ("Overview")
-                // when five panes share the strip; a longer name must shorten, not scale.
-                Text(descriptor.name).font(.caption2).foregroundStyle(.primary).lineLimit(1)
-            }
+                }
         }
         .modifier(PaneMarkLabel(mark: marks[id]))
         .secondPaneContextMenu(for: id)
         .accessibilityLabel(Text(descriptor.name))
+        .accessibilityShowsLargeContentViewer { Label(descriptor.name, systemImage: descriptor.symbol) }
         .accessibilityValue(paneAccessibilityValue(mark: marks[id], badge: PaneBadge.make(descriptor, thread)))
         .accessibilityAddTraits(id == focused ? .isSelected : [])
         .accessibilityIdentifier("pane.strip.\(id.rawValue)")
