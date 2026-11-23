@@ -25,6 +25,7 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SteeringDelivery;
+use App\Services\Threads\ThreadArtifacts;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
@@ -557,4 +558,47 @@ it('tells the app that the files of an answer are queued', function () {
     $row = collect(ThreadMessagesData::for($thread, $user))->firstWhere('id', 'queued-message-' . $queued->id);
 
     expect($row['attachments'])->toHaveCount(1);
+});
+
+function flowQuestion(): array
+{
+    return [
+        'question' => "Which flow?\n\n![Flow today](flow.png)",
+        'header' => 'Flow',
+        'options' => [['label' => 'Mirror', 'description' => 'Same as owned'], ['label' => 'Strict', 'description' => 'Refuse']],
+        'multiSelect' => false,
+    ];
+}
+
+it('collects shared files before recording a question that references one', function () {
+    $artifacts = Mockery::spy(ThreadArtifacts::class);
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread, , $task] = threadWithRunningTurn();
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    $artifacts->shouldHaveReceived('collectShared')->once()->with(Mockery::on(fn (Thread $given): bool => $given->is($thread)));
+    expect($task->refresh()->liveClarificationRound())->not->toBeNull();
+});
+
+it('does not collect when no question references a file', function () {
+    $artifacts = Mockery::spy(ThreadArtifacts::class);
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread] = threadWithRunningTurn();
+
+    questionLineFor($thread, [colourQuestion()]);
+
+    $artifacts->shouldNotHaveReceived('collectShared');
+});
+
+it('opens the question when collecting shared files fails', function () {
+    $artifacts = Mockery::mock(ThreadArtifacts::class);
+    $artifacts->shouldReceive('collectShared')->andThrow(new RuntimeException('sandbox gone'));
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread, , $task] = threadWithRunningTurn();
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    expect($task->refresh()->liveClarificationRound())->not->toBeNull()
+        ->and(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'decline_question'))->toBeNull();
 });

@@ -65,6 +65,34 @@ class ThreadArtifacts
     }
 
     /**
+     * Mid-turn, pulls only `shared/` so a live question can show the files it references. A recording in progress
+     * stays in the sandbox for the turn-end collection, and the sandbox folder is left as it is.
+     */
+    public function collectShared(Thread $thread): void
+    {
+        $task = $thread->sharesParentSandbox() ? null : $thread->pullRequestTask();
+
+        if ($task === null) {
+            return;
+        }
+
+        $workspacePath = $thread->primaryRepository->sandbox_path ?? '/workspace';
+        $container = (string) $thread->sandbox_container;
+        $shell = ThreadShell::for($thread);
+        $remotePath = "{$workspacePath}/.yak-artifacts/shared";
+
+        if (! $shell->fileExists($container, $remotePath)) {
+            return;
+        }
+
+        $localDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+        File::deleteDirectory($localDir);
+        $shell->pullDirectory($container, $remotePath, $localDir);
+
+        $this->anchorSharedFiles($thread, ArtifactPersister::persist($task));
+    }
+
+    /**
      * "Record walkthrough & open PR" opens the pull request once its turn has completed and the recording is collected.
      */
     public function openPullRequestIfRequested(Thread $thread, TaskRun $run): void

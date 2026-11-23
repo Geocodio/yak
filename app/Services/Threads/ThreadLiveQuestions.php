@@ -21,6 +21,7 @@ use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
 use App\Services\ThreadBuilder;
+use App\Support\QuestionAttachments;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,14 @@ class ThreadLiveQuestions
             $this->commands->declineQuestion($thread, $runnerId, $refusal ?? 'The question could not be asked.');
 
             return;
+        }
+
+        if (QuestionAttachments::fileNames($questions) !== []) {
+            try {
+                app(ThreadArtifacts::class)->collectShared($thread);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
 
         $task->recordClarificationRound($questions, '', [
