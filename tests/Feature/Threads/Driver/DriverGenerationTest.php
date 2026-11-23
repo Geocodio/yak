@@ -183,3 +183,20 @@ it('keeps the instructions a sub-thread was given', function () {
 
     expect(YakPromptBuilder::refreshThreadSystemPrompt($child))->toBe('Child rules.');
 });
+
+it('starts the runner again when the broker restarts while a recovery start is unconfirmed', function () {
+    [$thread, $run] = runningTurnFor(['prompt_uuid' => 'prompt-1', 'prompt' => 'Go', 'restart_count' => 1]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'uuid' => 'prompt-1', 'state' => 'cancelled']);
+    $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+    $commands = Mockery::mock(ThreadCommands::class);
+    $commands->shouldReceive('revokePlaceholder')->once();
+    $commands->shouldReceive('kill')->once();
+    $commands->shouldReceive('startRunner')->once();
+    $commands->shouldReceive('turn')->once();
+    app()->instance(ThreadCommands::class, $commands);
+
+    $restarted = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 2, ['type' => 'broker', 'event' => 'restarted'], fromBroker: true);
+    app(ThreadDriver::class)->handle($restarted);
+
+    expect($run->refresh()->restart_count)->toBe(2);
+});

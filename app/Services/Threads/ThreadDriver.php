@@ -381,7 +381,12 @@ class ThreadDriver
             return;
         }
 
-        if ($run === null || ! in_array($thread->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
+        // A restart also kills a runner that was still starting, and its start is never confirmed.
+        $lostStates = BrokerLine::event($line) === 'no_runner'
+            ? [RunnerState::Idle, RunnerState::Busy]
+            : [RunnerState::Idle, RunnerState::Busy, RunnerState::Starting];
+
+        if ($run === null || ! in_array($thread->runner_state, $lostStates, true)) {
             return;
         }
 
