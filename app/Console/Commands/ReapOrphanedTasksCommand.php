@@ -9,6 +9,8 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StopNotifier;
+use App\Services\Threads\ThreadLiveQuestions;
+use App\Services\Threads\ThreadTurns;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -40,6 +42,11 @@ class ReapOrphanedTasksCommand extends Command
      *   - AwaitingCi has its own yak:timeout-ci command
      *   - AwaitingClarification has its own yak:cleanup-expired-clarifications
      *   - Pending tasks are just queued, not orphaned
+     *   - A task whose turn waits on a live question is quiet until the
+     *     person answers; the question's own wait limit ends that turn
+     *
+     * A thread task's turn is stopped too, so the runner is interrupted
+     * and the thread is free for its next message.
      */
     public function handle(IncusSandboxManager $sandbox): int
     {
@@ -53,6 +60,10 @@ class ReapOrphanedTasksCommand extends Command
 
         $reaped = 0;
         foreach ($candidates as $task) {
+            if (ThreadLiveQuestions::isOpen($task)) {
+                continue;
+            }
+
             $latestLog = $task->logs()->latest('created_at')->first();
 
             if ($latestLog !== null && $latestLog->created_at >= $threshold) {
@@ -71,7 +82,7 @@ class ReapOrphanedTasksCommand extends Command
 
     private function reap(YakTask $task, IncusSandboxManager $sandbox, int $minutes): void
     {
-        $errorMessage = "Worker crashed mid-run — no activity for {$minutes}+ minutes. Task marked failed and sandbox reaped.";
+        $errorMessage = "Worker crashed mid-run. No activity for {$minutes}+ minutes, so the task was marked failed.";
 
         TaskLogger::warning($task, 'Task reaped as orphaned', [
             'threshold_minutes' => $minutes,
@@ -84,7 +95,33 @@ class ReapOrphanedTasksCommand extends Command
 
         Repository::markSetupFailedFor($task);
 
-        // Best-effort sandbox teardown.
+        if ($task->thread !== null) {
+            $this->stopThreadTurn($task);
+        } else {
+            $this->destroyTaskSandbox($task, $sandbox);
+        }
+
+        StopNotifier::notify($task, TaskStop::yakSideProblem($errorMessage));
+    }
+
+    /**
+     * The thread keeps its sandbox for the next message; only the stuck turn ends.
+     */
+    private function stopThreadTurn(YakTask $task): void
+    {
+        try {
+            app(ThreadTurns::class)->stop($task->thread);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Stopping the thread turn failed during reap', [
+                'task_id' => $task->id,
+                'thread_id' => $task->thread_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function destroyTaskSandbox(YakTask $task, IncusSandboxManager $sandbox): void
+    {
         try {
             $containerName = $sandbox->containerName($task);
             if ($sandbox->containerExists($containerName)) {
@@ -96,7 +133,5 @@ class ReapOrphanedTasksCommand extends Command
                 'error' => $e->getMessage(),
             ]);
         }
-
-        StopNotifier::notify($task, TaskStop::yakSideProblem($errorMessage));
     }
 }
