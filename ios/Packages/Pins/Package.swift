@@ -11,7 +11,7 @@ let package = Package(
     products: [.library(name: "Pins", targets: ["Pins"])],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-markdown", exact: "0.9.0"),
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.99.2"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm", exact: "1.99.3"),
     ],
     targets: [
         .target(
