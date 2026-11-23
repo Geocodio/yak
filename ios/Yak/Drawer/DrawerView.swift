@@ -18,6 +18,8 @@ struct DrawerView: View {
     let setObservationsOpen: (Bool) -> Void
     /// Opens a task that has no thread; the shell finds where it lives.
     let openTask: (String) -> Void
+    /// The task a tap is looking up, shown as a spinner on its row.
+    let openingTaskID: String?
 
     @FocusState private var isSearchFocused: Bool
     @State private var dropTarget: DrawerRow?
@@ -245,7 +247,8 @@ struct DrawerView: View {
     @ViewBuilder private func rowView(_ row: DrawerRow, now: Date, drawer: DrawerModel) -> some View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
-            isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id,
+            isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
+                || row.id == openingTaskID.map { "task:\($0)" },
             isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id)
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }

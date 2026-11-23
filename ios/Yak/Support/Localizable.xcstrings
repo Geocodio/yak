@@ -12727,7 +12727,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yak could not reach the server to find where it lives. Check the connection and try again."
+            "value" : "Try again."
           }
         }
       }
@@ -12737,7 +12737,27 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This item did not open"
+            "value" : "Could not open this"
+          }
+        }
+      }
+    },
+    "task.openOffline.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect and try again."
+          }
+        }
+      }
+    },
+    "task.openOffline.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline"
           }
         }
       }

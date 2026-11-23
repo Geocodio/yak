@@ -50,6 +50,25 @@ import XCTest
         XCTAssertTrue(element("composer.field").waitForExistence(timeout: Wait.firstLoad))
     }
 
+    /// A task link that arrives while the app is already running opens the thread of the task.
+    func testATaskLinkWhileTheAppIsRunningOpensItsThread() throws {
+        try launch(scenario: "changes")
+        openDrawerIfNeeded()
+        XCTAssertTrue(element("drawer.list").waitForExistence(timeout: Wait.firstLoad))
+        app.open(stub.taskLink)
+        XCTAssertTrue(element("composer.field").waitForExistence(timeout: Wait.firstLoad))
+    }
+
+    /// A task the server does not know shows the not-found notice, not a dead tap.
+    func testATaskLinkForAnUnknownTaskShowsTheNotFoundNotice() throws {
+        try launch(scenario: "changes")
+        openDrawerIfNeeded()
+        XCTAssertTrue(element("drawer.list").waitForExistence(timeout: Wait.firstLoad))
+        app.open(stub.taskLink(id: "zzzzzzzz"))
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.alerts.staticTexts["This task is not here anymore"].exists)
+    }
+
     /// The drawer has the Observations tile and no Tasks tile.
     func testTheDrawerHasNoTasksTile() throws {
         try launch(scenario: "changes")

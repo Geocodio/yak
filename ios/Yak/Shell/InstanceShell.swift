@@ -21,8 +21,8 @@ struct InstanceShell: View {
     @State private var isObservationsOpen = false
     /// The thread the Observations list opened over; a different thread closes the list.
     @State private var observationsOverThreadID: String?
-    /// Why a task link or tap did not lead anywhere, shown as an alert.
-    @State private var taskProblem: TaskTarget?
+    /// Opens the thread of a task link, push or row.
+    @State private var taskOpener: TaskOpener
     /// The drawer moves only after the cold start has placed it; see `DrawerContainer.animates`.
     @State private var drawerAnimates = false
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -37,6 +37,24 @@ struct InstanceShell: View {
         self.session = session
         self.scene = scene
         _webConversation = State(initialValue: WebConversationModel(session: session))
+        let instanceURL = routedInstance.url
+        _taskOpener = State(
+            initialValue: TaskOpener(
+                resolve: { id in
+                    guard let client = await session.apiClient() else { return nil }
+                    return await TaskThreadResolver.resolve(taskID: id, client: client)
+                },
+                openThread: { [weak scene] threadID in
+                    scene?.open(thread: threadID, isCompactWidth: model.isCompactWidth)
+                },
+                openWebPage: { id in
+                    guard
+                        let page = WebLinkRule.safeURL(
+                            instanceURL.appending(path: "tasks").appending(path: id).absoluteString)
+                    else { return false }
+                    model.browserURL = page
+                    return true
+                }))
     }
 
     private var instance: Instance { storedInstance ?? routedInstance }
@@ -75,18 +93,19 @@ struct InstanceShell: View {
         .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: model.taskToOpen, initial: true) {
-            if let id = model.takeTaskToOpen(for: scene) { openTask(id) }
+            if let id = model.takeTaskToOpen(for: scene) { taskOpener.open(taskID: id) }
         }
         .onChange(of: scene.state.threadID) { _, new in
             if new != observationsOverThreadID { isObservationsOpen = false }
         }
-        .alert(
-            taskProblem == .notFound ? "task.notFound.title" : "task.openFailed.title", isPresented: taskProblemBinding
-        ) {
+        .alert(taskProblemTitle, isPresented: taskProblemBinding) {
             Button("task.problem.ok", role: .cancel) {}
         } message: {
-            Text(taskProblem == .notFound ? "task.notFound.detail" : "task.openFailed.detail")
+            Text(taskProblemMessage)
         }
+        .onChange(of: status) { _, new in if new == .active { taskOpener.sessionBecameActive() } }
+        .onChange(of: scene.state.threadID) { taskOpener.cancel() }
+        .onDisappear { taskOpener.cancel() }
         .onChange(of: sizeClass, initial: true) { model.isCompactWidth = isCompactWidth }
         .onChange(of: model.push?.pending, initial: true) { showPending() }
         .onChange(of: inputBlocked) { showPending() }
@@ -179,7 +198,8 @@ struct InstanceShell: View {
         DrawerView(
             model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
             openAccount: { scene.isSettingsOpen = true }, openSwitcher: { showsSwitcher = true },
-            retry: { Task { await retryList() } }, setObservationsOpen: setObservationsOpen, openTask: openTask)
+            retry: { Task { await retryList() } }, setObservationsOpen: setObservationsOpen,
+            openTask: { taskOpener.open(taskID: $0) }, openingTaskID: taskOpener.openingID)
     }
 
     /// Names the screen the detail shows, so a change of screen cross-fades.
@@ -199,7 +219,7 @@ struct InstanceShell: View {
     @ViewBuilder private var threadScreenContent: some View {
         if isObservationsOpen {
             ObservationsNavigation(
-                session: session, openTask: openTask, openWeb: { model.browserURL = $0 },
+                session: session, openTask: { taskOpener.open(taskID: $0) }, openWeb: { model.browserURL = $0 },
                 close: { isObservationsOpen = false })
         } else if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
             ThreadScreen(
@@ -241,32 +261,22 @@ struct InstanceShell: View {
     }
 
     private var taskProblemBinding: Binding<Bool> {
-        Binding(get: { taskProblem != nil }, set: { if !$0 { taskProblem = nil } })
+        Binding(get: { taskOpener.problem != nil }, set: { if !$0 { taskOpener.problem = nil } })
     }
 
-    /// Opens the thread a task lives on. A task without a thread (a review, a setup run) opens its web page; a task
-    /// the server does not know, or cannot be asked about, shows a notice instead of a dead tap.
-    private func openTask(_ id: String) {
-        Task {
-            guard let client = await session.apiClient() else {
-                taskProblem = .failed
-                return
-            }
-            switch await TaskThreadResolver.resolve(taskID: id, client: client) {
-            case .thread(let threadID):
-                isObservationsOpen = false
-                scene.open(thread: threadID, isCompactWidth: isCompactWidth)
-            case .webPage:
-                if let page = WebLinkRule.safeURL(
-                    instance.url.appending(path: "tasks").appending(path: id).absoluteString)
-                {
-                    model.browserURL = page
-                } else {
-                    taskProblem = .failed
-                }
-            case .notFound: taskProblem = .notFound
-            case .failed: taskProblem = .failed
-            }
+    private var taskProblemTitle: LocalizedStringKey {
+        switch taskOpener.problem {
+        case .notFound: "task.notFound.title"
+        case .offline: "task.openOffline.title"
+        default: "task.openFailed.title"
+        }
+    }
+
+    private var taskProblemMessage: LocalizedStringKey {
+        switch taskOpener.problem {
+        case .notFound: "task.notFound.detail"
+        case .offline: "task.openOffline.detail"
+        default: "task.openFailed.detail"
         }
     }
 

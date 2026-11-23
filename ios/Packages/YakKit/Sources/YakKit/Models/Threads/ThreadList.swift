@@ -7,6 +7,7 @@ public struct ThreadList: Codable, Equatable, Sendable {
     public let needsYouCount: Int
     public let hasAnyThreads: Bool
 
+    /// Folds the task items of `needsYou` into their threads (see `folded`), so no caller can bypass the fold.
     public init(
         starred: [ThreadRow],
         needsYou: [NeedsYouItem],
@@ -14,54 +15,63 @@ public struct ThreadList: Codable, Equatable, Sendable {
         needsYouCount: Int,
         hasAnyThreads: Bool
     ) {
-        self.starred = starred
-        self.needsYou = needsYou
-        self.threads = threads
+        let folded = Self.folded(starred: starred, needsYou: needsYou, threads: threads)
+        self.starred = folded.starred
+        self.needsYou = folded.needsYou
+        self.threads = folded.threads
         self.needsYouCount = needsYouCount
         self.hasAnyThreads = hasAnyThreads
     }
 
     private enum CodingKeys: String, CodingKey { case starred, needsYou, threads, needsYouCount, hasAnyThreads }
 
-    /// One item per thread. A task item whose thread has a row in the list lends its reason to that row when the
-    /// reason is more urgent, and leaves the list. A task item whose thread has no row becomes a thread row. A task
-    /// item without a thread stays a task item. Runs when the list is read, from the server or from the saved copy.
-    static func foldingTasks(into items: [NeedsYouItem], others: [ThreadRow]) -> [NeedsYouItem] {
-        var rows: [String: Int] = [:]
-        for (index, item) in items.enumerated() {
-            if case .thread(let row) = item { rows[row.id] = index }
-        }
-        let elsewhere = Set(others.flatMap(\.idsIncludingDescendants)).union(
-            items.flatMap { item -> [String] in
-                if case .thread(let row) = item { row.idsIncludingDescendants.filter { $0 != row.id } } else { [] }
-            })
-        var result = items
-        var removed: Set<Int> = []
-        for (index, item) in items.enumerated() {
-            guard case .task(let task) = item, let threadID = task.threadId, !threadID.isEmpty else { continue }
-            if let rowIndex = rows[threadID], case .thread(let row) = result[rowIndex] {
-                if task.needsYouReason.urgency > (row.needsYouReason?.urgency ?? 0) {
-                    result[rowIndex] = .thread(row.withReason(task.needsYouReason, label: task.needsYouLabel))
-                }
-                removed.insert(index)
-            } else if elsewhere.contains(threadID) {
-                removed.insert(index)
-            } else {
-                result[index] = .thread(ThreadRow(task: task, threadID: threadID))
-                rows[threadID] = index
+    /// One item per thread, so nothing that needs the person is listed twice or missing.
+    /// A task item names a thread. When that thread (or the root that holds it as a sub-thread) has a row in the
+    /// list, the row takes the task's reason if it asks more of the person, and moves into needs-you if it sat in
+    /// the starred or the other threads. When no row has the thread, the item becomes a closed thread row. A task item
+    /// without a thread stays a task item. Runs when the list is read, from the server or from the saved copy.
+    static func folded(starred: [ThreadRow], needsYou: [NeedsYouItem], threads: [ThreadRow]) -> (
+        starred: [ThreadRow], needsYou: [NeedsYouItem], threads: [ThreadRow]
+    ) {
+        var starred = starred
+        var threads = threads
+        var items = needsYou
+        var index = 0
+        while index < items.count {
+            guard case .task(let task) = items[index], let threadID = task.threadId, !threadID.isEmpty else {
+                index += 1
+                continue
             }
+            if let place = items.indices.first(where: { rowContains(items[$0], threadID) }),
+                case .thread(let row) = items[place]
+            {
+                items[place] = .thread(row.applying(task, to: threadID))
+                items.remove(at: index)
+                continue
+            } else if let place = starred.firstIndex(where: { $0.idsIncludingDescendants.contains(threadID) }) {
+                items[index] = .thread(starred.remove(at: place).applying(task, to: threadID))
+            } else if let place = threads.firstIndex(where: { $0.idsIncludingDescendants.contains(threadID) }) {
+                items[index] = .thread(threads.remove(at: place).applying(task, to: threadID))
+            } else {
+                items[index] = .thread(ThreadRow(task: task, threadID: threadID))
+            }
+            index += 1
         }
-        return result.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
+        return (starred, items, threads)
+    }
+
+    private static func rowContains(_ item: NeedsYouItem, _ threadID: String) -> Bool {
+        if case .thread(let row) = item { row.idsIncludingDescendants.contains(threadID) } else { false }
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        starred = try container.decodeIfPresent([ThreadRow].self, forKey: .starred) ?? []
-        threads = try container.decode([ThreadRow].self, forKey: .threads)
-        needsYou = Self.foldingTasks(
-            into: try container.decode([NeedsYouItem].self, forKey: .needsYou), others: starred + threads)
-        needsYouCount = try container.decode(Int.self, forKey: .needsYouCount)
-        hasAnyThreads = try container.decode(Bool.self, forKey: .hasAnyThreads)
+        self.init(
+            starred: try container.decodeIfPresent([ThreadRow].self, forKey: .starred) ?? [],
+            needsYou: try container.decode([NeedsYouItem].self, forKey: .needsYou),
+            threads: try container.decode([ThreadRow].self, forKey: .threads),
+            needsYouCount: try container.decode(Int.self, forKey: .needsYouCount),
+            hasAnyThreads: try container.decode(Bool.self, forKey: .hasAnyThreads))
     }
 }
 
@@ -137,18 +147,27 @@ extension NeedsYouReason {
 extension ThreadRow {
     var idsIncludingDescendants: [String] { [id] + children.flatMap(\.idsIncludingDescendants) }
 
-    func withReason(_ reason: NeedsYouReason, label: String?) -> ThreadRow {
-        ThreadRow(
-            id: id, title: title, repo: repo, status: status, needsYouReason: reason, needsYouLabel: label,
+    /// The row with the task's reason on the row of `threadID` (this row or a sub-thread), and on this row when the
+    /// reason asks more of the person than the one it has.
+    func applying(_ task: TaskNeedsYou, to threadID: String) -> ThreadRow {
+        let reason = task.needsYouReason
+        let asksMore = needsYouReason == nil || reason.urgency > (needsYouReason?.urgency ?? 0)
+        return ThreadRow(
+            id: id, title: title, repo: repo, status: status,
+            needsYouReason: asksMore ? reason : needsYouReason,
+            needsYouLabel: asksMore ? task.needsYouLabel : needsYouLabel,
             isPrivate: isPrivate, isShared: isShared, isUnattended: isUnattended, isStarred: isStarred,
             canDelete: canDelete, ownerInitials: ownerInitials, lastActivityAt: lastActivityAt, group: group,
-            children: children, step: step)
+            children: children.map {
+                $0.idsIncludingDescendants.contains(threadID) ? $0.applying(task, to: threadID) : $0
+            },
+            step: step)
     }
 
     /// The row of a task item whose thread is not in the list.
     init(task: TaskNeedsYou, threadID: String) {
         self.init(
-            id: threadID, title: task.title, repo: "", status: .stopped, needsYouReason: task.needsYouReason,
+            id: threadID, title: task.title, repo: "", status: .closed, needsYouReason: task.needsYouReason,
             needsYouLabel: task.needsYouLabel, isPrivate: task.isPrivate, isShared: false, isUnattended: false,
             isStarred: false, canDelete: false, lastActivityAt: task.lastActivityAt, group: .today, children: [])
     }

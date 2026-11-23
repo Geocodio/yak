@@ -3,13 +3,15 @@ import Testing
 
 @testable import YakKit
 
-private func threadItem(_ id: String, reason: String?, label: String? = nil) -> String {
+private func threadItem(
+    _ id: String, reason: String?, label: String? = nil, children: [String] = []
+) -> String {
     let reasonJSON = reason.map { "\"\($0)\"" } ?? "null"
     let labelJSON = label.map { "\"\($0)\"" } ?? "null"
     return """
         {"type": "thread", "id": "\(id)", "title": "Thread \(id)", "repo": "example/web", "status": "stopped",
          "needsYouReason": \(reasonJSON), "needsYouLabel": \(labelJSON), "isPrivate": false, "isShared": false,
-         "isUnattended": false, "isStarred": false, "canDelete": true, "group": "today", "children": []}
+         "isUnattended": false, "isStarred": false, "canDelete": true, "group": "today", "children": [\(children.joined(separator: ","))]}
         """
 }
 
@@ -22,9 +24,9 @@ private func taskItem(_ id: String, thread: String?, reason: String, label: Stri
         """
 }
 
-private func list(needsYou: [String], threads: [String] = []) throws -> ThreadList {
+private func list(needsYou: [String], starred: [String] = [], threads: [String] = []) throws -> ThreadList {
     let json = """
-        {"starred": [], "needsYou": [\(needsYou.joined(separator: ","))], "threads": [\(threads.joined(separator: ","))],
+        {"starred": [\(starred.joined(separator: ","))], "needsYou": [\(needsYou.joined(separator: ","))], "threads": [\(threads.joined(separator: ","))],
          "needsYouCount": \(needsYou.count), "hasAnyThreads": true}
         """
     return try JSONDecoder().decode(ThreadList.self, from: Data(json.utf8))
@@ -72,11 +74,85 @@ private func summary(_ list: ThreadList) -> [String] {
         #expect(summary(folded) == ["thread:bbbbbbbb:co_owner"])
     }
 
-    @Test func aTaskWhoseThreadIsListedElsewhereLeavesNoSecondRow() throws {
+    @Test func aTaskOfAThreadListedElsewhereMovesItsRowIntoNeedsYou() throws {
         let folded = try list(
-            needsYou: [taskItem("t1", thread: "cccccccc", reason: "question", label: "Asked you")],
+            needsYou: [
+                taskItem("t1", thread: "cccccccc", reason: "co_owner", label: "Waiting for your co-owner decision")
+            ],
             threads: [threadItem("cccccccc", reason: nil)])
-        #expect(summary(folded).isEmpty)
+        #expect(summary(folded) == ["thread:cccccccc:co_owner"])
+        #expect(folded.threads.isEmpty)
+    }
+
+    @Test func aStarredThreadWithAPendingDecisionIsListedInNeedsYou() throws {
+        let folded = try list(
+            needsYou: [taskItem("t1", thread: "cccccccc", reason: "co_owner", label: "Waiting")],
+            starred: [threadItem("cccccccc", reason: nil)])
+        #expect(summary(folded) == ["thread:cccccccc:co_owner"])
+        #expect(folded.starred.isEmpty)
+    }
+
+    @Test func aTaskOfASubThreadPutsItsRootInNeedsYouWithTheReasonOnBoth() throws {
+        let child = threadItem("dddddddd", reason: nil)
+        let root = threadItem("rrrrrrrr", reason: nil, children: [child])
+        let folded = try list(
+            needsYou: [taskItem("t1", thread: "dddddddd", reason: "question", label: "Asked you a question")],
+            threads: [root])
+        #expect(summary(folded) == ["thread:rrrrrrrr:question"])
+        guard case .thread(let row) = folded.needsYou[0] else { return }
+        #expect(row.children[0].needsYouReason == .question && folded.threads.isEmpty)
+    }
+
+    @Test func anUnknownReasonStaysVisibleAsANeedsYouRow() throws {
+        let folded = try list(
+            needsYou: [taskItem("t1", thread: "cccccccc", reason: "something_new", label: "Needs a look")],
+            threads: [threadItem("cccccccc", reason: nil)])
+        #expect(summary(folded) == ["thread:cccccccc:something_new"])
+        let content = DrawerSections.make(
+            list: folded, filter: .mine, search: nil, expanded: [:], unsentNewThreads: [])
+        guard case .sections(let sections) = content else { return }
+        #expect(sections[0].kind == .needsYou && sections[0].rows[0].subtitle == .serverLabel("Needs a look"))
+    }
+
+    @Test func aSynthesizedRowIsClosedNotStopped() throws {
+        let folded = try list(needsYou: [taskItem("t1", thread: "bbbbbbbb", reason: "question", label: "Asked you")])
+        guard case .thread(let row) = folded.needsYou[0] else { return }
+        #expect(row.status == .closed)
+    }
+
+    @Test func theMemberwiseInitFoldsToo() throws {
+        let row = try JSONDecoder().decode(ThreadRow.self, from: Data(threadItem("aaaaaaaa", reason: nil).utf8))
+        let task = TaskNeedsYou(
+            taskId: LenientID("t1"), threadId: "aaaaaaaa", title: "T", needsYouReason: .question,
+            needsYouLabel: "Asked you")
+        let made = ThreadList(
+            starred: [], needsYou: [.task(task)], threads: [row], needsYouCount: 1, hasAnyThreads: true)
+        #expect(summary(made) == ["thread:aaaaaaaa:question"])
+    }
+
+    @Test func everyFoldedItemReachesTheWidgetSnapshot() throws {
+        let folded = try list(
+            needsYou: [
+                taskItem("t1", thread: "cccccccc", reason: "co_owner", label: "Waiting"),
+                taskItem("t2", thread: "ssssssss", reason: "question", label: "Asked"),
+                taskItem("t3", thread: "bbbbbbbb", reason: "question", label: "Asked"),
+            ],
+            starred: [threadItem("ssssssss", reason: nil)],
+            threads: [threadItem("cccccccc", reason: nil)])
+        #expect(
+            Set(summary(folded)) == [
+                "thread:cccccccc:co_owner", "thread:ssssssss:question", "thread:bbbbbbbb:question",
+            ])
+        let snapshot = WidgetSnapshot.make(
+            from: folded, instanceName: "Example Yak", now: Date(timeIntervalSince1970: 0))
+        #expect(Set(snapshot.needsYou.map(\.id)) == ["cccccccc", "ssssssss", "bbbbbbbb"])
+        let entries = SpotlightIndexPlan.entries(
+            lists: [folded], instance: SpotlightInstance(id: UUID(), name: "Example Yak"), includePrivate: true,
+            now: Date(timeIntervalSince1970: 0))
+        #expect(
+            Set(entries.map(\.identifier.description).map { String($0.split(separator: "/").last ?? "") }) == [
+                "cccccccc", "ssssssss", "bbbbbbbb",
+            ])
     }
 
     @Test func aTaskWithoutAThreadStaysATaskItem() throws {
@@ -120,12 +196,32 @@ private func summary(_ list: ThreadList) -> [String] {
         #expect(try await resolve("", try .scenario(200, "scenario-task-question")) == .webPage)
     }
 
-    @Test func anUnknownTaskIsNotFound() async throws {
-        let missing = FakeTransport.Result.json(404, #"{"error":"not_found","message":"No."}"#)
-        #expect(try await resolve("", missing) == .notFound)
+    @Test(arguments: [403, 404])
+    func aTaskThePersonCannotSeeIsNotFound(status: Int) async throws {
+        let body = FakeTransport.Result.json(status, #"{"error":"not_found","message":"No."}"#)
+        #expect(try await resolve("", body) == .notFound)
     }
 
-    @Test func anUnreachableServerIsAFailureNotANotFound() async throws {
-        #expect(try await resolve("", .failure(.notConnectedToInternet)) == .failed)
+    @Test func aRevokedDeviceGoesToThePairingPath() async throws {
+        let body = FakeTransport.Result.json(401, #"{"error":"device_revoked","message":"Revoked."}"#)
+        #expect(try await resolve("", body) == .needsPairing)
+    }
+
+    @Test(arguments: [500, 502, 503])
+    func aServerErrorIsAFailure(status: Int) async throws {
+        let body = FakeTransport.Result.json(status, #"{"error":"server_error","message":"Broke."}"#)
+        #expect(try await resolve("", body) == .failed)
+    }
+
+    @Test func aBodyThatIsNotATaskIsAFailure() async throws {
+        #expect(try await resolve("", .json(200, "<html>nope</html>")) == .failed)
+    }
+
+    @Test func noConnectionIsOffline() async throws {
+        #expect(try await resolve("", .failure(.notConnectedToInternet)) == .offline)
+    }
+
+    @Test func aTimeoutIsOffline() async throws {
+        #expect(try await resolve("", .failure(.timedOut)) == .offline)
     }
 }

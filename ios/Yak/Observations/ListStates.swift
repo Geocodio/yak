@@ -1,8 +1,8 @@
 import SwiftUI
 import YakKit
 
-/// A centered message with an optional detail and actions: the empty, error, offline and slow states of the lists
-/// and of the task screen. It scrolls, so it never clips at the largest text size.
+/// A centered message with an optional detail and actions: the empty, error, offline and slow states of the lists.
+/// It scrolls, so it never clips at the largest text size.
 struct StateMessage<Actions: View>: View {
     let title: Text
     let detail: Text?

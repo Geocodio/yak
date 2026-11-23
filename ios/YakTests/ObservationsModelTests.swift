@@ -10,6 +10,43 @@ private func observationFixture() async throws -> TasksFixture {
     }
 }
 
+private func pagedObservationFixture() async throws -> TasksFixture {
+    try await TasksFixture { route, query, _ in
+        guard route == "GET observations" else { return nil }
+        var body = ScenarioFile.object("scenario-observations")
+        body["nextPage"] = query.contains("page=2") ? NSNull() : 2
+        return (200, try JSONSerialization.data(withJSONObject: body))
+    }
+}
+
+@MainActor @Test func loadMoreAtTheEndOfTheObservations() async throws {
+    let fixture = try await pagedObservationFixture()
+    let model = ObservationsModel.observations(session: fixture.session)
+    await model.start()
+    #expect(await fixture.eventually { model.snapshot.nextPage == 2 && !model.snapshot.isShowingCachedCopy })
+    await model.loadMore()
+    #expect(fixture.transport.all.contains("GET observations?page=2"))
+    #expect(await fixture.eventually { model.snapshot.nextPage == nil })
+    await model.loadMore()
+    #expect(fixture.transport.count { $0.contains("page=2") } == 1)
+    await model.stop()
+    await fixture.session.stop()
+}
+
+@MainActor @Test func theObservationSearchWaitsForTheTypingToStop() async throws {
+    let fixture = try await observationFixture()
+    let model = ObservationsModel.observations(session: fixture.session)
+    await model.start()
+    #expect(await fixture.eventually { !model.snapshot.rows.isEmpty })
+    model.search = "up"
+    model.search = "upload"
+    #expect(await fixture.eventually { model.query.search == "upload" })
+    #expect(fixture.transport.count { $0.contains("search=up&") || $0.hasSuffix("search=up") } == 0)
+    #expect(await fixture.eventually { fixture.transport.all.contains { $0.contains("search=upload") } })
+    await model.stop()
+    await fixture.session.stop()
+}
+
 @MainActor @Test func theOutcomeFilterReloads() async throws {
     let fixture = try await observationFixture()
     let model = ObservationsModel.observations(session: fixture.session)
