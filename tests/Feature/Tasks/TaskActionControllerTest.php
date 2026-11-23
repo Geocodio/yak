@@ -158,6 +158,33 @@ test('retry with a pushed branch still resumes on the branch and does not set th
     expect($thread->fresh()->fresh_session_pending)->toBeFalse();
 });
 
+test('retry resumes on a branch GitHub has even when no CI result was ever logged', function () {
+    Queue::fake();
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+    Repository::factory()->create(['slug' => 'org/pushed', 'github_full_name' => 'org/pushed']);
+    Http::fake(['api.github.com/repos/org/pushed/branches/*' => Http::response(['commit' => ['sha' => 'abc123']])]);
+    [$thread, $task] = failedTaskOnThread(taskAttributes: ['repo' => 'org/pushed', 'branch_name' => 'yak/pushed', 'pr_url' => null]);
+
+    $this->post(route('threads.retry', $task->thread));
+
+    Queue::assertPushed(RetryYakJob::class);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('retry starts over when GitHub does not have the branch', function () {
+    Queue::fake();
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create(['installation_id' => 99999, 'token' => 'ghs_test_token', 'expires_at' => now()->addHour()]);
+    Repository::factory()->create(['slug' => 'org/unpushed', 'github_full_name' => 'org/unpushed']);
+    Http::fake(['api.github.com/repos/org/unpushed/branches/*' => Http::response([], 404)]);
+    [$thread, $task] = failedTaskOnThread(taskAttributes: ['repo' => 'org/unpushed', 'branch_name' => 'yak/unpushed']);
+
+    $this->post(route('threads.retry', $task->thread));
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
 test('retry for Setup, Research and Review modes does not touch the thread', function (TaskMode $mode) {
     Queue::fake();
     [$thread, $task] = failedTaskOnThread(taskAttributes: ['mode' => $mode]);
