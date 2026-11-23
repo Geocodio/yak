@@ -63,13 +63,22 @@ function explanation(suggestion: CapacitySuggestion, memoryFloorGb: number): str
     return `In the last 7 days, ${reasons.join(', and ')}. A limit of ${suggested} should keep ${samplesAtLimit > 0 ? peakName : 'memory'} under about ${target}%.`;
 }
 
-function Meter({ label, value, ratio }: { label: string; value: string; ratio: number }) {
+/** Server use colours: over 90% is a problem, half or more leaves little room to raise the limit. */
+function usageTone(ratio: number): string {
+    if (ratio > 0.9) {
+        return 'bg-fail';
+    }
+
+    return ratio >= 0.5 ? 'bg-warn' : 'bg-ok';
+}
+
+function Meter({ label, value, ratio, barClassName }: { label: string; value: string; ratio: number; barClassName: string }) {
     return (
         <div className="flex min-w-0 flex-col gap-1">
             <span className="text-[11px] text-muted">{label}</span>
             <span className="font-medium tabular-nums">{value}</span>
             <div className="h-[5px] overflow-hidden rounded-[3px] bg-panel-2" role="presentation">
-                <i className="block h-full rounded-[3px] bg-ok" style={{ width: `${Math.min(100, Math.max(0, percent(ratio)))}%` }} />
+                <i className={`block h-full rounded-[3px] ${barClassName}`} style={{ width: `${Math.min(100, Math.max(0, percent(ratio)))}%` }} />
             </div>
         </div>
     );
@@ -114,9 +123,9 @@ export function CapacitySuggestionCard({ suggestion, memoryFloorGb }: { suggesti
             {state !== 'wait' && totalSamples > 0 ? (
                 <>
                     <div className="grid gap-3 sm:grid-cols-3">
-                        <Meter label="Times at the limit" value={`${samplesAtLimit.toLocaleString('en')} of ${totalSamples.toLocaleString('en')} checks`} ratio={samplesAtLimit / totalSamples} />
-                        <Meter label="Peak memory at the limit" value={`${suggestion.memoryUsedGbAtPeak} of ${suggestion.memoryTotalGb} GB · ${percent(suggestion.memoryPeak)}%`} ratio={suggestion.memoryPeak} />
-                        <Meter label="Peak CPU at the limit" value={`${percent(suggestion.cpuPeak)}% of ${suggestion.cores} ${suggestion.cores === 1 ? 'core' : 'cores'}`} ratio={suggestion.cpuPeak} />
+                        <Meter label="Times at the limit" value={`${samplesAtLimit.toLocaleString('en')} of ${totalSamples.toLocaleString('en')} checks`} ratio={samplesAtLimit / totalSamples} barClassName="bg-muted" />
+                        <Meter label="Peak memory at the limit" value={`${suggestion.memoryUsedGbAtPeak} of ${suggestion.memoryTotalGb} GB · ${percent(suggestion.memoryPeak)}%`} ratio={suggestion.memoryPeak} barClassName={usageTone(suggestion.memoryPeak)} />
+                        <Meter label="Peak CPU at the limit" value={`${percent(suggestion.cpuPeak)}% of ${suggestion.cores} ${suggestion.cores === 1 ? 'core' : 'cores'}`} ratio={suggestion.cpuPeak} barClassName={usageTone(suggestion.cpuPeak)} />
                     </div>
                     <CapacityChart suggestion={suggestion} />
                 </>
