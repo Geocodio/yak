@@ -105,8 +105,9 @@ it('searches a run, including steps on a page that is not loaded yet, and restor
 it('clears the search with escape and closes with the next escape, and returns focus to the button that opened it', function () {
     [$thread] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]]);
 
-    $page = visit(route('threads.show', $thread))
-        ->click('[data-testid="run-log-button"]')
+    $page = visit(route('threads.show', $thread));
+    waitUntilPresent($page, '[data-testid="run-log-button"]');
+    $page->click('[data-testid="run-log-button"]')
         ->assertVisible(FULL_LOG)
         ->keys('[data-testid="transcript-overlay"]', ['/'])
         ->type('[data-testid="transcript-search"]', 'two')
@@ -157,8 +158,9 @@ it('shows a failed step, a step with no output yet, a very long output and an em
 it('disables Previous step and Next step until there is a step to go to', function () {
     [$thread] = fullLogThread([[['echo only', 'only']]]);
 
-    visit(route('threads.show', $thread))
-        ->click('[data-testid="run-log-button"]')
+    $page = visit(route('threads.show', $thread));
+    waitUntilPresent($page, '[data-testid="run-log-button"]');
+    $page->click('[data-testid="run-log-button"]')
         ->assertSee('echo only')
         ->assertAttribute('[data-testid="log-prev"]', 'disabled', '')
         ->assertAttribute('[data-testid="log-next"]', 'disabled', '')
@@ -201,6 +203,7 @@ it('keeps Next step disabled until the log has loaded and then enables it', func
     [$thread] = fullLogThread([[['echo one', 'one'], ['echo two', 'two']]]);
 
     $page = visit(route('threads.show', $thread));
+    waitUntilPresent($page, '[data-testid="run-log-button"]');
     $page->script('(() => { const original = window.fetch; window.fetch = (url, options) => String(url).includes("/log") ? new Promise((resolve) => setTimeout(() => resolve(original(url, options)), 1500)) : original(url, options); })();');
     $page->click('[data-testid="run-log-button"]')
         ->assertVisible(FULL_LOG)

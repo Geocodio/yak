@@ -199,6 +199,8 @@ it('marks a steer on a held turn as started under its own uuid', function (): vo
 });
 
 it('releases a held turn after its bound', function (): void {
+    // The bound is measured in whole seconds from the hold, so a clock that moves between the hold and the checks skews it.
+    $this->freezeTime();
     Event::fake([TurnCompleted::class, TurnFailed::class]);
     [$thread, $run] = scriptTurn();
     $channel = 'threads:' . $thread->id;

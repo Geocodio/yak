@@ -257,6 +257,8 @@ it('keeps ownership on Yak when the first turn cannot start', function () {
 });
 
 it('returns the same body when complete is repeated', function () {
+    // Every call pushes expires_at forward from now(), so the repeat can only match inside one frozen second.
+    $this->freezeTime();
     $begin = beginAndUpload($this);
     $this->turns->shouldReceive('start')->once();
 

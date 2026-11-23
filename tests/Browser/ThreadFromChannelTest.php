@@ -78,13 +78,16 @@ it('shows the empty log text and an error with Retry in the full log', function 
     $thread = channelThread();
     $answer = fn (string $body, int $status) => "(() => { const original = window.fetch; window.fetch = (url, options) => String(url).includes('/log') ? Promise.resolve(new Response('{$body}', { status: {$status}, headers: { 'Content-Type': 'application/json' } })) : original(url, options); })();";
 
+    // The button is rendered after the thread's first events have loaded, which can take a retry on a slow runner.
     $page = visit("/threads/{$thread->public_id}");
+    waitUntilPresent($page, '[data-testid="run-log-button"]');
     $page->script($answer('{"entries":[],"nextCursor":null}', 200));
     $page->click('[data-testid="run-log-button"]')
         ->assertSeeIn('[data-testid="transcript-empty"]', 'This run has no recorded steps.')
         ->assertNoJavaScriptErrors();
 
     $failing = visit("/threads/{$thread->public_id}");
+    waitUntilPresent($failing, '[data-testid="run-log-button"]');
     $failing->script($answer('{}', 404));
     $failing->click('[data-testid="run-log-button"]')
         ->assertVisible('[data-testid="transcript-error"]')

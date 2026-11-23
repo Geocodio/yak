@@ -23,3 +23,17 @@ function waitUntilPresent(mixed $page, string $selector, bool $isPresent = true)
 
     expect($isSettled)->toBeTrue('Expected [' . $selector . '] to ' . ($isPresent ? 'appear on' : 'leave') . ' the page within 10 seconds.');
 }
+
+/**
+ * Waits until the text is somewhere on the page: the signal for an update that arrives over a live connection, whose
+ * timing a fixed wait can only guess at.
+ */
+function waitUntilSeen(mixed $page, string $text): void
+{
+    $quoted = json_encode($text, JSON_THROW_ON_ERROR);
+    $check = "document.body.innerText.includes({$quoted})";
+
+    $isSettled = $page->script("(async () => { for (let attempt = 0; attempt < 200 && !({$check}); attempt++) { await new Promise((resolve) => setTimeout(resolve, 50)); } return {$check}; })()");
+
+    expect($isSettled)->toBeTrue('Expected the page to show [' . $text . '] within 10 seconds.');
+}

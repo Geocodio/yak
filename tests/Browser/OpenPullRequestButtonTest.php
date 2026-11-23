@@ -126,8 +126,8 @@ test('a failed opening frees the button and says why, even after the page reload
     $task = YakTask::query()->where('thread_id', $thread->id)->firstOrFail();
     app(PullRequestOpening::class)->finish($task, new RuntimeException('GitHub PR creation failed: Validation Failed'));
 
-    $page->wait(8)
-        ->assertSeeIn('[data-testid="open-pull-request"]', 'Open PR')
+    waitUntilSeen($page, 'GitHub said: Validation Failed');
+    $page->assertSeeIn('[data-testid="open-pull-request"]', 'Open PR')
         ->assertSee('GitHub said: Validation Failed')
         ->assertNoJavaScriptErrors();
 });
