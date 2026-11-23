@@ -27,6 +27,7 @@ Schedule::command('yak:record-capacity')->everyFiveMinutes()->withoutOverlapping
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:reap-lost-pending')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
+Schedule::command('yak:recover-stopped-tasks')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours()->withoutOverlapping();
 Schedule::command('yak:observations:prune')->daily();

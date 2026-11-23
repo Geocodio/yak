@@ -96,12 +96,15 @@ class YakPromptBuilder
             return self::setupPrompt($metadata['repo_name'] ?? $task->repo ?? 'unknown');
         }
 
-        if ($mode === TaskMode::Research) {
-            return self::researchPrompt($task->description ?? '');
-        }
-
         if ($mode === TaskMode::Review) {
             return self::reviewPrompt($metadata);
+        }
+
+        // The round awaiting a resume is sent by the resume prompt, so it is left out here.
+        $answeredRounds = self::answeredRoundsSection($task, includesAwaitingResume: false);
+
+        if ($mode === TaskMode::Research) {
+            return self::researchPrompt($task->description ?? '') . $answeredRounds;
         }
 
         $otherRepositories = self::otherRepositories($task);
@@ -115,7 +118,7 @@ class YakPromptBuilder
             'research' => self::researchPrompt($task->description ?? ''),
             'slack' => self::slackFixPrompt($task->description ?? '', $metadata, $otherRepositories),
             default => self::slackFixPrompt($task->description ?? '', $metadata, $otherRepositories),
-        };
+        } . $answeredRounds;
     }
 
     /**
@@ -163,9 +166,26 @@ class YakPromptBuilder
     public static function clarificationAnswersPrompt(YakTask $task): string
     {
         $round = $task->clarificationAnswersAwaitingResume() ?? [];
+
+        return Prompts::render('tasks-clarification-answers', [
+            'taskDescription' => (string) $task->description,
+            'answers' => self::answerLines($round),
+            'note' => $round['note'] ?? null,
+            'answeredBy' => (string) ($round['answered_by'] ?? 'the user'),
+            'isLastRound' => $task->clarificationRoundCount() >= YakTask::MAX_CLARIFICATION_ROUNDS,
+            'otherRepositories' => self::otherRepositories($task),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $round
+     * @return array<int, array{question: string, answer: string, other: string|null}>
+     */
+    private static function answerLines(array $round): array
+    {
         $given = (array) ($round['answers'] ?? []);
 
-        $answers = collect((array) ($round['questions'] ?? []))
+        return collect((array) ($round['questions'] ?? []))
             ->map(function (array $question) use ($given): array {
                 $answer = $given[$question['id']] ?? null;
                 $choices = (array) ($answer['choices'] ?? []);
@@ -179,15 +199,34 @@ class YakPromptBuilder
             })
             ->values()
             ->all();
+    }
 
-        return Prompts::render('tasks-clarification-answers', [
-            'taskDescription' => (string) $task->description,
-            'answers' => $answers,
-            'note' => $round['note'] ?? null,
-            'answeredBy' => (string) ($round['answered_by'] ?? 'the user'),
-            'isLastRound' => $task->clarificationRoundCount() >= YakTask::MAX_CLARIFICATION_ROUNDS,
-            'otherRepositories' => self::otherRepositories($task),
-        ]);
+    /**
+     * Every round the person already answered, consumed or not, so a retry or
+     * a fresh run never asks a question that has an answer. Empty when there
+     * are none.
+     *
+     * @param  bool  $includesAwaitingResume  false when the resume prompt carries the round that still waits to be sent
+     */
+    private static function answeredRoundsSection(YakTask $task, bool $includesAwaitingResume): string
+    {
+        $awaitingResume = $includesAwaitingResume ? null : $task->clarificationAnswersAwaitingResume();
+
+        $rounds = collect($task->clarificationRounds())
+            ->filter(fn (array $round): bool => $round['answers'] !== null && $round !== $awaitingResume)
+            ->map(fn (array $round): array => [
+                'answers' => self::answerLines($round),
+                'note' => $round['note'] ?? null,
+                'answeredBy' => (string) ($round['answered_by'] ?? 'the user'),
+            ])
+            ->values()
+            ->all();
+
+        if ($rounds === []) {
+            return '';
+        }
+
+        return "\n\n" . trim(view('prompts.tasks.answered-rounds', ['rounds' => $rounds])->render());
     }
 
     /**
@@ -270,7 +309,7 @@ class YakPromptBuilder
             'previousSummary' => (string) ($task->result_summary ?? ''),
             'failureOutput' => $failureOutput,
             'otherRepositories' => self::otherRepositories($task),
-        ]);
+        ]) . self::answeredRoundsSection($task, includesAwaitingResume: true);
     }
 
     /**

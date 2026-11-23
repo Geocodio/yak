@@ -9,6 +9,7 @@ use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\DataTransferObjects\TaskActionOutcome;
 use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
+use App\Enums\StopKind;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
@@ -58,6 +59,20 @@ use Throwable;
 class TaskActions
 {
     private const RENDER_REQUEST_LIFETIME_MINUTES = 30;
+
+    public const RECOVERY_RERUN_LOG_MESSAGE = 'Recovered automatically: re-running failed CI jobs';
+
+    public const RECOVERY_OUTCOME_SKIPPED = 'skipped';
+
+    public const RECOVERY_OUTCOME_WAITING = 'waiting';
+
+    public const RECOVERY_OUTCOME_OPENING_PULL_REQUEST = 'opening_pull_request';
+
+    public const RECOVERY_OUTCOME_RERUNNING_CI = 'rerunning_ci';
+
+    public const RECOVERY_OUTCOME_RETRYING_ON_BRANCH = 'retrying_on_branch';
+
+    public const RECOVERY_OUTCOME_FRESH_RETRY = 'fresh_retry';
 
     /** @var list<TaskStatus> */
     private const CANCELLABLE = [
@@ -479,7 +494,7 @@ class TaskActions
     /**
      * @return array{outcome: TaskActionOutcome, after: ?Closure}
      */
-    private function claimFreshRetry(YakTask $task): array
+    private function claimFreshRetry(YakTask $task, bool $isAutomatic = false): array
     {
         /** @var TaskMode $mode */
         $mode = $task->mode;
@@ -492,6 +507,7 @@ class TaskActions
             'status' => TaskStatus::Pending,
             'description' => $this->withQueuedReplies($task, $mode),
             'attempts_at_manual_retry' => $task->attempts,
+            'auto_recovery_count' => $task->auto_recovery_count + ($isAutomatic ? 1 : 0),
             'error_log' => null,
             'result_summary' => null,
             'pr_body_update' => null,
@@ -507,14 +523,20 @@ class TaskActions
             default => RunYakJob::class,
         };
 
+        if ($isAutomatic) {
+            TaskLogger::info($task, 'Recovered automatically: starting a fresh retry');
+        }
+
         return [
             'outcome' => new TaskActionOutcome('queued', 'Task re-queued.'),
-            'after' => function () use ($task, $mode, $jobClass): void {
+            'after' => function () use ($task, $mode, $jobClass, $isAutomatic): void {
                 if ($jobClass === RunYakJob::class) {
                     app(ThreadRetryReset::class)->prepare($task);
                 }
 
-                Telemetry::feature('dashboard.retry', ['mode' => $mode->value], task: $task);
+                if (! $isAutomatic) {
+                    Telemetry::feature('dashboard.retry', ['mode' => $mode->value], task: $task);
+                }
 
                 $this->dispatcher->dispatch($task, $jobClass);
             },
@@ -528,7 +550,7 @@ class TaskActions
      * @param  array<string, mixed>  $original  the raw task columns the claim changes, put back when the job cannot be queued
      * @return array{outcome: TaskActionOutcome, after: ?Closure}
      */
-    private function claimRetryOnBranch(YakTask $task, array $original): array
+    private function claimRetryOnBranch(YakTask $task, array $original, bool $isAutomatic = false): array
     {
         $failureOutput = $task->error_log;
 
@@ -537,17 +559,24 @@ class TaskActions
             'status' => TaskStatus::Retrying,
             'attempts' => $task->attempts + 1,
             'attempts_at_manual_retry' => $task->attempts,
+            'auto_recovery_count' => $task->auto_recovery_count + ($isAutomatic ? 1 : 0),
             'error_log' => null,
             'started_at' => null,
             'completed_at' => null,
         ]);
 
-        TaskLogger::info($task, 'Retry requested from the dashboard, continuing on the existing branch', ['branch' => $task->branch_name]);
+        TaskLogger::info(
+            $task,
+            $isAutomatic ? 'Recovered automatically: retrying on the branch' : 'Retry requested from the dashboard, continuing on the existing branch',
+            ['branch' => $task->branch_name],
+        );
 
         return [
             'outcome' => new TaskActionOutcome('queued', "Retrying on {$task->branch_name}."),
-            'after' => function () use ($task, $failureOutput, $original): void {
-                Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_branch' => true], task: $task);
+            'after' => function () use ($task, $failureOutput, $original, $isAutomatic): void {
+                if (! $isAutomatic) {
+                    Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_branch' => true], task: $task);
+                }
 
                 $this->runOrReleaseClaim($task, $original, fn () => RetryYakJob::dispatch($task, $failureOutput));
             },
@@ -559,31 +588,48 @@ class TaskActions
      * @param  array<string, mixed>  $original  the raw task columns the claim changes, put back when GitHub or the queue refuses the next step
      * @return array{outcome: TaskActionOutcome, after: ?Closure}
      */
-    private function claimCiResume(YakTask $task, array $ciResume, array $original, bool $isTimeBounded): array
+    private function claimCiResume(YakTask $task, array $ciResume, array $original, bool $isTimeBounded, bool $isAutomatic = false): array
     {
-        $task->update(['status' => TaskStatus::Retrying]);
-        $task->update(['status' => TaskStatus::AwaitingCi, 'error_log' => null, 'completed_at' => null]);
+        $isGreen = $ciResume['pending'] === 0 && $ciResume['failed'] === 0;
+        $headSha = $ciResume['runs'][0]['head_sha'];
 
-        TaskLogger::info($task, TimeoutAwaitingCiCommand::CI_RESUMED_LOG_MESSAGE, [
-            'branch' => $task->branch_name,
-            'still_running' => $ciResume['pending'],
-            'rerun_failed' => $ciResume['pending'] === 0 ? $ciResume['failed'] : 0,
+        $task->update(['status' => TaskStatus::Retrying]);
+        // Opening the pull request spends the automatic budget. Re-running CI costs no agent time, so it does not.
+        $task->update([
+            'status' => TaskStatus::AwaitingCi,
+            'error_log' => null,
+            'completed_at' => null,
+            'auto_recovery_count' => $task->auto_recovery_count + ($isAutomatic && $isGreen ? 1 : 0),
         ]);
+
+        if (! $isAutomatic) {
+            TaskLogger::info($task, TimeoutAwaitingCiCommand::CI_RESUMED_LOG_MESSAGE, [
+                'branch' => $task->branch_name,
+                'still_running' => $ciResume['pending'],
+                'rerun_failed' => $ciResume['pending'] === 0 ? $ciResume['failed'] : 0,
+            ]);
+        } elseif ($isGreen) {
+            TaskLogger::info($task, 'Recovered automatically: opening the pull request (CI green on ' . substr($headSha, 0, 7) . ')', ['branch' => $task->branch_name, 'head_sha' => $headSha]);
+        } else {
+            TaskLogger::info($task, self::RECOVERY_RERUN_LOG_MESSAGE, ['branch' => $task->branch_name, 'head_sha' => $headSha]);
+        }
 
         return [
             'outcome' => new TaskActionOutcome('queued', "Checking CI on {$task->branch_name} again."),
-            'after' => function () use ($task, $ciResume, $original, $isTimeBounded): void {
-                Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_ci' => true], task: $task);
+            'after' => function () use ($task, $ciResume, $original, $isTimeBounded, $isAutomatic, $isGreen, $headSha): void {
+                if (! $isAutomatic) {
+                    Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_ci' => true], task: $task);
+                }
 
-                $this->runOrReleaseClaim($task, $original, function () use ($task, $ciResume, $original, $isTimeBounded): void {
-                    if ($ciResume['pending'] === 0 && $ciResume['failed'] === 0) {
-                        ProcessCIResultJob::dispatch($task, true, null, $ciResume['runs'][0]['head_sha']);
+                $this->runOrReleaseClaim($task, $original, function () use ($task, $ciResume, $original, $isTimeBounded, $isAutomatic, $isGreen, $headSha): void {
+                    if ($isGreen) {
+                        ProcessCIResultJob::dispatch($task, true, null, $headSha);
 
                         return;
                     }
 
                     if ($ciResume['pending'] === 0 && ! $this->rerunFailedRuns($task, $ciResume['runs'], $isTimeBounded)) {
-                        $this->fallBackToBranchRetry($task, $original);
+                        $this->fallBackToBranchRetry($task, $original, $isAutomatic);
                     }
                 });
             },
@@ -597,11 +643,11 @@ class TaskActions
      *
      * @param  array<string, mixed>  $original
      */
-    private function fallBackToBranchRetry(YakTask $task, array $original): void
+    private function fallBackToBranchRetry(YakTask $task, array $original, bool $isAutomatic = false): void
     {
         $failureOutput = $original['error_log'] ?? null;
 
-        $isStillWaiting = $this->locked($task, function (YakTask $locked) use ($original): bool {
+        $isStillWaiting = $this->locked($task, function (YakTask $locked) use ($original, $isAutomatic): bool {
             if ($locked->status !== TaskStatus::AwaitingCi) {
                 return false;
             }
@@ -611,6 +657,7 @@ class TaskActions
                 'status' => TaskStatus::Retrying,
                 'attempts' => $attempts + 1,
                 'attempts_at_manual_retry' => $attempts,
+                'auto_recovery_count' => $locked->auto_recovery_count + ($isAutomatic ? 1 : 0),
                 'error_log' => null,
                 'started_at' => null,
                 'completed_at' => null,
@@ -786,10 +833,136 @@ class TaskActions
             return null;
         }
 
+        return $this->summariseCiRuns($runs);
+    }
+
+    /**
+     * @param  list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>  $runs
+     * @return array{runs: list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>, pending: int, failed: int}
+     */
+    private function summariseCiRuns(array $runs): array
+    {
         $pending = array_filter($runs, fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run));
         $failed = array_filter($runs, fn (array $run): bool => ! GitHubAppService::isUnfinishedWorkflowRun($run)
             && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true));
 
         return ['runs' => $runs, 'pending' => count($pending), 'failed' => count($failed)];
+    }
+
+    /**
+     * One step of yak:recover-stopped-tasks for a task Yak itself stopped. GitHub
+     * decides the step, and any lookup that cannot answer means nothing happens
+     * this round, so a lookup failure never opens a pull request or starts a
+     * fresh run over a branch that exists. The claim takes the same row lock
+     * and status check as a person's Retry, so only one of them acts.
+     *
+     * Opening the pull request, a retry on the branch and a fresh retry each
+     * spend one of the task's automatic recoveries. Re-running the failed CI
+     * jobs does not, because it costs no agent time; it happens at most once per
+     * head commit, and a head that is still red on a later sweep gets the retry.
+     *
+     * @return string one of the RECOVERY_OUTCOME_* constants
+     */
+    public function recoverStoppedTask(YakTask $task): string
+    {
+        $plan = $this->planRecovery($task);
+
+        if ($plan['outcome'] === self::RECOVERY_OUTCOME_SKIPPED || $plan['outcome'] === self::RECOVERY_OUTCOME_WAITING) {
+            return $plan['outcome'];
+        }
+
+        /** @var array{outcome: TaskActionOutcome, after: ?Closure}|null $claim */
+        $claim = $this->locked($task, function (YakTask $locked) use ($plan): ?array {
+            $isStillRecoverable = $locked->status === TaskStatus::Failed
+                && $locked->stop_kind === StopKind::YakStopped
+                && $locked->pr_url === null
+                && $locked->auto_recovery_count < (int) config('yak.self_recovery.max_attempts');
+
+            if (! $isStillRecoverable) {
+                return null;
+            }
+
+            $original = Arr::only($locked->getRawOriginal(), ['status', 'error_log', 'completed_at', 'started_at', 'attempts', 'attempts_at_manual_retry', 'auto_recovery_count', 'stop_kind', 'stop_summary']);
+
+            return match ($plan['outcome']) {
+                self::RECOVERY_OUTCOME_FRESH_RETRY => $this->claimFreshRetry($locked, isAutomatic: true),
+                self::RECOVERY_OUTCOME_RETRYING_ON_BRANCH => $this->claimRetryOnBranch($locked, $original, isAutomatic: true),
+                default => $this->claimCiResume($locked, $plan['ciResume'], $original, false, isAutomatic: true),
+            };
+        });
+
+        if ($claim === null) {
+            return self::RECOVERY_OUTCOME_SKIPPED;
+        }
+
+        if ($claim['after'] !== null) {
+            ($claim['after'])();
+        }
+
+        return $plan['outcome'];
+    }
+
+    /**
+     * Reads GitHub for what a stopped task needs, without changing anything.
+     *
+     * @return array{outcome: string, ciResume: array{runs: list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>, pending: int, failed: int}}
+     */
+    private function planRecovery(YakTask $task): array
+    {
+        $skipped = ['outcome' => self::RECOVERY_OUTCOME_SKIPPED, 'ciResume' => ['runs' => [], 'pending' => 0, 'failed' => 0]];
+
+        if ($task->branch_name === null) {
+            return ['outcome' => self::RECOVERY_OUTCOME_FRESH_RETRY] + $skipped;
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($installationId === 0 || $repository === null) {
+            return $skipped;
+        }
+
+        $gitHub = app(GitHubAppService::class);
+
+        try {
+            if ($gitHub->findBranchHeadSha($installationId, $repository->github_full_name, $task->branch_name) === null) {
+                return ['outcome' => self::RECOVERY_OUTCOME_FRESH_RETRY] + $skipped;
+            }
+
+            // A branch without GitHub Actions runs has no CI result to act on, so a person decides.
+            if ($repository->settings()->ciSystem() !== 'github_actions') {
+                return $skipped;
+            }
+
+            $runs = $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, $task->branch_name);
+        } catch (Throwable $e) {
+            Log::channel('yak')->warning('Could not read GitHub to recover a stopped task', ['task_id' => $task->id, 'error' => $e->getMessage()]);
+
+            return $skipped;
+        }
+
+        if ($runs === []) {
+            return $skipped;
+        }
+
+        $ciResume = $this->summariseCiRuns($runs);
+
+        if ($ciResume['pending'] > 0) {
+            return ['outcome' => self::RECOVERY_OUTCOME_WAITING, 'ciResume' => $ciResume];
+        }
+
+        if ($ciResume['failed'] === 0) {
+            return ['outcome' => self::RECOVERY_OUTCOME_OPENING_PULL_REQUEST, 'ciResume' => $ciResume];
+        }
+
+        $hasRerunThisHead = $task->logs()
+            ->where('message', self::RECOVERY_RERUN_LOG_MESSAGE)
+            ->where('metadata->head_sha', $runs[0]['head_sha'])
+            ->exists();
+
+        return [
+            'outcome' => $hasRerunThisHead ? self::RECOVERY_OUTCOME_RETRYING_ON_BRANCH : self::RECOVERY_OUTCOME_RERUNNING_CI,
+            'ciResume' => $ciResume,
+        ];
     }
 }

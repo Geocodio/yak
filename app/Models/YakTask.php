@@ -44,6 +44,7 @@ use Illuminate\Support\Str;
  * @property bool $targets_external_pr
  * @property int $attempts
  * @property int $attempts_at_manual_retry
+ * @property int $auto_recovery_count
  * @property int|null $summon_review_comment_id
  * @property string|null $summon_quote
  * @property array<int, string>|null $clarification_options
@@ -99,6 +100,7 @@ class YakTask extends Model
         'visual' => 'none',
         'attempts' => 0,
         'attempts_at_manual_retry' => 0,
+        'auto_recovery_count' => 0,
         'cost_usd' => 0,
         'duration_ms' => 0,
         'num_turns' => 0,
@@ -210,6 +212,25 @@ class YakTask extends Model
     public function scopeWithoutVisibilityScope(Builder $query): Builder
     {
         return $query->withoutGlobalScope(VisibleTaskScope::class);
+    }
+
+    /**
+     * Failed tasks Yak stopped itself that nobody has had to unstick: no pull
+     * request, own branch, inside the recovery window, automatic budget left.
+     *
+     * @param  Builder<covariant YakTask>  $query
+     * @return Builder<covariant YakTask>
+     */
+    public function scopeRecoverableAfterYakStop(Builder $query): Builder
+    {
+        return $query
+            ->where('status', TaskStatus::Failed)
+            ->where('stop_kind', StopKind::YakStopped)
+            ->where('mode', TaskMode::Fix)
+            ->where('targets_external_pr', false)
+            ->whereNull('pr_url')
+            ->where('auto_recovery_count', '<', (int) config('yak.self_recovery.max_attempts'))
+            ->whereRaw('COALESCE(completed_at, updated_at) >= ?', [now()->subHours((int) config('yak.self_recovery.window_hours'))]);
     }
 
     /**
