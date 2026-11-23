@@ -51,7 +51,7 @@ final class AppSearchData
                 'title' => $pullRequest['title'],
                 'subtitle' => $pullRequest['repo'] . ' #' . $pullRequest['number'],
                 'threadId' => $pullRequest['threadId'],
-                'path' => $pullRequest['reviewUrl'] === null ? null : parse_url($pullRequest['reviewUrl'], PHP_URL_PATH),
+                'path' => $pullRequest['reviewUrl'] === null ? null : (parse_url($pullRequest['reviewUrl'], PHP_URL_PATH) ?: null),
                 'url' => $pullRequest['url'],
             ];
         }
