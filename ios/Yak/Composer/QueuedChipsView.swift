@@ -60,15 +60,16 @@ struct QueuedChipsView: View {
             if !all.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(list.shown) { chip in
-                        if chip.id != list.shown.first?.id { Divider().overlay(Color.yakLine) }
+                        if chip.id != list.shown.first?.id { Divider().overlay(Color.yakBorderStrong) }
                         row(chip)
                     }
                     if all.count > QueuedChips.collapsedLimit {
-                        Divider().overlay(Color.yakLine)
+                        Divider().overlay(Color.yakBorderStrong)
                         moreRow(hiddenCount: list.hiddenCount)
                     }
+                    Rectangle().fill(Color.yakBorderStrong).frame(height: Design.Space.line)
                 }
-                .background(Color.yakBarFill, in: .rect(cornerRadius: Design.Radius.card))
+                .background(Color.yakBubble)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("queued.list.label")
                 .accessibilityIdentifier("queued.list")
@@ -95,10 +96,11 @@ struct QueuedChipsView: View {
                 Button {
                     model.toggleText(chip.uuid)
                 } label: {
-                    Text(verbatim: chip.text).font(.footnote).foregroundStyle(.primary)
+                    Text(verbatim: chip.text).font(.yak(.footnote)).foregroundStyle(.primary)
                         .lineLimit(isExpanded ? nil : 2).multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
-                        .frame(maxWidth: .infinity, alignment: .leading).contentShape(.rect)
+                        .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint(isExpanded ? Text("queued.collapse.hint") : Text("queued.expand.hint"))
@@ -106,17 +108,16 @@ struct QueuedChipsView: View {
                 trailing(chip, isBusy: isBusy, isDisabled: isDisabled)
             }
             if let detail = detail(chip) {
-                Text(verbatim: detail).font(.caption.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(verbatim: detail).font(.yak(.caption, .medium)).foregroundStyle(Color.yakMuted)
                     .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
             }
             if let failure = model.failures[chip.uuid] {
-                Text(verbatim: failure).font(.caption.weight(.medium)).foregroundStyle(Color.yakDanger)
+                Text(verbatim: failure).font(.yak(.caption, .medium)).foregroundStyle(Color.yakDanger)
                     .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
                     .accessibilityIdentifier("queued.failure.\(chip.uuid)")
             }
         }
         .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.tight)
-        .padding(.vertical, Design.Space.tight)
         .opacity(isBusy ? Design.disabledOpacity : 1)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("queued.row.\(chip.uuid)")
@@ -127,7 +128,7 @@ struct QueuedChipsView: View {
             chip.isQueued ? "queued.mode.queued" : "queued.mode.steering",
             systemImage: chip.isQueued ? "clock" : "arrow.turn.up.right"
         )
-        .font(.caption2.weight(.semibold)).foregroundStyle(Color.yakMuted)
+        .font(.yak(.caption, .medium)).foregroundStyle(Color.yakMuted)
         .labelStyle(.titleAndIcon).fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
         .padding(.top, Design.Space.nudge)
     }
@@ -201,7 +202,7 @@ struct QueuedChipsView: View {
             Group {
                 if model.isListExpanded { Text("queued.fewer") } else { Text("queued.more \(hiddenCount)") }
             }
-            .font(.footnote.weight(.semibold)).foregroundStyle(.primary)
+            .font(.yak(.footnote, .semibold)).foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
             .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
             .padding(.horizontal, Design.Space.medium).contentShape(.rect)

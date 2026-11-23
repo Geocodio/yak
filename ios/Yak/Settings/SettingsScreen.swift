@@ -193,10 +193,10 @@ struct SettingsScreen: View {
             HStack(spacing: 12) {
                 InstanceTintTile(instance: instance).opacity(isRemoving ? 0.5 : 1)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(instance.name).font(.body).foregroundStyle(Color.primary)
+                    Text(instance.name).font(.yak(.body)).foregroundStyle(Color.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(isRemoving ? String(localized: "settings.removing") : model.subtitle(of: instance))
-                        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
@@ -205,7 +205,7 @@ struct SettingsScreen: View {
                 } else if isActive {
                     Image(systemName: "checkmark").foregroundStyle(Color.yakAction).accessibilityHidden(true)
                 } else {
-                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.yak(.footnote, .semibold))
                         .foregroundStyle(Color.yakMuted).accessibilityHidden(true)
                 }
             }

@@ -52,11 +52,11 @@ struct ChildCardView: View {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(verbatim: card.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                        Text(verbatim: card.name).font(.yak(.subheadline, .semibold)).foregroundStyle(.primary)
                         StateBadge(text: StateWording.text(card.state))
                     }
                     if let summary {
-                        Text(verbatim: summary).font(.subheadline).foregroundStyle(Color.yakMuted)
+                        Text(verbatim: summary).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                             .multilineTextAlignment(.leading)
                     }
                     if let files = card.filesChanged, files > 0 {
@@ -66,12 +66,12 @@ struct ChildCardView: View {
                                 Text("chat.edits.counts \(added) \(removed)").monospacedDigit()
                             }
                         }
-                        .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.right").font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
                     .padding(.top, 4).accessibilityHidden(true)
             }
             .cardSurface().contentShape(.rect)
@@ -89,13 +89,13 @@ struct RepositoryCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(verbatim: card.repo).font(.subheadline.weight(.semibold))
+                Text(verbatim: card.repo).font(.yak(.subheadline, .semibold))
                 StateBadge(text: StateWording.text(card.state))
             }
             Text(card.role == "context" ? "chat.repository.context" : "chat.repository.changes")
-                .font(.footnote).foregroundStyle(Color.yakMuted)
+                .font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             if let error = card.error, !error.isEmpty {
-                Text(verbatim: error).font(.subheadline).foregroundStyle(Color.yakDanger)
+                Text(verbatim: error).font(.yak(.subheadline)).foregroundStyle(Color.yakDanger)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -110,7 +110,7 @@ struct StateBadge: View {
     let text: String
 
     var body: some View {
-        Text(verbatim: text).font(.caption.weight(.semibold)).foregroundStyle(.primary)
+        Text(verbatim: text).font(.yak(.caption, .semibold)).foregroundStyle(.primary)
             .padding(.horizontal, 8).padding(.vertical, 2)
             .background(Color.yakFill, in: .capsule)
     }

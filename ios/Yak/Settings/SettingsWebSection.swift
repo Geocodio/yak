@@ -13,7 +13,7 @@ struct SettingsWebSection: View {
             row("settings.web.reviews", path: "pr-reviews", identifier: "settings.web.reviews")
             row("settings.web.setup", path: "repos", identifier: "settings.web.setup")
         } header: {
-            Text("settings.web.header")
+            Text("settings.web.header").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
         }
         .sheet(item: $browserLink) { BrowserSheet(url: $0.url).ignoresSafeArea() }
     }
@@ -26,7 +26,7 @@ struct SettingsWebSection: View {
                 HStack {
                     Text(title)
                     Spacer(minLength: 8)
-                    Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold))
+                    Image(systemName: "arrow.up.right").font(.yak(.footnote, .semibold))
                         .foregroundStyle(Color.yakMuted).accessibilityHidden(true)
                 }
                 .frame(minHeight: 44, alignment: .leading)

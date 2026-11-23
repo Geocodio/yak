@@ -185,7 +185,7 @@ struct PreviewPane: View {
             AfterDelay(.milliseconds(300)) {
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("preview.signingIn").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("preview.signingIn").font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(.yakPage)
                 .accessibilityElement(children: .combine).accessibilityIdentifier("preview.signingIn")
@@ -333,9 +333,9 @@ private struct PreviewLines: View {
         _ text: Text, identifier: String, @ViewBuilder accessory: () -> Accessory
     ) -> some View {
         HStack(spacing: 12) {
-            text.font(.subheadline.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+            text.font(.yak(.subheadline, .medium)).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            accessory().font(.subheadline.weight(.semibold)).tint(.primary).frame(minHeight: 44)
+            accessory().font(.yak(.subheadline, .semibold)).tint(.primary).frame(minHeight: 44)
         }
         .padding(.horizontal, 14).padding(.vertical, 6)
         .yakCardSurface(in: .rect(cornerRadius: Design.Radius.card))

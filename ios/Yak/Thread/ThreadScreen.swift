@@ -116,41 +116,47 @@ struct ThreadScreen: View {
     private func content(_ thread: ThreadModel, placement: PaneControlPlacement, hasStrip: Bool) -> some View {
         let focused = focusedBinding(thread)
         return NavigationStack {
-            HStack(spacing: 0) {
-                // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
-                // screen: no row scrolls behind the glass or below it, where it would be hidden yet still reachable.
-                ThreadLayoutView(
-                    thread: thread, scene: scene, slots: slots, singlePlacement: placement, hasStrip: hasStrip,
-                    isCompactWidth: isCompactWidth,
-                    activity: { activityLine(thread, focused: $0) }, openChat: { openChat(focusComposer: $0) }
-                )
-                .collectingPaneSlots(into: slots)
-                // The layout reaches the screen's bottom edge, so the bar sits its own distance from the edge on every
-                // device; the keyboard still lifts it.
-                .ignoresSafeArea(.container, edges: .bottom)
-                if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
+            VStack(spacing: 0) {
+                // The header is the app's own flat bar, not the system's: it sits on the page color with a rule under
+                // it, like the web page's header.
+                if !placement.hidesTitle {
+                    ThreadHeader(
+                        title: ThreadTitle(
+                            title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
+                            tone: thread.statusTone,
+                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
+                        )
+                        // The drawer leaves a sliver of the thread beside it, receded to half; the title does not
+                        // reach into it.
+                        .opacity(isCoveredByDrawer ? 0 : 1)
+                    ) {
+                        if isCompactWidth { threadsButton }
+                    } trailing: {
+                        threadMenu(thread, shownPane: focused.wrappedValue)
+                    }
+                }
+                HStack(spacing: 0) {
+                    // The bar sits below the pane, not over it, on the page color that runs to the bottom of the
+                    // screen: no row scrolls behind the glass or below it, where it would be hidden yet still
+                    // reachable.
+                    ThreadLayoutView(
+                        thread: thread, scene: scene, slots: slots, singlePlacement: placement, hasStrip: hasStrip,
+                        isCompactWidth: isCompactWidth,
+                        activity: { activityLine(thread, focused: $0) }, openChat: { openChat(focusComposer: $0) }
+                    )
+                    .collectingPaneSlots(into: slots)
+                    // The layout reaches the screen's bottom edge, so the bar sits its own distance from the edge on
+                    // every device; the keyboard still lifts it.
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    if placement == .trailingStrip { trailingStrip(thread, focused: focused) }
+                }
             }
             .background(.yakPage)
             .environment(\.openAddSubThread, { isAddSubThreadOpen = true })
             .navigationBarTitleDisplayMode(.inline)
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
-            .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
-            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-            .toolbarBackground(.yakPage, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                if !placement.hidesTitle {
-                    if isCompactWidth {
-                        ToolbarItem(placement: .topBarLeading) { threadsButton }
-                    }
-                    ToolbarItem(placement: .principal) {
-                        ThreadTitle(
-                            title: thread.title, dot: thread.statusDot, connectionLine: thread.connectionLine,
-                            tone: thread.statusTone,
-                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil)
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                    ToolbarItem(placement: .topBarTrailing) { threadMenu(thread, shownPane: focused.wrappedValue) }
-                }
                 if #available(iOS 27.1, *), placement.declaresBottomToolbarItems {
                     PaneStripToolbar(
                         panes: thread.panes, focused: focused, thread: thread, marks: stripMarks,
@@ -170,6 +176,13 @@ struct ThreadScreen: View {
         .environment(scene)
         .environment(\.hasSystemStrip, hasStrip)
         .sensoryFeedback(.success, trigger: copiedLink)
+    }
+
+    /// The repository and branch under the title.
+    private static func meta(of thread: ThreadModel) -> String? {
+        let detail = thread.snapshot?.show?.thread
+        let parts = [detail?.shownRepo, detail?.branch].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// The strip's marks while two panes show.
@@ -225,7 +238,7 @@ struct ThreadScreen: View {
     // MARK: Controls
 
     private var threadsButton: some View {
-        ThreadsButton(needsYouCount: needsYouCount) { scene.setDrawerOpen(true) }
+        ThreadsButton(needsYouCount: needsYouCount) { scene.setDrawerOpen(true) }.buttonStyle(.ghost)
     }
 
     private func threadMenu(_ thread: ThreadModel, shownPane: PaneID) -> some View {
@@ -316,7 +329,7 @@ struct CopiedToast: View {
     var body: some View {
         Group {
             if isShown {
-                Text("thread.linkCopied").font(.subheadline.weight(.medium))
+                Text("thread.linkCopied").font(.yak(.subheadline, .medium))
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(.regularMaterial, in: .capsule)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
@@ -337,8 +350,6 @@ struct ConnectionBanner: View {
     let line: ConnectionLine
 
     var body: some View {
-        Text(line.text).font(.caption.weight(.medium)).foregroundStyle(line.color).lineLimit(1)
-            .frame(maxWidth: .infinity).padding(.vertical, 4)
-            .accessibilityIdentifier("thread.connection")
+        InsetStrip(text: line.text).accessibilityIdentifier("thread.connection")
     }
 }

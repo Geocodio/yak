@@ -163,7 +163,7 @@ struct DebugGalleryScreen: View {
             ZStack(alignment: .top) {
                 entry.make().frame(maxWidth: .infinity, maxHeight: .infinity)
                 HStack(alignment: .top) {
-                    Text(entry.titleKey).font(.footnote.weight(.semibold))
+                    Text(entry.titleKey).font(.yak(.footnote, .semibold))
                         .padding(.horizontal, 12).padding(.vertical, 6)
                         .background(Color(.systemBackground), in: .capsule)
                         .overlay(Capsule().stroke(Color.primary.opacity(0.2)))

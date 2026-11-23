@@ -12,7 +12,7 @@ struct InstanceTintTile: View {
         let side = size * scale
         let tint = Self.color(for: instance.tint)
         Text(InstanceInitial.make(name: instance.name, host: instance.url.host()))
-            .font(.headline.bold())
+            .font(.yak(.headline, .bold))
             .foregroundStyle(tint.map { $0.mix(with: .primary, by: 0.35) } ?? Color.primary)
             .frame(width: side, height: side)
             .background(

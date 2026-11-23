@@ -75,7 +75,7 @@ struct PreviewCardView: View {
             errorText
             readOnlyNote("preview.readOnly.ask")
         case .destroyed(let isReadOnly, let tookTooLong, let neverHadSandbox):
-            if tookTooLong { Text("preview.restore.tookTooLong").font(.subheadline.weight(.medium)) }
+            if tookTooLong { Text("preview.restore.tookTooLong").font(.yak(.subheadline, .medium)) }
             header(
                 "archivebox", neverHadSandbox ? "preview.destroyed.never.title" : "preview.destroyed.title",
                 neverHadSandbox ? "preview.destroyed.never.body" : "preview.destroyed.body")
@@ -96,15 +96,15 @@ struct PreviewCardView: View {
 
     private func header(_ symbol: String, _ title: LocalizedStringKey, _ body: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: symbol).font(.title).foregroundStyle(Color.yakMuted).accessibilityHidden(true)
-            Text(title).font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            Image(systemName: symbol).font(.yak(.title)).foregroundStyle(Color.yakMuted).accessibilityHidden(true)
+            Text(title).font(.yak(.title3, .semibold)).accessibilityAddTraits(.isHeader)
             Text(body).foregroundStyle(Color.yakMuted)
         }
         .fixedSize(horizontal: false, vertical: true)
     }
 
     private func note(_ key: LocalizedStringKey) -> some View {
-        Text(key).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+        Text(key).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -115,7 +115,7 @@ struct PreviewCardView: View {
 
     @ViewBuilder private var errorText: some View {
         if let error = status?.error, !error.isEmpty {
-            Text(error).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakDanger)
+            Text(error).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakDanger)
                 .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -125,7 +125,7 @@ struct PreviewCardView: View {
     @ViewBuilder private func waking(_ steps: [PreviewStepStatus]) -> some View {
         let isStarting = steps.first == .done
         VStack(alignment: .leading, spacing: 8) {
-            Text(isStarting ? "preview.starting.title" : "preview.waking.title").font(.title3.weight(.semibold))
+            Text(isStarting ? "preview.starting.title" : "preview.waking.title").font(.yak(.title3, .semibold))
                 .accessibilityAddTraits(.isHeader)
             if isStarting, let command = status?.coldStartCommand, !command.isEmpty {
                 Text("preview.starting.body.command \(command)").foregroundStyle(Color.yakMuted)
@@ -147,7 +147,7 @@ struct PreviewCardView: View {
         if isStarting, let log = status?.log, !log.isEmpty {
             logCard(Array(log.suffix(40)), title: "preview.log.title")
         }
-        Text("preview.waking.footer").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+        Text("preview.waking.footer").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -166,7 +166,7 @@ struct PreviewCardView: View {
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).fontWeight(status == .active ? .semibold : .regular)
-                if let detail { Text(detail).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted) }
+                if let detail { Text(detail).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted) }
             }
         }
         .accessibilityElement(children: .combine)
@@ -185,9 +185,9 @@ struct PreviewCardView: View {
 
     @ViewBuilder private var failing: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.title).foregroundStyle(Color.yakDanger)
+            Image(systemName: "exclamationmark.triangle.fill").font(.yak(.title)).foregroundStyle(Color.yakDanger)
                 .accessibilityHidden(true)
-            Text("preview.failing.title").font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            Text("preview.failing.title").font(.yak(.title3, .semibold)).accessibilityAddTraits(.isHeader)
             if let command = status?.coldStartCommand, !command.isEmpty {
                 Text("preview.failing.body.command \(command)").foregroundStyle(Color.yakMuted)
             } else {
@@ -202,11 +202,11 @@ struct PreviewCardView: View {
 
     private func logCard(_ lines: [String], title: LocalizedStringKey?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let title { Text(title).font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted) }
+            if let title { Text(title).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted) }
             ScrollView(.horizontal) {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        Text(line).font(.system(.footnote, design: .monospaced)).fixedSize()
+                        Text(line).font(.yak(.footnote, isMonospaced: true)).fixedSize()
                     }
                 }
                 .textSelection(.enabled)
@@ -218,7 +218,7 @@ struct PreviewCardView: View {
     }
 
     private var sample: some View {
-        Text("preview.sample").font(.system(.footnote, design: .monospaced)).textSelection(.enabled)
+        Text("preview.sample").font(.yak(.footnote, isMonospaced: true)).textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
             .yakCardSurface(in: .rect(cornerRadius: Design.Radius.row))
     }
@@ -335,8 +335,8 @@ struct PreviewMessageCard<Actions: View>: View {
     private var card: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: symbol).font(.title).foregroundStyle(Color.yakMuted).accessibilityHidden(true)
-                Text(title).font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                Image(systemName: symbol).font(.yak(.title)).foregroundStyle(Color.yakMuted).accessibilityHidden(true)
+                Text(title).font(.yak(.title3, .semibold)).accessibilityAddTraits(.isHeader)
                 message.foregroundStyle(Color.yakMuted)
                 actions.padding(.top, 4)
             }
@@ -374,7 +374,7 @@ struct PreviewSkeleton: View {
                 }
                 HStack(spacing: 8) {
                     if !isSlow { ProgressView().controlSize(.small).accessibilityHidden(true) }
-                    Text(isSlow ? "preview.checking.slow" : "preview.checking").font(.subheadline.weight(.medium))
+                    Text(isSlow ? "preview.checking.slow" : "preview.checking").font(.yak(.subheadline, .medium))
                         .foregroundStyle(Color.yakMuted)
                 }
                 if isSlow {

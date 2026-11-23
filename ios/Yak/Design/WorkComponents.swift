@@ -49,7 +49,7 @@ struct TonePill: View {
     var tone: Tone = .neutral
 
     var body: some View {
-        Text(verbatim: text).font(.footnote.weight(.semibold)).foregroundStyle(tone.pillText)
+        Text(verbatim: text).font(.yak(.footnote, .semibold)).foregroundStyle(tone.pillText)
             .padding(.horizontal, Design.Space.snug).padding(.vertical, Design.Space.pillVertical)
             .frame(minHeight: Design.Size.pill)
             .background(tone.pillBackground, in: .capsule)
@@ -95,7 +95,7 @@ struct WorkButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let isPrimary = kind == .primary
         configuration.label
-            .font(.headline)
+            .font(.yak(.headline))
             .foregroundStyle(foreground(isPrimary: isPrimary))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: Design.Size.cardButton)

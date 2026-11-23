@@ -29,9 +29,9 @@ struct QuestionOptionButton: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: label).font(.body).multilineTextAlignment(.leading)
+                    Text(verbatim: label).font(.yak(.body)).multilineTextAlignment(.leading)
                     if let detail, !detail.isEmpty {
-                        Text(verbatim: detail).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        Text(verbatim: detail).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                             .multilineTextAlignment(.leading)
                     }
                 }
@@ -56,8 +56,8 @@ struct QuestionReviewRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Button(action: action) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: header).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
-                    Text(verbatim: summary).font(.body).multilineTextAlignment(.leading)
+                    Text(verbatim: header).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                    Text(verbatim: summary).font(.yak(.body)).multilineTextAlignment(.leading)
                 }
                 .padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .questionFieldSurface()
@@ -66,7 +66,7 @@ struct QuestionReviewRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityHint(Text("question.review.edit"))
             if let error {
-                Text(verbatim: error).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                Text(verbatim: error).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

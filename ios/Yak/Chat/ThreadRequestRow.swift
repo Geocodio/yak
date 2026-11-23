@@ -43,7 +43,7 @@ struct ThreadRequestRow: View {
                         width: Design.Size.statusDot, height: Design.Size.statusDot
                     )
                     .accessibilityHidden(true)
-                    Text(verbatim: stepLine).font(.footnote.weight(.medium)).foregroundStyle(Color.yakCardSecondaryText)
+                    Text(verbatim: stepLine).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakCardSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine).accessibilityIdentifier("thread.step")
@@ -61,7 +61,7 @@ struct ThreadRequestRow: View {
     }
 
     @ViewBuilder private var chip: some View {
-        let label = Text(verbatim: sourceText).font(.footnote.weight(.medium)).foregroundStyle(.primary)
+        let label = Text(verbatim: sourceText).font(.yak(.footnote, .medium)).foregroundStyle(.primary)
             .padding(.horizontal, Design.Space.snug).padding(.vertical, Design.Space.tight)
             .frame(minHeight: Design.Size.sourceChip)
             .background(Color.yakCardSurface, in: .capsule).fixedSize(horizontal: false, vertical: true)

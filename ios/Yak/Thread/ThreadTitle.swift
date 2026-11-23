@@ -2,28 +2,23 @@ import SwiftUI
 import UIKit
 import YakKit
 
-/// The principal toolbar item: a status dot and the title on one line, and the connection line under it when there
-/// is one.
+/// The title of the thread's header: a status dot and the title on one line, and the repository and branch under it.
 struct ThreadTitle: View {
     let title: String
     let dot: ThreadStatusDot
-    let connectionLine: ConnectionLine?
-    /// The request's status tone; it colors the dot when the server sends one.
+    /// The repository and branch, in one line; nil while the thread has neither.
+    let meta: String?
+    /// The request's status tone; it picks between waiting and blocked for the attention dot.
     var tone: Tone?
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.hasSystemStrip) private var hasSystemStrip
-
-    /// On a phone the title sits in a pill between the round buttons; beside the system's strip and on a wide screen it
-    /// is plain text.
-    private var isInPill: Bool { horizontalSizeClass == .compact && !hasSystemStrip }
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         if let action {
             Button(action: action) { content }
-                .buttonStyle(.pressable)
+                .buttonStyle(.ghost)
                 .accessibilityLabel(Text("overview.title.label \(title)"))
                 .accessibilityHint(Text("overview.title.hint"))
                 .accessibilityIdentifier("thread.title")
@@ -33,35 +28,40 @@ struct ThreadTitle: View {
     }
 
     private var content: some View {
-        VStack(spacing: 1) {
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 8, height: 8).accessibilityHidden(true)
-                Text(title).font(isInPill ? .yakBarTitle : .headline).lineLimit(1).truncationMode(.tail)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                statusMark.accessibilityHidden(true)
+                Text(title).font(.yakBarTitle).foregroundStyle(Color.yakText)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1).truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityValue(statusText)
             }
-            if let connectionLine {
-                Text(connectionLine.text).font(.caption).foregroundStyle(connectionLine.color).lineLimit(1)
-                    .accessibilityIdentifier("thread.connection")
+            if let meta {
+                Text(verbatim: meta).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1).truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, markSize + 8)
+                    .accessibilityIdentifier("thread.meta")
             }
         }
-        .frame(minHeight: Design.Size.control).contentShape(.rect)
-        .padding(.horizontal, isInPill ? Design.Space.large : 0)
-        .background {
-            if isInPill {
-                Capsule().fill(Color.yakBar).overlay(
-                    Capsule().stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
-            }
-        }
+        .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
+        .padding(.horizontal, Design.Space.compact)
+        .contentShape(.rect)
     }
 
-    /// Running is green and blocked or waiting orange; every other state is a neutral gray, never the rust accent.
-    private var color: Color {
-        if let tone { return tone.color }
-        return switch dot {
-        case .running: .green
-        case .attention: .orange
-        case .neutral: Color(.systemGray2)
+    private let markSize: CGFloat = 8
+
+    /// Running is the brand color filled, waiting is the warning color, blocked the failure color, and every other
+    /// state is a hollow ring.
+    @ViewBuilder private var statusMark: some View {
+        switch dot {
+        case .running: Circle().fill(Color.yakSlate).frame(width: markSize, height: markSize)
+        case .attention:
+            Circle().fill(tone == .bad ? Color.yakFailure : Color.yakWarningDot).frame(
+                width: markSize, height: markSize)
+        case .neutral:
+            Circle().strokeBorder(Color.yakFaint, lineWidth: 1.5).frame(width: markSize, height: markSize)
         }
     }
 
@@ -74,24 +74,35 @@ struct ThreadTitle: View {
     }
 }
 
-extension ConnectionLine {
-    var text: LocalizedStringKey {
-        switch self {
-        case .slow: "connection.slow"
-        case .offlineSavedCopy: "connection.offlineSavedCopy"
-        case .offline: "connection.offline"
-        case .reconnecting: "connection.reconnecting"
+/// The flat bar at the top of a thread: the threads button, the title and the menu, on the page color with a rule
+/// under it.
+struct ThreadHeader<Title: View, Leading: View, Trailing: View>: View {
+    let title: Title
+    @ViewBuilder let leading: Leading
+    @ViewBuilder let trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 0) {
+            leading
+            title
+            trailing
         }
+        .foregroundStyle(Color.yakText).tint(Color.yakText)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .padding(.horizontal, Design.Space.tight)
+        .frame(minHeight: 56)
+        .background(Color.yakBackground.ignoresSafeArea(edges: .top))
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
     }
 }
 
 extension ConnectionLine {
-    /// A warning orange for every connection problem, dark enough on light surfaces to read as text.
-    var color: Color {
-        Color(
-            UIColor { traits in
-                traits.userInterfaceStyle == .dark
-                    ? .systemOrange : UIColor(red: 0.62, green: 0.33, blue: 0.0, alpha: 1)
-            })
+    var text: String {
+        switch self {
+        case .slow: String(localized: "connection.slow")
+        case .offlineSavedCopy: String(localized: "connection.offlineSavedCopy")
+        case .offline: String(localized: "connection.offline")
+        case .reconnecting: String(localized: "connection.reconnecting")
+        }
     }
 }

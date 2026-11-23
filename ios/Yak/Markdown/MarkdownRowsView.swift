@@ -57,7 +57,7 @@ struct MarkdownRowList: View {
         }
         if pager.hasPrevious {
             Button("markdown.previous") { move(pager.showingPrevious) }
-                .font(.footnote)
+                .font(.yak(.footnote))
                 .padding(.bottom, 12)
                 .accessibilityLabel("markdown.previous.label")
                 .accessibilityIdentifier("markdown-previous")
@@ -73,7 +73,7 @@ struct MarkdownRowList: View {
         }
         if pager.hasNext {
             Button("markdown.more") { move(pager.showingNext) }
-                .font(.footnote)
+                .font(.yak(.footnote))
                 .padding(.bottom, 12)
                 .accessibilityLabel("markdown.more.label")
                 .accessibilityIdentifier("markdown-more")
@@ -134,7 +134,7 @@ private struct MarkdownRowView: View {
         case .table(let header, let rows, let columnWidths):
             TableBlock(header: header, rows: rows, columnWidths: columnWidths)
         case .rule: Divider()
-        case .notice: Text("markdown.unformatted.notice").font(.footnote).foregroundStyle(Color.yakMuted)
+        case .notice: Text("markdown.unformatted.notice").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
         case .pageBreak: EmptyView()
         }
     }
@@ -165,7 +165,7 @@ private struct TextRow: View {
 
     @ViewBuilder private func body(of text: AttributedString) -> some View {
         if decoration.isUnformatted {
-            Text(text).font(.system(.footnote, design: .monospaced))
+            Text(text).font(.yak(.footnote, isMonospaced: true))
         } else if decoration.headingLevel > 0 {
             Text(text)
                 .font(Self.headingFont(decoration.headingLevel))
@@ -196,11 +196,11 @@ private struct TextRow: View {
 
     private static func headingFont(_ level: Int) -> Font {
         switch level {
-        case 1: .title
-        case 2: .title2
-        case 3: .title3
-        case 4: .headline
-        default: .subheadline
+        case 1: .yak(.title, .semibold)
+        case 2: .yak(.title2, .semibold)
+        case 3: .yak(.title3, .semibold)
+        case 4: .yak(.headline, .semibold)
+        default: .yak(.subheadline, .semibold)
         }
     }
 }
@@ -214,7 +214,7 @@ private struct CodeBlock: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) {
             Text(verbatim: text)
-                .font(.system(.footnote, design: .monospaced))
+                .font(.yak(.footnote, isMonospaced: true))
                 .fixedSize()
                 .padding(Design.Space.medium)
         }

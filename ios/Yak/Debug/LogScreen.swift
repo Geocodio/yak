@@ -79,7 +79,7 @@ struct LogScreen: View {
         case .loaded(let lines, let partial):
             VStack(spacing: 0) {
                 if partial {
-                    Text("debug.log.partial").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text("debug.log.partial").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(16)
                 }
                 ScrollViewReader { proxy in
@@ -112,11 +112,11 @@ struct LogScreen: View {
             HStack(spacing: 6) {
                 Circle().fill(line.level == .error || line.level == .fault ? Color.orange : Color.yakMuted)
                     .frame(width: 8, height: 8).accessibilityHidden(true)
-                Text(verbatim: Self.timeFormat.string(from: line.date)).font(.system(.caption, design: .monospaced))
+                Text(verbatim: Self.timeFormat.string(from: line.date)).font(.yak(.caption, isMonospaced: true))
                     .foregroundStyle(Color.yakMuted)
-                Text(verbatim: line.category).font(.caption).foregroundStyle(Color.yakMuted)
+                Text(verbatim: line.category).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
             }
-            Text(verbatim: line.text).font(.system(.footnote, design: .monospaced))
+            Text(verbatim: line.text).font(.yak(.footnote, isMonospaced: true))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

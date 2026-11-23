@@ -76,6 +76,11 @@ targets:
         UIBackgroundModes:
           - fetch
           - audio
+        UIAppFonts:
+          - IBMPlexSans-Regular.ttf
+          - IBMPlexSans-Medium.ttf
+          - IBMPlexSans-SemiBold.ttf
+          - IBMPlexMono-Regular.ttf
   YakTests:
     type: bundle.unit-test
     platform: iOS

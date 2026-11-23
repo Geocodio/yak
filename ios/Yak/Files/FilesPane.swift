@@ -131,7 +131,7 @@ struct FilesPane: View {
             )
             .accessibilityIdentifier("files.mode")
         } else if let only = modes.first {
-            Text(Self.title(of: only)).font(.subheadline.weight(.semibold))
+            Text(Self.title(of: only)).font(.yak(.subheadline, .semibold))
                 .frame(maxWidth: .infinity, minHeight: 44).accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("files.mode")
         }

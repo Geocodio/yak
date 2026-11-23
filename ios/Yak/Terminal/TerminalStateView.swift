@@ -14,7 +14,7 @@ struct TerminalActionStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline).foregroundStyle(Color.black)
+            .font(.yak(.headline)).foregroundStyle(Color.black)
             .padding(.horizontal, 20).frame(minHeight: 44)
             .background(Color.terminalText.opacity(configuration.isPressed ? 0.7 : 1), in: .capsule)
             .opacity(isEnabled ? 1 : 0.6)
@@ -39,14 +39,14 @@ struct TerminalStateView: View {
         ScrollView {
             VStack(spacing: 14) {
                 if state.showsSteps { StepRows(model: model) } else { Spacer(minLength: 40) }
-                Text(state.title).font(.title3.weight(.semibold)).multilineTextAlignment(.center)
+                Text(state.title).font(.yak(.title3, .semibold)).multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 if let detail = state.detail {
-                    detail.font(.body).foregroundStyle(Color.terminalMuted).multilineTextAlignment(.center)
+                    detail.font(.yak(.body)).foregroundStyle(Color.terminalMuted).multilineTextAlignment(.center)
                 }
                 if let since = state.waitingSince { WaitingElapsed(since: since) }
                 if let message = model.restoreMessage {
-                    Text(message).font(.subheadline.weight(.medium)).foregroundStyle(Color.terminalMuted)
+                    Text(message).font(.yak(.subheadline, .medium)).foregroundStyle(Color.terminalMuted)
                         .multilineTextAlignment(.center)
                 }
                 if let action = state.action {
@@ -199,7 +199,7 @@ private struct StepRows: View {
                             Text(verbatim: elapsed).monospacedDigit().foregroundStyle(Color.terminalMuted)
                         }
                     }
-                    .font(.body.weight(row.mark == .current ? .semibold : .regular))
+                    .font(.yak(.body, row.mark == .current ? .semibold : .regular))
                     .foregroundStyle(row.mark == .later ? Color.terminalMuted : Color.terminalText)
                     .accessibilityElement(children: .combine)
                 }
@@ -265,7 +265,7 @@ private struct WaitingElapsed: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             let elapsed = TerminalElapsed.minutes(max(0, Int(timeline.date.timeIntervalSince(since))))
-            Text("terminal.waiting.elapsed \(elapsed)").font(.subheadline.weight(.medium)).monospacedDigit()
+            Text("terminal.waiting.elapsed \(elapsed)").font(.yak(.subheadline, .medium)).monospacedDigit()
                 .foregroundStyle(Color.terminalMuted)
         }
         .accessibilityIdentifier("terminal.waiting.elapsed")

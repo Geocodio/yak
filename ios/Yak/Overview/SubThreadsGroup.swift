@@ -83,7 +83,7 @@ struct SubThreadsGroupView: View {
             OverviewRow(title: Text("overview.parent \(parent.title)")) {
                 EmptyView()
             } trailing: {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakMuted)
+                Image(systemName: "chevron.right").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
             }
             .contentShape(.rect)
@@ -100,7 +100,7 @@ struct SubThreadsGroupView: View {
         } trailing: {
             if let onAdd {
                 Button(action: onAdd) {
-                    Label("overview.addSubThread", systemImage: "plus").font(.body.weight(.medium))
+                    Label("overview.addSubThread", systemImage: "plus").font(.yak(.body, .medium))
                         .frame(minHeight: 44).contentShape(.rect)
                 }
                 .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(isRefused)
@@ -111,7 +111,7 @@ struct SubThreadsGroupView: View {
     }
 
     private func refusal(_ message: String) -> some View {
-        Text(message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+        Text(message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
             .accessibilityIdentifier("overview.addRefusal")
@@ -129,14 +129,14 @@ struct SubThreadsGroupView: View {
                 ) {
                     model.proposeAwakeLimit(value - 1)
                 }
-                Text(value, format: .number).font(.body.monospacedDigit()).frame(minWidth: 28)
+                Text(value, format: .number).font(.yak(.body)).frame(minWidth: 28)
                 stepButton(
                     "plus", label: "overview.awake.more", isEnabled: value < awake.range.upperBound && !model.isOffline
                 ) {
                     model.proposeAwakeLimit(value + 1)
                 }
             }
-            Text("overview.awake.counts \(awake.awake) \(awake.waiting)").font(.footnote.weight(.medium))
+            Text("overview.awake.counts \(awake.awake) \(awake.waiting)").font(.yak(.footnote, .medium))
                 .foregroundStyle(Color.yakMuted)
         }
         .padding(.horizontal, 16).padding(.vertical, 8).opacity(isBusy && model.runningAction == .limit ? 0.7 : 1)
@@ -167,7 +167,7 @@ struct SubThreadsGroupView: View {
                 OverviewRow(title: Text("overview.messages.folded \(items.count)")) {
                     EmptyView()
                 } trailing: {
-                    Image(systemName: areMessagesOpen ? "chevron.up" : "chevron.down").font(.footnote.weight(.semibold))
+                    Image(systemName: areMessagesOpen ? "chevron.up" : "chevron.down").font(.yak(.footnote, .semibold))
                         .foregroundStyle(Color.yakMuted).accessibilityHidden(true)
                 }
                 .contentShape(.rect)
@@ -187,13 +187,13 @@ struct SubThreadsGroupView: View {
     private func messageRow(_ item: StackMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Text("overview.message.fromTo \(item.fromName) \(item.toName)").font(.footnote.weight(.semibold))
+                Text("overview.message.fromTo \(item.fromName) \(item.toName)").font(.yak(.footnote, .semibold))
                 if let kind = kindLabel(item.kind) {
-                    kind.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    kind.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
             }
-            Text(item.text).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            if let age = age(of: item) { age.font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted) }
+            Text(item.text).font(.yak(.callout)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            if let age = age(of: item) { age.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted) }
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
         .accessibilityElement(children: .combine).accessibilityIdentifier("overview.message.\(item.id.value)")

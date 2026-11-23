@@ -30,7 +30,7 @@ struct CodeKeyRow: View {
                 Button {
                     insert(symbol)
                 } label: {
-                    Text(verbatim: symbol).font(.body.monospaced().weight(.medium))
+                    Text(verbatim: symbol).font(.yak(.body, .medium, isMonospaced: true))
                         .frame(minWidth: 44, minHeight: 44).contentShape(.rect)
                 }
                 .accessibilityIdentifier("files.editor.key.\(symbol)")

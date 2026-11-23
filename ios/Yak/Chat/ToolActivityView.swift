@@ -37,7 +37,7 @@ struct ToolActivityView: View {
                 if isTinted { ProgressView().controlSize(.small).accessibilityHidden(true) }
                 InlineOrStacked {
                     // The id is on the text, so a text size change redraws it while the row keeps its expanded state.
-                    Text(verbatim: item.text ?? "").font(.subheadline).foregroundStyle(Color.yakMuted)
+                    Text(verbatim: item.text ?? "").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                         .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
                     if isTinted, let start = RelativeAge.parse(item.at) { ElapsedView(since: start) }
                 }
@@ -81,13 +81,13 @@ private struct StepRow: View {
             if isCurrent {
                 ProgressView().controlSize(.small).accessibilityHidden(true)
             } else {
-                Image(systemName: Self.symbol(for: step.category)).font(.caption).foregroundStyle(Color.yakMuted)
+                Image(systemName: Self.symbol(for: step.category)).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
                     .frame(width: iconWidth).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 2) {
-                StepWording.text(for: step).font(.subheadline)
+                StepWording.text(for: step).font(.yak(.subheadline))
                 if step.isFailed {
-                    Text("chat.step.failed").font(.caption.weight(.semibold)).foregroundStyle(Color.yakDanger)
+                    Text("chat.step.failed").font(.yak(.caption, .semibold)).foregroundStyle(Color.yakDanger)
                 }
                 if isCurrent, let start = RelativeAge.parse(at) { ElapsedView(since: start) }
             }
@@ -141,7 +141,7 @@ private struct ElapsedView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text(verbatim: ElapsedText.make(seconds: context.date.timeIntervalSince(since)))
-                .font(.subheadline).monospacedDigit().foregroundStyle(.primary)
+                .font(.yak(.subheadline)).monospacedDigit().foregroundStyle(.primary)
         }
         .accessibilityHidden(true)
     }
@@ -160,11 +160,11 @@ private struct StepOutputSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    StepWording.text(for: step).font(.subheadline.weight(.semibold))
-                    Text(verbatim: shown).font(.footnote.monospaced()).textSelection(.enabled)
+                    StepWording.text(for: step).font(.yak(.subheadline, .semibold))
+                    Text(verbatim: shown).font(.yak(.footnote, isMonospaced: true)).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if isCut {
-                        Text("chat.output.cut").font(.footnote).foregroundStyle(Color.yakMuted)
+                        Text("chat.output.cut").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
                     }
                 }
                 .padding(16)

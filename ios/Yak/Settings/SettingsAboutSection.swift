@@ -29,7 +29,7 @@ struct SettingsAboutSection: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("about.debug")
                         Text(verbatim: PrivacyRows.debugSubtitle(fault: system.debug.fault))
-                            .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                            .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     }
                     .frame(minHeight: 44, alignment: .leading)
                 }

@@ -55,7 +55,7 @@ struct WalkthroughPlayerSheet: View {
                 }
                 ProgressView().controlSize(.large).tint(.white).accessibilityIdentifier("walkthrough.loading")
                 if playback.phase == .slow {
-                    Text("walkthrough.slow").font(.body).foregroundStyle(.white).multilineTextAlignment(.center)
+                    Text("walkthrough.slow").font(.yak(.body)).foregroundStyle(.white).multilineTextAlignment(.center)
                         .accessibilityIdentifier("walkthrough.slow")
                     Button("common.retry") { Task { await playback.retry() } }
                         .buttonStyle(.bordered).controlSize(.large).tint(.white).disabled(playback.isRetrying)
@@ -73,11 +73,11 @@ struct WalkthroughPlayerSheet: View {
 
     private func failure(_ problem: WalkthroughVideoProblem) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.title).foregroundStyle(.white)
+            Image(systemName: "exclamationmark.triangle.fill").font(.yak(.title)).foregroundStyle(.white)
                 .frame(width: 56, height: 56).background(Color.white.opacity(0.15), in: .rect(cornerRadius: 16))
                 .accessibilityHidden(true)
-            Text("walkthrough.failed.title").font(.headline).foregroundStyle(.white)
-            Text(Self.sentence(problem)).font(.body).foregroundStyle(.white)
+            Text("walkthrough.failed.title").font(.yak(.headline)).foregroundStyle(.white)
+            Text(Self.sentence(problem)).font(.yak(.body)).foregroundStyle(.white)
             if Self.offersRetry(problem) {
                 Button("walkthrough.tryAgain") { Task { await playback.retry() } }
                     .buttonStyle(.bordered).controlSize(.large).tint(.white).disabled(playback.isRetrying)

@@ -17,6 +17,9 @@ enum LicenseList {
             resource: "swift-markdown"),
         LicenseEntry(
             id: "swift-cmark", name: "swift-cmark", licenseName: "BSD 2-Clause License", resource: "swift-cmark"),
+        LicenseEntry(
+            id: "IBMPlex", name: "IBM Plex Sans and IBM Plex Mono", licenseName: "SIL Open Font License 1.1",
+            resource: "IBMPlex"),
     ]
 
     /// The package's own license text, or nil when this build does not hold it.

@@ -35,8 +35,10 @@ struct ThreadLoadView: View {
         case .serverError(let text):
             Fitting(alignment: .center) {
                 VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle").font(.largeTitle).foregroundStyle(Color.yakMuted)
-                        .accessibilityHidden(true)
+                    Image(systemName: "exclamationmark.triangle").font(.yak(.largeTitle)).foregroundStyle(
+                        Color.yakMuted
+                    )
+                    .accessibilityHidden(true)
                     Text(text).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                     retryButton
                 }
@@ -49,7 +51,7 @@ struct ThreadLoadView: View {
     private var loadingLine: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small).accessibilityHidden(true)
-            Text(loadingText).font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text(loadingText).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20)
@@ -87,11 +89,13 @@ struct ThreadLoadView: View {
         actions: Actions
     ) -> some View {
         VStack(spacing: isCompact ? 4 : 8) {
-            Image(systemName: systemImage).font(isCompact ? .title2 : .largeTitle).foregroundStyle(Color.yakMuted)
-                .accessibilityHidden(true).padding(.bottom, isCompact ? 0 : 4)
-            Text(title).font(.headline).multilineTextAlignment(.center)
+            Image(systemName: systemImage).font(isCompact ? .yak(.title2) : .yak(.largeTitle)).foregroundStyle(
+                Color.yakMuted
+            )
+            .accessibilityHidden(true).padding(.bottom, isCompact ? 0 : 4)
+            Text(title).font(.yak(.headline)).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(body).font(.subheadline).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
+            Text(body).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             actions.padding(.top, isCompact ? 4 : 8)
         }
@@ -131,8 +135,8 @@ private struct SlowCard<Retry: View>: View {
 
     private var texts: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("load.slow.title").font(.headline).fixedSize(horizontal: false, vertical: true)
-            Text(explanation).font(.subheadline).foregroundStyle(Color.yakMuted)
+            Text("load.slow.title").font(.yak(.headline)).fixedSize(horizontal: false, vertical: true)
+            Text(explanation).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

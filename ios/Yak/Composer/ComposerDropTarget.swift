@@ -156,14 +156,14 @@ private struct ComposerDropTarget: ViewModifier {
             .overlay {
                 if isTargeted && model.acceptsDrops {
                     RoundedRectangle(cornerRadius: 22).strokeBorder(Color.primary.opacity(0.6), lineWidth: 2)
-                        .overlay { Text("drop.placeholder").font(.body.weight(.medium)).foregroundStyle(.primary) }
+                        .overlay { Text("drop.placeholder").font(.yak(.body, .medium)).foregroundStyle(.primary) }
                         .background(Color.yakBackground.opacity(0.85), in: .rect(cornerRadius: 22))
                         .allowsHitTesting(false)
                 }
             }
             .overlay(alignment: .top) {
                 if let line = model.line {
-                    Text(line).font(.footnote).foregroundStyle(.secondary).padding(.bottom, 4)
+                    Text(line).font(.yak(.footnote)).foregroundStyle(.secondary).padding(.bottom, 4)
                         .offset(y: -28).accessibilityIdentifier("composer.dropLine")
                         .task(id: line) {
                             do { try await Task.sleep(for: .seconds(6)) } catch { return }

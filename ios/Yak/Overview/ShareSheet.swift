@@ -49,7 +49,7 @@ private struct ShareSheetForm: View {
             VStack(alignment: .leading, spacing: 20) {
                 if let problem = model.problem {
                     card {
-                        Text(problem).font(.subheadline.weight(.medium)).foregroundStyle(Color.yakWarning)
+                        Text(problem).font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakWarning)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("share.problem")
                     }
@@ -101,7 +101,7 @@ private struct ShareSheetForm: View {
             if form.mode == .people { people(form) }
             if !model.secretFiles.isEmpty {
                 Text("share.never \(model.secretFiles.joined(separator: ", "))")
-                    .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     .padding(.horizontal, 16)
                     .accessibilityIdentifier("share.never")
             }
@@ -118,7 +118,7 @@ private struct ShareSheetForm: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(.primary)
-                    Text(detail).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                    Text(detail).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if isChosen {
@@ -140,7 +140,7 @@ private struct ShareSheetForm: View {
                 Divider()
             }
             if model.hasNobodyElse {
-                Text("share.nobody").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("share.nobody").font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                     .frame(minHeight: 44).accessibilityIdentifier("share.nobody")
             }
             let people = model.visiblePeople
@@ -176,7 +176,7 @@ private struct ShareSheetForm: View {
             // The owner always has access, so this row is a fact and not a control.
             HStack {
                 Text(person.name).frame(maxWidth: .infinity, alignment: .leading)
-                Text("share.owner").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text("share.owner").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
             .frame(minHeight: 44)
             .accessibilityElement(children: .combine)
@@ -203,7 +203,7 @@ private struct ShareSheetForm: View {
 
     private var slow: some View {
         card {
-            Text("share.slow").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("share.slow").font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
             Button("common.retry") { Task { await model.retry() } }.fontWeight(.semibold).foregroundStyle(Color.primary)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("share.retry")
@@ -213,10 +213,10 @@ private struct ShareSheetForm: View {
 
     private func failed(_ problem: ThreadProblem) -> some View {
         card {
-            Text(problem == .offline ? "share.offline" : "share.loadFailed").font(.subheadline.weight(.medium))
+            Text(problem == .offline ? "share.offline" : "share.loadFailed").font(.yak(.subheadline, .medium))
                 .fixedSize(horizontal: false, vertical: true)
             if case .server(_, let message) = problem, !message.isEmpty {
-                Text(message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                Text(message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             }
             Button("common.retry") { Task { await model.retry() } }.fontWeight(.semibold).foregroundStyle(Color.primary)
                 .frame(minHeight: 44)

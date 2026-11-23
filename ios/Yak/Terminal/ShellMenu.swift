@@ -38,7 +38,7 @@ struct ShellMenu: View {
             .disabled(!model.shells.canAdd)
             .accessibilityIdentifier("terminal.shells.new")
         } label: {
-            Text(model.shells.shells.count, format: .number).font(.subheadline.weight(.semibold).monospacedDigit())
+            Text(model.shells.shells.count, format: .number).font(.yak(.subheadline, .semibold))
                 .foregroundStyle(Color.primary)
                 .frame(minWidth: 44, minHeight: 44)
                 .background(Color.yakCard, in: .rect(cornerRadius: 12))

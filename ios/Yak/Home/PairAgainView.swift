@@ -23,8 +23,8 @@ struct PairAgainView: View {
                 .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 16) {
-                Text("pairAgain.title \(instance.name)").font(.largeTitle.bold())
-                Text("pairAgain.body").font(.body).foregroundStyle(Color.yakMuted)
+                Text("pairAgain.title \(instance.name)").font(.yak(.largeTitle, .bold))
+                Text("pairAgain.body").font(.yak(.body)).foregroundStyle(Color.yakMuted)
             }
         } actions: {
             Button("pairAgain.pair") { showsPairing = true }.buttonStyle(PrimaryButtonStyle())

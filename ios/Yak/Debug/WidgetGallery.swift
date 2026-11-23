@@ -119,16 +119,16 @@
 
         private func strip(title: String, scheme: ColorScheme) -> some View {
             VStack(alignment: .leading, spacing: 12) {
-                Text(verbatim: title).font(.headline)
+                Text(verbatim: title).font(.yak(.headline))
                 ForEach(Self.sizes, id: \.name) { entry in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: "Needs you, \(entry.name)").font(.caption).foregroundStyle(.secondary)
+                        Text(verbatim: "Needs you, \(entry.name)").font(.yak(.caption)).foregroundStyle(.secondary)
                         tile(entry, kind: .needsYou, scheme: scheme)
                     }
                 }
                 ForEach(Self.sizes.prefix(2), id: \.name) { entry in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: "Running, \(entry.name)").font(.caption).foregroundStyle(.secondary)
+                        Text(verbatim: "Running, \(entry.name)").font(.yak(.caption)).foregroundStyle(.secondary)
                         tile(entry, kind: .running, scheme: scheme)
                     }
                 }

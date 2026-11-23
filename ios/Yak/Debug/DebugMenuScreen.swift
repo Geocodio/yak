@@ -15,7 +15,7 @@ struct DebugMenuScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("debug.gallery.row")
                         Text("debug.gallery.count \(DebugGallery.entries.count)")
-                            .font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                            .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                     }
                     .frame(minHeight: 44, alignment: .leading)
                 }

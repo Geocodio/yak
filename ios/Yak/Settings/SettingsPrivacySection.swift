@@ -132,7 +132,7 @@ struct SettingsPrivacySection: View {
             copiesRow
             deviceRow
         } footer: {
-            Text(verbatim: PrivacyRows.copiesFooter()).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text(verbatim: PrivacyRows.copiesFooter()).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("settings.offlineCopies.footer")
         }
@@ -167,12 +167,12 @@ struct SettingsPrivacySection: View {
             VStack(alignment: .leading, spacing: Design.Space.nudge) {
                 Text("privacy.copies.title").foregroundStyle(canClear ? Color.yakAction : Color.yakMuted)
                 if case .failed = row {
-                    Text("privacy.copies.failed").font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    Text("privacy.copies.failed").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if row == .cleared {
                     HStack(alignment: .firstTextBaseline, spacing: Design.Space.tight) {
-                        Image(systemName: "checkmark").font(.footnote.weight(.semibold)).foregroundStyle(Color.yakOK)
+                        Image(systemName: "checkmark").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakOK)
                             .accessibilityHidden(true)
                         subtitle(PrivacyRows.copiesSubtitle(row))
                     }
@@ -209,6 +209,7 @@ struct SettingsPrivacySection: View {
             .frame(minHeight: 44, alignment: .leading)
         }
         .disabled(PrivacyRows.lockSwitchIsDisabled(method: lock.method, isOn: lock.policy.isOn, confirming: confirming))
+        .tint(Color.yakRust)
         .accessibilityIdentifier("settings.appLock")
     }
 
@@ -235,6 +236,7 @@ struct SettingsPrivacySection: View {
             .frame(minHeight: 44, alignment: .leading)
         }
         .disabled(lockIsOn || updating)
+        .tint(Color.yakRust)
         .accessibilityIdentifier("settings.spotlightPrivate")
     }
 
@@ -249,12 +251,12 @@ struct SettingsPrivacySection: View {
     }
 
     private func subtitle(_ text: String) -> some View {
-        Text(verbatim: text).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+        Text(verbatim: text).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private func note(_ key: LocalizedStringKey, identifier: String) -> some View {
-        Text(key).font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+        Text(key).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier(identifier)
     }

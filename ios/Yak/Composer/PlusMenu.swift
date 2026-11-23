@@ -123,8 +123,8 @@ private struct CameraDeniedSheet: View {
                 VStack(spacing: 16) {
                     Image(systemName: "camera.fill").font(.system(size: 40)).foregroundStyle(.secondary)
                         .accessibilityHidden(true)
-                    Text("plus.cameraDenied.title").font(.title3.weight(.semibold)).multilineTextAlignment(.center)
-                    Text("plus.cameraDenied.body").font(.body).foregroundStyle(.primary.opacity(0.85))
+                    Text("plus.cameraDenied.title").font(.yak(.title3, .semibold)).multilineTextAlignment(.center)
+                    Text("plus.cameraDenied.body").font(.yak(.body)).foregroundStyle(.primary.opacity(0.85))
                         .multilineTextAlignment(.center)
                     Button("plus.cameraDenied.settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }

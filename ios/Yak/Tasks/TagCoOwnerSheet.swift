@@ -15,13 +15,13 @@ struct TagCoOwnerSheet<Model: CoOwnerDecisionHost>: View {
                     ProgressView().frame(maxWidth: .infinity).accessibilityIdentifier("task.tag.loading")
                 case .failed:
                     VStack(spacing: 10) {
-                        Text("task.tag.failed").font(.subheadline.weight(.medium)).multilineTextAlignment(.center)
+                        Text("task.tag.failed").font(.yak(.subheadline, .medium)).multilineTextAlignment(.center)
                         RetryButton(identifier: "task.tag.retry") { Task { await model.loadCandidates() } }
                     }
                     .frame(maxWidth: .infinity)
                 case .loaded(let people, let isChecking):
                     if people.isEmpty, !isChecking {
-                        Text("task.tag.nobody").font(.subheadline.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        Text("task.tag.nobody").font(.yak(.subheadline, .medium)).foregroundStyle(Color.yakMuted)
                             .accessibilityIdentifier("task.tag.nobody")
                     }
                     ForEach(people) { person in
@@ -38,7 +38,7 @@ struct TagCoOwnerSheet<Model: CoOwnerDecisionHost>: View {
                     if isChecking {
                         HStack(spacing: 8) {
                             ProgressView()
-                            Text("task.tag.checking").font(.subheadline.weight(.medium))
+                            Text("task.tag.checking").font(.yak(.subheadline, .medium))
                                 .foregroundStyle(Color.yakMuted)
                         }
                         .accessibilityElement(children: .combine).accessibilityIdentifier("task.tag.checking")
@@ -56,12 +56,12 @@ struct TagCoOwnerSheet<Model: CoOwnerDecisionHost>: View {
                     .accessibilityIdentifier("task.tag.decline")
                 } footer: {
                     if let fallbackName {
-                        Text("task.tag.fallback \(fallbackName)").font(.footnote.weight(.medium)).foregroundStyle(
+                        Text("task.tag.fallback \(fallbackName)").font(.yak(.footnote, .medium)).foregroundStyle(
                             Color.yakMuted)
                     }
                 }
                 if let message = model.message {
-                    Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                    Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                 }
             }
             .disabled(model.isSending)

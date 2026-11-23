@@ -12,7 +12,7 @@ struct RequestChangesSheet<Model: CoOwnerDecisionHost>: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("task.requestChanges.prompt").font(.subheadline.weight(.medium))
+                    Text("task.requestChanges.prompt").font(.yak(.subheadline, .medium))
                         .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
                     TextEditor(text: Binding(get: { model.feedback }, set: { model.feedback = $0 }))
                         .focused($isFocused).frame(minHeight: 160)
@@ -22,17 +22,17 @@ struct RequestChangesSheet<Model: CoOwnerDecisionHost>: View {
                         .accessibilityIdentifier("task.requestChanges.field")
                     HStack(alignment: .top) {
                         if let error = model.feedbackError {
-                            Text(verbatim: error).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                            Text(verbatim: error).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("task.requestChanges.error")
                         }
                         Spacer(minLength: 8)
                         Text("task.requestChanges.count \(model.feedback.count) \(String(requestChangesLimit))")
-                            .font(.footnote.weight(.medium))
+                            .font(.yak(.footnote, .medium))
                             .foregroundStyle(isTooLong ? Color.yakDanger : Color.yakMuted)
                     }
                     if let message = model.message {
-                        Text(verbatim: message).font(.footnote.weight(.medium)).foregroundStyle(Color.yakDanger)
+                        Text(verbatim: message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakDanger)
                     }
                     Button {
                         Task {

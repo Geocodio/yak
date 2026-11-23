@@ -58,7 +58,7 @@ struct PreviewBarRow: View {
                 reloadButton
             }
             .padding(.horizontal, 12)
-            .background(Color.yakBarFill, in: .capsule)
+            .background(Color.yakBarFill, in: .rect(cornerRadius: Design.Radius.control))
             progress
         }
         .background { reloadShortcut }
@@ -75,9 +75,9 @@ struct PreviewBarRow: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: model.isSecure ? "lock.fill" : "lock.open")
-                    .font(.footnote).foregroundStyle(model.isSecure ? Color.green : Color.yakMuted)
+                    .font(.yak(.footnote)).foregroundStyle(model.isSecure ? Color.green : Color.yakMuted)
                     .accessibilityHidden(true)
-                Text(model.address).font(.system(.subheadline, design: .monospaced).weight(.medium)).lineLimit(1)
+                Text(model.address).font(.yak(.subheadline, .medium, isMonospaced: true)).lineLimit(1)
                     .foregroundStyle(canEdit ? Color.primary : Color.yakMuted).truncationMode(.middle)
                 Spacer(minLength: 0)
             }
@@ -100,7 +100,7 @@ struct PreviewBarRow: View {
     private var field: some View {
         HStack(spacing: 4) {
             TextField("preview.address.placeholder", text: $draft)
-                .font(.system(.body, design: .monospaced))
+                .font(.yak(.body, isMonospaced: true))
                 .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .submitLabel(.go).focused($isFocused).frame(minHeight: 44)
                 .onSubmit {

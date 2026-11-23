@@ -116,7 +116,7 @@ private struct ChatPane: View {
     }
 
     private var legacyLine: some View {
-        Text("composer.legacy.line").font(.footnote.weight(.medium)).foregroundStyle(.primary)
+        Text("composer.legacy.line").font(.yak(.footnote, .medium)).foregroundStyle(.primary)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.vertical, Design.Space.medium)
             .padding(.horizontal, Design.Space.groupInset)

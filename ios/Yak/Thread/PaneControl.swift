@@ -33,14 +33,14 @@ struct PaneMenuButton: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: PaneCatalog.descriptor(for: current)?.symbol ?? "bubble.left")
-                Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
+                Image(systemName: "chevron.up.chevron.down").font(.yak(.caption2, .semibold))
             }
-            .font(.body)
+            .font(.yak(.body))
             .foregroundStyle(.primary)
             .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.snug)
             .frame(minWidth: Design.Size.control, minHeight: Design.Size.control)
-            .background(Color.yakBarFillStrong, in: .capsule)
-            .contentShape(.capsule)
+            .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.control))
+            .contentShape(.rect(cornerRadius: Design.Radius.control))
             .hoverEffect(.highlight)
         }
         .tint(.primary)
@@ -188,14 +188,14 @@ private struct PaneRowButton: View {
         Button(action: select) {
             // An icon alone: every pane button has the same width, and no name has to fit. The name is the
             // accessibility label and the large content title.
-            Image(systemName: descriptor.symbol).font(.body)
+            Image(systemName: descriptor.symbol).font(.yak(.body))
                 .overlay(alignment: .topTrailing) { badge.map { PaneBadgeView(badge: $0).offset(x: 6, y: -3) } }
                 .foregroundStyle(.primary)
                 .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
                 .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
                 .background(
-                    mark == nil && isSelected ? Color.yakBarFillStrong : .clear,
-                    in: .rect(cornerRadius: Design.Radius.row)
+                    mark == nil && isSelected ? Color.yakBubble : .clear,
+                    in: .rect(cornerRadius: Design.Radius.control)
                 )
                 .modifier(PaneMarkLabel(mark: mark))
                 .contentShape(.rect)
@@ -251,7 +251,7 @@ struct PaneBadgeView: View {
             QuestionBadge()
         case .count(let number):
             // No pane returns a count yet. Look at this badge in light and dark when the first one does.
-            Text(number, format: .number).font(.caption2.weight(.bold)).foregroundStyle(Color.yakOnBadge)
+            Text(number, format: .number).font(.yak(.caption2, .bold)).foregroundStyle(Color.yakOnBadge)
                 .padding(.horizontal, 4).frame(minWidth: 14, minHeight: 14)
                 .background(Color.yakBadge, in: .capsule)
                 .overlay(Capsule().stroke(Color.yakBackground, lineWidth: 1.5))

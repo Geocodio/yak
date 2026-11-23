@@ -113,7 +113,7 @@ struct TaskEntryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: TaskBodyView.label(entry.kind)).font(.footnote.weight(.semibold))
+            Text(verbatim: TaskBodyView.label(entry.kind)).font(.yak(.footnote, .semibold))
                 .foregroundStyle(Color.yakMuted).accessibilityAddTraits(.isHeader)
             TaskBodyView(entry: entry, serverOrigin: serverOrigin, openLink: openLink, height: $height).frame(
                 height: max(height, 24))

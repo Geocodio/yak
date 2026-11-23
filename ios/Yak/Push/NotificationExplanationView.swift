@@ -38,14 +38,14 @@ struct NotificationExplanationView: View {
         VStack(alignment: .leading, spacing: 24) {
             Label {
                 Text("notify.paired \(model.request.instanceName)")
-                    .font(.subheadline.weight(.medium))
+                    .font(.yak(.subheadline, .medium))
             } icon: {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color(.systemGreen))
             }
             .accessibilityElement(children: .combine)
             VStack(alignment: .leading, spacing: 12) {
-                Text("notify.title").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-                Text("notify.text").font(.body).foregroundStyle(Color.yakMuted)
+                Text("notify.title").font(.yak(.largeTitle, .bold)).accessibilityAddTraits(.isHeader)
+                Text("notify.text").font(.yak(.body)).foregroundStyle(Color.yakMuted)
             }
             VStack(alignment: .leading, spacing: 0) {
                 row(color: .yakRust, title: "notify.row.needsYou.title", detail: "notify.row.needsYou.detail")
@@ -56,7 +56,7 @@ struct NotificationExplanationView: View {
             }
             .padding(.horizontal, 16)
             .background(Color.yakCard, in: .rect(cornerRadius: 14))
-            Text("notify.footnote").font(.footnote).foregroundStyle(Color.yakMuted)
+            Text("notify.footnote").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             result
         }
     }
@@ -65,8 +65,8 @@ struct NotificationExplanationView: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Circle().fill(color).frame(width: 10, height: 10).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.weight(.medium))
-                if let detail { Text(detail).font(.subheadline).foregroundStyle(Color.yakMuted) }
+                Text(title).font(.yak(.body, .medium))
+                if let detail { Text(detail).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted) }
             }
             Spacer(minLength: 0)
         }
@@ -80,19 +80,19 @@ struct NotificationExplanationView: View {
         case .on:
             VStack(alignment: .leading, spacing: 4) {
                 Label("notify.on", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
+                    .font(.yak(.headline))
                     .symbolRenderingMode(.multicolor)
                 if model.isOffline {
-                    Text("notify.on.offline").font(.subheadline).foregroundStyle(Color.yakMuted)
+                    Text("notify.on.offline").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 }
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("notify.on")
         case .off(let failed):
             VStack(alignment: .leading, spacing: 4) {
-                Text(failed ? "notify.failed.title" : "notify.off.title").font(.headline)
+                Text(failed ? "notify.failed.title" : "notify.off.title").font(.yak(.headline))
                 Text(failed ? "notify.failed.text" : "notify.off.text")
-                    .font(.subheadline).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("notify.off")
@@ -119,7 +119,7 @@ struct NotificationExplanationView: View {
                 .accessibilityLabel(Text("notify.turnOn"))
                 Button("notify.notNow") { model.notNow() }
                     .buttonStyle(.plain)
-                    .font(.headline)
+                    .font(.yak(.headline))
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .foregroundStyle(Color.yakAction)
                     .accessibilityIdentifier("notify.notNow")

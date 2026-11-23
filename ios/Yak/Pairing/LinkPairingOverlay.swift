@@ -92,7 +92,7 @@ private struct LinkPairingOverlay: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 10) {
                         ProgressView().accessibilityHidden(true)
-                        Text("pairLink.checking").font(.body).foregroundStyle(Color.yakMuted)
+                        Text("pairLink.checking").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                     }
                     SlowHint { Task { await model.retryLinkPairing() } }
                     Button("common.close") { model.dismissLinkPairing() }.buttonStyle(SecondaryButtonStyle())
@@ -116,18 +116,18 @@ private struct LinkPairingOverlay: View {
                     .font(.system(size: 40, weight: .light))
                     .foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
-                Text("pairLink.confirm.title").font(.title2.bold())
+                Text("pairLink.confirm.title").font(.yak(.title2, .bold))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(instance.name).font(.headline)
-                    Text(host).font(.subheadline.monospaced()).foregroundStyle(Color.yakMuted)
+                    Text(instance.name).font(.yak(.headline))
+                    Text(host).font(.yak(.subheadline, isMonospaced: true)).foregroundStyle(Color.yakMuted)
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.quaternary, in: .rect(cornerRadius: 10))
                 .accessibilityElement(children: .combine)
-                Text("pairLink.confirm.warning").font(.body)
+                Text("pairLink.confirm.warning").font(.yak(.body))
                 if replaces != nil {
-                    Text("pairLink.confirm.replaces").font(.body).foregroundStyle(Color.yakMuted)
+                    Text("pairLink.confirm.replaces").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                 }
                 Button {
                     Task { await model.confirmLinkPairing() }

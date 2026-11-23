@@ -12,20 +12,20 @@ struct AppLockScreen: View {
                 Image(systemName: "lock.fill")
                     .font(.system(size: iconSize)).foregroundStyle(Color.yakMuted)
                     .accessibilityHidden(true)
-                Text("lock.title").font(.title2.weight(.semibold)).multilineTextAlignment(.center)
+                Text("lock.title").font(.yak(.title2, .semibold)).multilineTextAlignment(.center)
                     .padding(.top, 20).accessibilityAddTraits(.isHeader)
                 if controller.showsPasscodeRemoved && !controller.isLocked {
-                    Text("lock.passcodeRemoved").font(.body).foregroundStyle(Color.yakMuted)
+                    Text("lock.passcodeRemoved").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                         .multilineTextAlignment(.center).padding(.top, 8)
                     Button("lock.continue") { controller.dismissPasscodeRemoved() }
                         .buttonStyle(LockButtonStyle()).padding(.top, 32)
                         .accessibilityIdentifier("lock.unlock")
                 } else {
-                    Text("lock.subtitle").font(.body).foregroundStyle(Color.yakMuted)
+                    Text("lock.subtitle").font(.yak(.body)).foregroundStyle(Color.yakMuted)
                         .multilineTextAlignment(.center).padding(.top, 8)
                     unlockButton.padding(.top, 32)
                     if controller.unlock == .failed {
-                        Text("lock.failed").font(.footnote.weight(.medium)).foregroundStyle(Color.yakMuted)
+                        Text("lock.failed").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
                             .multilineTextAlignment(.center).padding(.top, 12)
                     }
                 }
@@ -76,7 +76,7 @@ private struct LockButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.yak(.headline))
             .foregroundStyle(Color.yakBackground)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)

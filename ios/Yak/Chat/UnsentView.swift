@@ -50,7 +50,7 @@ struct UnsentView: View {
                 Text("chat.unsent.refused \(refusal.message)")
             }
         }
-        .font(.caption).foregroundStyle(Color.yakMuted)
+        .font(.yak(.caption)).foregroundStyle(Color.yakMuted)
         .multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("unsent.state")
     }

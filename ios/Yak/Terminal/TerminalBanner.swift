@@ -20,9 +20,9 @@ struct TerminalBanner: View {
     @ViewBuilder private func banner(now: Date) -> some View {
         if let line = self.line(now: now) {
             VStack(alignment: .leading, spacing: 8) {
-                line.text.font(.subheadline.weight(.medium))
+                line.text.font(.yak(.subheadline, .medium))
                 if snapshot.droppedKeys, snapshot.phase == .offline {
-                    Text("terminal.banner.droppedKeys").font(.subheadline.weight(.medium))
+                    Text("terminal.banner.droppedKeys").font(.yak(.subheadline, .medium))
                         .foregroundStyle(Color.terminalMuted)
                 }
                 if let action = line.action {

@@ -8,7 +8,7 @@ struct FileMarkView: View {
     var body: some View {
         HStack(spacing: 4) {
             if let letter {
-                Text(verbatim: letter).font(.caption.weight(.bold).monospaced()).foregroundStyle(Color.primary)
+                Text(verbatim: letter).font(.yak(.caption, .bold, isMonospaced: true)).foregroundStyle(Color.primary)
                     .padding(.horizontal, 5).background(color.opacity(0.25), in: .capsule)
             } else {
                 Circle().fill(color).frame(width: 6, height: 6)
@@ -63,11 +63,11 @@ struct FileTreeView: View {
         case .empty(_, let depth): note("files.folder.empty", depth: depth)
         case .failed(_, let depth):
             HStack {
-                Text("files.folder.failed").font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text("files.folder.failed").font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
                 Button {
                     Task { await model.retry() }
                 } label: {
-                    Text("files.retry").font(.subheadline.weight(.semibold)).frame(minHeight: 44).contentShape(.rect)
+                    Text("files.retry").font(.yak(.subheadline, .semibold)).frame(minHeight: 44).contentShape(.rect)
                 }
                 .accessibilityIdentifier("files.folder.retry")
             }
@@ -78,7 +78,7 @@ struct FileTreeView: View {
     }
 
     private func note(_ key: LocalizedStringKey, depth: Int) -> some View {
-        Text(key).font(.subheadline).foregroundStyle(Color.yakMuted)
+        Text(key).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             .padding(.leading, CGFloat(depth) * indentation + 16).padding(.trailing, 16).padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -91,14 +91,14 @@ struct FileTreeView: View {
         } label: {
             HStack(spacing: 8) {
                 if row.isDirectory {
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.yak(.caption, .semibold))
                         .rotationEffect(.degrees(row.isExpanded ? 90 : 0)).frame(width: 16)
                 } else {
                     Color.clear.frame(width: 16, height: 1)
                 }
                 Image(systemName: row.isDirectory ? "folder.fill" : "doc.text")
                     .foregroundStyle(row.isDirectory ? Color(.systemIndigo) : Color.yakMuted).frame(width: 24)
-                Text(verbatim: row.name).font(.body.monospaced()).multilineTextAlignment(.leading)
+                Text(verbatim: row.name).font(.yak(.body, isMonospaced: true)).multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 if let mark = row.mark { FileMarkView(mark: mark) }
             }

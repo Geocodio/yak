@@ -9,12 +9,12 @@ struct DiffRowView: View {
     var body: some View {
         switch row.kind {
         case .hunk(let header):
-            Text(verbatim: header).font(.footnote.monospaced().weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text(verbatim: header).font(.yak(.footnote, .medium, isMonospaced: true)).foregroundStyle(Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Color.primary.opacity(0.05))
                 .accessibilityLabel(Text("files.row.hunk \(header)"))
         case .noNewlineAtEnd:
-            Text("files.row.noNewline").font(.caption.weight(.medium)).foregroundStyle(Color.yakMuted)
+            Text("files.row.noNewline").font(.yak(.caption, .medium)).foregroundStyle(Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 2)
         case .context, .added, .removed:
             line
@@ -23,12 +23,14 @@ struct DiffRowView: View {
 
     private var line: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(verbatim: row.newLine.map(String.init) ?? "").font(.caption.monospacedDigit().weight(.medium))
+            Text(verbatim: row.newLine.map(String.init) ?? "").font(.yak(.caption, .medium))
                 .foregroundStyle(Color.yakMuted).frame(width: 36, alignment: .trailing)
-            Text(verbatim: marker).font(.footnote.monospaced().weight(.semibold))
-            Text(verbatim: row.text).font(.footnote.monospaced().weight(sizeClass == .regular ? .medium : .regular))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(verbatim: marker).font(.yak(.footnote, .semibold, isMonospaced: true))
+            Text(verbatim: row.text).font(
+                .yak(.footnote, sizeClass == .regular ? .medium : .regular, isMonospaced: true)
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 8).padding(.vertical, 2)
         .background(tint)

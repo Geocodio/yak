@@ -19,6 +19,8 @@ struct BottomBar: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.webConversation) private var web
+    @State private var isTyping = false
     private let swipeDistance: CGFloat = 60
 
     /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
@@ -30,16 +32,27 @@ struct BottomBar: View {
         if !isInStrip, !thread.question.isEditing { bar }
     }
 
+    /// The bar is docked: a strip on the page color with a rule above it, holding one card. The card holds the waiting
+    /// messages (while the conversation is the web page, which leaves them out of its list), then the controls.
     private var bar: some View {
-        layout
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Design.Space.barPadding)
-            .background { BarSurface() }
-            .padding(.horizontal, Design.Space.barInset).padding(.bottom, Design.Space.barEdgeGap)
-            .simultaneousGesture(swipe)
-            .accessibilityElement(children: .contain)
-            .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
-            .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
+        VStack(spacing: 0) {
+            if pane == .chat, web?.mode == .web { QueuedChipsView(thread: thread) }
+            layout
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Design.Space.barPadding)
+        }
+        .clipShape(.rect(cornerRadius: Design.Radius.card))
+        .background { BarSurface(isFocused: isTyping) }
+        .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.snug)
+        .padding(.bottom, Design.Space.barEdgeGap)
+        .frame(maxWidth: .infinity)
+        .background(Color.yakBackground)
+        .overlay(alignment: .top) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
+        .onPreferenceChange(ComposerFocusKey.self) { isTyping = $0 }
+        .simultaneousGesture(swipe)
+        .accessibilityElement(children: .contain)
+        .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
+        .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
     }
 
     @ViewBuilder private var layout: some View {
@@ -85,15 +98,29 @@ struct BottomBar: View {
     }
 }
 
-/// The surface behind the bar and the trailing strip: the board's `--gl` laid over the page, opaque, so the text on it
-/// keeps its contrast whatever is behind it.
+/// The card of the bar and of the trailing strip: the web's panel, with its strong border and a soft shadow. While a
+/// person types, the border takes the accent.
 struct BarSurface: View {
+    var isFocused = false
+
     var body: some View {
-        RoundedRectangle(cornerRadius: Design.Radius.bar).fill(Color.yakBar)
+        RoundedRectangle(cornerRadius: Design.Radius.card).fill(Color.yakBar)
             .overlay(
-                RoundedRectangle(cornerRadius: Design.Radius.bar)
-                    .stroke(Color.yakBarBorder, lineWidth: Design.Space.hairline))
+                RoundedRectangle(cornerRadius: Design.Radius.card)
+                    .strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.line)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.card)
+                    .strokeBorder(Color.yakAccent.opacity(isFocused ? 0.42 : 0), lineWidth: Design.Space.line)
+            )
+            .shadow(color: Color.yakShadow, radius: 1, y: 1)
     }
+}
+
+/// Whether the message field has the keyboard.
+struct ComposerFocusKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
 /// A bar of a two-slot layout names its pane, so VoiceOver tells the bars apart. The one bar of a single pane carries

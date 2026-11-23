@@ -19,9 +19,9 @@ struct ConnectView: View {
                 .foregroundStyle(Color.yakMuted)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 12) {
-                Text("connect.title").font(.largeTitle.bold())
+                Text("connect.title").font(.yak(.largeTitle, .bold))
                 Text("connect.body")
-                    .font(.body).foregroundStyle(Color.yakMuted)
+                    .font(.yak(.body)).foregroundStyle(Color.yakMuted)
             }
             VStack(alignment: .leading, spacing: 16) {
                 hint(number: 1, title: "connect.hint1.title", detail: "connect.hint1.detail")
@@ -63,13 +63,13 @@ struct ConnectView: View {
     private func hint(number: Int, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Text(verbatim: "\(number)")
-                .font(.subheadline.bold())
+                .font(.yak(.subheadline, .bold))
                 .frame(minWidth: stepSize, minHeight: stepSize)
                 .overlay(Circle().stroke(Color.yakMuted, lineWidth: 1))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(detail).font(.subheadline).foregroundStyle(Color.yakMuted)
+                Text(title).font(.yak(.headline))
+                Text(detail).font(.yak(.subheadline)).foregroundStyle(Color.yakMuted)
             }
         }
         .accessibilityElement(children: .combine)
