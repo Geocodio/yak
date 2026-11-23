@@ -124,6 +124,7 @@ final class WebConversationModel {
     @ObservationIgnored private var copyThreadIDs: Set<String> = []
     @ObservationIgnored private var copyTask: Task<Void, Never>?
     @ObservationIgnored private var readTask: Task<Void, Never>?
+    @ObservationIgnored private var clearedObserver: Task<Void, Never>?
     /// The store of the last lookup, so a capture that must start at once knows which store it began with.
     @ObservationIgnored private var knownStore: OfflineCopyStore?
     /// Keeps the app running a little longer while a copy is saved after it left the foreground. The returned closure
@@ -159,7 +160,15 @@ final class WebConversationModel {
         self.sleep = sleep
         policy = EmbedNavigationPolicy(instanceURL: instanceURL, allowsLoopbackHTTP: allowsLoopbackHTTP)
         machine = WebConversationMachine(supportsEmbeddedThread: false)
+        clearedObserver = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .offlineCopiesCleared) {
+                guard let self else { return }
+                copiesWereCleared()
+            }
+        }
     }
+
+    deinit { clearedObserver?.cancel() }
 
     /// A model that mints through the session's web-session endpoint.
     convenience init(session: InstanceSession) {
@@ -687,6 +696,16 @@ extension WebConversationModel {
             do { try await sleep(Self.captureQuietPeriod) } catch { return }
             await self?.saveCopy()
         }
+    }
+
+    /// The person cleared the saved copies in Settings: a copy on screen gives way to the plain offline state at once.
+    /// The store keeps saving, so the next online visit saves the thread again.
+    func copiesWereCleared() {
+        readTask?.cancel()
+        copyTask?.cancel()
+        copyThreadIDs = []
+        savedCopy = nil
+        if mode == .web, threadID != nil { apply(.offlineCopyChanged(isAvailable: false)) }
     }
 
     /// The session ended (revoked, unpaired): nothing more is saved or read.
