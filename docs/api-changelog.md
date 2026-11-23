@@ -59,3 +59,5 @@ New field on task show, so the protocol stays 1: `stop`, null unless the task fa
 New field on thread show, so the protocol stays 1: `composer.turn`, null unless a turn is running. It then carries `steps` (Claude's own steps this turn, not its agents'), `limit` (null when the turn has no step limit), `canAddSteps` and `stepsToAdd`. `POST threads/{thread}/step-limit` on the web raises the limit of the running turn by `stepsToAdd`.
 
 A message sent while Claude waits on a question, with files, answers the question and queues the files for the next message when Claude cannot take them now. `POST threads/{thread}/messages` then returns `status: "queued"` and a `notice` ("Your files go to Claude with the next message."); the queued message appears in the thread `messages` with its attachments. No new fields, so the protocol stays 1.
+
+New field on thread list rows, so the protocol stays 1: `needsYouDetail`, the error text (at most 200 characters) when the thread's latest task failed, otherwise null. Such a row now has `needsYouReason: "blocked"` and `needsYouLabel: "Failed"`.

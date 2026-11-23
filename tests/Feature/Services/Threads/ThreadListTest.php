@@ -503,3 +503,21 @@ it('still applies the source and starter filters to a thread without a repositor
         ->and($ids([], ['user:' . $user->id]))->toContain($thread->public_id)
         ->and($ids([], ['yak']))->not->toContain($thread->public_id);
 });
+
+test('a thread whose latest task failed needs the viewer, with the error as its detail', function () {
+    $user = User::factory()->create();
+    $failed = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    YakTask::factory()->create(['thread_id' => $failed->id, 'status' => TaskStatus::Failed, 'error_log' => 'Sandbox exec failed (exit 1): Error: Instance is frozen']);
+    $retried = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    YakTask::factory()->create(['thread_id' => $retried->id, 'status' => TaskStatus::Failed]);
+    YakTask::factory()->create(['thread_id' => $retried->id, 'status' => TaskStatus::Success]);
+
+    $list = ThreadList::for($user);
+    $row = collect($list['needsYou'])->firstWhere('id', $failed->public_id);
+
+    expect($list['needsYouCount'])->toBe(1)
+        ->and($row['needsYouReason'])->toBe('blocked')
+        ->and($row['needsYouLabel'])->toBe('Failed')
+        ->and($row['needsYouDetail'])->toBe('Sandbox exec failed (exit 1): Error: Instance is frozen')
+        ->and(array_column($list['threads'], 'id'))->toContain($retried->public_id);
+});

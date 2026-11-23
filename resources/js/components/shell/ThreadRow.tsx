@@ -57,7 +57,9 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                             </span>
                         )}
                         {row.needsYouLabel ? (
-                            <span className={cn('truncate', row.needsYouReason === 'blocked' ? 'text-fail' : 'text-brand')}>{row.needsYouLabel}</span>
+                            <span className={cn('truncate', row.needsYouReason === 'blocked' ? 'text-fail' : 'text-brand')} title={row.needsYouDetail ?? undefined}>
+                                {row.needsYouLabel}
+                            </span>
                         ) : row.status === 'waiting_for_repository' ? (
                             <span className="truncate text-muted" data-testid={`thread-waiting-repository-${row.id}`}>{STATUS_TEXT[row.status]}</span>
                         ) : row.repo ? (
