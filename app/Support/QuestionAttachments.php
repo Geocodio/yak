@@ -11,7 +11,7 @@ use App\DataTransferObjects\ClarificationQuestion;
  */
 final class QuestionAttachments
 {
-    private const string PATTERN = '/!\[([^\]]*)\]\(\s*([^)\s]+)\s*\)/';
+    private const string PATTERN = '/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/';
 
     /**
      * @return list<array{alt: string, name: string}>

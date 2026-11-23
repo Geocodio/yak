@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { store as storeThreadAnswers } from '@/routes/threads/clarification-answers';
 import { Prose } from '@/components/Prose';
 import { QuestionAttachment } from '@/components/tasks/questions/QuestionAttachment';
+import { visibleStep } from '@/components/tasks/questions/steps';
 import type { QuestionAttachmentData, QuestionData, QuestionOptionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
@@ -16,7 +17,8 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
     const [isDeciding, setIsDeciding] = useState(false);
     const errors = form.errors as Record<string, string | undefined>;
-    const [step, setStep] = useState(0);
+    const [chosenStep, setStep] = useState(0);
+    const step = visibleStep(chosenStep, questions.length);
     const isStepped = questions.length > 1;
 
     // A validation error on a question that is not shown brings that question forward.

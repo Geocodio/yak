@@ -86,14 +86,6 @@ class ThreadLiveQuestions
             return;
         }
 
-        if (QuestionAttachments::fileNames($questions) !== []) {
-            try {
-                app(ThreadArtifacts::class)->collectShared($thread);
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        }
-
         $task->recordClarificationRound($questions, '', [
             'live' => true,
             'runner_question_id' => $runnerId,
@@ -105,6 +97,7 @@ class ThreadLiveQuestions
         }
         $this->events->opened($task);
         $this->notify($thread, $task, count($questions));
+        $this->collectAttachments($thread, $task, $questions);
     }
 
     /**
@@ -463,6 +456,28 @@ class ThreadLiveQuestions
         }
 
         return $questions;
+    }
+
+    /**
+     * Pulls the shared files the questions reference once the thread lock is released, then tells clients to reload
+     * the question so the card shows them. The question is already open, so a failed pull only leaves the files out.
+     *
+     * @param  list<ClarificationQuestion>  $questions
+     */
+    private function collectAttachments(Thread $thread, YakTask $task, array $questions): void
+    {
+        if (QuestionAttachments::fileNames($questions) === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($thread, $task): void {
+            try {
+                app(ThreadArtifacts::class)->collectShared($thread);
+                $this->events->opened($task);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 
     private function notify(Thread $thread, YakTask $task, int $questionCount): void

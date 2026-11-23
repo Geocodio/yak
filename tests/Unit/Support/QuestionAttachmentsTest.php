@@ -32,3 +32,8 @@ it('collects unique file names from questions and option previews', function () 
 
     expect(QuestionAttachments::fileNames([$question]))->toBe(['flow.png', 'a.html']);
 });
+
+it('reads a reference that has a title', function () {
+    expect(QuestionAttachments::references('![Flow](flow.png "The flow today")'))->toBe([['alt' => 'Flow', 'name' => 'flow.png']])
+        ->and(QuestionAttachments::strip('Pick one. ![Flow](flow.png "The flow today")'))->toBe('Pick one.');
+});

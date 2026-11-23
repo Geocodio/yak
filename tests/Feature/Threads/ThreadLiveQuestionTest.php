@@ -606,3 +606,19 @@ it('opens the question when collecting shared files fails', function () {
     expect($task->refresh()->liveClarificationRound())->not->toBeNull()
         ->and(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'decline_question'))->toBeNull();
 });
+
+it('collects shared files after the question is recorded and the thread lock is released, then refreshes the card', function () {
+    [$thread, , $task] = threadWithRunningTurn();
+    $baseLevel = DB::transactionLevel();
+    $levels = [];
+    $artifacts = Mockery::mock(ThreadArtifacts::class);
+    $artifacts->shouldReceive('collectShared')->once()->andReturnUsing(function () use (&$levels, $task): void {
+        $levels[] = [DB::transactionLevel(), $task->fresh()->liveClarificationRound() !== null];
+    });
+    app()->instance(ThreadArtifacts::class, $artifacts);
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    expect($levels)->toBe([[$baseLevel, true]])
+        ->and(liveQuestionEvents($thread))->toBe([['open' => true], ['open' => true]]);
+});
