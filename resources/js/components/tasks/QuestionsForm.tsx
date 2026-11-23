@@ -1,9 +1,12 @@
 import { useForm } from '@inertiajs/react';
 import { Button, Textarea, cn } from '@geocodio/console-ui';
-import { Check } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { store as storeThreadAnswers } from '@/routes/threads/clarification-answers';
-import type { QuestionData } from '@/types/tasks';
+import { Prose } from '@/components/Prose';
+import { QuestionAttachment } from '@/components/tasks/questions/QuestionAttachment';
+import { firstQuestionWithError, visibleStep } from '@/components/tasks/questions/steps';
+import type { QuestionAttachmentData, QuestionData, QuestionOptionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
 
@@ -14,6 +17,32 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
     const [isDeciding, setIsDeciding] = useState(false);
     const errors = form.errors as Record<string, string | undefined>;
+    const [chosenStep, setChosenStep] = useState(0);
+    const step = visibleStep(chosenStep, questions.length);
+    const isStepped = questions.length > 1;
+    const shouldFocusStep = useRef(false);
+
+    // Moving between questions takes keyboard focus along, so the next Tab starts inside the question shown.
+    const setStep = (index: number) => {
+        shouldFocusStep.current = true;
+        setChosenStep(index);
+    };
+
+    useEffect(() => {
+        if (shouldFocusStep.current) {
+            shouldFocusStep.current = false;
+            document.getElementById(`question-${questions[step]?.id}-label`)?.focus();
+        }
+    }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // A validation error on a question that is not shown brings that question forward.
+    useEffect(() => {
+        const failing = firstQuestionWithError(questions.map((question) => question.id), Object.keys(form.errors));
+
+        if (failing !== -1) {
+            setStep(failing);
+        }
+    }, [form.errors]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const isAnswered = (answer: Answer) => answer.choices.length > 0 || (answer.otherOpen && (answer.other ?? '').trim() !== '');
     const answeredCount = questions.filter((question) => isAnswered(answers[question.id])).length;
@@ -70,29 +99,66 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                 <span className="whitespace-nowrap text-[12px] text-muted">{answeredCount} of {questions.length} answered</span>
             </div>
 
+            {isStepped && (
+                <nav aria-label="Questions" className="flex flex-wrap items-center gap-1.5 border-b border-hair px-6 py-3" data-testid="questions-stepper">
+                    {questions.map((question, index) => {
+                        const isCurrent = index === step;
+                        const isDone = isAnswered(answers[question.id]);
+
+                        return (
+                            <button
+                                key={question.id}
+                                type="button"
+                                onClick={() => setStep(index)}
+                                aria-current={isCurrent ? 'step' : undefined}
+                                className={cn(
+                                    'inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 text-[12px] font-medium',
+                                    isCurrent ? 'border-accent bg-accent text-accent-ink' : 'border-hair-strong bg-panel text-body hover:border-accent',
+                                )}
+                                data-testid={`questions-step-${question.id}`}
+                            >
+                                {isDone ? <Check className="size-3.5" strokeWidth={2.5} aria-label="Answered" /> : <span className="tabular-nums opacity-70">{index + 1}</span>}
+                                {question.header}
+                            </button>
+                        );
+                    })}
+                </nav>
+            )}
+
             {errors.answers && <p role="alert" className="border-b border-hair px-6 py-3 text-[12px] text-fail" data-testid="questions-error">{errors.answers}</p>}
 
             {questions.map((question, index) => (
-                <fieldset key={question.id} aria-labelledby={`question-${question.id}-label`} className="min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
-                    <div id={`question-${question.id}-label`} className="mb-3 flex flex-col gap-1.5">
+                <fieldset key={question.id} hidden={index !== step} aria-labelledby={`question-${question.id}-label`} className="@container min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
+                    <div id={`question-${question.id}-label`} tabIndex={-1} className="mb-3 flex flex-col gap-1.5 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent">
                         <span className="flex items-center gap-2">
                             <span className="rounded-chip bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-text">{question.header}</span>
                             <span className="text-[11px] text-muted">Question {index + 1} of {questions.length}</span>
                         </span>
-                        <span className="text-[14px] font-semibold leading-snug">{question.question}</span>
+                        <span className="whitespace-pre-line text-[14px] font-semibold leading-snug">{question.question}</span>
                     </div>
-                    <div className="flex flex-col gap-2">
-                        {question.options.map((option) => (
-                            <OptionRow
-                                key={option.label}
-                                label={option.label}
-                                description={option.description}
-                                selected={answers[question.id].choices.includes(option.label)}
-                                multiSelect={question.multiSelect}
-                                onClick={() => toggle(question, option.label)}
-                            />
-                        ))}
-                        <OptionRow label="Other" description="Write your own answer." selected={answers[question.id].otherOpen} multiSelect={question.multiSelect} onClick={() => toggleOther(question)} />
+                    {question.context.length > 0 && <QuestionContext attachments={question.context} />}
+                    <div className="grid grid-cols-1 gap-2 @min-[620px]:grid-cols-2">
+                        {question.options.map((option) => {
+                            const selected = answers[question.id].choices.includes(option.label);
+                            const row = <OptionRow label={option.label} description={option.description} selected={selected} multiSelect={question.multiSelect} onClick={() => toggle(question, option.label)} isCardHeader={hasAttachment(option)} />;
+
+                            return hasAttachment(option) ? (
+                                <div
+                                    key={option.label}
+                                    className={cn('flex min-w-0 flex-col gap-2.5 rounded-control border p-2', selected ? 'border-accent bg-accent-soft' : 'border-hair-strong bg-panel')}
+                                    data-testid="question-option-card"
+                                >
+                                    {row}
+                                    {option.attachments.map((attachment) => <QuestionAttachment key={attachment.id} attachment={attachment} size="option" />)}
+                                    {option.previewHtml !== null && <Prose html={option.previewHtml} className="px-1 text-[12.5px]" />}
+                                </div>
+                            ) : (
+                                <div key={option.label} className="col-span-full">{row}</div>
+                            );
+                        })}
+                        <div className="col-span-full">
+                            <OptionRow label="Other" description="Write your own answer." selected={answers[question.id].otherOpen} multiSelect={question.multiSelect} onClick={() => toggleOther(question)} />
+                        </div>
                         {answers[question.id].otherOpen && (
                             <label className="flex flex-col gap-1.5 text-[12px] text-muted">
                                 Your answer
@@ -110,6 +176,22 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                             <p role="alert" className="text-[12px] text-fail">{errors[`answers.${question.id}`] ?? errors[`answers.${question.id}.other`]}</p>
                         )}
                     </div>
+                    {isStepped && index === step && (
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                            {index > 0 ? (
+                                <Button variant="secondary" onClick={() => setStep(index - 1)} data-testid="questions-back">
+                                    <ArrowLeft className="size-3.5" aria-hidden />
+                                    Back
+                                </Button>
+                            ) : <span />}
+                            {index < questions.length - 1 && (
+                                <Button variant="secondary" onClick={() => setStep(index + 1)} data-testid="questions-next">
+                                    Next: {questions[index + 1].header}
+                                    <ArrowRight className="size-3.5" aria-hidden />
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </fieldset>
             ))}
 
@@ -136,7 +218,30 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
 }
 
-function OptionRow({ label, description, selected, multiSelect, onClick }: { label: string; description: string; selected: boolean; multiSelect: boolean; onClick: () => void }) {
+const hasAttachment = (option: QuestionOptionData): boolean => option.attachments.length > 0 || option.previewHtml !== null;
+
+/** What Claude attached to the whole question, open at rest so it reads before the options. */
+function QuestionContext({ attachments }: { attachments: QuestionAttachmentData[] }) {
+    const [isShown, setIsShown] = useState(true);
+
+    return (
+        <div className="mb-4 flex flex-col gap-2" data-testid="question-context">
+            <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted">Context from Claude · {attachments.length}</span>
+                <button type="button" onClick={() => setIsShown(!isShown)} aria-expanded={isShown} className="cursor-pointer text-[12px] text-muted hover:text-body" data-testid="question-context-toggle">
+                    {isShown ? 'Hide context' : 'Show context'}
+                </button>
+            </div>
+            {isShown && (
+                <div className={cn('grid grid-cols-1 gap-3', attachments.length > 1 && '@min-[520px]:grid-cols-2')}>
+                    {attachments.map((attachment) => <QuestionAttachment key={attachment.id} attachment={attachment} size="context" />)}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function OptionRow({ label, description, selected, multiSelect, onClick, isCardHeader = false }: { label: string; description: string; selected: boolean; multiSelect: boolean; onClick: () => void; isCardHeader?: boolean }) {
     return (
         <button
             type="button"
@@ -144,8 +249,8 @@ function OptionRow({ label, description, selected, multiSelect, onClick }: { lab
             aria-checked={selected}
             onClick={onClick}
             className={cn(
-                'flex min-h-11 w-full items-start gap-3 rounded-control border px-3 py-2.5 text-left',
-                selected ? 'border-accent bg-accent-soft' : 'border-hair-strong bg-panel hover:border-accent',
+                'flex min-h-11 w-full cursor-pointer items-start gap-3 rounded-control px-3 py-2.5 text-left',
+                isCardHeader ? 'border-0 bg-transparent px-1.5 py-1' : selected ? 'border border-accent bg-accent-soft' : 'border border-hair-strong bg-panel hover:border-accent',
             )}
         >
             <span

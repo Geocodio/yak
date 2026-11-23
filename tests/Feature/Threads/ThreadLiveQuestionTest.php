@@ -25,6 +25,7 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\NeedsYouCount;
 use App\Services\Threads\RunawayGuard;
 use App\Services\Threads\SteeringDelivery;
+use App\Services\Threads\ThreadArtifacts;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
@@ -80,8 +81,12 @@ it('turns a runner question line into the question prop and a question event', f
             'id' => 'q1',
             'header' => 'Screens',
             'question' => 'Which screens first?',
-            'options' => [['label' => 'Contacts', 'description' => 'List and detail'], ['label' => 'Deals', 'description' => '']],
             'multiSelect' => true,
+            'context' => [],
+            'options' => [
+                ['label' => 'Contacts', 'description' => 'List and detail', 'attachments' => [], 'previewHtml' => null],
+                ['label' => 'Deals', 'description' => '', 'attachments' => [], 'previewHtml' => null],
+            ],
         ])
         ->and($question['questions'][1]['multiSelect'])->toBeFalse()
         ->and(liveQuestionEvents($thread))->toBe([['open' => true]]);
@@ -557,4 +562,63 @@ it('tells the app that the files of an answer are queued', function () {
     $row = collect(ThreadMessagesData::for($thread, $user))->firstWhere('id', 'queued-message-' . $queued->id);
 
     expect($row['attachments'])->toHaveCount(1);
+});
+
+function flowQuestion(): array
+{
+    return [
+        'question' => "Which flow?\n\n![Flow today](flow.png)",
+        'header' => 'Flow',
+        'options' => [['label' => 'Mirror', 'description' => 'Same as owned'], ['label' => 'Strict', 'description' => 'Refuse']],
+        'multiSelect' => false,
+    ];
+}
+
+it('collects the shared files a question references', function () {
+    $artifacts = Mockery::spy(ThreadArtifacts::class);
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread, , $task] = threadWithRunningTurn();
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    $artifacts->shouldHaveReceived('collectShared')->once()->with(Mockery::on(fn (Thread $given): bool => $given->is($thread)), ['flow.png']);
+    expect($task->refresh()->liveClarificationRound())->not->toBeNull();
+});
+
+it('does not collect when no question references a file', function () {
+    $artifacts = Mockery::spy(ThreadArtifacts::class);
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread] = threadWithRunningTurn();
+
+    questionLineFor($thread, [colourQuestion()]);
+
+    $artifacts->shouldNotHaveReceived('collectShared');
+});
+
+it('opens the question when collecting shared files fails', function () {
+    $artifacts = Mockery::mock(ThreadArtifacts::class);
+    $artifacts->shouldReceive('collectShared')->andThrow(new RuntimeException('sandbox gone'));
+    app()->instance(ThreadArtifacts::class, $artifacts);
+    [$thread, , $task] = threadWithRunningTurn();
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    expect($task->refresh()->liveClarificationRound())->not->toBeNull()
+        ->and(collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'decline_question'))->toBeNull();
+});
+
+it('collects shared files after the question is recorded and the thread lock is released, then refreshes the card', function () {
+    [$thread, , $task] = threadWithRunningTurn();
+    $baseLevel = DB::transactionLevel();
+    $levels = [];
+    $artifacts = Mockery::mock(ThreadArtifacts::class);
+    $artifacts->shouldReceive('collectShared')->once()->andReturnUsing(function () use (&$levels, $task): void {
+        $levels[] = [DB::transactionLevel(), $task->fresh()->liveClarificationRound() !== null];
+    });
+    app()->instance(ThreadArtifacts::class, $artifacts);
+
+    questionLineFor($thread, [flowQuestion()]);
+
+    expect($levels)->toBe([[$baseLevel, true]])
+        ->and(liveQuestionEvents($thread))->toBe([['open' => true], ['open' => true]]);
 });

@@ -118,6 +118,28 @@ it('refreshes the body of an open pull request when screenshots were collected',
     Queue::assertPushed(CreatePullRequestJob::class, fn (CreatePullRequestJob $job) => $job->refreshOnly);
 });
 
+it('pulls only the referenced shared files mid-turn and skips one that is missing', function () {
+    // flow.png: its size, then one chunk. missing.png: not a regular file.
+    $this->sandboxes->queueExecResult(Process::result('3'));
+    $this->sandboxes->queueExecResult(Process::result(base64_encode('png')));
+    $this->sandboxes->queueExecResult(Process::result('-1'));
+
+    app(ThreadArtifacts::class)->collectShared($this->thread, ['flow.png', 'missing.png']);
+
+    $commands = collect($this->sandboxes->calls)->map(fn (array $call): string => implode(' ', $call['arguments']['command'] ?? []));
+
+    expect($this->task->artifacts()->shared()->pluck('filename')->all())->toBe(['flow.png'])
+        ->and(Storage::disk('artifacts')->get($this->task->artifacts()->shared()->first()->disk_path))->toBe('png')
+        ->and($commands->filter(fn (string $command): bool => str_contains($command, 'tar ') || str_contains($command, 'rm -rf'))->all())->toBe([])
+        ->and($commands->first())->toContain('/workspace/.yak-artifacts/shared/flow.png');
+});
+
+it('never pulls a name that leaves the shared folder', function () {
+    app(ThreadArtifacts::class)->collectShared($this->thread, ['..', '.hidden', 'a/b.png']);
+
+    expect($this->sandboxes->calls)->toBe([]);
+});
+
 it('runs one collection per task at a time so a second collector cannot move files out from under the first', function () {
     $ran = false;
     $heldElsewhere = Cache::lock("artifacts:collect:{$this->task->id}", 60);
@@ -131,4 +153,14 @@ it('runs one collection per task at a time so a second collector cannot move fil
     $heldElsewhere->release();
 
     expect(SandboxArtifactCollector::exclusive($this->task, fn (): string => 'done', waitSeconds: 0))->toBe('done');
+});
+
+it('waits for the per-task collection lock before pulling shared files mid-turn', function () {
+    $heldElsewhere = Cache::lock("artifacts:collect:{$this->task->id}", 60);
+    $heldElsewhere->get();
+
+    expect(fn () => app(ThreadArtifacts::class)->collectShared($this->thread, ['flow.png'], waitSeconds: 0))->toThrow(LockTimeoutException::class)
+        ->and($this->sandboxes->calls)->toBe([]);
+
+    $heldElsewhere->release();
 });

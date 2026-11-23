@@ -14,6 +14,7 @@ use App\Services\ArtifactPersister;
 use App\Services\SandboxArtifactCollector;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 /**
  * Moves what Claude recorded into `.yak-artifacts/` during a turn from the
@@ -70,6 +71,43 @@ class ThreadArtifacts
         if ($task->pr_url !== null && collect($artifacts)->contains('role', 'screenshot')) {
             CreatePullRequestJob::dispatch($task, refreshOnly: true);
         }
+    }
+
+    /**
+     * Mid-turn, pulls the named files from `shared/` so a live question can show them. Each file is pulled on its own,
+     * so a missing or oversized one only leaves that file out; a recording in progress stays for the turn-end collection.
+     * It shares the per-task collection lock, because both use the task's local `.yak-artifacts` folder.
+     *
+     * @param  list<string>  $names  Plain file names inside `shared/`.
+     */
+    public function collectShared(Thread $thread, array $names, int $waitSeconds = 30): void
+    {
+        $names = array_values(array_filter($names, fn (string $name): bool => preg_match('/^[A-Za-z0-9_][A-Za-z0-9._ -]*$/', $name) === 1));
+        $task = $thread->sharesParentSandbox() ? null : $thread->pullRequestTask();
+
+        if ($names === [] || $task === null) {
+            return;
+        }
+
+        $workspacePath = $thread->primaryRepository->sandbox_path ?? '/workspace';
+        $container = (string) $thread->sandbox_container;
+        $shell = ThreadShell::for($thread);
+        $localDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+
+        SandboxArtifactCollector::exclusive($task, function () use ($thread, $task, $shell, $container, $workspacePath, $localDir, $names): void {
+            File::deleteDirectory($localDir);
+            File::ensureDirectoryExists("{$localDir}/shared");
+
+            foreach ($names as $name) {
+                try {
+                    $shell->pullFile($container, "{$workspacePath}/.yak-artifacts/shared/{$name}", "{$localDir}/shared/{$name}");
+                } catch (RuntimeException) {
+                    File::delete("{$localDir}/shared/{$name}");
+                }
+            }
+
+            $this->anchorSharedFiles($thread, ArtifactPersister::persist($task));
+        }, $waitSeconds);
     }
 
     /**

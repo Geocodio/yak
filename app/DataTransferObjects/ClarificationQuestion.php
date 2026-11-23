@@ -11,7 +11,7 @@ final readonly class ClarificationQuestion
     public const MAX_OPTIONS = 4;
 
     /**
-     * @param  list<array{label: string, description: string}>  $options
+     * @param  list<array{label: string, description: string, preview: string}>  $options
      */
     public function __construct(
         public string $id,
@@ -38,6 +38,7 @@ final readonly class ClarificationQuestion
             ->map(fn (array $option): array => [
                 'label' => self::text($option['label']),
                 'description' => self::text($option['description'] ?? null),
+                'preview' => self::text($option['preview'] ?? null),
             ])
             ->unique('label')
             ->take(self::MAX_OPTIONS)
@@ -74,7 +75,7 @@ final readonly class ClarificationQuestion
     }
 
     /**
-     * @return array{id: string, header: string, question: string, options: list<array{label: string, description: string}>, multi_select: bool}
+     * @return array{id: string, header: string, question: string, options: list<array{label: string, description: string, preview: string}>, multi_select: bool}
      */
     public function toArray(): array
     {

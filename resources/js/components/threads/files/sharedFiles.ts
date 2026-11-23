@@ -7,7 +7,7 @@ export function kindLabel(file: SharedFile): string {
 }
 
 /** Open for an HTML report (the viewer), View for an image (the lightbox), Download for the rest. */
-export function openAction(file: SharedFile): 'open' | 'view' | 'download' {
+export function openAction(file: Pick<SharedFile, 'kind'>): 'open' | 'view' | 'download' {
     return file.kind === 'report' ? 'open' : file.kind === 'image' ? 'view' : 'download';
 }
 

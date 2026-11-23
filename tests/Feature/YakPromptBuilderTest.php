@@ -761,3 +761,14 @@ it('writes a short repo and number commit reference for a review task and its fo
     'linear issue' => ['ENG-123', 'ENG-123'],
     'teleport' => ['TELEPORT-UD9UWYPH', 'TELEPORT-UD9UWYPH'],
 ]);
+
+it('tells Claude how to attach visuals to a live question', function () {
+    config(['yak.threads.ask_user_question' => true]);
+    $task = YakTask::factory()->pending()->create(['source' => 'slack', 'description' => 'The checkout page is broken']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, ['requester_name' => 'Alice']);
+
+    expect($prompt)->toContain('![Short caption](file-name.html)')
+        ->toContain('Never draw ASCII art')
+        ->toContain('Option previews only work when `multiSelect` is false.');
+});

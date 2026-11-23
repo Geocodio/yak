@@ -78,17 +78,22 @@
     },
     "questions": [
         {
+            "context": [],
             "header": "On failure",
             "id": "on_failure",
             "multiSelect": false,
             "options": [
                 {
+                    "attachments": [],
                     "description": "",
-                    "label": "Mark the row as failed"
+                    "label": "Mark the row as failed",
+                    "previewHtml": null
                 },
                 {
+                    "attachments": [],
                     "description": "",
-                    "label": "Fail the whole batch"
+                    "label": "Fail the whole batch",
+                    "previewHtml": null
                 }
             ],
             "question": "When all retries fail, what should happen to the row?"

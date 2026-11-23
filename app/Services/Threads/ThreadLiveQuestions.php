@@ -21,6 +21,7 @@ use App\Services\Push\PushEvent;
 use App\Services\Push\PushRecipients;
 use App\Services\Push\ThreadPush;
 use App\Services\ThreadBuilder;
+use App\Support\QuestionAttachments;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -96,6 +97,7 @@ class ThreadLiveQuestions
         }
         $this->events->opened($task);
         $this->notify($thread, $task, count($questions));
+        $this->collectAttachments($thread, $task, $questions);
     }
 
     /**
@@ -454,6 +456,30 @@ class ThreadLiveQuestions
         }
 
         return $questions;
+    }
+
+    /**
+     * Pulls the shared files the questions reference once the thread lock is released, then tells clients to reload
+     * the question so the card shows them. The question is already open, so a failed pull only leaves the files out.
+     *
+     * @param  list<ClarificationQuestion>  $questions
+     */
+    private function collectAttachments(Thread $thread, YakTask $task, array $questions): void
+    {
+        $names = QuestionAttachments::fileNames($questions);
+
+        if ($names === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($thread, $task, $names): void {
+            try {
+                app(ThreadArtifacts::class)->collectShared($thread, $names);
+                $this->events->opened($task);
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        });
     }
 
     private function notify(Thread $thread, YakTask $task, int $questionCount): void
