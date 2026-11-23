@@ -91,7 +91,7 @@ struct QueuedChipsView: View {
         let isDisabled = isBusy || thread.isOffline || !canManage
         let isExpanded = model.expandedTexts.contains(chip.uuid)
         return VStack(alignment: .leading, spacing: Design.Space.nudge) {
-            HStack(alignment: .top, spacing: Design.Space.compact) {
+            HStack(alignment: .center, spacing: Design.Space.compact) {
                 modeLabel(chip)
                 Button {
                     model.toggleText(chip.uuid)
@@ -130,7 +130,6 @@ struct QueuedChipsView: View {
         )
         .font(.yak(.caption, .medium)).foregroundStyle(Color.yakMuted)
         .labelStyle(.titleAndIcon).fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
-        .padding(.top, Design.Space.nudge)
     }
 
     /// Where the message came from and how many files it carries, in one quiet line.
