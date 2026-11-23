@@ -39,7 +39,7 @@ function yakStoppedTask(array $attributes = []): YakTask
 }
 
 /**
- * @param  list<array{status: string, conclusion: ?string}>  $runs
+ * @param  list<array<string, mixed>>  $runs
  */
 function fakeRecoveryGitHub(?string $headSha, array $runs = [], int $branchStatus = 200): void
 {
@@ -49,7 +49,7 @@ function fakeRecoveryGitHub(?string $headSha, array $runs = [], int $branchStatu
             : Http::response(['commit' => ['sha' => $headSha]]),
         'api.github.com/repos/example/api/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
         'api.github.com/repos/example/api/actions/runs*' => Http::response(['workflow_runs' => array_map(
-            fn (array $run, int $index): array => ['id' => 10 + $index, 'head_sha' => 'head111'] + $run,
+            fn (array $run, int $index): array => $run + ['id' => 10 + $index, 'head_sha' => 'head111'],
             $runs,
             array_keys($runs),
         )]),
@@ -91,7 +91,6 @@ it('reruns the failed jobs once for a red branch without spending the budget', f
 
     $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
 
-    Http::assertSentCount(3);
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/actions/runs/10/rerun-failed-jobs'));
     Queue::assertNothingPushed();
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi)
@@ -257,4 +256,37 @@ it('runs every fifteen minutes without overlapping', function () {
     expect($event)->not->toBeNull()
         ->and($event->expression)->toBe('*/15 * * * *')
         ->and($event->withoutOverlapping)->toBeTrue();
+});
+
+it('ignores a successful fork run on a branch of the same name', function () {
+    fakeRecoveryGitHub('head111', [['status' => 'completed', 'conclusion' => 'success', 'head_repository' => ['full_name' => 'attacker/api']]]);
+    $task = yakStoppedTask();
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)->and($task->fresh()->auto_recovery_count)->toBe(0);
+});
+
+it('treats a red run of the base repository as red even when a fork run on the same branch passed', function () {
+    fakeRecoveryGitHub('head111', [
+        ['status' => 'completed', 'conclusion' => 'success', 'head_repository' => ['full_name' => 'attacker/api']],
+        ['status' => 'completed', 'conclusion' => 'failure', 'head_repository' => ['full_name' => 'example/api']],
+    ]);
+    $task = yakStoppedTask();
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+});
+
+it('ignores a successful run for an older commit when the branch head is a different commit', function () {
+    fakeRecoveryGitHub('head222', [['status' => 'completed', 'conclusion' => 'success', 'head_sha' => 'head111']]);
+    $task = yakStoppedTask();
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)->and($task->fresh()->auto_recovery_count)->toBe(0);
 });

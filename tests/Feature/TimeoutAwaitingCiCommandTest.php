@@ -163,7 +163,9 @@ function slowGitHubTask(string $ciSystem = 'github_actions', array $overrides = 
 
 function fakeWorkflowRuns(array $runs): void
 {
-    Http::fake(['api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => $runs])]);
+    Http::fake([
+        'api.github.com/repos/org/slow/branches/*' => Http::response(['commit' => ['sha' => 'new']]),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => $runs])]);
 }
 
 it('keeps waiting while GitHub reports a queued or running workflow', function (string $status) {
@@ -259,7 +261,10 @@ it('measures the maximum wait from the last agent push', function () {
 
 it('fails as before when the GitHub lookup errors', function () {
     Queue::fake();
-    Http::fake(['api.github.com/repos/org/slow/actions/runs*' => Http::response(['message' => 'boom'], 500)]);
+    Http::fake([
+        'api.github.com/repos/org/slow/branches/*' => Http::response(['commit' => ['sha' => 'new']]),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['message' => 'boom'], 500),
+    ]);
 
     $task = slowGitHubTask();
 
@@ -289,9 +294,11 @@ test('the maximum wait restarts when a dashboard retry goes back to CI', functio
         'message' => TimeoutAwaitingCiCommand::CI_RESUMED_LOG_MESSAGE,
         'created_at' => now()->subMinutes(40),
     ]);
-    Http::fake(['api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => [
-        ['id' => 1, 'head_sha' => 'abc', 'status' => 'queued', 'conclusion' => null],
-    ]])]);
+    Http::fake([
+        'api.github.com/repos/org/slow/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 1, 'head_sha' => 'abc', 'status' => 'queued', 'conclusion' => null],
+        ]])]);
 
     $this->artisan('yak:timeout-ci');
 
@@ -320,6 +327,54 @@ it('still fails when one run on the branch head failed', function () {
     fakeWorkflowRuns([
         ['id' => 2, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'success'],
         ['id' => 3, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'failure'],
+    ]);
+
+    $task = slowGitHubTask();
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+});
+
+it('does not open the pull request from a successful fork run on a branch of the same name', function () {
+    Queue::fake();
+    fakeWorkflowRuns([
+        ['id' => 2, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'success', 'head_repository' => ['full_name' => 'attacker/slow']],
+    ]);
+
+    $task = slowGitHubTask();
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+});
+
+it('does not open the pull request from a successful run for an older commit', function () {
+    Queue::fake();
+    Http::fake([
+        'api.github.com/repos/org/slow/branches/*' => Http::response(['commit' => ['sha' => 'head2']]),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 2, 'head_sha' => 'head1', 'status' => 'completed', 'conclusion' => 'success'],
+        ]]),
+    ]);
+
+    $task = slowGitHubTask();
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+});
+
+it('does not open the pull request when the branch head cannot be read', function () {
+    Queue::fake();
+    Http::fake([
+        'api.github.com/repos/org/slow/branches/*' => Http::response([], 500),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 2, 'head_sha' => 'new', 'status' => 'completed', 'conclusion' => 'success'],
+        ]]),
     ]);
 
     $task = slowGitHubTask();

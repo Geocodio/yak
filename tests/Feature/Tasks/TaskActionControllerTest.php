@@ -423,6 +423,7 @@ function fakeBranchRuns(array $runs): void
 {
     Http::fake([
         'api.github.com/repos/org/slow/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/org/slow/branches/*' => Http::response(['commit' => ['sha' => $runs[0]['head_sha'] ?? 'none']]),
         'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => $runs]),
     ]);
 }

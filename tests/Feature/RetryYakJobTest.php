@@ -66,6 +66,7 @@ test('a retry that leaves the branch unchanged reruns the failed CI jobs instead
     $task = unchangedRetryTask();
     Http::fake([
         'api.github.com/repos/org/flaky/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
         'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
             ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'failure'],
         ]]),
@@ -81,7 +82,9 @@ test('a retry that leaves the branch unchanged reruns the failed CI jobs instead
 
 test('a retry that leaves the branch unchanged fails at once when no CI jobs can rerun', function () {
     $task = unchangedRetryTask();
-    Http::fake(['api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => []])]);
+    Http::fake([
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => []])]);
 
     finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'Nothing to change.', TaskRunKind::Retry);
 
@@ -91,9 +94,11 @@ test('a retry that leaves the branch unchanged fails at once when no CI jobs can
 
 test('a retry that leaves a green branch without a pull request opens the pull request', function () {
     $task = unchangedRetryTask();
-    Http::fake(['api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
-        ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'success'],
-    ]])]);
+    Http::fake([
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'success'],
+        ]])]);
 
     finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'The work is already on the branch.', TaskRunKind::Retry);
 
