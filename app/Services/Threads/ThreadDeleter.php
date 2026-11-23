@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
+use App\Exceptions\ThreadSandboxNotDestroyed;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -11,7 +12,6 @@ use App\Models\YakTask;
 use App\Services\Push\Widgets\WidgetReloads;
 use App\Services\Threads\Contracts\BrokerStreams;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
  * Removes a thread and its sub-threads from Yak: sandboxes, runs, tasks and
@@ -26,7 +26,7 @@ class ThreadDeleter
     ) {}
 
     /**
-     * @throws RuntimeException when a sandbox could not be destroyed, so no row is removed while a container would be left behind
+     * @throws ThreadSandboxNotDestroyed when a sandbox could not be destroyed, so no row is removed while a container would be left behind
      */
     public function delete(Thread $thread): void
     {
@@ -41,7 +41,7 @@ class ThreadDeleter
             $this->sandbox->destroy($member, preserveWork: false);
 
             if (! in_array($member->refresh()->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroyed], true)) {
-                throw new RuntimeException('The sandbox could not be destroyed yet. Try again in a moment.');
+                throw new ThreadSandboxNotDestroyed;
             }
         }
 

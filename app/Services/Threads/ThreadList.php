@@ -82,6 +82,47 @@ class ThreadList
             ->orderByDesc('id')
             ->get();
 
+        $rows = self::rows($roots, $user);
+
+        $needsYouCount = count(array_filter($rows, fn (array $row): bool => $row['needsYouReason'] !== null));
+        $facets = self::withPickedKeys(self::facets($rows, $user), $sources, $starters);
+
+        // ponytail: filters the whole tab in memory; move to whereSources / whereStarters in SQL once the list paginates.
+        $rows = array_filter($rows, fn (array $row): bool => ($sources === [] || in_array($row['source']['key'], $sources, true))
+            && ($starters === [] || in_array($row['starter']['key'], $starters, true)));
+
+        $starred = [];
+        $needsYou = [];
+        $rest = [];
+
+        foreach ($rows as $row) {
+            if ($row['isStarred']) {
+                $starred[] = $row;
+            } elseif ($row['needsYouReason'] === null) {
+                $rest[] = $row;
+            } else {
+                $needsYou[] = $row;
+            }
+        }
+
+        return [
+            'starred' => $starred,
+            'needsYou' => $needsYou,
+            'threads' => $rest,
+            'needsYouCount' => $needsYouCount,
+            'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
+            'facets' => $facets,
+        ];
+    }
+
+    /**
+     * The rows of the given roots, each with its visible sub-thread rows.
+     *
+     * @param  Collection<int, Thread>  $roots
+     * @return list<array<string, mixed>>
+     */
+    private static function rows(Collection $roots, User $user): array
+    {
         $all = $roots->concat($roots->flatMap(fn (Thread $root) => $root->children));
         $runs = TaskRun::query()
             ->whereIn('id', $all->map(fn (Thread $thread): mixed => $thread->getAttribute('latest_run_id'))->filter()->all())
@@ -124,35 +165,42 @@ class ThreadList
             $rows[] = $row;
         }
 
-        $needsYouCount = count(array_filter($rows, fn (array $row): bool => $row['needsYouReason'] !== null));
-        $facets = self::withPickedKeys(self::facets($rows, $user), $sources, $starters);
+        return $rows;
+    }
 
-        // ponytail: filters the whole tab in memory; move to whereSources / whereStarters in SQL once the list paginates.
-        $rows = array_filter($rows, fn (array $row): bool => ($sources === [] || in_array($row['source']['key'], $sources, true))
-            && ($starters === [] || in_array($row['starter']['key'], $starters, true)));
+    /**
+     * One thread's row, in the shape the list uses; null when the viewer may not see it.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function rowFor(User $user, Thread $thread): ?array
+    {
+        $roots = Thread::query()
+            ->withoutVisibilityScope()
+            ->visibleTo($user)
+            ->whereKey($thread->id)
+            ->select('threads.*')
+            ->addSelect(['latest_run_id' => self::latestRunId()])
+            ->withExists('shares as is_shared')
+            ->with([
+                'creator:id,name,avatar_url',
+                'children.creator:id,name,avatar_url',
+                'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
+                'children' => fn (Relation $relation) => self::scopeChildren($relation, $user, $thread->status->value),
+                'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status'])->orderBy('id'),
+            ])
+            ->get();
 
-        $starred = [];
-        $needsYou = [];
-        $rest = [];
+        $row = self::rows($roots, $user)[0] ?? null;
 
-        foreach ($rows as $row) {
-            if ($row['isStarred']) {
-                $starred[] = $row;
-            } elseif ($row['needsYouReason'] === null) {
-                $rest[] = $row;
-            } else {
-                $needsYou[] = $row;
-            }
+        // A sub-thread's row is built as the list builds it: the root's privacy, and no delete from the list.
+        if ($row !== null && $thread->parent_thread_id !== null) {
+            $row['isPrivate'] = $thread->isPrivate();
+            $row['isShared'] = $row['isPrivate'] && $thread->rootThread()->shares()->exists();
+            $row['canDelete'] = false;
         }
 
-        return [
-            'starred' => $starred,
-            'needsYou' => $needsYou,
-            'threads' => $rest,
-            'needsYouCount' => $needsYouCount,
-            'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
-            'facets' => $facets,
-        ];
+        return $row;
     }
 
     /**

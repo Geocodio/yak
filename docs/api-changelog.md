@@ -61,3 +61,15 @@ New field on thread show, so the protocol stays 1: `composer.turn`, null unless 
 A message sent while Claude waits on a question, with files, answers the question and queues the files for the next message when Claude cannot take them now. `POST threads/{thread}/messages` then returns `status: "queued"` and a `notice` ("Your files go to Claude with the next message."); the queued message appears in the thread `messages` with its attachments. No new fields, so the protocol stays 1.
 
 New field on thread list rows, so the protocol stays 1: `needsYouDetail`, the error text (at most 200 characters) when the thread's latest task failed, otherwise null. Such a row now has `needsYouReason: "blocked"` and `needsYouLabel: "Failed"`.
+
+#### Star, close, delete and search (2026-11-23)
+
+New endpoints, so the protocol stays 1. `POST threads/{thread}/star` takes `{ "starred": true|false }` and sets the star, so a repeat changes nothing. `POST threads/{thread}/close` closes the thread (a closed thread never reopens, so there is no reopen); closing a closed thread changes nothing. Both answer with the thread's row in the shape `GET threads` uses (`type` `thread`, `source`, `isStarred`, `status`, and the rest). `DELETE threads/{thread}` removes the thread, its sub-threads, sandboxes, runs, tasks and attachments, never the GitHub branch or pull request, and answers `{ "id", "status": "deleted" }`; it answers 409 `sandbox_unavailable` with a fixed sentence, and deletes no row, when a sandbox of the thread or of one of its sub-threads could not be destroyed. Sub-thread sandboxes are destroyed before the thread's own, so a refusal can come after some of them are already gone. Star, close and delete work on a sub-thread as on the web: the sub-thread is acted on alone (closing or deleting a sub-thread leaves its root), and its row inherits the root's privacy with `canDelete` false. Star needs read access; close and delete need drive rights (a share recipient gets 403), as on the web. A hidden thread answers 404.
+
+`GET search?q=` (2 to 100 characters, else 422; 30 requests a minute) returns `{ "results": [...] }`: up to 10 threads, 10 repositories and 10 pull requests the person may see. Each result has `type` (`thread`, `repository` or `pull_request`; treat an unknown value as a row to show by title), `id`, `title`, `subtitle`, `threadId` (the thread to open, or null), `path` (the web path, or null) and `url` (the GitHub address, or null).
+
+The app opens a result's `url` only when it is `https`, and uses `path` only when it starts with `/`; `url` values come from stored GitHub data.
+
+Thread rows already carry `source` (`key`, `label`, `reference`, `url`); an unknown `key` shows its `label`.
+
+Contract fixtures: `thread-star`, `thread-close`, `thread-deleted` and `search`.
