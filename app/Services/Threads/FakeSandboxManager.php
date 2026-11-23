@@ -22,6 +22,12 @@ class FakeSandboxManager implements SandboxManager
 
     public int $memoryBytes = 32 * 1024 ** 3;
 
+    public int $totalMemoryBytes = 64 * 1024 ** 3;
+
+    public float $cpuRatio = 0.25;
+
+    public int $cores = 8;
+
     public float $poolPercent = 10.0;
 
     private bool $copyShouldFail = false;
@@ -118,6 +124,21 @@ class FakeSandboxManager implements SandboxManager
     public function availableMemoryBytes(): int
     {
         return $this->memoryBytes;
+    }
+
+    public function totalMemoryBytes(): int
+    {
+        return $this->totalMemoryBytes;
+    }
+
+    public function cpuUsedRatio(): float
+    {
+        return $this->cpuRatio;
+    }
+
+    public function cpuCores(): int
+    {
+        return $this->cores;
     }
 
     public function poolUsedPercent(): float

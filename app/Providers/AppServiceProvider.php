@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxPoolUsage;
+use App\Services\Settings\EditableSettings;
 use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
@@ -22,9 +23,11 @@ use Carbon\CarbonImmutable;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
         config(['prometheus.enabled' => false]);
 
         $this->app->singleton(IncusSandboxManager::class);
+        $this->app->singleton(EditableSettings::class);
         $this->app->singleton(BrokerStreams::class, fn (): BrokerStreams => new RedisBrokerStreams('threads', 'threads-commands'));
 
         $this->app->bind(AgentRunner::class, BrokerAgentRunner::class);
@@ -90,6 +94,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->applyEditableSettings();
 
         foreach (['thread', 'child', 'task', 'deployment'] as $parameter) {
             Route::pattern($parameter, PublicId::ROUTE_PATTERN);
@@ -107,6 +112,18 @@ class AppServiceProvider extends ServiceProvider
         // Listeners in app/Listeners are auto-discovered. Registering
         // RecordAiUsage here as well made every AI SDK call write two
         // ai_usages rows, doubling API spend on the Costs page.
+    }
+
+    /**
+     * Saved Limits overrides replace config values at boot. Queue workers boot once and run for days, so each job
+     * reapplies them from the cache, which a save clears.
+     */
+    protected function applyEditableSettings(): void
+    {
+        $settings = $this->app->make(EditableSettings::class);
+        $settings->apply();
+
+        Event::listen(JobProcessing::class, fn () => $settings->apply());
     }
 
     /**

@@ -203,6 +203,25 @@ class IncusThreadSandboxManager implements SandboxManager
         return $available;
     }
 
+    public function totalMemoryBytes(): int
+    {
+        return preg_match('/^MemTotal:\s+(\d+)\s+kB/m', ($this->reader)('/proc/meminfo') ?? '', $match) ? (int) $match[1] * 1024 : 0;
+    }
+
+    public function cpuUsedRatio(): float
+    {
+        if (! preg_match('/^(\d+(?:\.\d+)?)/', ($this->reader)('/proc/loadavg') ?? '', $match)) {
+            return 0.0;
+        }
+
+        return min(1.0, max(0.0, (float) $match[1] / $this->cpuCores()));
+    }
+
+    public function cpuCores(): int
+    {
+        return max(1, preg_match_all('/^processor\s*:/m', ($this->reader)('/proc/cpuinfo') ?? ''));
+    }
+
     public function poolUsedPercent(): float
     {
         return Cache::remember(self::POOL_CACHE_KEY, self::POOL_CACHE_SECONDS, function (): float {

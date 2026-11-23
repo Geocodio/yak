@@ -11,6 +11,7 @@ import VideoThemeController from './VideoThemeController'
 import ClaudeAccountController from './ClaudeAccountController'
 import DeviceController from './DeviceController'
 import DevicePairingCodeController from './DevicePairingCodeController'
+import LimitsController from './LimitsController'
 import PeopleController from './PeopleController'
 import SshKeyController from './SshKeyController'
 
@@ -28,6 +29,7 @@ const Settings = {
     ClaudeAccountController: Object.assign(ClaudeAccountController, ClaudeAccountController),
     DeviceController: Object.assign(DeviceController, DeviceController),
     DevicePairingCodeController: Object.assign(DevicePairingCodeController, DevicePairingCodeController),
+    LimitsController: Object.assign(LimitsController, LimitsController),
     PeopleController: Object.assign(PeopleController, PeopleController),
     SshKeyController: Object.assign(SshKeyController, SshKeyController),
 }

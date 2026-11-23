@@ -6,6 +6,7 @@ use App\Http\Controllers\Settings\DeviceController as SettingsDeviceController;
 use App\Http\Controllers\Settings\DevicePairingCodeController;
 use App\Http\Controllers\Settings\EmailAddressController;
 use App\Http\Controllers\Settings\GitHubAccountController;
+use App\Http\Controllers\Settings\LimitsController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\NotificationController;
 use App\Http\Controllers\Settings\PeopleController;
@@ -62,6 +63,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('settings/devices/pairing-codes', [DevicePairingCodeController::class, 'store'])->middleware('throttle:10,1')->name('settings.devices.pairing-codes.store');
     Route::get('settings/devices/pairing-codes/{devicePairingCode}', [DevicePairingCodeController::class, 'show'])->name('settings.devices.pairing-codes.show');
     Route::delete('settings/devices/{device}', [SettingsDeviceController::class, 'destroy'])->name('settings.devices.destroy');
+    Route::get('settings/limits', [LimitsController::class, 'index'])->name('settings.limits');
+    Route::put('settings/limits', [LimitsController::class, 'update'])->name('settings.limits.update');
+    Route::post('settings/limits/reset', [LimitsController::class, 'reset'])->name('settings.limits.reset');
     Route::get('settings/people', [PeopleController::class, 'index'])->name('settings.people');
     Route::patch('settings/people/{user}', [PeopleController::class, 'update'])->name('settings.people.update');
     Route::get('settings/ssh-keys', [SshKeyController::class, 'index'])->name('settings.ssh-keys');

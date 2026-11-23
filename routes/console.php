@@ -23,6 +23,7 @@ Schedule::command('yak:cleanup')->hourly();
 Schedule::command('yak:video:prune')->daily();
 Schedule::command('yak:refresh-claude-models')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
+Schedule::command('yak:record-capacity')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:reap-lost-pending')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
