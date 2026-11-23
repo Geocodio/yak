@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UIKit.UIGestureRecognizerSubclass
 import WebKit
 import YakKit
 
@@ -44,6 +45,28 @@ struct FileViewerWebView: UIViewRepresentable {
     }
 }
 
+/// Records when a finger touches the web view, and gets in the way of nothing: the touch goes on to the page.
+private final class TouchRecorder: UIGestureRecognizer, UIGestureRecognizerDelegate {
+    var onTouch: () -> Void = {}
+
+    override init(target: Any?, action: Selector?) {
+        super.init(target: target, action: action)
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+        delegate = self
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        onTouch()
+        state = .failed
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool { true }
+}
+
 @MainActor
 final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, WKUIDelegate {
     let webView: WKWebView
@@ -52,11 +75,17 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
     private weak var model: FileViewerModel?
     private let policy: FileViewerPolicy
     private let quickLook: WebQuickLook
+    /// What a navigation that the report asks for must follow: a touch of the person, just before it.
+    private var touches = RecentTouchGate()
+    private let now: () -> ContinuousClock.Instant
+    private let recorder = TouchRecorder(target: nil, action: nil)
 
     init(
         model: FileViewerModel, dataStore: WKWebsiteDataStore, version: String, openLink: @escaping (URL) -> Void,
-        openThread: @escaping (String) -> Void, notify: @escaping @MainActor (String) -> Void
+        openThread: @escaping (String) -> Void, notify: @escaping @MainActor (String) -> Void,
+        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now }
     ) {
+        self.now = now
         self.model = model
         policy = model.policy
         self.openLink = openLink
@@ -68,6 +97,11 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
         configuration.applicationNameForUserAgent = "YakApp/\(version) (embed)"
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        recorder.onTouch = { [weak self] in
+            guard let self else { return }
+            self.touches.touched(at: self.now())
+        }
+        webView.addGestureRecognizer(recorder)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = false
@@ -87,6 +121,11 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
 
     func stop() { webView.stopLoading() }
 
+    func close() {
+        webView.stopLoading()
+        quickLook.cancel()
+    }
+
     /// A hidden page also gives up focus, so a field of the report cannot take keystrokes under the lock cover.
     func setHidden(_ isHidden: Bool) {
         guard webView.isHidden != isHidden else { return }
@@ -102,15 +141,22 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction
     ) async -> WKNavigationActionPolicy {
         let type = navigationAction.navigationType
-        // A new window (a link with a target) has no frame yet; it is a link of the main frame for the rule.
+        // A new window (a link with a target) has no frame yet; the link's own frame says where it comes from.
         let target = navigationAction.targetFrame
-        switch policy.decide(
+        let isFromReport = !navigationAction.sourceFrame.isMainFrame
+        let decision = policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod,
-            isMainFrame: target?.isMainFrame ?? true, isUserInitiated: type == .linkActivated || type == .formSubmitted)
-        {
+            isMainFrame: target?.isMainFrame ?? !isFromReport,
+            isUserInitiated: type == .linkActivated || type == .formSubmitted)
+        switch decision {
         case .allow: return target == nil ? .cancel : .allow
         case .cancel: return .cancel
+        case .signedOut:
+            model?.failed(.signedOut)
+            return .cancel
         case .openLink(let url):
+            // Script in the report can click a link on a timer. Only a touch just before it makes it a tap.
+            guard !isFromReport || touches.takesAction(at: now()) else { return .cancel }
             openLink(url)
             return .cancel
         case .openThread(let id):
@@ -125,12 +171,26 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse
     ) async -> WKNavigationResponsePolicy {
-        guard let url = navigationResponse.response.url,
-            let status = (navigationResponse.response as? HTTPURLResponse)?.statusCode,
-            let failure = policy.failure(ofResponseFrom: url, status: status)
-        else { return .allow }
-        model?.failed(failure)
-        return .cancel
+        guard let url = navigationResponse.response.url else { return .allow }
+        let response = navigationResponse.response as? HTTPURLResponse
+        switch policy.responseAction(
+            url: url, status: response?.statusCode ?? 200, isMainFrame: navigationResponse.isForMainFrame,
+            canShowMIMEType: navigationResponse.canShowMIMEType,
+            contentDisposition: response?.value(forHTTPHeaderField: "Content-Disposition"))
+        {
+        case .allow: return .allow
+        case .fail(let failure):
+            model?.failed(failure)
+            return .cancel
+        case .quickLook(let fileURL):
+            let name = navigationResponse.response.suggestedFilename ?? model?.title ?? "file"
+            if quickLook.start(url: fileURL, name: name, in: webView) {
+                model?.handedToQuickLook()
+            } else {
+                model?.failed(.unavailable)
+            }
+            return .cancel
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -151,8 +211,8 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
 
     private func report(_ error: any Error) {
         let nsError = error as NSError
-        // A response the app cancelled ends as an interrupted load, and a cancelled load is not a failure.
-        guard nsError.domain == NSURLErrorDomain, nsError.code != NSURLErrorCancelled else { return }
+        // A navigation the viewer cancelled itself ends as a cancelled or interrupted load; every other error is one.
+        guard !FileViewerPolicy.isOwnCancellation(domain: nsError.domain, code: nsError.code) else { return }
         model?.loadFailed()
     }
 

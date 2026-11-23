@@ -178,7 +178,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         let target = navigationAction.targetFrame
         let decision = policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod,
-            isMainFrame: target?.isMainFrame ?? true,
+            isMainFrame: target?.isMainFrame ?? navigationAction.sourceFrame.isMainFrame,
             isUserInitiated: type == .linkActivated || type == .formSubmitted)
         switch decision {
         case .allow: return target == nil ? .cancel : .allow
@@ -234,9 +234,10 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
         for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        let type = navigationAction.navigationType
         switch policy.decide(
             url: navigationAction.request.url, method: navigationAction.request.httpMethod, isMainFrame: true,
-            isUserInitiated: true)
+            isUserInitiated: type == .linkActivated || type == .formSubmitted)
         {
         case .openLink(let url): model?.open(link: url)
         case .openThread(let id): model?.handleRequest(.openThread(id))

@@ -5,28 +5,48 @@ import Foundation
 extension StubEmbed {
     static let reportName = "Weekly report.html"
     static let reportLinkTarget = "https://example.com/source"
+    /// The file whose report runs a script that clicks a link on a timer, which no tap of a person asked for.
+    static let scriptedFileID = "01HZX3K9AUTOCLICKREPORT000"
+    static let loginPath = "/login"
 
     func sharedFile(_ request: StubRequest) -> StubReply {
         let parts = request.path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
         let isRaw = parts.count == 4 && parts[3] == "raw"
         guard request.method == "GET", parts.count == (isRaw ? 4 : 3), parts[1] == "files", Self.isFileID(parts[2])
         else { return Self.text(404, "Not found") }
-        guard hasSession(request) else {
-            return StubReply(
-                answer: .reply(status: 401, contentType: "text/html", body: Data("<p>Unauthenticated.</p>".utf8)))
-        }
+        // The real server sends a request without a session to its login page; only its embed pages answer 401.
+        guard hasSession(request) else { return Self.loginRedirect() }
         switch fileMode {
         case "missing": return Self.text(404, "Not found")
         case "forbidden": return Self.text(403, "Forbidden")
         case "broken": return Self.text(500, "Server error")
         default: break
         }
-        let body = isRaw ? Self.reportHTML : Self.viewerHTML(id: parts[2])
+        let report = parts[2] == Self.scriptedFileID ? Self.scriptedReportHTML : Self.reportHTML
+        let body = isRaw ? report : Self.viewerHTML(id: parts[2])
         var reply = StubReply(
             answer: .reply(status: 200, contentType: "text/html; charset=utf-8", body: Data(body.utf8)),
             headers: ["Cache-Control": "no-store"])
         if fileMode == "slow", !isRaw { reply.delay = Self.slowReadyDelay }
+        if fileMode == "attachment", !isRaw {
+            reply.answer = .reply(status: 200, contentType: "text/plain", body: Data("Weekly report as text".utf8))
+            reply.headers["Content-Disposition"] = "attachment; filename=\"report.txt\""
+        }
         return reply
+    }
+
+    static func loginRedirect() -> StubReply {
+        StubReply(
+            answer: .reply(status: 302, contentType: "text/plain", body: Data()),
+            headers: ["Location": loginPath, "Cache-Control": "no-store"])
+    }
+
+    /// The server's login page, which an expired session ends up on.
+    func loginPage() -> StubReply {
+        let page = "<!doctype html><title>Sign in - Yak</title><h1>Sign in</h1><p>Sign in with Google to continue.</p>"
+        return StubReply(
+            answer: .reply(status: 200, contentType: "text/html; charset=utf-8", body: Data(page.utf8)),
+            headers: ["Cache-Control": "no-store"])
     }
 
     static func isFileID(_ text: String) -> Bool {
@@ -68,6 +88,22 @@ extension StubEmbed {
         </html>
         """
     }
+
+    /// A report whose script clicks a link three seconds after it loads, as a script of any report could.
+    static let scriptedReportHTML = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>body { font: 1.0625rem -apple-system, sans-serif; margin: 1rem; color: #1b1b1f; background: #fff; } a { color: #0b4fa8; }</style>
+        </head>
+        <body>
+        <h1>Scripted report</h1>
+        <p>This report clicks a link by itself.</p>
+        <p><a id="auto" href="https://example.com/auto">Linked by script</a></p>
+        <script>setTimeout(function () { document.getElementById("auto").click(); }, 3000);</script>
+        </body>
+        </html>
+        """
 
     /// The report: its own text, a link to another site, and no script.
     static let reportHTML = """

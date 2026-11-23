@@ -74,6 +74,24 @@ import XCTest
         XCTAssertTrue(sheet.wait(for: .runningForeground, timeout: Wait.appear))
     }
 
+    /// Script in a report clicks a link on a timer, which WebKit reports as a tap on a link. Without a touch of the
+    /// person just before it, nothing opens.
+    func testAScriptThatClicksALinkByItselfOpensNothing() throws {
+        try launch()
+        openThread()
+        let scripted = app.links["Open scripted report"]
+        XCTAssertTrue(scripted.waitForExistence(timeout: Wait.appear))
+        scripted.tap()
+        XCTAssertTrue(
+            app.staticTexts["This report clicks a link by itself."].waitForExistence(timeout: Wait.appear))
+        // The script clicks three seconds after the report loads.
+        Thread.sleep(forTimeInterval: 8)
+        let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+        XCTAssertFalse(sheet.state == .runningForeground, "a script opened the browser sheet")
+        XCTAssertTrue(viewer.exists)
+        XCTAssertTrue(app.links["Linked by script"].exists)
+    }
+
     func testTheMenuCopiesTheLinkAndOffersSafari() throws {
         try launch()
         openThread()
@@ -101,6 +119,21 @@ import XCTest
         XCTAssertTrue(reportText.waitForExistence(timeout: Wait.appear))
     }
 
+    /// A file the page cannot show, or that the server sends as a download, goes to Quick Look; the viewer never stays
+    /// on Loading for it.
+    func testAFileSentAsADownloadLeavesLoadingAtOnce() throws {
+        try launch()
+        openThread()
+        try stub.post("embed/file/attachment", "")
+        openReport()
+        XCTAssertTrue(viewer.waitForExistence(timeout: Wait.appear))
+        let loading = app.descendants(matching: .any)["thread.loading"]
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: loading)],
+            timeout: Wait.appear)
+        XCTAssertFalse(app.descendants(matching: .any)["thread.slow"].exists)
+    }
+
     func testAServerErrorOffersRetry() throws {
         try launch()
         openThread()
@@ -120,7 +153,8 @@ import XCTest
         XCTAssertTrue(reportText.waitForExistence(timeout: Wait.appear))
     }
 
-    func testAnExpiredSessionRenewsOnceAndShowsTheReport() throws {
+    /// The stub answers a request without a session with a redirect to its login page, like the real server.
+    func testAnExpiredSessionRedirectedToTheLoginPageRenewsOnceAndShowsTheReport() throws {
         try launch()
         openThread()
         try stub.post("embed/expire", "")

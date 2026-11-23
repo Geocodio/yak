@@ -5,7 +5,10 @@ import YakKit
 /// The web view of the file viewer, as far as the model needs it.
 @MainActor protocol FileViewerPage: AnyObject {
     func load(_ request: URLRequest)
+    /// Stops the load that is running.
     func stop()
+    /// The viewer closed: the load and any download started from it end.
+    func close()
 }
 
 /// What the file viewer shows: one shared file's page, and the state of loading it. The web view reports what
@@ -19,6 +22,8 @@ final class FileViewerModel {
         case ready
         /// The server has no such file for this person (403, 404, 410).
         case unavailable
+        /// The file is not a page; it was handed to Quick Look or the share sheet.
+        case handedOff
         case failed(Problem)
         case offline
     }
@@ -41,6 +46,7 @@ final class FileViewerModel {
     @ObservationIgnored private let renewSession: @MainActor () async -> Bool
     @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
     @ObservationIgnored private var hasRenewed = false
+    @ObservationIgnored private var isRenewing = false
     @ObservationIgnored private var timerTask: Task<Void, Never>?
     @ObservationIgnored private var renewTask: Task<Void, Never>?
 
@@ -84,12 +90,13 @@ final class FileViewerModel {
     func close() {
         timerTask?.cancel()
         renewTask?.cancel()
-        page?.stop()
+        page?.close()
     }
 
     private func start() {
         timerTask?.cancel()
         renewTask?.cancel()
+        isRenewing = false
         guard isOnline else {
             phase = .offline
             return
@@ -128,12 +135,21 @@ final class FileViewerModel {
     }
 
     /// A response of 400 or more, from the page or from what it frames.
+    /// Only a load that is still running can fail: a viewer that shows its file is not replaced by an answer of 400 or
+    /// more that something in the report asked for later.
     func failed(_ failure: FileViewerPolicy.Failure) {
+        guard isWaiting else { return }
         switch failure {
         case .signedOut: signedOut()
         case .unavailable: end(.unavailable)
         case .server: end(.failed(.server))
         }
+    }
+
+    /// The file is not a page, and Quick Look took it.
+    func handedToQuickLook() {
+        guard isWaiting else { return }
+        end(.handedOff)
     }
 
     /// The load itself failed: no connection, a lost connection or a refused one.
@@ -147,20 +163,26 @@ final class FileViewerModel {
     private func end(_ phase: Phase) {
         timerTask?.cancel()
         renewTask?.cancel()
+        isRenewing = false
         self.phase = phase
     }
 
     /// The session is not accepted: a new one is minted once, by the thread page's own hand-off, and the file loads
     /// again. A second refusal is an error with Retry.
     private func signedOut() {
-        guard isWaiting else { return }
+        // A second word of the same refusal while the renewal runs changes nothing.
+        guard !isRenewing else { return }
         guard !hasRenewed else { return end(.failed(.session)) }
         hasRenewed = true
+        isRenewing = true
         phase = .loading
+        // The renewal has its own bound; the wait for the file starts again with the new load.
+        timerTask?.cancel()
         renewTask?.cancel()
         renewTask = Task { [weak self, renewSession] in
             let isRenewed = await renewSession()
             guard !Task.isCancelled, let self else { return }
+            isRenewing = false
             if isRenewed { start() } else { end(.failed(.session)) }
         }
     }
@@ -174,6 +196,7 @@ final class FileViewerModel {
         case .slow: .slow
         case .ready: .conversation
         case .unavailable: .serverError(message: String(localized: "viewer.failed.unavailable"))
+        case .handedOff: .serverError(message: String(localized: "viewer.handedOff"))
         case .offline: .offlineWithoutCopy
         case .failed(let problem):
             switch problem {

@@ -67,8 +67,9 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
     }
 
     /// Starts the download; one at a time, and only for an address on the instance's own origin.
-    func start(url: URL, name: String, in webView: WKWebView) {
-        guard !isBusy, policy.isInstanceOrigin(url) else { return }
+    @discardableResult
+    func start(url: URL, name: String, in webView: WKWebView) -> Bool {
+        guard !isBusy, policy.isInstanceOrigin(url) else { return false }
         isBusy = true
         self.webView = webView
         presentation = QuickLookFile.presentation(forFileName: name)
@@ -98,6 +99,14 @@ final class WebQuickLook: NSObject, WKDownloadDelegate, QLPreviewControllerDataS
                 }
             }
         }
+        return true
+    }
+
+    /// Ends a download that is still running, without a word: the screen that asked for it is gone.
+    func cancel() {
+        guard isBusy else { return }
+        if let current { Task { _ = await current.cancel() } }
+        finish()
     }
 
     private static func size(of file: URL) -> Int64? {

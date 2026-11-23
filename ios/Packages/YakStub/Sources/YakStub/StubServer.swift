@@ -226,7 +226,8 @@ final class StubServer: Sendable {
         if !online.get(), isAPI { return StubReply(answer: .drop) }
         let host = request.headers["host"] ?? "127.0.0.1"
         let core: @Sendable () -> StubReply = { [self] in coreReply(to: request, baseURL: "http://\(host)") }
-        let isEmbedPage = request.path.hasPrefix("/app/embed/") || request.path.hasPrefix("/files/")
+        let isEmbedPage =
+            request.path.hasPrefix("/app/embed/") || request.path.hasPrefix("/files/") || request.path == "/login"
         if isAPI || isEmbedPage, !features.isEmpty {
             let context = StubContext(
                 scenario: featureScenario.get() ?? attachmentScenario.get() ?? current.get().rawValue,

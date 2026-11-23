@@ -15228,6 +15228,16 @@
         }
       }
     },
+    "viewer.handedOff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not a page. It opens in a preview instead."
+          }
+        }
+      }
+    },
     "viewer.loading" : {
       "localizations" : {
         "en" : {
@@ -15243,7 +15253,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share"
+            "value" : "File actions"
           }
         }
       }

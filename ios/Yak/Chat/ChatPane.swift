@@ -99,10 +99,10 @@ private struct ChatPane: View {
 
     /// A shared file's page opens in the viewer, which is signed in through the conversation's own session.
     private func openFile(_ url: URL) {
-        let policy = web.map {
-            FileViewerPolicy(instanceURL: $0.instanceURL, allowsLoopbackHTTP: $0.allowsLoopbackHTTP)
-        }
-        guard let web, let policy, policy.canShow(url) else {
+        guard let web,
+            let policy = FileViewerPolicy(
+                fileURL: url, instanceURL: web.instanceURL, allowsLoopbackHTTP: web.allowsLoopbackHTTP)
+        else {
             browserURL = BrowserLink(url: url)
             return
         }

@@ -10,8 +10,10 @@ private let fileURL = URL(string: "https://yak.example.com/files/01HZX3K9ABCDEFG
 @MainActor private final class FakeViewerPage: FileViewerPage {
     var loads: [URLRequest] = []
     var stops = 0
+    var closes = 0
     func load(_ request: URLRequest) { loads.append(request) }
     func stop() { stops += 1 }
+    func close() { closes += 1 }
 }
 
 /// A sleep the test releases by hand: no real time passes, and a cancelled sleep ends at once.
@@ -48,20 +50,35 @@ private actor ViewerSleepGate {
     let gate = ViewerSleepGate()
     var renewals = 0
     var renewalResult = true
+    /// While set, a renewal waits here until `finishRenewal` is called.
+    var holdsRenewal = false
+    private var heldRenewal: CheckedContinuation<Void, Never>?
     let model: FileViewerModel
 
     init(isOnline: Bool = true, attach: Bool = true) {
         let gate = gate
         var box: ViewerHarness?
         model = FileViewerModel(
-            url: fileURL, policy: FileViewerPolicy(instanceURL: instanceURL), isOnline: isOnline,
+            url: fileURL, policy: FileViewerPolicy(fileURL: fileURL, instanceURL: instanceURL)!, isOnline: isOnline,
             renewSession: {
                 box?.renewals += 1
+                if box?.holdsRenewal == true { await box?.holdRenewal() }
                 return box?.renewalResult ?? false
             }, sleep: { try await gate.sleep($0) })
         box = self
         if attach { model.attach(page) }
     }
+
+    private func holdRenewal() async {
+        await withCheckedContinuation { heldRenewal = $0 }
+    }
+
+    func finishRenewal() {
+        heldRenewal?.resume()
+        heldRenewal = nil
+    }
+
+    var isRenewalHeld: Bool { heldRenewal != nil }
 }
 
 @MainActor @Suite struct FileViewerModelTests {
@@ -111,7 +128,7 @@ private actor ViewerSleepGate {
     @Test(arguments: [403, 404, 410])
     func aFileThatIsNotThereSaysSoAndNeverShowsAnErrorPage(status: Int) {
         let harness = ViewerHarness()
-        let failure = harness.model.policy.failure(ofResponseFrom: fileURL, status: status)!
+        let failure = harness.model.policy.failure(ofResponseFrom: fileURL, status: status, isMainFrame: true)!
         harness.model.failed(failure)
         #expect(harness.model.phase == .unavailable)
         #expect(harness.model.presentation == .serverError(message: String(localized: "viewer.failed.unavailable")))
@@ -217,10 +234,73 @@ private actor ViewerSleepGate {
         #expect(harness.model.phase == .loading)
     }
 
-    @Test func closingStopsTheLoad() {
+    @Test func closingEndsTheLoadAndAnyDownloadStartedFromTheViewer() {
         let harness = ViewerHarness()
         harness.model.close()
-        #expect(harness.page.stops == 1)
+        #expect(harness.page.closes == 1)
+    }
+
+    @Test func aLoadedViewerIsNotReplacedByALaterFailureOfSomethingTheReportAskedFor() {
+        let harness = ViewerHarness()
+        harness.model.finished(pageTitle: "Report - Yak")
+        for failure in [FileViewerPolicy.Failure.unavailable, .server(500), .signedOut] {
+            harness.model.failed(failure)
+        }
+        harness.model.loadFailed()
+        harness.model.handedToQuickLook()
+        #expect(harness.model.phase == .ready)
+        #expect(harness.renewals == 0)
+    }
+
+    @Test func aFileThatIsNotAPageIsHandedToQuickLookAndNeverLeftLoading() {
+        let harness = ViewerHarness()
+        harness.model.handedToQuickLook()
+        #expect(harness.model.phase == .handedOff)
+        #expect(harness.model.presentation == .serverError(message: String(localized: "viewer.handedOff")))
+        harness.model.retry()
+        #expect(harness.model.phase == .loading)
+    }
+
+    @Test func aSecondWordOfTheSameRefusalDuringTheRenewalChangesNothing() async {
+        let harness = ViewerHarness()
+        harness.holdsRenewal = true
+        harness.model.failed(.signedOut)
+        harness.model.failed(.signedOut)
+        #expect(await TestTimeScale.poll { harness.isRenewalHeld })
+        #expect(harness.model.phase == .loading)
+        #expect(harness.renewals == 1)
+        harness.finishRenewal()
+        #expect(await TestTimeScale.poll { harness.page.loads.count == 2 })
+    }
+
+    @Test func aSlowRenewalIsASessionErrorWithRetryNotATimeout() async {
+        let harness = ViewerHarness()
+        harness.holdsRenewal = true
+        harness.renewalResult = false
+        harness.model.failed(.signedOut)
+        #expect(await TestTimeScale.poll { harness.isRenewalHeld })
+        // The wait for the file is not running while the renewal is.
+        #expect(await TestTimeScale.poll { await !harness.gate.isWaiting(for: FileViewerModel.slowAfter) })
+        await harness.gate.release(FileViewerModel.slowAfter)
+        await harness.gate.release(FileViewerModel.failAfter - FileViewerModel.slowAfter)
+        #expect(harness.model.phase == .loading)
+        harness.finishRenewal()
+        #expect(await TestTimeScale.poll { harness.model.phase == .failed(.session) })
+        #expect(harness.page.stops == 0)
+    }
+
+    @Test func aRedirectToTheLoginPageIsAnExpiredSessionThatRenewsOnce() async {
+        let harness = ViewerHarness()
+        let login = URL(string: "https://yak.example.com/login")!
+        #expect(
+            harness.model.policy.decide(url: login, method: nil, isMainFrame: true, isUserInitiated: false)
+                == .signedOut)
+        harness.model.failed(.signedOut)
+        #expect(await TestTimeScale.poll { harness.page.loads.count == 2 })
+        #expect(harness.renewals == 1)
+        harness.model.failed(.signedOut)
+        #expect(harness.model.phase == .failed(.session))
+        #expect(harness.page.loads.count == 2)
     }
 }
 

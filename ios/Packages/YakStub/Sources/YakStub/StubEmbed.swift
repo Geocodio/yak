@@ -30,7 +30,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     private var pageLoads = 0
     private var expiresNextLoad = false
     private var isOnline = true
-    /// How the shared file pages answer: `ok`, `missing` (404), `forbidden` (403), `broken` (500) or `slow` (the page
+    /// How the shared file pages answer: `ok`, `missing` (404), `forbidden` (403), `broken` (500), `attachment` (the page is sent as a download) or `slow` (the page
     /// waits 12 seconds). `POST /__stub/embed/file/<mode>` sets it.
     var fileMode = "ok"
 
@@ -139,7 +139,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data("expired".utf8)))
         case let path where path.hasPrefix("/__stub/embed/file/") && request.method == "POST":
             let mode = String(path.dropFirst("/__stub/embed/file/".count))
-            guard ["ok", "missing", "forbidden", "broken", "slow"].contains(mode) else { return nil }
+            guard ["ok", "missing", "forbidden", "broken", "slow", "attachment"].contains(mode) else { return nil }
             lock.withLock { fileMode = mode }
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(mode.utf8)))
         default:
@@ -154,6 +154,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         if request.path == Self.redeemPath, request.method == "POST" { return redeem(request) }
         if request.path.hasPrefix(Self.threadPrefix), request.method == "GET" { return page(request, context: context) }
         if request.path.hasPrefix("/files/") { return sharedFile(request) }
+        if request.path == Self.loginPath, request.method == "GET" { return loginPage() }
         return nil
     }
 
@@ -283,6 +284,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <p>Weekly report.html</p>
         <a id="open-report" class="action" href="/files/01HZX3K9ABCDEFGHJKMNPQRSTV" target="_blank" rel="noopener noreferrer" data-testid="embed-open-report">Open report</a>
         <button id="copy-report" data-testid="embed-copy-report">Copy report link</button>
+        <a id="open-scripted" class="action" href="/files/01HZX3K9AUTOCLICKREPORT000" target="_blank" rel="noopener noreferrer" data-testid="embed-open-scripted">Open scripted report</a>
         </section>
         <h2>Messages</h2>
         <ul id="messages" data-testid="embed-messages" aria-label="Messages"></ul>

@@ -57,24 +57,32 @@ public struct EmbedNavigationPolicy: Equatable, Sendable {
 
     /// A link to the page of one shared file of this instance: `/files/` and 26 letters or digits, with no query and no
     /// fragment. The web view of the app is signed in for these pages, the browser sheet is not.
-    public func isSharedFilePage(_ url: URL) -> Bool { sharedFileSuffix(of: url, allowsQuery: false) == "" }
+    public func isSharedFilePage(_ url: URL) -> Bool { sharedFile(url, allowsQuery: false)?.suffix == "" }
 
     /// The bytes of a shared file, which the file page frames: `/files/<id>/raw`, with no query and no fragment.
-    public func isSharedFileRaw(_ url: URL) -> Bool { sharedFileSuffix(of: url, allowsQuery: false) == "/raw" }
+    public func isSharedFileRaw(_ url: URL) -> Bool { sharedFile(url, allowsQuery: false)?.suffix == "/raw" }
 
     /// The raw address with the one query the page's Download link uses.
     public func isSharedFileDownload(_ url: URL) -> Bool {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?.query == "download=1"
-            && sharedFileSuffix(of: url, allowsQuery: true) == "/raw"
+            && sharedFile(url, allowsQuery: true)?.suffix == "/raw"
     }
 
-    /// What follows the id in a shared file address (`""` or `"/raw"`); nil for any other address.
-    private func sharedFileSuffix(of url: URL, allowsQuery: Bool) -> String? {
+    /// The id in a shared file address of any of the three forms.
+    public func sharedFileID(of url: URL) -> String? {
+        if isSharedFilePage(url) || isSharedFileRaw(url) || isSharedFileDownload(url) {
+            return sharedFile(url, allowsQuery: true)?.id
+        }
+        return nil
+    }
+
+    /// The id and what follows it in a shared file address (`""` or `"/raw"`); nil for any other address.
+    private func sharedFile(_ url: URL, allowsQuery: Bool) -> (id: String, suffix: String)? {
         guard isInstanceOrigin(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             components.fragment == nil, allowsQuery || components.query == nil,
-            let match = components.percentEncodedPath.wholeMatch(of: /\/files\/[A-Za-z0-9]{26}(|\/raw)/)
+            let match = components.percentEncodedPath.wholeMatch(of: /\/files\/([A-Za-z0-9]{26})(|\/raw)/)
         else { return nil }
-        return String(match.1)
+        return (String(match.1), String(match.2))
     }
 
     /// The origin of a script message's frame, as WebKit names it. A port of 0 is the scheme's default port.
