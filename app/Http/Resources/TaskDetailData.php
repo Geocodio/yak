@@ -751,7 +751,7 @@ final class TaskDetailData
     }
 
     /**
-     * @return list<array{id: string, header: string, question: string, multiSelect: bool, options: list<array{label: string, description: string}>}>|null
+     * @return list<array<string, mixed>>|null
      */
     private static function questions(YakTask $head): ?array
     {
@@ -761,13 +761,7 @@ final class TaskDetailData
 
         $questions = $head->pendingClarificationQuestions();
 
-        return $questions === [] ? null : array_map(fn ($question): array => [
-            'id' => $question->id,
-            'header' => $question->header,
-            'question' => $question->question,
-            'multiSelect' => $question->multiSelect,
-            'options' => $question->options,
-        ], $questions);
+        return $questions === [] ? null : ThreadQuestionData::questions($head, $questions);
     }
 
     private static function pullRequestLabel(YakTask $task): string

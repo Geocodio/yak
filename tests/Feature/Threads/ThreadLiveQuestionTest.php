@@ -81,8 +81,12 @@ it('turns a runner question line into the question prop and a question event', f
             'id' => 'q1',
             'header' => 'Screens',
             'question' => 'Which screens first?',
-            'options' => [['label' => 'Contacts', 'description' => 'List and detail'], ['label' => 'Deals', 'description' => '']],
             'multiSelect' => true,
+            'context' => [],
+            'options' => [
+                ['label' => 'Contacts', 'description' => 'List and detail', 'attachment' => null, 'previewHtml' => null],
+                ['label' => 'Deals', 'description' => '', 'attachment' => null, 'previewHtml' => null],
+            ],
         ])
         ->and($question['questions'][1]['multiSelect'])->toBeFalse()
         ->and(liveQuestionEvents($thread))->toBe([['open' => true]]);

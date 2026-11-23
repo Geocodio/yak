@@ -6,6 +6,7 @@ use App\DataTransferObjects\ThreadEntry;
 use App\Enums\TaskStatus;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Support\QuestionAttachments;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -150,7 +151,7 @@ class ThreadBuilder
 
             return [
                 'header' => (string) $question['header'],
-                'question' => (string) ($question['question'] ?? $question['header']),
+                'question' => QuestionAttachments::strip((string) ($question['question'] ?? $question['header'])),
                 'answer' => $choices !== [] ? implode(', ', $choices) : null,
                 'choices' => array_map(fn (string $label): array => ['label' => $label, 'description' => is_string($descriptions[$label] ?? null) ? $descriptions[$label] : null], $choices),
                 'other' => $other,
