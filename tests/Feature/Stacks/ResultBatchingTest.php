@@ -13,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\Stacks\StackResultBatcher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 require_once __DIR__ . '/../../Support/ThreadTurnsHelpers.php';
 
@@ -80,7 +81,8 @@ it('delivers one combined message for two finished children', function () {
     expect(TaskRun::query()->where('thread_id', $parent->id)->count())->toBe(1)
         ->and($prompt)->toContain('Result from api (implement): API done')->toContain('Branch: yak/p/api')
         ->and($prompt)->toContain('Result from ui (implement): UI done')->toContain('Branch: yak/p/ui')
-        ->and($prompt)->toContain('Fetch and merge each implement branch');
+        ->and($prompt)->toContain('Fetch and merge each implement branch')
+        ->and(DB::table('thread_events')->where('thread_id', $parent->id)->where('type', 'child.result')->count())->toBe(2);
 });
 
 it('delivers once when the command runs twice', function () {

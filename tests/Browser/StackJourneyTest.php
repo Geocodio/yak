@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\RunnerState;
 use App\Enums\StackThreadMessageKind;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Models\StackThreadMessage;
@@ -10,6 +12,9 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Stacks\ChildCardPublisher;
 use App\Services\Threads\ThreadEventPublisher;
+use Illuminate\Support\Facades\Queue;
+
+require_once __DIR__ . '/../Helpers/BrowserHelpers.php';
 
 /**
  * Journey 7: a thread spawns sub-threads, one result comes back, one child fails,
@@ -50,7 +55,7 @@ it('shows sub-threads as cards and in the Stack panel, and stops the stack', fun
         ->assertPresent('[data-testid="child-take-over"]')
         ->assertPresent('[data-testid="stack-panel"]')
         ->assertPresent('[data-testid="stack-child-' . $failed->public_id . '"]')
-        ->click('[data-testid="stack-limit-increase"]')
+        ->click('[data-testid="stack-menu"]')
         ->click('[data-testid="stack-stop"]')
         ->click('[data-testid="stack-stop-confirm"]')
         ->assertMissing('[data-testid="stack-stop-confirm"]');
@@ -80,7 +85,7 @@ it('shows the sub-thread count in the header and the awake total in the Stack gr
 
     visit(route('threads.show', $parent))
         ->assertSeeIn('[data-testid="thread-header-subthreads"]', '3 sub-threads')
-        ->assertSeeIn('[data-testid="stack-limit-summary"]', '3 of 3 awake');
+        ->assertSeeIn('[data-testid="stack-limit-summary"]', '3 can run at the same time');
 });
 
 it('hides the Stack group and the header count while a thread has no sub-threads', function () {
@@ -105,19 +110,105 @@ it('shows the Stack group first in the Overview once a sub-thread exists', funct
         ->assertNoJavaScriptErrors();
 });
 
-it('orders the stack panel and collapses the messages', function () {
+it('lists a sub-thread that has not run yet as Starting and leaves the Messages box out of the sidebar', function () {
     $this->actingAs(User::factory()->create());
     $parent = Thread::factory()->create();
     $child = Thread::factory()->child($parent)->create(['name' => 'scout']);
     StackThreadMessage::factory()->count(4)->create(['root_thread_id' => $parent->id, 'from_thread_id' => $child->id, 'to_thread_id' => $parent->id, 'kind' => StackThreadMessageKind::Result]);
 
-    visit(route('threads.show', $parent))
-        ->assertSeeIn('[data-testid="stack-children-header"]', '1 of 12')
-        ->assertSeeIn('[data-testid="stack-child-' . $child->public_id . '"] [data-testid="state-pill"]', 'Waiting for a slot')
-        ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 3)
-        ->assertScript('(() => { const top = (testid) => document.querySelector(`[data-testid="${testid}"]`).getBoundingClientRect().top; return top("stack-children-header") < top("stack-limit"); })()', true)
-        ->click('[data-testid="stack-messages-show-all"]')
-        ->assertScript('document.querySelectorAll(\'[data-testid^="stack-message-"]\').length', 4);
+    $page = visit(route('threads.show', $parent));
+    waitUntilPresent($page, '[data-testid="stack-child-' . $child->public_id . '"]');
+
+    $page->assertSeeIn('[data-testid="stack-children-header"]', '1 of 12')
+        ->assertSeeIn('[data-testid="stack-child-' . $child->public_id . '-line"]', 'Implement · Starting')
+        ->assertMissing('[data-testid="stack-messages"]')
+        ->assertDontSee('Messages come from threads');
+});
+
+it('shows no limit line while every sub-thread is a research one', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    $child = Thread::factory()->child($parent)->create(['name' => 'reader', 'kind' => ThreadKind::Research, 'queued_for_slot_at' => now()]);
+
+    $page = visit(route('threads.show', $parent));
+    waitUntilPresent($page, '[data-testid="stack-child-' . $child->public_id . '"]');
+
+    $page->assertSeeIn('[data-testid="stack-child-' . $child->public_id . '-line"]', 'Research · Starting')
+        ->assertMissing('[data-testid="stack-limit-summary"]')
+        ->assertMissing('[data-testid="stack-child-' . $child->public_id . '-reason"]');
+});
+
+it('explains why a sub-thread waits and raises the limit by one from its button', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create(['child_awake_limit' => 1]);
+    Thread::factory()->child($parent)->create(['sandbox_state' => ThreadSandboxState::Running]);
+    $waiting = Thread::factory()->child($parent)->create(['name' => 'settings', 'queued_for_slot_at' => now()]);
+
+    $page = visit(route('threads.show', $parent));
+    waitUntilPresent($page, '[data-testid="stack-child-' . $waiting->public_id . '-start-now"]');
+
+    $page->assertSeeIn('[data-testid="stack-child-' . $waiting->public_id . '-reason"]', 'Waiting for a free spot. 1 sub-thread is already running, so this one starts when it finishes.')
+        ->assertSeeIn('[data-testid="stack-child-' . $waiting->public_id . '-start-now"]', 'Start now and allow 2 at a time')
+        ->assertSeeIn('[data-testid="stack-limit-summary"]', '1 can run at the same time')
+        ->click('[data-testid="stack-child-' . $waiting->public_id . '-start-now"]');
+    waitUntilPresent($page, '[data-testid="stack-limit-summary"]');
+
+    expect($parent->fresh()->child_awake_limit)->toBe(2);
+});
+
+it('edits the limit inline with Save and Cancel', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create(['child_awake_limit' => 3]);
+    Thread::factory()->child($parent)->create();
+
+    $page = visit(route('threads.show', $parent));
+    waitUntilPresent($page, '[data-testid="stack-limit-change"]');
+
+    $page->click('[data-testid="stack-limit-change"]')
+        ->assertSeeIn('[data-testid="stack-limit-editor"]', 'Running at the same time')
+        ->assertSeeIn('[data-testid="stack-limit-editor"]', 'Max ' . config('yak.threads.person_awake_cap'))
+        ->click('[data-testid="stack-limit-increase"]')
+        ->click('[data-testid="stack-limit-cancel"]');
+    waitUntilPresent($page, '[data-testid="stack-limit-editor"]', false);
+
+    expect($parent->fresh()->child_awake_limit)->toBe(3);
+
+    $page->click('[data-testid="stack-limit-change"]')
+        ->click('[data-testid="stack-limit-increase"]')
+        ->click('[data-testid="stack-limit-save"]');
+    waitUntilPresent($page, '[data-testid="stack-limit-editor"]', false);
+
+    $page->assertSeeIn('[data-testid="stack-limit-summary"]', '4 can run at the same time');
+    expect($parent->fresh()->child_awake_limit)->toBe(4);
+});
+
+it('shows a sub-thread result as a collapsed row that opens, and a failure already open', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create(['runner_state' => RunnerState::Idle]);
+    $child = Thread::factory()->child($parent)->create(['title' => 'Read the website README', 'kind' => ThreadKind::Research]);
+    $broken = Thread::factory()->child($parent)->create(['title' => 'Build the client']);
+    $events = app(ThreadEventPublisher::class);
+    $events->append($parent->id, 'entry', ['role' => 'assistant', 'messageId' => 'm1', 'blocks' => [['type' => 'text', 'text' => 'I started a research sub-thread.']]]);
+    $events->append($parent->id, 'child.result', ['id' => 1, 'childThreadId' => $child->public_id, 'title' => 'Read the website README', 'kind' => 'research', 'state' => 'done', 'reason' => null, 'text' => 'The README', 'html' => '<p>The first <code>README.md</code> lines</p>']);
+    $events->append($parent->id, 'child.result', ['id' => 2, 'childThreadId' => $broken->public_id, 'title' => 'Build the client', 'kind' => 'implement', 'state' => 'failed', 'reason' => 'Sub-thread builder failed before finishing.', 'text' => 'Sub-thread builder failed before finishing.', 'html' => '<p>Sub-thread builder failed before finishing.</p>']);
+    $events->append($parent->id, 'entry', ['role' => 'assistant', 'messageId' => 'm2', 'blocks' => [['type' => 'text', 'text' => 'The research sub-thread has reported back.']]]);
+
+    $page = visit(route('threads.show', $parent));
+    waitUntilPresent($page, '[data-testid="child-result-1"]');
+
+    $page->assertSeeIn('[data-testid="child-result-1"]', 'Result from Read the website README')
+        ->assertSeeIn('[data-testid="child-result-1"]', 'Open sub-thread')
+        ->assertMissing('[data-testid="child-result-1"] [data-testid="child-result-body"]')
+        ->assertAttribute('[data-testid="child-result-1"] [data-testid="child-result-toggle"]', 'aria-label', 'Show the result')
+        ->click('[data-testid="child-result-1"] [data-testid="child-result-toggle"]');
+    waitUntilPresent($page, '[data-testid="child-result-1"] [data-testid="child-result-body"]');
+
+    $page->assertSeeIn('[data-testid="child-result-1"] [data-testid="child-result-body"]', 'README.md')
+        ->assertPresent('[data-testid="child-result-2"] [data-testid="child-result-body"]')
+        ->assertSeeIn('[data-testid="child-result-2"]', 'Failed: Sub-thread builder failed before finishing.')
+        ->assertMissing('[data-testid="stack-messages"]')
+        ->assertNoJavaScriptErrors();
 });
 
 it('renders every sub-thread past the cap of 12 without clamping', function () {
@@ -165,7 +256,7 @@ it('shows queued, asking and merged sub-threads with their new card layout', fun
     $events->append($parent->id, 'child', $card($merged, 'done', ['mergedAt' => now()->toIso8601String(), 'filesChanged' => 3, 'additions' => 12, 'deletions' => 4, 'conflictResolved' => true, 'decision' => 'Kept the cursor paging.']));
 
     visit(route('threads.show', $parent))
-        ->assertSeeIn('[data-testid="child-card-' . $queued->public_id . '"]', 'Starts when another sub-thread finishes')
+        ->assertSeeIn('[data-testid="child-card-' . $queued->public_id . '"]', 'Waiting for a free spot')
         ->assertSeeIn('[data-testid="child-card-' . $asking->public_id . '"]', 'Asked you')
         ->assertSeeIn('[data-testid="child-card-' . $asking->public_id . '"]', 'Asks you: Which table should hold it?')
         ->assertSeeIn('[data-testid="child-card-' . $merged->public_id . '"]', 'Merged into this branch')

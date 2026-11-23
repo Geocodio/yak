@@ -17,7 +17,7 @@ export function useConversation(threadId: string, messages: ThreadMessage[], fal
     useEffect(() => reportFeedProgress({ threadId, lastSequence: events.lastSequence, isSettled: events.connection === 'live' || events.connection === 'offline' }), [threadId, events.lastSequence, events.connection]);
     useRefreshThreadProps(livePropsSignature(threadId, events));
     const track = useRef(createReadTracker()).current;
-    const { items, readSequences } = useMemo(() => projectConversation(events, entrySequences, entryTimes), [events.entries, entrySequences, entryTimes, events.streamingBlocks, events.children, events.repositories, events.lastSequence]);
+    const { items, readSequences } = useMemo(() => projectConversation(events, entrySequences, entryTimes), [events.entries, entrySequences, entryTimes, events.streamingBlocks, events.children, events.childResults, events.repositories, events.lastSequence]);
     const readUuids = track(Object.keys(readSequences));
     const readKey = readUuids.join(',');
     const entries = useMemo(() => mergeConversation(messages, readUuids, items, readSequences), [messages, readKey, items, readSequences]);

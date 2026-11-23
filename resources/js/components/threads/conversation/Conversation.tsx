@@ -10,6 +10,7 @@ import { outbox, useUnsentMessages } from '@/threads/outbox/useOutbox';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
+import { ChildResultRow } from './ChildResultRow';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
@@ -48,6 +49,10 @@ Object.assign(window, { __mergeConversation: mergeConversation, __createReadTrac
 function EventRow({ item, canDrive, isLast, threadId, modelLabels, onOpenChanges }: { onOpenChanges?: (path?: string) => void; modelLabels: Record<string, string>; item: ConversationItem; canDrive: boolean; isLast: boolean; threadId: string }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
+    }
+
+    if (item.kind === 'childResult') {
+        return <ChildResultRow item={item} />;
     }
 
     if (item.kind === 'repository') {
@@ -193,8 +198,8 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                         return (
                             <Fragment key={entry.item.key}>
                                 {before}
-                                {(continuedBefore.get(index) ?? []).map((agent) => (
-                                    <AgentContinuedRow key={`agent-continued-${agent.id}`} agent={agent} />
+                                {(continuedBefore.get(index) ?? []).map((group) => (
+                                    <AgentContinuedRow key={`agent-continued-${group[0].id}`} agents={group} />
                                 ))}
                                 <EventRow modelLabels={modelLabels} key={entry.item.key} item={entry.item} canDrive={!readonly} isLast={index === entries.length - 1} threadId={threadId} onOpenChanges={onOpenChanges} />
                                 {(footersAfter.get(index) ?? []).map((run) => (

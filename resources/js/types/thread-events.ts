@@ -39,7 +39,7 @@ export type TranscriptEntry = (
     agentId?: string;
 };
 
-export type ChildCardState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
+export type ChildCardState = 'starting' | 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
 
 /** The latest state of one sub-thread, as the parent's conversation shows it. */
 export type ChildCardData = {
@@ -61,6 +61,20 @@ export type ChildCardData = {
     decision: string | null;
 };
 
+/** A sub-thread's result or failure, delivered to this thread at the point it appears in the conversation. */
+export type ChildResultData = {
+    id: number;
+    childThreadId: string;
+    title: string;
+    kind: string;
+    state: 'done' | 'failed';
+    reason: string | null;
+    html: string;
+    text: string;
+    /** When the event was recorded; set by the reducer from the envelope. */
+    at: string;
+};
+
 export type RepositoryCardState = 'running' | 'setup' | 'done' | 'setup_failed' | 'no_access';
 
 /** The latest state of one repository Claude added, as the conversation shows it. */
@@ -78,7 +92,7 @@ export type RepositoryCardData = {
     error: string | null;
 };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'repository' | 'question' | 'agent.started' | 'agent.progress' | 'agent.finished';
+export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'child.result' | 'repository' | 'question' | 'agent.started' | 'agent.progress' | 'agent.finished';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
@@ -89,6 +103,7 @@ export type ThreadEventDataMap = {
     'message.state': { uuid: string; state: 'sent' | 'queued' | 'started' | 'completed' | 'cancelled' };
     'diff.updated': Record<string, never>;
     child: ChildCardData;
+    'child.result': Omit<ChildResultData, 'at'>;
     repository: RepositoryCardData;
     question: { open: boolean };
     'agent.started': ThreadAgent;
@@ -119,6 +134,8 @@ export type ThreadEventState = {
     questionOpen: boolean | null;
     /** Latest event per sub-thread, with the sequence of its first event. */
     children: Record<string, { sequence: number; data: ChildCardData }>;
+    /** Every delivered sub-thread result, in order, each with the sequence it arrived at. */
+    childResults: { sequence: number; data: ChildResultData }[];
     /** Latest event per added repository, keyed by slug, with the sequence of its first event. */
     repositories: Record<string, { sequence: number; data: RepositoryCardData }>;
     /** Latest state of each agent or workflow by task id, from the `agent.*` events. */
