@@ -19,7 +19,6 @@ import ThreadFileController from './ThreadFileController'
 import ThreadCoOwnerController from './ThreadCoOwnerController'
 import ThreadTaskActionController from './ThreadTaskActionController'
 import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
-import ThreadManagementController from './ThreadManagementController'
 
 const Threads = {
     ThreadListController: Object.assign(ThreadListController, ThreadListController),
@@ -43,7 +42,6 @@ const Threads = {
     ThreadCoOwnerController: Object.assign(ThreadCoOwnerController, ThreadCoOwnerController),
     ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
     ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
-    ThreadManagementController: Object.assign(ThreadManagementController, ThreadManagementController),
 }
 
 export default Threads

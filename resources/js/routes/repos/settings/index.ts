@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Repositories/RepositorySettingsController.php:14
 * @route '/repos/{repository}/settings/{section}'
 */
-export const show = (args: { repository: string | { slug: string }, section: string | number } | [repository: string | { slug: string }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { repository: string | number | { slug: string | number }, section: string | number } | [repository: string | number | { slug: string | number }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ show.definition = {
 * @see app/Http/Controllers/Repositories/RepositorySettingsController.php:14
 * @route '/repos/{repository}/settings/{section}'
 */
-show.url = (args: { repository: string | { slug: string }, section: string | number } | [repository: string | { slug: string }, section: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { repository: string | number | { slug: string | number }, section: string | number } | [repository: string | number | { slug: string | number }, section: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             repository: args[0],
@@ -47,7 +47,7 @@ show.url = (args: { repository: string | { slug: string }, section: string | num
 * @see app/Http/Controllers/Repositories/RepositorySettingsController.php:14
 * @route '/repos/{repository}/settings/{section}'
 */
-show.get = (args: { repository: string | { slug: string }, section: string | number } | [repository: string | { slug: string }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { repository: string | number | { slug: string | number }, section: string | number } | [repository: string | number | { slug: string | number }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -57,7 +57,7 @@ show.get = (args: { repository: string | { slug: string }, section: string | num
 * @see app/Http/Controllers/Repositories/RepositorySettingsController.php:14
 * @route '/repos/{repository}/settings/{section}'
 */
-show.head = (args: { repository: string | { slug: string }, section: string | number } | [repository: string | { slug: string }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { repository: string | number | { slug: string | number }, section: string | number } | [repository: string | number | { slug: string | number }, section: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

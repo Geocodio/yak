@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs'
 */
-export const index = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const index = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ index.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs'
 */
-index.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+index.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -52,7 +52,7 @@ index.url = (args: { repository: string | { slug: string } } | [repository: stri
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs'
 */
-index.get = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+index.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ index.get = (args: { repository: string | { slug: string } } | [repository: stri
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs'
 */
-index.head = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+index.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ index.head = (args: { repository: string | { slug: string } } | [repository: str
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs/{task}'
 */
-export const show = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -87,7 +87,7 @@ show.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs/{task}'
 */
-show.url = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
+show.url = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             repository: args[0],
@@ -117,7 +117,7 @@ show.url = (args: { repository: string | { slug: string }, task: string | { publ
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs/{task}'
 */
-show.get = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -127,7 +127,7 @@ show.get = (args: { repository: string | { slug: string }, task: string | { publ
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:27
 * @route '/repos/{repository}/runs/{task}'
 */
-show.head = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -137,7 +137,7 @@ show.head = (args: { repository: string | { slug: string }, task: string | { pub
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
-export const log = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const log = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: log.url(args, options),
     method: 'get',
 })
@@ -152,7 +152,7 @@ log.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
-log.url = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
+log.url = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             repository: args[0],
@@ -182,7 +182,7 @@ log.url = (args: { repository: string | { slug: string }, task: string | { publi
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
-log.get = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+log.get = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: log.url(args, options),
     method: 'get',
 })
@@ -192,7 +192,7 @@ log.get = (args: { repository: string | { slug: string }, task: string | { publi
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:63
 * @route '/repos/{repository}/runs/{task}/log'
 */
-log.head = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+log.head = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: log.url(args, options),
     method: 'head',
 })
@@ -202,7 +202,7 @@ log.head = (args: { repository: string | { slug: string }, task: string | { publ
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
-export const retry = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const retry = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })
@@ -217,7 +217,7 @@ retry.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
-retry.url = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
+retry.url = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             repository: args[0],
@@ -247,7 +247,7 @@ retry.url = (args: { repository: string | { slug: string }, task: string | { pub
 * @see app/Http/Controllers/Repositories/RepositoryRunController.php:76
 * @route '/repos/{repository}/runs/{task}/retry'
 */
-retry.post = (args: { repository: string | { slug: string }, task: string | { public_id: string } } | [repository: string | { slug: string }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+retry.post = (args: { repository: string | number | { slug: string | number }, task: string | { public_id: string } } | [repository: string | number | { slug: string | number }, task: string | { public_id: string } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })

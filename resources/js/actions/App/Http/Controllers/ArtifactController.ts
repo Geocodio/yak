@@ -126,7 +126,7 @@ viewer.head = (args: { task: string | { public_id: string }, filename: string | 
 
 /**
 * @see \App\Http\Controllers\ArtifactController::show
-* @see app/Http/Controllers/ArtifactController.php:16
+* @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
 export const show = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -141,7 +141,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\ArtifactController::show
-* @see app/Http/Controllers/ArtifactController.php:16
+* @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
 show.url = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions) => {
@@ -169,7 +169,7 @@ show.url = (args: { task: string | { public_id: string }, filename: string | num
 
 /**
 * @see \App\Http\Controllers\ArtifactController::show
-* @see app/Http/Controllers/ArtifactController.php:16
+* @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
 show.get = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -179,7 +179,7 @@ show.get = (args: { task: string | { public_id: string }, filename: string | num
 
 /**
 * @see \App\Http\Controllers\ArtifactController::show
-* @see app/Http/Controllers/ArtifactController.php:16
+* @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
 show.head = (args: { task: string | { public_id: string }, filename: string | number } | [task: string | { public_id: string }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({

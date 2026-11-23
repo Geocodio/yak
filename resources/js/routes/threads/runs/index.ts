@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
-export const log = (args: { thread: string | { public_id: string }, run: number | { id: number } } | [thread: string | { public_id: string }, run: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const log = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: log.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ log.definition = {
 * @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
-log.url = (args: { thread: string | { public_id: string }, run: number | { id: number } } | [thread: string | { public_id: string }, run: number | { id: number } ], options?: RouteQueryOptions) => {
+log.url = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -49,7 +49,7 @@ log.url = (args: { thread: string | { public_id: string }, run: number | { id: n
 * @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
-log.get = (args: { thread: string | { public_id: string }, run: number | { id: number } } | [thread: string | { public_id: string }, run: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+log.get = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: log.url(args, options),
     method: 'get',
 })
@@ -59,7 +59,7 @@ log.get = (args: { thread: string | { public_id: string }, run: number | { id: n
 * @see app/Http/Controllers/Threads/ThreadRunLogController.php:23
 * @route '/threads/{thread}/runs/{run}/log'
 */
-log.head = (args: { thread: string | { public_id: string }, run: number | { id: number } } | [thread: string | { public_id: string }, run: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+log.head = (args: { thread: string | { public_id: string }, run: string | number | { id: string | number } } | [thread: string | { public_id: string }, run: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: log.url(args, options),
     method: 'head',
 })
