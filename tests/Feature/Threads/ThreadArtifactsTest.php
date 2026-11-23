@@ -154,3 +154,13 @@ it('runs one collection per task at a time so a second collector cannot move fil
 
     expect(SandboxArtifactCollector::exclusive($this->task, fn (): string => 'done', waitSeconds: 0))->toBe('done');
 });
+
+it('waits for the per-task collection lock before pulling shared files mid-turn', function () {
+    $heldElsewhere = Cache::lock("artifacts:collect:{$this->task->id}", 60);
+    $heldElsewhere->get();
+
+    expect(fn () => app(ThreadArtifacts::class)->collectShared($this->thread, ['flow.png'], waitSeconds: 0))->toThrow(LockTimeoutException::class)
+        ->and($this->sandboxes->calls)->toBe([]);
+
+    $heldElsewhere->release();
+});
