@@ -230,7 +230,7 @@ devices.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::limits
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:18
 * @route '/settings/limits'
 */
 export const limits = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -245,7 +245,7 @@ limits.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::limits
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:18
 * @route '/settings/limits'
 */
 limits.url = (options?: RouteQueryOptions) => {
@@ -254,7 +254,7 @@ limits.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::limits
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:18
 * @route '/settings/limits'
 */
 limits.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -264,7 +264,7 @@ limits.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::limits
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:18
 * @route '/settings/limits'
 */
 limits.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

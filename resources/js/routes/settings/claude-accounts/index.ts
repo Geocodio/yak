@@ -38,7 +38,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:95
 * @route '/settings/claude-accounts/{account}/rotate'
 */
-export const rotate = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const rotate = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rotate.url(args, options),
     method: 'post',
 })
@@ -53,7 +53,7 @@ rotate.definition = {
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:95
 * @route '/settings/claude-accounts/{account}/rotate'
 */
-rotate.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+rotate.url = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { account: args }
     }
@@ -86,7 +86,7 @@ rotate.url = (args: { account: string | number | { id: string | number } } | [ac
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:95
 * @route '/settings/claude-accounts/{account}/rotate'
 */
-rotate.post = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+rotate.post = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rotate.url(args, options),
     method: 'post',
 })
@@ -96,7 +96,7 @@ rotate.post = (args: { account: string | number | { id: string | number } } | [a
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:114
 * @route '/settings/claude-accounts/{account}'
 */
-export const update = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -111,7 +111,7 @@ update.definition = {
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:114
 * @route '/settings/claude-accounts/{account}'
 */
-update.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { account: args }
     }
@@ -144,7 +144,7 @@ update.url = (args: { account: string | number | { id: string | number } } | [ac
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:114
 * @route '/settings/claude-accounts/{account}'
 */
-update.patch = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -154,7 +154,7 @@ update.patch = (args: { account: string | number | { id: string | number } } | [
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:127
 * @route '/settings/claude-accounts/{account}'
 */
-export const destroy = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -169,7 +169,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:127
 * @route '/settings/claude-accounts/{account}'
 */
-destroy.url = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { account: args }
     }
@@ -202,7 +202,7 @@ destroy.url = (args: { account: string | number | { id: string | number } } | [a
 * @see app/Http/Controllers/Settings/ClaudeAccountController.php:127
 * @route '/settings/claude-accounts/{account}'
 */
-destroy.delete = (args: { account: string | number | { id: string | number } } | [account: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { account: number | { id: number } } | [account: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })

@@ -38,7 +38,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 * @see app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-export const update = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -53,7 +53,7 @@ update.definition = {
 * @see app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-update.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { pushDevice: args }
     }
@@ -86,7 +86,7 @@ update.url = (args: { pushDevice: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/Settings/PushDeviceController.php:39
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-update.patch = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -96,7 +96,7 @@ update.patch = (args: { pushDevice: string | number | { id: string | number } } 
 * @see app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-export const destroy = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -111,7 +111,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-destroy.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { pushDevice: args }
     }
@@ -144,7 +144,7 @@ destroy.url = (args: { pushDevice: string | number | { id: string | number } } |
 * @see app/Http/Controllers/Settings/PushDeviceController.php:48
 * @route '/settings/notifications/devices/{pushDevice}'
 */
-destroy.delete = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -154,7 +154,7 @@ destroy.delete = (args: { pushDevice: string | number | { id: string | number } 
 * @see app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
-export const test = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const test = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: test.url(args, options),
     method: 'post',
 })
@@ -169,7 +169,7 @@ test.definition = {
 * @see app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
-test.url = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+test.url = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { pushDevice: args }
     }
@@ -202,7 +202,7 @@ test.url = (args: { pushDevice: string | number | { id: string | number } } | [p
 * @see app/Http/Controllers/Settings/PushDeviceController.php:57
 * @route '/settings/notifications/devices/{pushDevice}/test'
 */
-test.post = (args: { pushDevice: string | number | { id: string | number } } | [pushDevice: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+test.post = (args: { pushDevice: number | { id: number } } | [pushDevice: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: test.url(args, options),
     method: 'post',
 })

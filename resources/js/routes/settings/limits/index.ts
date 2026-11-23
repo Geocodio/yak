@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::update
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:28
 * @route '/settings/limits'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::update
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:28
 * @route '/settings/limits'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::update
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:28
 * @route '/settings/limits'
 */
 update.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -35,7 +35,7 @@ update.put = (options?: RouteQueryOptions): RouteDefinition<'put'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::reset
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:43
 * @route '/settings/limits/reset'
 */
 export const reset = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +50,7 @@ reset.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::reset
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:43
 * @route '/settings/limits/reset'
 */
 reset.url = (options?: RouteQueryOptions) => {
@@ -59,7 +59,7 @@ reset.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\LimitsController::reset
-* @see [unknown]:0
+* @see app/Http/Controllers/Settings/LimitsController.php:43
 * @route '/settings/limits/reset'
 */
 reset.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

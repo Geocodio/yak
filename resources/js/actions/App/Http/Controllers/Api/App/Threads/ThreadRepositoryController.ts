@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Api/App/Threads/ThreadRepositoryController.php:16
 * @route '/api/app/v1/threads/{thread}/repositories/{repository}/retry'
 */
-export const retry = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const retry = (args: { thread: string | { public_id: string }, repository: number | { id: number } } | [thread: string | { public_id: string }, repository: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ retry.definition = {
 * @see app/Http/Controllers/Api/App/Threads/ThreadRepositoryController.php:16
 * @route '/api/app/v1/threads/{thread}/repositories/{repository}/retry'
 */
-retry.url = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
+retry.url = (args: { thread: string | { public_id: string }, repository: number | { id: number } } | [thread: string | { public_id: string }, repository: number | { id: number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             thread: args[0],
@@ -49,7 +49,7 @@ retry.url = (args: { thread: string | { public_id: string }, repository: string 
 * @see app/Http/Controllers/Api/App/Threads/ThreadRepositoryController.php:16
 * @route '/api/app/v1/threads/{thread}/repositories/{repository}/retry'
 */
-retry.post = (args: { thread: string | { public_id: string }, repository: string | number | { id: string | number } } | [thread: string | { public_id: string }, repository: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+retry.post = (args: { thread: string | { public_id: string }, repository: number | { id: number } } | [thread: string | { public_id: string }, repository: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
     method: 'post',
 })

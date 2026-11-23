@@ -116,7 +116,7 @@ export function CapacitySuggestionCard({ suggestion, memoryFloorGb }: { suggesti
                     <div className="grid gap-3 sm:grid-cols-3">
                         <Meter label="Times at the limit" value={`${samplesAtLimit.toLocaleString('en')} of ${totalSamples.toLocaleString('en')} checks`} ratio={samplesAtLimit / totalSamples} />
                         <Meter label="Peak memory at the limit" value={`${suggestion.memoryUsedGbAtPeak} of ${suggestion.memoryTotalGb} GB · ${percent(suggestion.memoryPeak)}%`} ratio={suggestion.memoryPeak} />
-                        <Meter label="Peak CPU at the limit" value={`${percent(suggestion.cpuPeak)}% of ${suggestion.cores} cores`} ratio={suggestion.cpuPeak} />
+                        <Meter label="Peak CPU at the limit" value={`${percent(suggestion.cpuPeak)}% of ${suggestion.cores} ${suggestion.cores === 1 ? 'core' : 'cores'}`} ratio={suggestion.cpuPeak} />
                     </div>
                     <CapacityChart suggestion={suggestion} />
                 </>
