@@ -31,7 +31,7 @@ struct RootView: View {
                 }
             }
         }
-        .font(.yak(.body))
+        .yakRootFont()
         .environment(\.isNetworkOnline, model.network.isOnline)
         .fullScreenCover(item: explanationBinding) { request in
             NotificationExplanationCover(request: request, model: model)
@@ -88,6 +88,7 @@ private struct NotificationExplanationCover: View {
                 Color.yakBackground
             }
         }
+        .yakRootFont()
         .onAppear {
             guard explanationModel == nil, let push = model.push else { return }
             explanationModel = NotificationExplanationModel(

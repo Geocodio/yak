@@ -46,7 +46,7 @@ struct BottomBar: View {
         .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.tight)
         .padding(.bottom, Design.Space.barEdgeGap)
         .frame(maxWidth: .infinity)
-        .background(Color.yakBackground)
+        .background(.yakPage)
         .overlay(alignment: .top) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
         .onPreferenceChange(ComposerFocusKey.self) { isTyping = $0 }
         .simultaneousGesture(swipe)

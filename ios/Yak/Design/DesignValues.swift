@@ -162,7 +162,8 @@ extension Color {
     /// Grouped rows, panels and fields: `--panel`.
     static let yakCard = board(dark: 0x171819, light: 0xFFFFFF)
     /// Message bubbles, chips and the quiet fill of a control on a panel: `--panel-2`.
-    static let yakBubble = board(dark: 0x232427, light: 0xEEF0F2)
+    static let yakBubble = board(
+        dark: 0x232427, light: 0xEEF0F2, highContrast: BoardContrast(dark: 0x3A3B3E, light: 0xDCDCDE))
     /// The composer card and the sheets' bars, opaque: `--panel`.
     static let yakBar = board(dark: 0x171819, light: 0xFFFFFF)
     /// The line around a field, a card and a button: `--border-strong`.
@@ -198,7 +199,8 @@ extension Color {
     /// Success and a running step: `--ok`.
     static let yakOK = board(dark: 0x6FBE68, light: 0x3E8E38)
     /// Warning text: `--warn` in dark; in light a darker orange, because the web's `#D97A22` is under 4.5 to 1 as text.
-    static let yakWarning = board(dark: 0xE8985A, light: 0x9E5400)
+    static let yakWarning = board(
+        dark: 0xE8985A, light: 0x9E5400, highContrast: BoardContrast(dark: 0xFFB27A, light: 0x6E3A00))
     /// A thread waiting for an answer, as a dot: `--warn`.
     static let yakWarningDot = board(dark: 0xE8985A, light: 0xD97A22)
     /// Blocked, as a dot: `--fail`.
@@ -206,7 +208,8 @@ extension Color {
     /// A step that has news: `--info`.
     static let yakInfo = board(dark: 0x6FA6D8, light: 0x3D7CB8)
     /// Running, a selected row's tone and the shortcut icons: `--brand`.
-    static let yakSlate = board(dark: 0x7F9CB4, light: 0x4A6580)
+    static let yakSlate = board(
+        dark: 0x7F9CB4, light: 0x4A6580, highContrast: BoardContrast(dark: 0xB8CFE3, light: 0x2F4A66))
     /// The soft shadow under a card: `--shadow-card`.
     static let yakShadow = board(dark: 0x000000, light: 0x282A30, darkAlpha: 0.45, lightAlpha: 0.10)
     /// The faintest text color, for marks that are not text: `--text-3`.
@@ -226,7 +229,8 @@ extension Color {
     static let yakCardButton = board(dark: 0x3A3A3C, light: 0xE5E5EA)
     static let yakCardPrimary = board(dark: 0xFFFFFF, light: 0x1C1C1E)
     static let yakCardPrimaryText = board(dark: 0x000000, light: 0xFFFFFF)
-    static let yakCardDangerText = board(dark: 0xFF8A80, light: 0xA0201A)
+    static let yakCardDangerText = board(
+        dark: 0xFF8A80, light: 0xA0201A, highContrast: BoardContrast(dark: 0xFFC2BA, light: 0x8A1812))
     static let yakCardSeparator = board(dark: 0x3A3A3C, light: 0xD1D1D6)
     static let yakCardSecondaryText = board(dark: 0xD1D1D6, light: 0x3A3A3C)
     static let yakPillNeutral = board(dark: 0x2C2C2E, light: 0xE5E5EA)
@@ -266,13 +270,32 @@ extension Font {
         }
     }
 
-    /// The face for a weight: regular, medium, or semibold for anything heavier. Mono has the regular face only.
-    static func yakFaceName(weight: Font.Weight, isMonospaced: Bool) -> String {
-        if isMonospaced { return "IBMPlexMono" }
+    /// Whether Bold Text is on. Turning it on restarts the phone, so the answer holds for the life of the app; the
+    /// launch argument `-yakTestBoldText YES` shows it in a test, which a simulator cannot be told to do.
+    static let yakIsBoldText: Bool = {
+        #if DEBUG
+            if UserDefaults.standard.bool(forKey: "yakTestBoldText") { return true }
+        #endif
+        if Thread.isMainThread { return MainActor.assumeIsolated { UIAccessibility.isBoldTextEnabled } }
+        return DispatchQueue.main.sync { MainActor.assumeIsolated { UIAccessibility.isBoldTextEnabled } }
+    }()
+
+    /// The face for a weight: regular, medium, or semibold for anything heavier, in sans and in mono. With Bold Text
+    /// each weight is one step heavier, and the bold face is bundled for the top step. The italics are bundled too; the
+    /// system finds them from the family when emphasis asks for the italic trait.
+    static func yakFaceName(weight: Font.Weight, isMonospaced: Bool, isBoldText: Bool = false) -> String {
+        let prefix = isMonospaced ? "IBMPlexMono" : "IBMPlexSans"
+        let rank: Int
         switch weight {
-        case .ultraLight, .thin, .light, .regular: return "IBMPlexSans"
-        case .medium: return "IBMPlexSans-Medm"
-        default: return "IBMPlexSans-SmBld"
+        case .ultraLight, .thin, .light, .regular: rank = 0
+        case .medium: rank = 1
+        default: rank = 2
+        }
+        switch rank + (isBoldText ? 1 : 0) {
+        case 0: return prefix
+        case 1: return prefix + "-Medm"
+        case 2: return prefix + "-SmBld"
+        default: return isMonospaced ? prefix + "-SmBld" : prefix + "-Bold"
         }
     }
 
@@ -281,7 +304,8 @@ extension Font {
         // The system's headline is semibold; so is this one unless a weight is given.
         let weight = weight ?? (style == .headline ? .semibold : .regular)
         return .custom(
-            yakFaceName(weight: weight, isMonospaced: isMonospaced), size: baseSize(of: style), relativeTo: style)
+            yakFaceName(weight: weight, isMonospaced: isMonospaced, isBoldText: yakIsBoldText),
+            size: baseSize(of: style), relativeTo: style)
     }
 
     /// Titles in the header: 15 pt semibold.
@@ -298,6 +322,12 @@ extension Font {
     static let yakTerminal = Font.yak(.footnote, isMonospaced: true)
     /// The message field: 16 pt.
     static let yakField = Font.yak(.callout)
+}
+
+extension View {
+    /// The app's default text: Plex at the body size. The root and the root of every cover that is not presented from
+    /// inside it use this one modifier.
+    func yakRootFont() -> some View { font(.yak(.body)) }
 }
 
 extension EnvironmentValues {

@@ -90,7 +90,14 @@ struct ThreadLayoutView: View {
         let focused = paneInFocus(plan)
         return VStack(spacing: 0) {
             // The saved page of the web conversation carries its own line.
-            if singlePlacement.hidesTitle, web?.mode != .web, let line = thread.connectionLine {
+            if singlePlacement.hidesTitle,
+                let line = HeaderConnection.line(
+                    thread.connectionLine, isWebConversation: web?.mode == .web, chatIsVisible: focused == .chat,
+                    chatShowsOwnLine: web.map {
+                        ($0.savedCopy != nil && $0.savedCopyState != nil) || $0.showsOfflineLine
+                    }
+                        ?? false)
+            {
                 ConnectionBanner(line: line)
             }
             ZStack {

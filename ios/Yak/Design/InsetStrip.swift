@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A line of status under the header, inset from the page edges: a quiet fill, a dot, and text in which the first
-/// sentence is the point and the rest says more. It is neutral on purpose; a saved copy is not an error.
+/// A line of status under the header, inset from the page edges: a quiet fill, a dot, and text in which the lead is the
+/// point and the detail says more. It is neutral on purpose; a saved copy is not an error.
 struct InsetStrip<Accessory: View>: View {
-    let text: String
+    let lead: String
+    var detail: String?
     @ViewBuilder var accessory: Accessory
 
     @ScaledMetric(relativeTo: .footnote) private var dotTop = 6.0
@@ -23,15 +24,13 @@ struct InsetStrip<Accessory: View>: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// The first sentence in the text color and semibold weight, the rest in the quiet color.
+    /// The lead in the text color and semibold weight, the detail after it in the quiet color.
     private var sentences: Text {
-        guard let split = text.range(of: ". ") else {
-            return Text(verbatim: text).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText)
-        }
-        var first = AttributedString(String(text[..<split.lowerBound]) + ".")
+        var first = AttributedString(lead)
         first.font = .yak(.footnote, .semibold)
         first.foregroundColor = .yakText
-        var rest = AttributedString(" " + String(text[split.upperBound...]))
+        guard let detail else { return Text(first) }
+        var rest = AttributedString(" " + detail)
         rest.font = .yak(.footnote)
         rest.foregroundColor = .yakMuted
         return Text(first + rest)
@@ -39,5 +38,5 @@ struct InsetStrip<Accessory: View>: View {
 }
 
 extension InsetStrip where Accessory == EmptyView {
-    init(text: String) { self.init(text: text) { EmptyView() } }
+    init(lead: String, detail: String? = nil) { self.init(lead: lead, detail: detail) { EmptyView() } }
 }

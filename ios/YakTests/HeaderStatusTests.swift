@@ -1,0 +1,37 @@
+import Testing
+import YakKit
+
+@testable import Yak
+
+/// The header's dot and its connection line.
+@Suite struct HeaderStatusTests {
+    @Test func theDotFollowsTheRunningStateThenTheTone() {
+        #expect(HeaderMark.make(dot: .running, tone: .bad) == .running)
+        #expect(HeaderMark.make(dot: .neutral, tone: .ok) == .ok)
+        #expect(HeaderMark.make(dot: .neutral, tone: .bad) == .bad)
+        #expect(HeaderMark.make(dot: .neutral, tone: .info) == .info)
+        #expect(HeaderMark.make(dot: .neutral, tone: .warn) == .warn)
+        #expect(HeaderMark.make(dot: .attention, tone: nil) == .warn)
+        #expect(HeaderMark.make(dot: .attention, tone: .bad) == .bad)
+        #expect(HeaderMark.make(dot: .neutral, tone: nil) == .ring)
+        #expect(HeaderMark.make(dot: .neutral, tone: .neutral) == .ring)
+    }
+
+    @Test func theHeaderHidesTheLineOnlyWhileTheChatPaneShowsItsOwn() {
+        let line = ConnectionLine.offlineSavedCopy
+        // Web conversation, Chat visible, Chat draws a line: hidden.
+        #expect(
+            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: true, chatShowsOwnLine: true) == nil)
+        // Another pane shows: the header says it.
+        #expect(
+            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: false, chatShowsOwnLine: true) == line)
+        // Chat shows but has no line of its own: the header says it.
+        #expect(
+            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: true, chatShowsOwnLine: false) == line)
+        // The native chat draws none: the header says it.
+        #expect(
+            HeaderConnection.line(line, isWebConversation: false, chatIsVisible: true, chatShowsOwnLine: true) == line)
+        #expect(
+            HeaderConnection.line(nil, isWebConversation: true, chatIsVisible: false, chatShowsOwnLine: false) == nil)
+    }
+}

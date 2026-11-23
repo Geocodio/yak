@@ -194,7 +194,7 @@ private struct PaneRowButton: View {
                 .padding(.horizontal, Design.Space.tight).padding(.vertical, Design.Space.tight)
                 .frame(minWidth: Design.Size.paneItemWidth, minHeight: Design.Size.paneItemHeight)
                 .background(
-                    mark == nil && isSelected ? Color.yakBubble : .clear,
+                    mark == nil && isSelected ? Color.yakFillStrong : .clear,
                     in: .rect(cornerRadius: Design.Radius.control)
                 )
                 .modifier(PaneMarkLabel(mark: mark))

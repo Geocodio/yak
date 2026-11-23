@@ -34,7 +34,8 @@ struct DrawerRowView: View {
                         HStack(spacing: Design.Space.small) {
                             if isTask { taskBadge }
                             Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
-                                .multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
                         }
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
@@ -204,8 +205,10 @@ struct DrawerIndicator: View {
             case .paused: glyph("pause.fill")
             case .waiting: glyph("clock")
             case .notSent: glyph("arrow.up.circle").symbolVariant(.slash)
-            case .unseen, .stopped, .closed, .other:
-                Circle().strokeBorder(Color.yakFaint, lineWidth: 1.5).frame(width: 8, height: 8)
+            case .unseen: dot(Color.yakInfo)
+            case .stopped: glyph("stop.fill")
+            case .closed: Circle().strokeBorder(Color.yakFaint, lineWidth: 1.5).frame(width: 8, height: 8)
+            case .other: glyph("circle.dotted")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

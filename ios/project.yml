@@ -81,6 +81,12 @@ targets:
           - IBMPlexSans-Medium.ttf
           - IBMPlexSans-SemiBold.ttf
           - IBMPlexMono-Regular.ttf
+          - IBMPlexMono-Medium.ttf
+          - IBMPlexMono-SemiBold.ttf
+          - IBMPlexSans-Bold.ttf
+          - IBMPlexSans-BoldItalic.ttf
+          - IBMPlexSans-Italic.ttf
+          - IBMPlexSans-SemiBoldItalic.ttf
   YakTests:
     type: bundle.unit-test
     platform: iOS

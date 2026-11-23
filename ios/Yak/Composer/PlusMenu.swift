@@ -91,6 +91,7 @@ struct PlusMenu: View {
                 composer.reservePicks(1)
                 Task { await composer.add(data, fileName: "Photo.jpg", contentType: "image/jpeg", isReserved: true) }
             }
+            .yakRootFont()
             .ignoresSafeArea()
         }
         .sheet(isPresented: $isChoosingModel) { ModelPicker(composer: composer) }

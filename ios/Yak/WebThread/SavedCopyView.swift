@@ -22,7 +22,7 @@ struct SavedCopyLine: View {
 
     var body: some View {
         let stamp = SavedCopyStamp.text(for: savedAt)
-        InsetStrip(text: text(stamp: stamp)) {
+        InsetStrip(lead: lead, detail: String(localized: "web.copy.line.detail \(stamp)")) {
             if state == .failed {
                 Button(action: retry) { Text("common.retry").fixedSize(horizontal: false, vertical: true) }
                     .font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText).underline()
@@ -34,12 +34,12 @@ struct SavedCopyLine: View {
         .id(stamp)
     }
 
-    private func text(stamp: String) -> String {
+    private var lead: String {
         switch state {
-        case .offline: String(localized: "web.copy.line.offline \(stamp)")
-        case .reconnecting: String(localized: "web.copy.line.reconnecting \(stamp)")
-        case .slow: String(localized: "web.copy.line.slow \(stamp)")
-        case .failed: String(localized: "web.copy.line.failed \(stamp)")
+        case .offline: String(localized: "web.copy.line.offline.lead")
+        case .reconnecting: String(localized: "web.copy.line.reconnecting.lead")
+        case .slow: String(localized: "web.copy.line.slow.lead")
+        case .failed: String(localized: "web.copy.line.failed.lead")
         }
     }
 }

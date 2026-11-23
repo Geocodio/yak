@@ -144,7 +144,7 @@ struct ThreadScreen: View {
             .navigationTitle(WindowTitle.make(thread.snapshot?.show?.thread).text)
             .toolbar(placement.hidesTitle ? .hidden : .automatic, for: .navigationBar)
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-            .toolbarBackground(Color.yakBackground, for: .navigationBar)
+            .toolbarBackground(.yakPage, for: .navigationBar)
             .toolbar {
                 if !placement.hidesTitle {
                     if isCompactWidth {
@@ -154,8 +154,8 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(
                             title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
-                            connectionLine: web?.mode == .web ? nil : thread.connectionLine,
-                            tone: thread.statusTone,
+                            connectionLine: headerConnectionLine(thread, focused: focused.wrappedValue),
+                            tone: thread.statusTone, statusLabel: thread.snapshot?.show?.request?.status.label,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -183,6 +183,17 @@ struct ThreadScreen: View {
         .environment(scene)
         .environment(\.hasSystemStrip, hasStrip)
         .sensoryFeedback(.success, trigger: copiedLink)
+    }
+
+    /// The connection problem the header names: all of them, except while the Chat pane shows its own saved copy or
+    /// offline line.
+    private func headerConnectionLine(_ thread: ThreadModel, focused: PaneID) -> ConnectionLine? {
+        let slots = scene.plan?.slots ?? []
+        let isChatVisible = focused == .chat || slots.contains { $0.content == .pane(.chat) }
+        let showsOwnLine = web.map { ($0.savedCopy != nil && $0.savedCopyState != nil) || $0.showsOfflineLine } ?? false
+        return HeaderConnection.line(
+            thread.connectionLine, isWebConversation: web?.mode == .web, chatIsVisible: isChatVisible,
+            chatShowsOwnLine: showsOwnLine)
     }
 
     /// The repository and branch under the title.
@@ -213,14 +224,17 @@ struct ThreadScreen: View {
     /// The app's own strip on the trailing edge: the threads button, the pane button and the menu, top to bottom.
     private func trailingStrip(_ thread: ThreadModel, focused: Binding<PaneID>) -> some View {
         VStack(spacing: 8) {
-            if isCompactWidth { threadsButton.background(Color.primary.opacity(0.08), in: .circle) }
+            if isCompactWidth {
+                threadsButton.background(Color.primary.opacity(0.08), in: .rect(cornerRadius: Design.Radius.control))
+            }
             PaneMenuButton(panes: thread.panes, current: focused.wrappedValue, select: { scene.select($0) })
             PaneStripRow(slots: slots, focused: focused.wrappedValue)
             Spacer(minLength: 0)
             if let line = activityLine(thread, focused: focused.wrappedValue) {
                 ActivityStripButton(line: line) { openChat(focusComposer: $0) }
             }
-            threadMenu(thread, shownPane: focused.wrappedValue).background(Color.primary.opacity(0.08), in: .circle)
+            threadMenu(thread, shownPane: focused.wrappedValue)
+                .background(Color.primary.opacity(0.08), in: .rect(cornerRadius: Design.Radius.control))
         }
         .tint(.primary)
         .padding(.vertical, 8).padding(.horizontal, 6)
@@ -357,6 +371,6 @@ struct ConnectionBanner: View {
     let line: ConnectionLine
 
     var body: some View {
-        InsetStrip(text: line.text).accessibilityIdentifier("thread.connection")
+        InsetStrip(lead: line.text).accessibilityIdentifier("thread.connection")
     }
 }
