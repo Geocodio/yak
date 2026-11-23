@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\ThreadSandboxState;
-use App\Models\Thread;
 use App\Models\User;
+use App\Services\Threads\SandboxCapacity;
 
 /**
- * Per person count of threads with a running sandbox, for admins.
+ * Per person count of awake sandboxes, for admins. Counts the same slots the
+ * person share limit counts: starting, running and paused sandboxes, each
+ * shared container once, with sub-threads under the owner of their stack.
  * Counts only: no thread title or id leaves this class, so private threads stay private.
  */
 final class AwakeShareData
@@ -19,19 +20,15 @@ final class AwakeShareData
     {
         $cap = (int) config('yak.threads.person_awake_cap');
 
-        $counts = Thread::query()
-            ->withoutVisibilityScope()
-            ->where('sandbox_state', ThreadSandboxState::Running)
-            ->whereNotNull('owner_user_id')
-            ->selectRaw('owner_user_id, count(*) as awake')
-            ->groupBy('owner_user_id')
-            ->orderByDesc('awake')
-            ->pluck('awake', 'owner_user_id');
+        $counts = app(SandboxCapacity::class)->awakeSlots()
+            ->whereNotNull('effective_owner_id')
+            ->countBy('effective_owner_id')
+            ->sortDesc();
 
         $names = User::query()->whereIn('id', $counts->keys())->pluck('name', 'id');
 
         return array_values($counts
-            ->map(fn ($awake, $userId): array => ['name' => (string) ($names[$userId] ?? 'Unknown'), 'awake' => (int) $awake, 'cap' => $cap])
+            ->map(fn (int $awake, int|string $userId): array => ['name' => (string) ($names[$userId] ?? 'Unknown'), 'awake' => $awake, 'cap' => $cap])
             ->all());
     }
 
@@ -50,7 +47,7 @@ final class AwakeShareData
 
         return [
             'total' => (int) config('yak.threads.awake_cap'),
-            'used' => array_sum(array_column($people, 'awake')),
+            'used' => app(SandboxCapacity::class)->awakeCount(),
             'perPersonCap' => (int) config('yak.threads.person_awake_cap'),
             'people' => $people,
         ];

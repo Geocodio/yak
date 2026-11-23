@@ -43,20 +43,28 @@ class ThreadArtifacts
         $container = (string) $thread->sandbox_container;
         $shell = ThreadShell::for($thread);
 
-        SandboxArtifactCollector::collect($shell, $container, $task, $workspacePath);
+        $artifacts = SandboxArtifactCollector::exclusive($task, function () use ($thread, $task, $shell, $container, $workspacePath): ?array {
+            SandboxArtifactCollector::collect($shell, $container, $task, $workspacePath);
 
-        $collected = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+            $collected = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
 
-        if (! is_dir($collected)) {
+            if (! is_dir($collected)) {
+                return null;
+            }
+
+            $this->dropSupersededRecording($thread, $task, $collected);
+            $artifacts = ArtifactPersister::persist($task);
+            $this->anchorSharedFiles($thread, $artifacts);
+
+            // `shared/` stays so Claude can open and edit its own files next turn; every other capture folder is cleared.
+            $shell->run($container, 'find ' . escapeshellarg("{$workspacePath}/.yak-artifacts") . ' -mindepth 1 -maxdepth 1 ! -name shared -exec rm -rf {} +');
+
+            return $artifacts;
+        });
+
+        if ($artifacts === null) {
             return;
         }
-
-        $this->dropSupersededRecording($thread, $task, $collected);
-        $artifacts = ArtifactPersister::persist($task);
-        $this->anchorSharedFiles($thread, $artifacts);
-
-        // `shared/` stays so Claude can open and edit its own files next turn; every other capture folder is cleared.
-        $shell->run($container, 'find ' . escapeshellarg("{$workspacePath}/.yak-artifacts") . ' -mindepth 1 -maxdepth 1 ! -name shared -exec rm -rf {} +');
 
         // A PR that is already open gets the new screenshots in its body; the render job updates the video itself.
         if ($task->pr_url !== null && collect($artifacts)->contains('role', 'screenshot')) {

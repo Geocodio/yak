@@ -41,8 +41,10 @@ trait FinishesRetryRuns
             return;
         }
 
-        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-        ArtifactPersister::persist($this->task);
+        SandboxArtifactCollector::exclusive($this->task, function () use ($sandbox, $containerName): void {
+            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+            ArtifactPersister::persist($this->task);
+        });
 
         $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
     }
