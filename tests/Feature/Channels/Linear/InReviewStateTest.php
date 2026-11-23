@@ -28,7 +28,7 @@ function fakeLinearTeamWithReviewState(): void
             return Http::response(['number' => 7, 'html_url' => 'https://github.com/org/my-repo/pull/7']);
         }
 
-        if (str_contains($url, 'api.linear.app/graphql') && str_contains($request['query'] ?? '', 'workflowStates')) {
+        if (str_contains($url, 'api.linear.app/graphql') && str_contains($request['query'] ?? '', 'team { states {')) {
             return Http::response(['data' => ['issue' => ['team' => ['states' => ['nodes' => [
                 ['id' => 'state-progress', 'name' => 'In Progress', 'type' => 'started', 'position' => 1],
                 ['id' => 'state-review', 'name' => 'In Review', 'type' => 'started', 'position' => 2],
@@ -86,7 +86,7 @@ it('moves the issue to the configured in-review state when a pull request opens'
     openLinearPullRequest();
 
     assertMovedToState('configured-review');
-    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'workflowStates'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'team { states {'));
 });
 
 it('resolves the team review state when none is configured and the toggle is on', function () {
@@ -98,7 +98,7 @@ it('resolves the team review state when none is configured and the toggle is on'
 
     assertMovedToState('state-review');
     Http::assertSent(fn ($request): bool => ($request['variables']['issueId'] ?? null) === 'issue-uuid-100'
-        && str_contains($request['query'] ?? '', 'workflowStates'));
+        && str_contains($request['query'] ?? '', 'team { states {'));
 });
 
 it('leaves the issue alone when nothing is configured and the toggle is off', function () {
@@ -109,7 +109,7 @@ it('leaves the issue alone when nothing is configured and the toggle is off', fu
     openLinearPullRequest();
 
     assertMovedToState(null);
-    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'workflowStates'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'team { states {'));
 });
 
 it('still finishes the task when the review state lookup fails', function () {
@@ -118,7 +118,7 @@ it('still finishes the task when the review state lookup fails', function () {
             return Http::response(['number' => 7, 'html_url' => 'https://github.com/org/my-repo/pull/7']);
         }
 
-        if (str_contains($request['query'] ?? '', 'workflowStates')) {
+        if (str_contains($request['query'] ?? '', 'team { states {')) {
             return Http::response(['errors' => [['message' => 'boom']]], 500);
         }
 

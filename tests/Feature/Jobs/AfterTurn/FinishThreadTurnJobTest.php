@@ -60,6 +60,23 @@ it('finishes the turn in the thread sandbox, then pauses it and runs afterTurn',
     $collaborators['sandbox']->shouldHaveReceived('pauseIfIdle')->once();
 });
 
+it('holds the sandbox awake for the whole job and lets go before its own pause', function () {
+    $collaborators = fakeAfterTurnCollaborators();
+    [, $run] = endedTurn();
+    $calls = [];
+    foreach (['holdAwake', 'ensureAwake', 'releaseHold', 'pauseIfIdle'] as $method) {
+        $collaborators['sandbox']->shouldReceive($method)->andReturnUsing(function () use ($method, &$calls) {
+            $calls[] = $method;
+
+            return $method === 'ensureAwake' ? SandboxWake::ready() : null;
+        });
+    }
+
+    runFinisher($run, RecordingFinishJob::class);
+
+    expect($calls)->toBe(['holdAwake', 'ensureAwake', 'releaseHold', 'pauseIfIdle']);
+});
+
 it('releases and does not finish while the sandbox cannot wake', function () {
     $collaborators = fakeAfterTurnCollaborators(SandboxWake::waitingForSlot());
     [$task, $run] = endedTurn();

@@ -26,7 +26,7 @@ it('resolves the leftmost started-type state for the issue team', function () {
 
     Http::assertSent(function ($request): bool {
         return str_contains($request->url(), 'api.linear.app/graphql')
-            && str_contains($request['query'], 'workflowStates')
+            && str_contains($request['query'], 'team { states {')
             && ($request['variables']['issueId'] ?? null) === 'issue-uuid-001';
     });
 });
