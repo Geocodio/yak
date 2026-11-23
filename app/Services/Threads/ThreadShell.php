@@ -38,8 +38,19 @@ class ThreadShell implements SandboxShell
         return $this->run($containerName, 'test -e ' . escapeshellarg($path))->exitCode() === 0;
     }
 
+    /**
+     * Only a regular, non-symlink file within the configured byte limit is pulled, and the
+     * read stops at the stated size, so a device, FIFO or growing file cannot fill the host disk.
+     */
     public function pullFile(string $containerName, string $remotePath, string $localPath): void
     {
+        $size = $this->regularFileSize($containerName, $remotePath);
+        $limit = (int) config('yak.threads.artifact_pull_max_bytes');
+
+        if ($size > $limit) {
+            throw new RuntimeException("Refusing to pull {$remotePath}: {$size} bytes exceeds the {$limit} byte limit.");
+        }
+
         $handle = fopen($localPath, 'wb');
 
         if ($handle === false) {
@@ -47,13 +58,17 @@ class ThreadShell implements SandboxShell
         }
 
         try {
-            for ($chunkIndex = 0; ; $chunkIndex++) {
-                $chunk = $this->readChunk($containerName, $remotePath, $chunkIndex);
-                fwrite($handle, $chunk);
+            $written = 0;
 
-                if (strlen($chunk) < self::CHUNK_BYTES) {
-                    break;
+            for ($chunkIndex = 0; $chunkIndex < (int) ceil($size / self::CHUNK_BYTES); $chunkIndex++) {
+                $chunk = $this->readChunk($containerName, $remotePath, $chunkIndex);
+                $written += strlen($chunk);
+
+                if ($written > $size) {
+                    throw new RuntimeException("Refusing to pull {$remotePath}: it returned more than its stated {$size} bytes.");
                 }
+
+                fwrite($handle, $chunk);
             }
         } finally {
             fclose($handle);
@@ -69,8 +84,10 @@ class ThreadShell implements SandboxShell
     {
         File::ensureDirectoryExists($localPath);
 
+        $remoteArchive = '/tmp/yak-pull-' . bin2hex(random_bytes(8)) . '.tar';
         $archive = $this->run($containerName, sprintf(
-            'archive=$(mktemp) && tar -cf "$archive" -C %s %s && echo "$archive"',
+            'tar -cf %s -C %s %s',
+            escapeshellarg($remoteArchive),
             escapeshellarg(dirname($remotePath)),
             escapeshellarg(basename($remotePath)),
         ));
@@ -79,7 +96,6 @@ class ThreadShell implements SandboxShell
             throw new RuntimeException('Could not read from the sandbox: ' . trim($archive->errorOutput()));
         }
 
-        $remoteArchive = trim($archive->output());
         $localArchive = tempnam(sys_get_temp_dir(), 'thread-pull');
 
         try {
@@ -106,6 +122,20 @@ class ThreadShell implements SandboxShell
         if ($result->failed()) {
             throw new RuntimeException("Could not push {$remotePath}: " . trim($result->errorOutput()));
         }
+    }
+
+    /** Returns the byte size of a regular, non-symlink sandbox file and refuses anything else. */
+    private function regularFileSize(string $containerName, string $remotePath): int
+    {
+        $path = escapeshellarg($remotePath);
+        $result = $this->run($containerName, "if [ -f {$path} ] && [ ! -L {$path} ]; then stat -c %s {$path}; else echo -1; fi");
+        $size = trim($result->output());
+
+        if ($result->failed() || ! ctype_digit($size)) {
+            throw new RuntimeException("Refusing to pull {$remotePath}: it is not a regular file.");
+        }
+
+        return (int) $size;
     }
 
     /** Reads one CHUNK_BYTES slice of a sandbox file, so no single read holds the whole file. */
