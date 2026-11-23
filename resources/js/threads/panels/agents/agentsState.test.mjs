@@ -130,3 +130,15 @@ test('the sub-thread signature changes when a sub-thread appears or changes stat
     assert.notEqual(queued, working);
     assert.equal(working, childrenSignature({ c1: { sequence: 9, data: { state: 'working' } } }));
 });
+
+test('overlayChildren lays the live card state over loaded rows and leaves others alone', async () => {
+    const { overlayChildren } = await import('./agentsState.ts');
+    const rows = [{ id: 'a', state: 'queued', step: null, title: 'A' }, { id: 'b', state: 'done', step: null, title: 'B' }];
+
+    assert.equal(overlayChildren(rows, {}), rows);
+
+    const result = overlayChildren(rows, { a: { sequence: 3, data: { state: 'working', step: 'Reading' } } });
+
+    assert.deepEqual(result[0], { id: 'a', state: 'working', step: 'Reading', title: 'A' });
+    assert.equal(result[1], rows[1]);
+});

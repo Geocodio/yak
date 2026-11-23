@@ -1,4 +1,3 @@
-import { childrenSignature } from '@/threads/panels/agents/agentsState';
 import { router, usePoll } from '@inertiajs/react';
 import { ArrowDown } from 'lucide-react';
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
@@ -41,6 +40,7 @@ import { placeContinuedRows } from './placeContinuedRows';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
 import { continuedByRun } from '@/threads/panels/agents/agentsState';
 import type { ThreadAgent } from '@/types/thread-agents';
+import type { ThreadEventState } from '@/types/thread-events';
 
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
@@ -97,7 +97,7 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
 }
 
-export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, childrenSignature: string) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
+export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, children: ThreadEventState['children']) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     // The feed knows where the turn started; the run before the active one is the fallback.
     const { entries, liveSteps, lastSequence, connection, link, agents: liveAgents, children: liveChildren } = useConversation(threadId, messages, runs.at(-2)?.afterSequence ?? 0);
     const agents = useAgents();
@@ -111,8 +111,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
-    const liveChildrenSignature = childrenSignature(liveChildren);
-    useEffect(() => onAgentsChange?.(liveAgents, liveChildrenSignature), [liveAgents, liveChildrenSignature, onAgentsChange]);
+    useEffect(() => onAgentsChange?.(liveAgents, liveChildren), [liveAgents, liveChildren, onAgentsChange]);
     useEffect(() => onLiveStepsChange?.(liveSteps), [liveSteps, onLiveStepsChange]);
     // The person's own message always comes into view, also after they scrolled up.
     useEffect(() => {

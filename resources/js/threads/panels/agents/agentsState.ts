@@ -240,3 +240,23 @@ export function childrenSignature(children: Record<string, { data: { state: stri
         .sort()
         .join('|');
 }
+
+/**
+ * The live card of each sub-thread laid over the rows a prop loaded: the card's events arrive before the props reload,
+ * so every surface that lists sub-threads (the sidebar group, the Agents tab) shows the state the conversation shows.
+ * Card, stack and Agents rows share one state vocabulary.
+ */
+export function overlayChildren<T extends { id: string; state: string; step: string | null }>(
+    rows: T[],
+    live: Record<string, { data: { state: string; step: string | null } }>,
+): T[] {
+    if (Object.keys(live).length === 0) {
+        return rows;
+    }
+
+    return rows.map((row) => {
+        const card = live[row.id]?.data;
+
+        return card === undefined ? row : { ...row, state: card.state, step: card.step };
+    });
+}

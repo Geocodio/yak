@@ -190,3 +190,24 @@ it('explains sub-threads and opens the Agents tab from the sidebar and the heade
         ->assertVisible('[data-testid="agents-panel"]')
         ->assertSeeIn('[data-testid="thread-header-subthreads"]', '1 sub-thread');
 });
+
+it('shows a sub-thread in the same state on its card, in the sidebar and in the Agents tab', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    $child = Thread::factory()->child($parent)->create(['name' => 'scout', 'title' => 'Scout the API']);
+
+    // The stored rows still say queued; only the card event knows the child is working.
+    app(ThreadEventPublisher::class)->append($parent->id, 'child', [
+        'childThreadId' => $child->public_id, 'name' => 'scout', 'kind' => 'research', 'model' => 'sonnet', 'state' => 'working',
+        'step' => null, 'resultSummary' => null, 'branch' => null, 'messagesPaused' => false,
+        'mergedAt' => null, 'question' => null, 'filesChanged' => null, 'additions' => null, 'deletions' => null,
+        'conflictResolved' => false, 'decision' => null,
+    ]);
+
+    visit(route('threads.show', $parent))
+        ->assertAttribute('[data-testid="child-card-' . $child->public_id . '"]', 'data-state', 'working')
+        ->assertAttribute('[data-testid="stack-child-' . $child->public_id . '"]', 'data-state', 'working')
+        ->click('[data-testid="stack-view-agents"]')
+        ->assertAttribute('[data-testid="agents-subthread-row"]', 'data-state', 'working')
+        ->assertNoJavaScriptErrors();
+});
