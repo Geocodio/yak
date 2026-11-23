@@ -3,8 +3,8 @@
 namespace App\Services\Threads;
 
 use App\Enums\ThreadKind;
-use App\Exceptions\ThreadSandboxNotDestroyed;
 use App\Enums\ThreadSandboxState;
+use App\Exceptions\ThreadSandboxNotDestroyed;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
 use App\Models\Thread;

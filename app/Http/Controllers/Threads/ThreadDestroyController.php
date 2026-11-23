@@ -9,7 +9,6 @@ use App\Services\Threads\ThreadDeleter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
-
 class ThreadDestroyController extends Controller
 {
     public function __invoke(Thread $thread, ThreadDeleter $deleter): RedirectResponse
