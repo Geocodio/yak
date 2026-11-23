@@ -90,7 +90,9 @@ struct ThreadLayoutView: View {
         let focused = paneInFocus(plan)
         return VStack(spacing: 0) {
             // The saved page of the web conversation carries its own line.
-            if web?.mode != .web, let line = thread.connectionLine { ConnectionBanner(line: line) }
+            if singlePlacement.hidesTitle, web?.mode != .web, let line = thread.connectionLine {
+                ConnectionBanner(line: line)
+            }
             ZStack {
                 PaneHost(
                     thread: thread, focused: focused, slots: model, pickCount: scene.panePickCount,

@@ -30,6 +30,7 @@ struct ThreadScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(SystemFeatures.self) private var system
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.webConversation) private var web
 
     private var isVisible: Bool { scenePhase == .active && !isCoveredByDrawer }
     /// Plain http appears only against the stub of test mode.
@@ -153,6 +154,7 @@ struct ThreadScreen: View {
                     ToolbarItem(placement: .principal) {
                         ThreadTitle(
                             title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
+                            connectionLine: web?.mode == .web ? nil : thread.connectionLine,
                             tone: thread.statusTone,
                             action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
                         )

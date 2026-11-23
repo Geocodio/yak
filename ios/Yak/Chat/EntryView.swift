@@ -29,7 +29,7 @@ private struct DayDivider: View {
             case .date(let date): Text(date, format: .dateTime.year().month(.abbreviated).day())
             }
         }
-        .font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
+        .font(.yak(.caption, .semibold)).foregroundStyle(Color.yakText)
         .fixedSize(horizontal: false, vertical: true).id(dynamicTypeSize)
         .frame(maxWidth: .infinity).padding(.top, 6)
         .accessibilityAddTraits(.isHeader)

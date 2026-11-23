@@ -34,7 +34,7 @@ enum Design {
         /// Between a pane's bottom edge and the bar.
         static let barGap: CGFloat = 6
         /// Between the screen's bottom edge and the bar.
-        static let barEdgeGap: CGFloat = 30
+        static let barEdgeGap: CGFloat = 24
         /// Padding between a bar's edge and its controls.
         static let barPadding: CGFloat = 6
         /// Padding inside the terminal around its text.
@@ -248,6 +248,8 @@ extension Color {
 /// pick a text style and a weight; none names a font file.
 extension Font {
     /// The point sizes of the system text styles at the default content size.
+    static func yakPointSize(of style: Font.TextStyle) -> CGFloat { baseSize(of: style) }
+
     private static func baseSize(of style: Font.TextStyle) -> CGFloat {
         switch style {
         case .largeTitle: 34
@@ -275,8 +277,11 @@ extension Font {
     }
 
     /// A text style in Plex, scaling with Dynamic Type.
-    static func yak(_ style: Font.TextStyle, _ weight: Font.Weight = .regular, isMonospaced: Bool = false) -> Font {
-        .custom(yakFaceName(weight: weight, isMonospaced: isMonospaced), size: baseSize(of: style), relativeTo: style)
+    static func yak(_ style: Font.TextStyle, _ weight: Font.Weight? = nil, isMonospaced: Bool = false) -> Font {
+        // The system's headline is semibold; so is this one unless a weight is given.
+        let weight = weight ?? (style == .headline ? .semibold : .regular)
+        return .custom(
+            yakFaceName(weight: weight, isMonospaced: isMonospaced), size: baseSize(of: style), relativeTo: style)
     }
 
     /// Titles in the header: 15 pt semibold.

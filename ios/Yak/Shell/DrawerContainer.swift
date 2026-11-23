@@ -38,18 +38,18 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
                     .simultaneousGesture(dragGesture(width: width))
                 detail
                     .background {
-                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress).fill(Color.yakBackground)
+                        Rectangle().fill(Color.yakBackground)
                             .ignoresSafeArea()
                     }
                     .overlay {
                         // The thread recedes behind the drawer, as the board's faded card does.
-                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress)
+                        Rectangle()
                             .fill(Color.yakBackground.opacity(Motion.drawerFade * progress))
                             .ignoresSafeArea()
                             .allowsHitTesting(false)
                     }
                     .overlay(
-                        RoundedRectangle(cornerRadius: Design.Radius.pane * progress)
+                        Rectangle()
                             .stroke(
                                 Color.primary.opacity(Motion.drawerStrokeOpacity * progress),
                                 lineWidth: Design.Space.hairline

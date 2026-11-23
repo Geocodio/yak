@@ -173,7 +173,7 @@ struct DrawerView: View {
                 dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
             layout {
-                Image(systemName: "eye").font(.yak(.body, .semibold)).accessibilityHidden(true)
+                Image(systemName: "eye").font(.system(.body, weight: .light)).accessibilityHidden(true)
                 Text("drawer.tile.observations").font(.yak(.subheadline, .medium))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -264,7 +264,7 @@ struct DrawerView: View {
             .contextMenu {
                 if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
             } preview: {
-                DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false)
+                DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false, showsEverything: true)
                     .frame(minWidth: 280)
                     .onAppear { if isSubThread { drawer.menuOpening(row) } }
             }

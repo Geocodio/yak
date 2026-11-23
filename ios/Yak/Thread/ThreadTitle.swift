@@ -8,6 +8,8 @@ struct ThreadTitle: View {
     let dot: ThreadStatusDot
     /// The repository and branch, in one line; nil while the thread has neither.
     let meta: String?
+    /// A connection problem; its words take the place of the repository line while it lasts.
+    var connectionLine: ConnectionLine?
     /// The request's status tone; it picks between waiting and blocked for the attention dot.
     var tone: Tone?
     /// Opens the Overview, or returns to the pane before it.
@@ -34,7 +36,12 @@ struct ThreadTitle: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityValue(statusText)
             }
-            if let meta {
+            if let connectionLine {
+                Text(verbatim: connectionLine.text).font(.yak(.caption, .medium)).foregroundStyle(Color.yakWarning)
+                    .lineLimit(1)
+                    .padding(.leading, markSize + 8)
+                    .accessibilityIdentifier("thread.connection")
+            } else if let meta {
                 Text(verbatim: meta).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.leading, markSize + 8)

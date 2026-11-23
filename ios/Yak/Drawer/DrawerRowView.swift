@@ -12,6 +12,8 @@ struct DrawerRowView: View {
     var isRunning = false
     /// True for the thread the window shows.
     var isSelected = false
+    /// The long-press preview shows the whole title and subtitle.
+    var showsEverything = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var indicatorSize = 12.0
@@ -28,17 +30,12 @@ struct DrawerRowView: View {
                             .padding(.top, Design.Space.small)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        if isTask {
-                            HStack(spacing: Design.Space.tight) {
-                                Image(systemName: "checklist")
-                                Text("drawer.taskLabel")
-                            }
-                            .font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
-                            .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
-                        }
                         title
-                        Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
-                            .multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
+                        HStack(spacing: Design.Space.small) {
+                            if isTask { taskBadge }
+                            Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
+                                .multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+                        }
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
@@ -89,7 +86,19 @@ struct DrawerRowView: View {
             dot.foregroundColor = .yakInfo
             name += dot
         }
-        return Text(name).multilineTextAlignment(.leading).lineLimit(isLarge ? nil : 3)
+        return Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+    }
+
+    /// The mark of a task item: a small badge on the quiet fill, as the board's source badge.
+    private var taskBadge: some View {
+        HStack(spacing: Design.Space.tight) {
+            Image(systemName: "checklist").imageScale(.small)
+            Text("drawer.taskLabel")
+        }
+        .font(.yak(.caption, .medium)).foregroundStyle(Color.yakText)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
+        .background(Color.yakBubble, in: .rect(cornerRadius: 4))
+        .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
     }
 
     /// A question reads in the brand color and a block in the failure color; everything else is quiet.
@@ -108,6 +117,10 @@ struct DrawerRowView: View {
             Rectangle().fill(Color.yakLine).frame(width: Design.Space.line)
         }
     }
+
+    /// Above the default text size a title and a subtitle wrap, so no size cuts them short; at the default they end in an
+    /// ellipsis after one line, as on the board.
+    private var wrapsLines: Bool { isLarge || showsEverything || dynamicTypeSize > .large }
 
     /// At accessibility text sizes the title needs the whole width, so the age and the lock go under the subtitle.
     private var isLarge: Bool { dynamicTypeSize.isAccessibilitySize }

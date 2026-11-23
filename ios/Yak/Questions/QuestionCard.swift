@@ -175,6 +175,7 @@ struct QuestionCard: View {
             Text(verbatim: item.header).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             Text(verbatim: item.question).font(.yak(.body)).fixedSize(horizontal: false, vertical: true)
         }
+        .id(dynamicTypeSize)
         .accessibilityElement(children: .combine)
     }
 

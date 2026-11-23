@@ -39,11 +39,11 @@ struct BottomBar: View {
             if pane == .chat, web?.mode == .web { QueuedChipsView(thread: thread) }
             layout
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Design.Space.barPadding)
+                .padding(Design.Space.nudge + 1)
         }
         .clipShape(.rect(cornerRadius: Design.Radius.card))
         .background { BarSurface(isFocused: isTyping) }
-        .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.snug)
+        .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.tight)
         .padding(.bottom, Design.Space.barEdgeGap)
         .frame(maxWidth: .infinity)
         .background(Color.yakBackground)
