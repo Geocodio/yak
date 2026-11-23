@@ -1,11 +1,11 @@
 import { useForm } from '@inertiajs/react';
 import { Button, Textarea, cn } from '@geocodio/console-ui';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { store as storeThreadAnswers } from '@/routes/threads/clarification-answers';
 import { Prose } from '@/components/Prose';
 import { QuestionAttachment } from '@/components/tasks/questions/QuestionAttachment';
-import { visibleStep } from '@/components/tasks/questions/steps';
+import { firstQuestionWithError, visibleStep } from '@/components/tasks/questions/steps';
 import type { QuestionAttachmentData, QuestionData, QuestionOptionData } from '@/types/tasks';
 
 type Answer = { choices: string[]; other: string | null; otherOpen: boolean };
@@ -17,13 +17,27 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
     const [isDeciding, setIsDeciding] = useState(false);
     const errors = form.errors as Record<string, string | undefined>;
-    const [chosenStep, setStep] = useState(0);
+    const [chosenStep, setChosenStep] = useState(0);
     const step = visibleStep(chosenStep, questions.length);
     const isStepped = questions.length > 1;
+    const shouldFocusStep = useRef(false);
+
+    // Moving between questions takes keyboard focus along, so the next Tab starts inside the question shown.
+    const setStep = (index: number) => {
+        shouldFocusStep.current = true;
+        setChosenStep(index);
+    };
+
+    useEffect(() => {
+        if (shouldFocusStep.current) {
+            shouldFocusStep.current = false;
+            document.getElementById(`question-${questions[step]?.id}-label`)?.focus();
+        }
+    }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // A validation error on a question that is not shown brings that question forward.
     useEffect(() => {
-        const failing = questions.findIndex((question) => errors[`answers.${question.id}`] !== undefined || errors[`answers.${question.id}.other`] !== undefined);
+        const failing = firstQuestionWithError(questions.map((question) => question.id), Object.keys(form.errors));
 
         if (failing !== -1) {
             setStep(failing);
@@ -115,7 +129,7 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
 
             {questions.map((question, index) => (
                 <fieldset key={question.id} hidden={index !== step} aria-labelledby={`question-${question.id}-label`} className="@container min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
-                    <div id={`question-${question.id}-label`} className="mb-3 flex flex-col gap-1.5">
+                    <div id={`question-${question.id}-label`} tabIndex={-1} className="mb-3 flex flex-col gap-1.5 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent">
                         <span className="flex items-center gap-2">
                             <span className="rounded-chip bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-text">{question.header}</span>
                             <span className="text-[11px] text-muted">Question {index + 1} of {questions.length}</span>

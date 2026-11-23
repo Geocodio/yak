@@ -199,3 +199,17 @@ it('shows a single question without a stepper', function () {
         ->assertMissing('[data-testid="questions-stepper"]')
         ->assertMissing('[data-testid="questions-next"]');
 });
+
+it('moves keyboard focus to the question it steps to', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    questionLineFor($thread, [colourQuestion(), widthQuestion()]);
+
+    $page = visit("/threads/{$thread->public_id}")->click('[data-testid="questions-next"]');
+
+    expect($page->script('document.activeElement?.id'))->toBe('question-q2-label');
+
+    $page->click('[data-testid="questions-back"]');
+
+    expect($page->script('document.activeElement?.id'))->toBe('question-q1-label');
+});
