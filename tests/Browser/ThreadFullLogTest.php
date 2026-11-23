@@ -174,11 +174,14 @@ it('answers 404 for the page of a thread the viewer cannot see, so no log link o
 it('goes to the first result with Next step when a search has dropped the open step', function () {
     [$thread, , $ids] = fullLogThread([array_map(fn (int $number): array => ["echo {$number}", (string) $number], range(1, 6))]);
 
-    visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))
+    $page = visit(route('threads.show', ['thread' => $thread, 'log' => $ids[0][0]]))
         ->assertVisible(FULL_LOG)
         ->fill('[data-testid="transcript-search"]', 'echo 4')
-        ->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches')
-        ->click('[data-testid="log-next"]')
+        ->assertSeeIn('[data-testid="transcript-search-count"]', '1 step matches');
+
+    // The button enables once the searched log has loaded; the count line can show before that.
+    waitUntilPresent($page, '[data-testid="log-next"]:not([disabled])');
+    $page->click('[data-testid="log-next"]')
         ->assertSeeIn('[data-testid="transcript-step"]', 'Step 4')
         ->assertNoJavaScriptErrors();
 });
@@ -203,9 +206,9 @@ it('keeps Next step disabled until the log has loaded and then enables it', func
         ->assertVisible(FULL_LOG)
         ->assertAttribute('[data-testid="log-next"]', 'disabled', '')
         ->assertAttribute('[data-testid="log-prev"]', 'disabled', '')
-        ->assertSee('echo one')
-        ->assertAttributeMissing('[data-testid="log-next"]', 'disabled')
-        ->assertNoJavaScriptErrors();
+        ->assertSee('echo one');
+    waitUntilPresent($page, '[data-testid="log-next"]:not([disabled])');
+    $page->assertNoJavaScriptErrors();
 });
 
 it('says so when searches come too fast and recovers on Retry', function () {
