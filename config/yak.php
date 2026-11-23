@@ -585,16 +585,18 @@ return [
         // Largest classifier prompt (concerns plus diff), in characters.
         'classifier_max_diff_characters' => 200000,
 
-        // Files that decide how Yak itself behaves in a repository. A diff
-        // touching them always needs a human, whatever the repository says.
+        // Files that decide how Yak reviews and approves a repository. A diff
+        // touching them always needs a human, whatever the repository says, so
+        // a PR cannot loosen the policy it is judged by. The rest of .yak/
+        // (setup.sh, preview.yml) is reviewed like ordinary code.
         'config_floor_paths' => [
-            '.yak/**', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
+            '.yak/config.yml', '.yak/risk-profile.yml', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
         ],
 
         // The hard floor: a diff touching any of these always needs a human.
         // Repository-agnostic and not repository editable.
         'approval_veto_paths' => [
-            '.yak/**', 'AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS',
+            '.yak/config.yml', '.yak/risk-profile.yml', 'AGENTS.md', 'CLAUDE.md', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS',
             '.claude/**', '.github/**', '.drone*', '.gitlab-ci.yml', '.circleci/**', 'Jenkinsfile',
             'Dockerfile*', '**/Dockerfile*', 'docker/**', 'docker-compose*', 'compose.yml', 'compose.yaml',
             '.dockerignore', 'ansible/**', '*.tf', '*.tfvars', 'Procfile',

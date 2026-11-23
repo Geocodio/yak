@@ -307,13 +307,13 @@ Make `yak / config` a required status check in branch protection, so a broken fi
 
 The host floor is a fixed list of paths that always need a human reviewer, at every approval level. A repository cannot change it.
 
-- Yak's own rules: `.yak/**`, `AGENTS.md`, `CLAUDE.md`, `.claude/**` and the `CODEOWNERS` files
+- Yak's own rules: `.yak/config.yml` and `.yak/risk-profile.yml` (so a PR cannot loosen the policy it is reviewed under), `AGENTS.md`, `CLAUDE.md`, `.claude/**` and the `CODEOWNERS` files
 - CI: `.github/**`, `.drone*`, `.gitlab-ci.yml`, `.circleci/**` and `Jenkinsfile`
 - Docker and infrastructure: `Dockerfile*`, `docker/**`, compose files, `.dockerignore`, `ansible/**`, `*.tf`, `*.tfvars` and `Procfile`
 - Database migrations: `database/migrations/**`, `migrations/**`, `**/migrations/**` and `db/migrate/**`
 - Secrets and auth config: `.env*`, `*.pem`, `*.key`, `auth.json`, `config/auth.php`, `config/sanctum.php` and `config/fortify.php`
 
-Everything else, such as billing or authorization code, is judged by the repository's concerns in `.yak/risk-profile.yml`.
+The rest of `.yak/`, such as `setup.sh` and `preview.yml`, is reviewed like ordinary code. Everything else, such as billing or authorization code, is judged by the repository's concerns in `.yak/risk-profile.yml`.
 
 ## Migrating an existing repository
 
