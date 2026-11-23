@@ -66,15 +66,19 @@ it('gives the awake share to admins only', function () {
     config(['yak.threads.person_awake_cap' => 3]);
 
     $other = User::factory()->create();
-    Thread::factory()->private($other)->create(['sandbox_state' => ThreadSandboxState::Running]);
-    Thread::factory()->create(['owner_user_id' => $other->id, 'sandbox_state' => ThreadSandboxState::Running]);
-    Thread::factory()->create(['owner_user_id' => $other->id, 'sandbox_state' => ThreadSandboxState::Paused]);
-    Thread::factory()->create(['owner_user_id' => $this->user->id, 'sandbox_state' => ThreadSandboxState::Running]);
+    Thread::factory()->private($other)->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-a']);
+    $root = Thread::factory()->create(['owner_user_id' => $other->id, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-b']);
+    Thread::factory()->paused()->create(['owner_user_id' => $other->id]);
+    Thread::factory()->create(['owner_user_id' => $this->user->id, 'root_thread_id' => $root->id, 'sandbox_state' => ThreadSandboxState::Starting, 'sandbox_container' => 'yak-thread-c']);
+    Thread::factory()->create(['owner_user_id' => $other->id, 'root_thread_id' => $root->id, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-b']);
+    Thread::factory()->stopped()->create(['owner_user_id' => $other->id]);
+    Thread::factory()->create(['owner_user_id' => $this->user->id, 'sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-d']);
 
     $this->get(route('settings.claude-accounts'))->assertInertia(fn (Assert $page) => $page
         ->has('awakeShare', 2)
         ->where('awakeShare.0.name', $other->name)
-        ->where('awakeShare.0.awake', 2)
+        ->where('awakeShare.0.awake', 4)
         ->where('awakeShare.0.cap', 3)
+        ->where('awakeShare.1.awake', 1)
         ->where('awakeShare.0', fn ($row) => array_keys($row->toArray()) === ['name', 'awake', 'cap']));
 });
