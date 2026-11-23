@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Queue;
 function fakeLinearGraphqlWithStates(array $nodes): void
 {
     Http::fake(function ($request) use ($nodes) {
-        if (str_contains($request->url(), 'api.linear.app/graphql') && str_contains($request['query'] ?? '', 'workflowStates')) {
+        if (str_contains($request->url(), 'api.linear.app/graphql') && str_contains($request['query'] ?? '', 'team { states {')) {
             return Http::response(['data' => ['issue' => ['team' => ['states' => ['nodes' => $nodes]]]]]);
         }
 
@@ -43,7 +43,7 @@ it('moves the Linear issue to the configured state when started_state_id is set'
     assertIssueMovedTo('started-state-uuid');
 
     // The env override skips team-state discovery entirely.
-    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'workflowStates'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'team { states {'));
 });
 
 it('auto-discovers the team started state when no started_state_id is configured', function () {
@@ -74,7 +74,7 @@ it('does not move the issue when the connection toggle is off', function () {
     postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
 
     assertIssueMovedTo(null);
-    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'workflowStates'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'team { states {'));
 });
 
 it('still picks up the task when the team has no started-type state', function () {

@@ -42,6 +42,8 @@ function wireQueueCollaborators(array &$failingThreadIds, array &$sent): void
         return SandboxWake::ready();
     });
     $sandbox->shouldReceive('pauseIfIdle');
+    $sandbox->shouldReceive('holdAwake');
+    $sandbox->shouldReceive('releaseHold');
     $commands = Mockery::mock(ThreadCommands::class);
     $commands->shouldReceive('startRunner');
     $commands->shouldReceive('turn')->andReturnUsing(function (Thread $thread) use (&$sent) {

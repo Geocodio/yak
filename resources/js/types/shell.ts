@@ -15,6 +15,7 @@ export type ThreadListRow = {
     status: 'running' | 'blocked' | 'paused' | 'stopped' | 'closed' | 'waiting_for_repository';
     needsYouReason: 'question' | 'blocked' | 'co_owner' | 'early_warning' | 'repository_question' | null;
     needsYouLabel: string | null;
+    needsYouDetail: string | null;
     isUnread: boolean;
     source: ThreadSource;
     starter: ThreadStarter;

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Threads;
 
+use App\Exceptions\ThreadSandboxNotDestroyed;
 use App\Http\Controllers\Controller;
 use App\Models\Thread;
 use App\Services\Threads\ThreadDeleter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
-use RuntimeException;
 
 class ThreadDestroyController extends Controller
 {
@@ -21,8 +21,8 @@ class ThreadDestroyController extends Controller
 
         try {
             $deleter->delete($thread);
-        } catch (RuntimeException $exception) {
-            return back()->with('error', $exception->getMessage());
+        } catch (ThreadSandboxNotDestroyed) {
+            return back()->with('error', ThreadSandboxNotDestroyed::SENTENCE);
         }
 
         // Deleting from the sidebar list leaves the person on the page they are reading.

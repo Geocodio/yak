@@ -87,6 +87,9 @@ abstract class FinishThreadTurnJob implements ShouldQueue
         $isReleased = false;
         $movesToUnknownRepository = false;
 
+        // The turn-end pause and the idle sweep would otherwise freeze the sandbox under this job's push.
+        $threadSandbox->holdAwake($thread, $this->timeout);
+
         try {
             if ($this->taskIsTerminal($this->task) && ! $this->runsOnTerminalTask()) {
                 return;
@@ -134,6 +137,8 @@ abstract class FinishThreadTurnJob implements ShouldQueue
             if (! $isReleased && ! $this->task->targets_external_pr && $run->refresh()->getAttribute('turn_state') === TurnState::Completed) {
                 $this->pushUnpushedCommits($thread);
             }
+
+            $threadSandbox->releaseHold($thread);
 
             try {
                 $threadSandbox->pauseIfIdle($thread->refresh());

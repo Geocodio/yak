@@ -1,0 +1,31 @@
+{
+    "results": [
+        {
+            "id": "<volatile:string>",
+            "path": "<volatile:string>",
+            "subtitle": "example/web / yak/retry-uploads",
+            "threadId": "<volatile:string>",
+            "title": "Retry failed uploads",
+            "type": "thread",
+            "url": "https://github.com/example/web/pull/12"
+        },
+        {
+            "id": "<volatile:string>",
+            "path": "<volatile:string>",
+            "subtitle": "example/uploads",
+            "threadId": "<volatile:null>",
+            "title": "Uploads",
+            "type": "repository",
+            "url": "https://github.com/example/uploads"
+        },
+        {
+            "id": "<volatile:string>",
+            "path": "<volatile:null>",
+            "subtitle": "example/web #12",
+            "threadId": "<volatile:string>",
+            "title": "Retry failed uploads",
+            "type": "pull_request",
+            "url": "https://github.com/example/web/pull/12"
+        }
+    ]
+}

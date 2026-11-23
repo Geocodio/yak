@@ -66,6 +66,19 @@ class ThreadSandbox
         return Cache::has($this->sessionKey($thread));
     }
 
+    /**
+     * Keeps every pause off the sandbox while after-turn work runs in it. The TTL frees a hold that a crashed job left.
+     */
+    public function holdAwake(Thread $thread, int $seconds): void
+    {
+        Cache::put($this->holdKey($thread), true, $seconds);
+    }
+
+    public function releaseHold(Thread $thread): void
+    {
+        Cache::forget($this->holdKey($thread));
+    }
+
     public function pauseIfIdle(Thread $thread): void
     {
         if ($thread->sharesParentSandbox()) {
@@ -81,7 +94,7 @@ class ThreadSandbox
         try {
             $thread->refresh();
 
-            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread) || $this->hasOpenSession($thread)) {
+            if ($thread->sandbox_state !== ThreadSandboxState::Running || Cache::has($this->holdKey($thread)) || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread) || $this->hasOpenSession($thread)) {
                 return;
             }
 
@@ -528,6 +541,11 @@ class ThreadSandbox
     private function sessionKey(Thread $thread): string
     {
         return "thread-sandbox:session:{$thread->id}";
+    }
+
+    private function holdKey(Thread $thread): string
+    {
+        return "thread-sandbox:hold:{$thread->id}";
     }
 
     private function lockName(Thread $thread): string

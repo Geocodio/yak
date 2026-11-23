@@ -191,6 +191,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($device instanceof Device ? 'web-session:' . $device->id : 'web-session-ip:' . $request->ip());
         });
 
+        RateLimiter::for('app-search', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(30)->by($device instanceof Device ? 'search:user:' . $device->user_id : 'search-ip:' . $request->ip());
+        });
+
         RateLimiter::for('app-embed-redeem', fn (Request $request): Limit => Limit::perMinute(30)->by('embed-redeem:' . $request->ip()));
 
         RateLimiter::for('app-device', function (Request $request): Limit {

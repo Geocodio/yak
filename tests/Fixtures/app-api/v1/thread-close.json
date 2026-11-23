@@ -1,0 +1,33 @@
+{
+    "canDelete": true,
+    "children": [],
+    "group": "today",
+    "hasRepository": true,
+    "id": "<volatile:string>",
+    "isPrivate": false,
+    "isShared": false,
+    "isStarred": false,
+    "isUnattended": false,
+    "isUnread": false,
+    "lastActivityAt": "<volatile:null>",
+    "needsYouDetail": null,
+    "needsYouLabel": null,
+    "needsYouReason": null,
+    "ownerInitials": null,
+    "repo": "example/api",
+    "source": {
+        "key": "dashboard",
+        "label": "Dashboard",
+        "reference": null,
+        "url": null
+    },
+    "starter": {
+        "avatarUrl": null,
+        "key": "user:1",
+        "name": "Test person"
+    },
+    "status": "closed",
+    "step": null,
+    "title": "Retry failed uploads",
+    "type": "thread"
+}

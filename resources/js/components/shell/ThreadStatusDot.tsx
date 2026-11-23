@@ -1,15 +1,15 @@
 import { cn } from '@geocodio/console-ui';
 import type { ThreadListRow } from '@/types/shell';
 
-/** Running accent filled, paused hollow, stopped grey hollow, blocked red, needs-you question orange. */
+/** Running accent filled, paused hollow, stopped grey hollow, blocked or failed red, needs-you question orange. */
 export function ThreadStatusDot({ row }: { row: Pick<ThreadListRow, 'status' | 'needsYouReason'> }) {
     const isQuestion = row.needsYouReason !== null && row.needsYouReason !== 'blocked';
     const className = isQuestion
         ? 'bg-warn'
-        : row.status === 'running'
-          ? 'bg-brand'
-          : row.status === 'blocked'
-            ? 'bg-fail'
+        : row.status === 'blocked' || row.needsYouReason === 'blocked'
+          ? 'bg-fail'
+          : row.status === 'running'
+            ? 'bg-brand'
             : row.status === 'paused'
               ? 'border border-brand'
               : row.status === 'waiting_for_repository'

@@ -60,6 +60,19 @@ test('an open session keeps the sandbox awake at turn end', function () {
     expect(operations())->toBe([])->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
 });
 
+test('a hold keeps the sandbox awake until it is released', function () {
+    $thread = runningSandboxThread();
+    app(ThreadSandbox::class)->holdAwake($thread, 60);
+
+    app(ThreadSandbox::class)->pauseIfIdle($thread);
+    expect(operations())->toBe([]);
+
+    app(ThreadSandbox::class)->releaseHold($thread);
+    app(ThreadSandbox::class)->pauseIfIdle($thread);
+
+    expect(operations())->toBe(['pause']);
+});
+
 test('the sandbox pauses once the session flag expires', function () {
     $thread = runningSandboxThread();
     app(ThreadSandbox::class)->markSessionOpen($thread);

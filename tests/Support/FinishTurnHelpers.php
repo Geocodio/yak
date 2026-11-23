@@ -51,6 +51,8 @@ function fakeAfterTurnCollaborators(?SandboxWake $wake = null, ?FakeSandboxManag
     $sandbox = Mockery::mock(ThreadSandbox::class);
     $sandbox->shouldReceive('ensureAwake')->andReturn($wake ?? SandboxWake::ready())->byDefault();
     $sandbox->shouldReceive('pauseIfIdle')->byDefault();
+    $sandbox->shouldReceive('holdAwake')->byDefault();
+    $sandbox->shouldReceive('releaseHold')->byDefault();
     $sandbox->shouldReceive('destroy')->byDefault();
     $shell ??= new FakeSandboxManager;
 

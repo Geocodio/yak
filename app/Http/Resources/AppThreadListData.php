@@ -47,6 +47,18 @@ final class AppThreadListData
     }
 
     /**
+     * One thread's list row for a viewer, or null when they may not see it.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function rowFor(User $user, Thread $thread): ?array
+    {
+        $row = ThreadList::rowFor($user, $thread);
+
+        return $row === null ? null : self::typed([$row])[0];
+    }
+
+    /**
      * Adds the row `type`, `hasRepository` and the unread mark app builds read: they draw the finished-and-not-seen dot from the `unseen` reason.
      *
      * @param  list<array<string, mixed>>  $rows

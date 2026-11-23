@@ -14,8 +14,11 @@ it('shows the teleport dialog with the command for a Yak-owned thread', function
     $thread = Thread::factory()->create();
     $this->actingAs($user);
 
-    visit(route('threads.show', $thread))
-        ->click('@teleport-button')
+    $page = visit(route('threads.show', $thread));
+
+    // The button sits in the environment panel, which renders once its request has answered.
+    waitUntilPresent($page, '[data-testid="teleport-button"]');
+    $page->click('@teleport-button')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-dialog', 'Only committed work travels')
         ->assertSeeIn('@teleport-dialog', 'Or open it in one click')
@@ -31,8 +34,9 @@ it('shows the Teleport setup instead of the command when the person has no compu
     $thread = Thread::factory()->create();
     $this->actingAs($user);
 
-    visit(route('threads.show', $thread))
-        ->click('@teleport-button')
+    $page = visit(route('threads.show', $thread));
+    waitUntilPresent($page, '[data-testid="teleport-button"]');
+    $page->click('@teleport-button')
         ->assertVisible('@teleport-dialog')
         ->assertPresent('[data-testid="teleport-install-command"]')
         ->assertMissing('@teleport-command')
@@ -62,8 +66,9 @@ it('shows the teleport to Yak dialog with the slash command on a device-owned th
     $thread = Thread::factory()->ownedByDevice($device->id)->create(['owner_changed_at' => now()]);
     $this->actingAs($user);
 
-    visit(route('threads.show', $thread))
-        ->click('@teleport-up')
+    $page = visit(route('threads.show', $thread));
+    waitUntilPresent($page, '[data-testid="teleport-up"]');
+    $page->click('@teleport-up')
         ->assertVisible('@teleport-dialog')
         ->assertSeeIn('@teleport-command', '/yak:yak teleport')
         ->assertVisible('@teleport-command-with-message')
