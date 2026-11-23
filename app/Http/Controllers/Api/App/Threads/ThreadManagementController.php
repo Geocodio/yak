@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\App\Threads;
 
 use App\Exceptions\ThreadActionRefused;
+use App\Exceptions\ThreadSandboxNotDestroyed;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\App\StarThreadRequest;
 use App\Http\Resources\AppThreadListData;
@@ -13,7 +14,6 @@ use App\Services\Threads\ThreadDeleter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use RuntimeException;
 
 /**
  * Star, close and delete a thread: the web's actions, with the same visibility and drive rules.
@@ -30,7 +30,7 @@ class ThreadManagementController extends Controller
         $attributes = ['user_id' => $user->id, 'thread_id' => $thread->id];
 
         if ($request->isStarred()) {
-            ThreadStar::query()->firstOrCreate($attributes);
+            ThreadStar::query()->createOrFirst($attributes);
         } else {
             ThreadStar::query()->where($attributes)->delete();
         }
@@ -49,8 +49,8 @@ class ThreadManagementController extends Controller
     {
         try {
             $deleter->delete($thread);
-        } catch (RuntimeException $exception) {
-            throw ThreadActionRefused::because(ThreadActionRefused::SANDBOX_UNAVAILABLE, $exception->getMessage());
+        } catch (ThreadSandboxNotDestroyed) {
+            throw ThreadActionRefused::because(ThreadActionRefused::SANDBOX_UNAVAILABLE, ThreadSandboxNotDestroyed::SENTENCE);
         }
 
         return response()->json(['id' => $thread->public_id, 'status' => 'deleted']);
