@@ -1,7 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import { Button, Textarea, cn } from '@geocodio/console-ui';
-import { Check } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { store as storeThreadAnswers } from '@/routes/threads/clarification-answers';
 import { Prose } from '@/components/Prose';
 import { QuestionAttachment } from '@/components/tasks/questions/QuestionAttachment';
@@ -16,6 +16,17 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
     );
     const [isDeciding, setIsDeciding] = useState(false);
     const errors = form.errors as Record<string, string | undefined>;
+    const [step, setStep] = useState(0);
+    const isStepped = questions.length > 1;
+
+    // A validation error on a question that is not shown brings that question forward.
+    useEffect(() => {
+        const failing = questions.findIndex((question) => errors[`answers.${question.id}`] !== undefined || errors[`answers.${question.id}.other`] !== undefined);
+
+        if (failing !== -1) {
+            setStep(failing);
+        }
+    }, [form.errors]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const isAnswered = (answer: Answer) => answer.choices.length > 0 || (answer.otherOpen && (answer.other ?? '').trim() !== '');
     const answeredCount = questions.filter((question) => isAnswered(answers[question.id])).length;
@@ -72,10 +83,36 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                 <span className="whitespace-nowrap text-[12px] text-muted">{answeredCount} of {questions.length} answered</span>
             </div>
 
+            {isStepped && (
+                <nav aria-label="Questions" className="flex flex-wrap items-center gap-1.5 border-b border-hair px-6 py-3" data-testid="questions-stepper">
+                    {questions.map((question, index) => {
+                        const isCurrent = index === step;
+                        const isDone = isAnswered(answers[question.id]);
+
+                        return (
+                            <button
+                                key={question.id}
+                                type="button"
+                                onClick={() => setStep(index)}
+                                aria-current={isCurrent ? 'step' : undefined}
+                                className={cn(
+                                    'inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-pill border px-2.5 text-[12px] font-medium',
+                                    isCurrent ? 'border-accent bg-accent text-accent-ink' : 'border-hair-strong bg-panel text-body hover:border-accent',
+                                )}
+                                data-testid={`questions-step-${question.id}`}
+                            >
+                                {isDone ? <Check className="size-3.5" strokeWidth={2.5} aria-label="Answered" /> : <span className="tabular-nums opacity-70">{index + 1}</span>}
+                                {question.header}
+                            </button>
+                        );
+                    })}
+                </nav>
+            )}
+
             {errors.answers && <p role="alert" className="border-b border-hair px-6 py-3 text-[12px] text-fail" data-testid="questions-error">{errors.answers}</p>}
 
             {questions.map((question, index) => (
-                <fieldset key={question.id} aria-labelledby={`question-${question.id}-label`} className="@container min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
+                <fieldset key={question.id} hidden={index !== step} aria-labelledby={`question-${question.id}-label`} className="@container min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
                     <div id={`question-${question.id}-label`} className="mb-3 flex flex-col gap-1.5">
                         <span className="flex items-center gap-2">
                             <span className="rounded-chip bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-text">{question.header}</span>
@@ -123,6 +160,22 @@ export function QuestionsForm({ threadId, questions, who = 'Yak', footer = 'Yak 
                             <p role="alert" className="text-[12px] text-fail">{errors[`answers.${question.id}`] ?? errors[`answers.${question.id}.other`]}</p>
                         )}
                     </div>
+                    {isStepped && index === step && (
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                            {index > 0 ? (
+                                <Button variant="secondary" onClick={() => setStep(index - 1)} data-testid="questions-back">
+                                    <ArrowLeft className="size-3.5" aria-hidden />
+                                    Back
+                                </Button>
+                            ) : <span />}
+                            {index < questions.length - 1 && (
+                                <Button variant="secondary" onClick={() => setStep(index + 1)} data-testid="questions-next">
+                                    Next: {questions[index + 1].header}
+                                    <ArrowRight className="size-3.5" aria-hidden />
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </fieldset>
             ))}
 

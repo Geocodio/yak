@@ -7,6 +7,7 @@ use App\Models\YakTask;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\ThreadArtifacts;
+use App\Services\Threads\ThreadLiveQuestions;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\ParseMultipartBody;
@@ -30,6 +31,7 @@ it('shows Claude\'s question mid-turn and sends the answer to the runner', funct
         ->assertDisabled('[data-testid="questions-submit"]')
         ->click('[data-testid="question-q1"] [role="checkbox"] >> nth=0')
         ->click('[data-testid="question-q1"] [role="checkbox"] >> nth=1')
+        ->click('[data-testid="questions-next"]')
         ->click('[data-testid="question-q2"] >> text=Other')
         ->fill('[data-testid="question-q2-other"]', 'Both, desktop first')
         ->assertSee('2 of 2 answered')
@@ -159,4 +161,41 @@ it('shows option attachments as cards in Claude\'s order', function () {
 
     $command = collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'answer_question');
     expect((array) $command['answers'])->toBe(['Which approach?' => 'Bravo']);
+});
+
+it('steps through several questions and keeps earlier answers', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    questionLineFor($thread, [colourQuestion(), widthQuestion()]);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="questions-stepper"]')
+        ->assertMissing('[data-testid="question-q2"]')
+        ->assertMissing('[data-testid="questions-back"]')
+        ->click('[data-testid="question-q1"] [role="checkbox"] >> nth=0')
+        ->click('[data-testid="questions-next"]')
+        ->assertVisible('[data-testid="question-q2"]')
+        ->assertMissing('[data-testid="question-q1"]')
+        ->assertMissing('[data-testid="questions-next"]')
+        ->click('[data-testid="question-q2"] [role="radio"] >> nth=0')
+        ->click('[data-testid="questions-step-q1"]')
+        ->assertAttribute('[data-testid="question-q1"] [role="checkbox"] >> nth=0', 'aria-checked', 'true')
+        ->click('[data-testid="questions-submit"]')
+        ->assertMissing('[data-testid="questions-form"]');
+
+    $command = collect(app(BrokerStreams::class)->commands('threads:' . $thread->id))->firstWhere('type', 'answer_question');
+
+    expect(array_keys((array) $command['answers']))->toBe(['Which screens first?', 'Which width?'])
+        ->and((array) $command['answers'])->not->toContain(ThreadLiveQuestions::NO_ANSWER);
+});
+
+it('shows a single question without a stepper', function () {
+    [$thread, , , $user] = threadWithRunningTurn();
+    $this->actingAs($user);
+    questionLineFor($thread, [widthQuestion()]);
+
+    visit("/threads/{$thread->public_id}")
+        ->assertVisible('[data-testid="question-q1"]')
+        ->assertMissing('[data-testid="questions-stepper"]')
+        ->assertMissing('[data-testid="questions-next"]');
 });
