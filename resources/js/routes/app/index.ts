@@ -98,6 +98,50 @@ me.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+/**
+* @see \App\Http\Controllers\Api\App\SearchController::__invoke
+* @see app/Http/Controllers/Api/App/SearchController.php:13
+* @route '/api/app/v1/search'
+*/
+export const search = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: search.url(options),
+    method: 'get',
+})
+
+search.definition = {
+    methods: ["get","head"],
+    url: '/api/app/v1/search',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Api\App\SearchController::__invoke
+* @see app/Http/Controllers/Api/App/SearchController.php:13
+* @route '/api/app/v1/search'
+*/
+search.url = (options?: RouteQueryOptions) => {
+    return search.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Api\App\SearchController::__invoke
+* @see app/Http/Controllers/Api/App/SearchController.php:13
+* @route '/api/app/v1/search'
+*/
+search.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: search.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Api\App\SearchController::__invoke
+* @see app/Http/Controllers/Api/App/SearchController.php:13
+* @route '/api/app/v1/search'
+*/
+search.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: search.url(options),
+    method: 'head',
+})
+
 const app = {
     embed: Object.assign(embed, embed),
     instance: Object.assign(instance, instance),
@@ -110,6 +154,7 @@ const app = {
     pushTokens: Object.assign(pushTokens, pushTokens),
     notifications: Object.assign(notifications, notifications),
     liveActivities: Object.assign(liveActivities, liveActivities),
+    search: Object.assign(search, search),
     webSession: Object.assign(webSession, webSession),
     media: Object.assign(media, media),
 }

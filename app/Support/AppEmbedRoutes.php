@@ -16,18 +16,28 @@ final class AppEmbedRoutes
     /** The only target paths a hand-off code may be bound to. */
     private const PATH_PATTERNS = [
         '#^/app/embed/threads/[A-Za-z0-9]{8}$#D',
-        '#^/app/embed/deployments/\d{1,20}$#D',
+        '#^/app/embed/deployments$#D',
+        '#^/app/embed/deployments/[A-Za-z0-9]{8}$#D',
+        '#^/app/embed/pr-reviews$#D',
         '#^/app/embed/pr-reviews/[A-Za-z0-9._-]{1,100}/[A-Za-z0-9._-]{1,100}/\d{1,10}$#D',
     ];
 
     /**
-     * Route names an embed session may call: the thread page, its reads and the card actions. The phone token
+     * Route names an embed session may call: the thread page, its reads and the card actions, and the read-only Deployments and PR review pages. The phone token
      * already does all of this through the app API, and the native composer stays the only sender of messages.
      *
      * @var list<string>
      */
     public const ALLOWED = [
         'app.embed.threads.show',
+
+        // Deployments and PR reviews, read-only. Their write actions (rebuild, destroy, hibernation, share link,
+        // manifest, re-run a review) stay off the list: the phone's token cannot do them through the app API.
+        'app.embed.deployments.index',
+        'app.embed.deployments.show',
+        'app.embed.pr-reviews.index',
+        'app.embed.pr-reviews.show',
+        'pr-reviews.for-pr.runs.log',
 
         'threads.events.index',
         'threads.events.show',

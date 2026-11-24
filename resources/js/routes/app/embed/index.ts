@@ -1,5 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 import threads from './threads'
+import deployments from './deployments'
+import prReviews from './pr-reviews'
 /**
 * @see \App\Http\Controllers\AppEmbed\SessionController::__invoke
 * @see app/Http/Controllers/AppEmbed/SessionController.php:29
@@ -37,6 +39,8 @@ session.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 const embed = {
     session: Object.assign(session, session),
     threads: Object.assign(threads, threads),
+    deployments: Object.assign(deployments, deployments),
+    prReviews: Object.assign(prReviews, prReviews),
 }
 
 export default embed

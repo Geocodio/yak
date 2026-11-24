@@ -2,6 +2,8 @@ import Home from './Home'
 import InstallScriptController from './InstallScriptController'
 import AppEmbed from './AppEmbed'
 import Threads from './Threads'
+import Deployments from './Deployments'
+import PrReviews from './PrReviews'
 import Auth from './Auth'
 import Tasks from './Tasks'
 import TaskAttachmentController from './TaskAttachmentController'
@@ -19,8 +21,6 @@ import PromptController from './PromptController'
 import PromptPreviewController from './PromptPreviewController'
 import PromptVersionController from './PromptVersionController'
 import PaletteSearchController from './PaletteSearchController'
-import PrReviews from './PrReviews'
-import Deployments from './Deployments'
 import SharedFileController from './SharedFileController'
 import Devices from './Devices'
 import Cli from './Cli'
@@ -34,6 +34,8 @@ const Controllers = {
     InstallScriptController: Object.assign(InstallScriptController, InstallScriptController),
     AppEmbed: Object.assign(AppEmbed, AppEmbed),
     Threads: Object.assign(Threads, Threads),
+    Deployments: Object.assign(Deployments, Deployments),
+    PrReviews: Object.assign(PrReviews, PrReviews),
     Auth: Object.assign(Auth, Auth),
     Tasks: Object.assign(Tasks, Tasks),
     TaskAttachmentController: Object.assign(TaskAttachmentController, TaskAttachmentController),
@@ -51,8 +53,6 @@ const Controllers = {
     PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
     PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),
     PaletteSearchController: Object.assign(PaletteSearchController, PaletteSearchController),
-    PrReviews: Object.assign(PrReviews, PrReviews),
-    Deployments: Object.assign(Deployments, Deployments),
     SharedFileController: Object.assign(SharedFileController, SharedFileController),
     Devices: Object.assign(Devices, Devices),
     Cli: Object.assign(Cli, Cli),

@@ -24,7 +24,7 @@ final class AppMeData
      *     attachments: array{maxFiles: int, maxFileBytes: int},
      *     push: array{apns: bool, bundleId: ?string, environment: string},
      *     features: array{liveActivities: bool, widgets: bool},
-     *     web: array{embed: int}
+     *     web: array{embed: int, pages: list<string>}
      * }
      */
     public static function from(User $user, Device $device): array
@@ -64,7 +64,7 @@ final class AppMeData
                 'environment' => $apns->environment(),
             ],
             'features' => ['liveActivities' => $isApnsConfigured, 'widgets' => true],
-            'web' => ['embed' => 1],
+            'web' => ['embed' => 1, 'pages' => ['deployments', 'pr-reviews']],
         ];
     }
 

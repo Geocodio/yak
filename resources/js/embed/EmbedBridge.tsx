@@ -3,23 +3,38 @@ import { useEffect, useRef } from 'react';
 import type { SharedProps } from '@/types/shared';
 import { reportAuthExpired, setEmbedActive, type PageMessage } from './bridge';
 import { cardActionOf } from './cardActions';
-import { useEmbed, useEmbedMessage, useEmbedReady } from './useEmbed';
+import { useEmbed, useEmbedMessage, useEmbedPageReady, useEmbedReady } from './useEmbed';
 
 /** One script error or failed request tells the app; a flood of them does not. */
 const ERROR_INTERVAL_MS = 10_000;
 
-type ThreadPage = SharedProps & { thread?: { id: string; title: string }; card?: string | null; isLegacy?: boolean };
+type ThreadPage = SharedProps & { thread?: { id: string; title: string }; card?: string | null; isLegacy?: boolean; deployment?: { branch: string }; pr?: { repoSlug: string; number: number } };
+
+/** What the app shows for a page that is not a thread, by page component. */
+function pageTitleOf(component: string, props: ThreadPage): string {
+    switch (component) {
+        case 'Deployments/Show':
+            return props.deployment?.branch ?? 'Deployment';
+        case 'PrReviews/ForPr':
+            return props.pr === undefined ? 'PR review' : `${props.pr.repoSlug}#${props.pr.number}`;
+        case 'PrReviews/Index':
+            return 'PR reviews';
+        default:
+            return 'Deployments';
+    }
+}
 
 /** Wires the embedded page to the app: what it asks of the app, and how the app drives it. Draws nothing. */
 export function EmbedBridge() {
     const embed = useEmbed();
-    const { props } = usePage<ThreadPage>();
+    const { props, component } = usePage<ThreadPage>();
     const threadId = props.thread?.id ?? null;
     const card = useRef<string | null>(null);
     card.current = props.card ?? null;
     const previousThreadId = useRef<string | null>(null);
 
     useEmbedReady(threadId === null ? null : embed, threadId ?? '', props.thread?.title ?? '', props.isLegacy === true);
+    useEmbedPageReady(threadId === null ? embed : null, pageTitleOf(component, props));
 
     useEffect(() => {
         if (embed !== null && threadId !== null && previousThreadId.current !== null && previousThreadId.current !== threadId) {

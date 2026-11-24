@@ -15,7 +15,7 @@ export type PanePayload =
 
 /** Page to app. */
 export type PageMessage =
-    | { type: 'ready'; threadId: string; url: string; latestSequence: number; title: string }
+    | { type: 'ready'; threadId?: string; url: string; latestSequence?: number; title: string }
     | { type: 'threadChanged'; threadId: string; previousThreadId: string }
     | { type: 'link'; url: string }
     | ({ type: 'openPane' } & PanePayload)
@@ -59,7 +59,8 @@ function isOutboxItem(value: unknown): value is OutboxItem {
 }
 
 const pageChecks: Record<(typeof PAGE_MESSAGE_TYPES)[number], (message: Shape) => boolean> = {
-    ready: (m) => isThreadId(m.threadId) && isNonEmpty(m.url) && isCount(m.latestSequence) && isString(m.title, 500),
+    // A thread page names its thread and feed position; the Deployments and PR review pages carry neither.
+    ready: (m) => isNonEmpty(m.url) && isString(m.title, 500) && (m.threadId === undefined ? m.latestSequence === undefined : isThreadId(m.threadId) && isCount(m.latestSequence)),
     threadChanged: (m) => isThreadId(m.threadId) && isThreadId(m.previousThreadId),
     link: (m) => isNonEmpty(m.url),
     openPane: (m) =>

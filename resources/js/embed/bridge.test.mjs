@@ -49,6 +49,15 @@ test('every fixture validates against the bridge and every type has one', () => 
     }
 });
 
+test('a ready message names a thread with its feed position, or neither', () => {
+    const ready = { v: 1, type: 'ready', url: '/app/embed/deployments', title: 'Deployments' };
+
+    assert.equal(validatePageMessage(ready).kind, 'ok');
+    assert.equal(validatePageMessage({ ...ready, threadId: 'd0e515ef', latestSequence: 3 }).kind, 'ok');
+    assert.equal(validatePageMessage({ ...ready, threadId: 'd0e515ef' }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...ready, latestSequence: 3 }).kind, 'malformed');
+});
+
 test('it names the card action of a post', () => {
     assert.equal(cardActionOf('POST', '/threads/d0e515ef/clarification-answers'), 'answer');
     assert.equal(cardActionOf('post', '/app/embed/threads/d0e515ef/co-owner/approve'), 'approve');

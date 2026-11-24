@@ -144,6 +144,16 @@ it('answers 404 on the routes that must never be reachable', function (string $n
     'threads.show',
     'deployments.destroy',
     'deployments.share.store',
+    'deployments.share.destroy',
+    'deployments.rebuild',
+    'deployments.hibernation.update',
+    'repos.manifest.update',
+    'pr-reviews.for-pr.rerun',
+    'pr-reviews.for-pr.runs.rerun',
+    'deployments',
+    'deployments.show',
+    'pr-reviews',
+    'pr-reviews.for-pr',
 ]);
 
 it('keeps the sensitive routes off the allow-list', function () {

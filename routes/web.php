@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
 use App\Http\Controllers\Api\Cli\TeleportController;
 use App\Http\Controllers\Api\Cli\ThreadLookupController;
+use App\Http\Controllers\AppEmbed\PrReviewController as EmbedPrReviewController;
 use App\Http\Controllers\AppEmbed\SessionController as AppEmbedSessionController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -149,6 +150,15 @@ Route::get('letmein', function () {
 // The phone's embedded web view: the hand-off (no session yet) and the thread page on its restricted guard.
 Route::post('app/embed/session', AppEmbedSessionController::class)->middleware('throttle:app-embed-redeem')->name('app.embed.session');
 Route::get('app/embed/threads/{thread}', [ThreadController::class, 'show'])->middleware('auth:app-embed')->name('app.embed.threads.show');
+// The same Deployments and PR reviews pages as the web, read-only: the pages hide their write controls in the embed.
+Route::middleware('auth:app-embed')->prefix('app/embed')->group(function (): void {
+    Route::get('deployments', [DeploymentController::class, 'index'])->name('app.embed.deployments.index');
+    Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])->name('app.embed.deployments.show');
+    Route::get('pr-reviews', PrReviewFeedbackController::class)->name('app.embed.pr-reviews.index');
+    Route::get('pr-reviews/{owner}/{repo}/{prNumber}', [EmbedPrReviewController::class, 'show'])
+        ->name('app.embed.pr-reviews.show')
+        ->where(['owner' => '[A-Za-z0-9._-]{1,100}', 'repo' => '[A-Za-z0-9._-]{1,100}', 'prNumber' => '[0-9]{1,10}']);
+});
 
 Route::middleware('guest')->group(function () {
     Route::view('login', 'auth.login')->name('login');
