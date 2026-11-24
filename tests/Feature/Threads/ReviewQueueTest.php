@@ -45,7 +45,7 @@ test('not reviewed when the viewer has neither driven a turn since the PR opened
     $summary = ReviewQueue::summarize($thread, reviewViewer(), false, CarbonImmutable::parse('2026-11-19 10:00'));
 
     expect($summary['state'])->toBe(ReviewState::NotReviewed->value)
-        ->and($summary['pullRequests'])->toBe([['repo' => 'acme/widgets', 'number' => 7, 'url' => 'https://github.com/acme/widgets/pull/7', 'isDraft' => false]]);
+        ->and($summary['pullRequests'])->toBe([['repo' => 'acme/widgets', 'number' => 7, 'url' => 'https://github.com/acme/widgets/pull/7', 'isDraft' => false, 'mergeableState' => null, 'ciStatus' => null, 'approvedByViewer' => false]]);
 });
 
 test('back to you after the viewer drives a turn that finished', function () {

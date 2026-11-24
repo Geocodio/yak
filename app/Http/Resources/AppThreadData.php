@@ -79,12 +79,7 @@ final class AppThreadData
                     'closed' => 'closed',
                     default => 'open',
                 },
-                'checks' => match ($row->ci_status) {
-                    'passing' => 'passing',
-                    'failing' => 'failing',
-                    'running' => 'pending',
-                    default => null,
-                },
+                'checks' => AppPullRequestData::checks($row->ci_status),
             ];
         }
 
