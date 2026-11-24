@@ -152,7 +152,7 @@ export function ThreadListPanel({
                             <div
                                 role="group"
                                 aria-label="Thread filter"
-                                className="flex rounded-control bg-panel-2 p-0.5"
+                                className="flex min-w-0 rounded-control bg-panel-2 p-0.5"
                             >
                                 {FILTERS.map((option) => (
                                     <button
