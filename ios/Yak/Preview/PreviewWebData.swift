@@ -33,9 +33,13 @@ enum PreviewWebData {
     }
 
     /// Finishes a pending erase of this instance's store; false when it still cannot.
-    static func prepare(instanceID: UUID, defaults: any KeyValueStore) async -> Bool {
+    static func prepare(
+        instanceID: UUID, defaults: any KeyValueStore, remove: @escaping Removal = liveRemoval,
+        listStores: @escaping Listing = liveListing, pause: Duration = removalPause
+    ) async -> Bool {
         guard (read(pendingKey, in: defaults) as Set<UUID>).contains(instanceID) else { return true }
-        return await erase(instanceID: instanceID, defaults: defaults)
+        return await erase(
+            instanceID: instanceID, defaults: defaults, remove: remove, listStores: listStores, pause: pause)
     }
 
     /// Removes one store by identifier.

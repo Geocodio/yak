@@ -477,6 +477,12 @@ import XCTest
         XCTAssertTrue(text.exists)
         XCTAssertEqual(text.label, "Also cover the empty file case")
         XCTAssertTrue(app.staticTexts["Steering"].exists)
+        // The audit changes the text size, which makes the composer a new field and drops its focus: the keyboard
+        // would then go down in the middle of the audit and move the strip over the page while it is measured. A tap
+        // on the page takes the focus, so the keyboard is down and the screen is settled before the audit starts.
+        page("Ready").tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: Wait.appear), "the keyboard stayed up")
+        XCTAssertTrue(queuedList.exists)
         try audit()
         let menu = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "queued.menu.")).firstMatch
         menu.tap()
