@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { Badge, ConfirmDialog, Tooltip, cn } from '@geocodio/console-ui';
-import { ChevronRight, Lock, Star, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Lock, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { YakAvatar } from '@/components/brand/YakAvatar';
 import { formatTime } from '@/components/shell/formatTime';
@@ -8,7 +8,7 @@ import { ThreadStatusDot } from '@/components/shell/ThreadStatusDot';
 import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
 import { refreshThreadList, toggleStar } from '@/lib/threadStar';
 import { destroy, show } from '@/routes/threads';
-import type { ThreadListRow } from '@/types/shell';
+import type { ThreadListRow, ThreadReviewSummary } from '@/types/shell';
 
 const STATUS_TEXT: Record<ThreadListRow['status'], string> = {
     running: 'Working',
@@ -18,6 +18,29 @@ const STATUS_TEXT: Record<ThreadListRow['status'], string> = {
     closed: 'Closed',
     waiting_for_repository: 'Waiting for repository setup',
 };
+
+function ReviewLine({ review }: { review: ThreadReviewSummary }) {
+    const hasSeveralRepositories = new Set(review.pullRequests.map((pullRequest) => pullRequest.repo)).size > 1;
+    const isDraft = review.pullRequests.some((pullRequest) => pullRequest.isDraft);
+
+    return (
+        <span className="flex flex-wrap items-center gap-1.5 pl-4 text-[11.5px]" data-testid="thread-row-pr">
+            <span className="tnum font-mono text-muted">
+                {review.pullRequests.map((pullRequest) => (hasSeveralRepositories ? `${pullRequest.repo}#${pullRequest.number}` : `#${pullRequest.number}`)).join(', ')}
+            </span>
+            <Badge tone={isDraft ? 'neutral' : 'info'}>{isDraft ? 'Draft' : 'Ready'}</Badge>
+            {review.blockedLabel ? (
+                <Badge tone="fail">{review.blockedLabel}</Badge>
+            ) : (
+                <Check size={12} className="text-ok" aria-label="No blockers" />
+            )}
+            {review.hasNewCommitsSinceApproval ? <Badge tone="warn">New commits since approval</Badge> : null}
+            {review.otherApprovals > 0 ? (
+                <span className="text-ok">✓ {review.otherApprovals} {review.otherApprovals === 1 ? 'other' : 'others'}</span>
+            ) : null}
+        </span>
+    );
+}
 
 export function ThreadRow({ row, nested = false, active = false }: { row: ThreadListRow; nested?: boolean; active?: boolean }) {
     const [isExpanded, setIsExpanded] = useState(true);
@@ -83,6 +106,7 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                             </Tooltip>
                         )}
                     </span>
+                    {row.review ? <ReviewLine review={row.review} /> : null}
                 </Link>
                 {nested ? null : (
                     <>

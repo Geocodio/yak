@@ -1,10 +1,18 @@
-export type ThreadListFilter = 'mine' | 'yak' | 'everyone' | 'closed';
+export type ThreadListFilter = 'mine' | 'yak' | 'everyone' | 'closed' | 'review';
 
 export type ThreadSource = { key: string; label: string; reference: string | null; url: string | null };
 export type ThreadStarter = { key: string; name: string; avatarUrl: string | null };
 export type ThreadListFacets = {
     sources: { key: string; label: string; count: number }[];
     starters: { key: string; name: string; avatarUrl: string | null; count: number }[];
+};
+
+export type ThreadReviewSummary = {
+    state: 'back_to_you' | 'not_reviewed' | 'with_yak' | 'approved';
+    pullRequests: { repo: string; number: number; url: string; isDraft: boolean }[];
+    blockedLabel: 'Conflicts' | 'CI failing' | null;
+    hasNewCommitsSinceApproval: boolean;
+    otherApprovals: number;
 };
 
 export type ThreadListRow = {
@@ -28,6 +36,7 @@ export type ThreadListRow = {
     lastActivityAt: string | null;
     group: 'today' | 'this_week' | 'older';
     children: ThreadListRow[];
+    review?: ThreadReviewSummary;
 };
 
 export type NeedsYouTaskItem = {
@@ -45,6 +54,14 @@ export type ThreadListData = {
     needsYou: ThreadListRow[];
     threads: ThreadListRow[];
     needsYouCount: number;
+    reviewCount: number;
+    review?: {
+        needsGitHubLink: boolean;
+        backToYou: ThreadListRow[];
+        notReviewed: ThreadListRow[];
+        withYak: ThreadListRow[];
+        approved: ThreadListRow[];
+    };
     hasAnyThreads: boolean;
     facets: ThreadListFacets;
 };
