@@ -13,7 +13,7 @@ class NeedsYouCount
 {
     public static function for(User $user, ?int $mineThreadCount = null): int
     {
-        $threads = $mineThreadCount ?? ThreadList::for($user, ThreadListFilter::Mine)['needsYouCount'];
+        $threads = $mineThreadCount ?? ThreadList::for($user, ThreadListFilter::Mine, withReviewCount: false)['needsYouCount'];
 
         return $threads + NeedsYouTasks::count($user);
     }

@@ -40,7 +40,7 @@ use Illuminate\Support\Str;
  * needsYouReason: ?string, needsYouLabel: ?string, needsYouDetail: ?string, isPrivate: bool, isShared: bool,
  * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
  * source: array{key: string, label: string, reference: ?string, url: ?string}, starter: array{key: string, name: string, avatarUrl: ?string}, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
- * children: list<array<string, mixed>>}`.
+ * children: list<array<string, mixed>>, review?: array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}}` (`review` only on the Review tab).
  *
  * The facets count the tab's rows; a picked source or starter without rows is appended with count 0.
  */
@@ -51,16 +51,19 @@ class ThreadList
     /** The label of a thread whose latest task failed; a new task in the thread clears it. */
     private const FAILED_LABEL = 'Failed';
 
+    private const REVIEW_COLUMNS = 'id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status';
+
     /**
      * @param  list<string>  $sources
      * @param  list<string>  $starters
+     * @param  bool  $withReviewCount  false for callers that discard `reviewCount`, which skips its queries
      * @return array{starred: list<array<string, mixed>>, needsYou: list<array<string, mixed>>, threads: list<array<string, mixed>>, needsYouCount: int, reviewCount: int, review?: array{needsGitHubLink: bool, backToYou: list<array<string, mixed>>, notReviewed: list<array<string, mixed>>, withYak: list<array<string, mixed>>, approved: list<array<string, mixed>>}, hasAnyThreads: bool, facets: array{sources: list<array{key: string, label: string, count: int}>, starters: list<array{key: string, name: string, avatarUrl: ?string, count: int}>}}
      */
-    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null, array $sources = [], array $starters = []): array
+    public static function for(User $user, ThreadListFilter $filter = ThreadListFilter::Mine, ?string $search = null, array $sources = [], array $starters = [], bool $withReviewCount = true): array
     {
         $status = $filter === ThreadListFilter::Closed ? 'closed' : 'open';
         $searchText = trim($search ?? '');
-        $roots = self::rootsQuery($user, $status)
+        $roots = self::rootsQuery($user, $status, $filter === ThreadListFilter::Review)
             ->when($filter === ThreadListFilter::Mine, fn (Builder $query) => self::mine($query, $user))
             ->when($filter === ThreadListFilter::Review, fn (Builder $query) => $query->where(fn (Builder $query) => self::mine($query, $user))->where(fn (Builder $query) => self::withOpenPullRequest($query)))
             ->when($filter === ThreadListFilter::StartedByYak, fn (Builder $query) => $query->whereNull('created_by_user_id'))
@@ -71,7 +74,7 @@ class ThreadList
             ->get();
 
         $rows = self::rows($roots, $user);
-        $summaries = $filter === ThreadListFilter::Review ? self::reviewSummaries($roots, $rows, $user) : [];
+        $summaries = $filter === ThreadListFilter::Review ? self::reviewSummaries($roots, $user) : [];
 
         $needsYouCount = count(array_filter($rows, fn (array $row): bool => $row['needsYouReason'] !== null));
         $facets = self::withPickedKeys(self::facets($rows, $user), $sources, $starters);
@@ -80,6 +83,7 @@ class ThreadList
         $rows = array_filter($rows, fn (array $row): bool => ($sources === [] || in_array($row['source']['key'], $sources, true))
             && ($starters === [] || in_array($row['starter']['key'], $starters, true)));
 
+        $reviewCountFromSummaries = count(array_filter($summaries, fn (array $summary): bool => in_array($summary['state'], [ReviewState::BackToYou->value, ReviewState::NotReviewed->value], true)));
         $starred = [];
         $needsYou = [];
         $rest = [];
@@ -113,7 +117,11 @@ class ThreadList
             'needsYou' => $needsYou,
             'threads' => $rest,
             'needsYouCount' => $needsYouCount,
-            'reviewCount' => self::reviewCountFor($user),
+            'reviewCount' => match (true) {
+                ! $withReviewCount => 0,
+                $filter === ThreadListFilter::Review && $searchText === '' => $reviewCountFromSummaries,
+                default => self::reviewCountFor($user),
+            },
             'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
             'facets' => $facets,
         ];
@@ -126,7 +134,7 @@ class ThreadList
      *
      * @return Builder<Thread>
      */
-    private static function rootsQuery(User $user, string $status): Builder
+    private static function rootsQuery(User $user, string $status, bool $withReviewData = false): Builder
     {
         return Thread::query()
             ->withoutVisibilityScope()
@@ -137,14 +145,23 @@ class ThreadList
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->withExists('shares as is_shared')
+            ->when($withReviewData, fn (Builder $query) => $query->addSelect(['latest_turn_state' => self::latestTurnState()]))
             ->with([
                 'creator:id,name,avatar_url',
                 'children.creator:id,name,avatar_url',
                 'tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status', DB::raw('SUBSTR(error_log, 1, 300) AS error_log')])->orderBy('id'),
-                'children' => fn (Relation $relation) => self::scopeChildren($relation, $user, $status),
+                'children' => function (Relation $relation) use ($user, $status, $withReviewData): void {
+                    self::scopeChildren($relation, $user, $status);
+
+                    if ($withReviewData) {
+                        $relation->getQuery()->addSelect(['latest_turn_state' => self::latestTurnState()]);
+                    }
+                },
                 'children.tasks' => fn ($query) => $query->select(['id', 'thread_id', 'status', DB::raw('SUBSTR(error_log, 1, 300) AS error_log')])->orderBy('id'),
-                'repositories:id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status',
-                'children.repositories:id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status',
+                ...($withReviewData ? [
+                    'repositories:' . self::REVIEW_COLUMNS,
+                    'children.repositories:' . self::REVIEW_COLUMNS,
+                ] : []),
             ]);
     }
 
@@ -164,10 +181,9 @@ class ThreadList
      * A viewer without a GitHub login has none either, as no review can match them.
      *
      * @param  Collection<int, Thread>  $roots
-     * @param  list<array<string, mixed>>  $rows
      * @return array<int, array<string, mixed>>
      */
-    private static function reviewSummaries(Collection $roots, array $rows, User $user): array
+    private static function reviewSummaries(Collection $roots, User $user): array
     {
         if ($user->github_login === null) {
             return [];
@@ -179,8 +195,7 @@ class ThreadList
         foreach ($roots as $index => $root) {
             $threadIds = $root->children->pluck('id')->prepend($root->id);
             $latest = $threadIds->map(fn (int $id): mixed => $drivenAt->get($id))->filter()->max();
-            $isRunning = $rows[$index]['status'] === ThreadListStatus::Running->value
-                || in_array(ThreadListStatus::Running->value, array_column($rows[$index]['children'], 'status'), true);
+            $isRunning = self::isWithYak($root);
             $summary = ReviewQueue::summarize($root, $user, $isRunning, $latest === null ? null : Carbon::parse($latest));
 
             if ($summary !== null) {
@@ -217,7 +232,6 @@ class ThreadList
             return 0;
         }
 
-        $columns = 'id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status';
         $roots = Thread::query()
             ->withoutVisibilityScope()
             ->visibleTo($user)
@@ -233,8 +247,8 @@ class ThreadList
                     self::scopeChildren($relation, $user, 'open');
                     $relation->getQuery()->addSelect(['latest_turn_state' => self::latestTurnState()]);
                 },
-                'repositories:' . $columns,
-                'children.repositories:' . $columns,
+                'repositories:' . self::REVIEW_COLUMNS,
+                'children.repositories:' . self::REVIEW_COLUMNS,
             ])
             ->get();
 
@@ -244,18 +258,30 @@ class ThreadList
 
         $all = $roots->concat($roots->flatMap(fn (Thread $root) => $root->children));
         $withAgents = ! ThreadAgent::isEnabled() ? collect() : ThreadAgent::query()->running()->whereIn('thread_id', $all->pluck('id')->all())->distinct()->pluck('thread_id')->flip();
+        $all->each(fn (Thread $thread) => $thread->setAttribute('has_running_agents', $withAgents->has($thread->id)));
         $drivenAt = self::latestDrivenRunStarts($roots, $user);
         $count = 0;
 
         foreach ($roots as $root) {
-            $isRunning = $root->children->prepend($root)->contains(fn (Thread $thread): bool => in_array($thread->getAttribute('latest_turn_state'), [TurnState::Running->value, TurnState::WaitingForAccount->value, TurnState::WaitingForSandbox->value], true)
-                || $withAgents->has($thread->id));
+            $isRunning = self::isWithYak($root);
             $latest = $root->children->pluck('id')->prepend($root->id)->map(fn (int $id): mixed => $drivenAt->get($id))->filter()->max();
             $state = ReviewQueue::summarize($root, $user, $isRunning, $latest === null ? null : Carbon::parse($latest))['state'] ?? null;
             $count += in_array($state, [ReviewState::BackToYou->value, ReviewState::NotReviewed->value], true) ? 1 : 0;
         }
 
         return $count;
+    }
+
+    /**
+     * Whether the thread or a sub-thread has a turn running or queued, or an agent still working. Needs
+     * `latest_turn_state` and `has_running_agents` on the loaded threads.
+     */
+    private static function isWithYak(Thread $root): bool
+    {
+        $activeStates = [TurnState::Pending->value, TurnState::Running->value, TurnState::WaitingForAccount->value, TurnState::WaitingForSandbox->value];
+
+        return collect([$root])->concat($root->children)->contains(fn (Thread $thread): bool => in_array($thread->getAttribute('latest_turn_state'), $activeStates, true)
+            || $thread->getAttribute('has_running_agents') === true);
     }
 
     /**

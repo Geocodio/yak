@@ -32,7 +32,7 @@ final class OperationsPanelData
      */
     public static function for(User $user): array
     {
-        $roots = collect(ThreadList::for($user))->only(['needsYou', 'threads'])->flatten(1);
+        $roots = collect(ThreadList::for($user, withReviewCount: false))->only(['needsYou', 'threads'])->flatten(1);
 
         $repositories = array_values(Repository::query()
             ->orderByDesc('is_active')

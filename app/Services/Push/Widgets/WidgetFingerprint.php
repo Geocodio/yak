@@ -15,7 +15,7 @@ final class WidgetFingerprint
 {
     public static function for(User $user): string
     {
-        $list = ThreadList::for($user, ThreadListFilter::Mine);
+        $list = ThreadList::for($user, ThreadListFilter::Mine, withReviewCount: false);
         $running = [];
 
         foreach ([...$list['starred'], ...$list['needsYou'], ...$list['threads']] as $row) {

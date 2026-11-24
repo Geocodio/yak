@@ -184,3 +184,7 @@ it('a pending co-owner request that asks the viewer is a task item and a thread 
         ->and($items['thread']['id'])->toBe($thread->public_id)
         ->and($items['thread']['needsYouReason'])->toBe('co_owner');
 });
+
+it('rejects the review filter, which the app list does not carry', function () {
+    $this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor(User::factory()->create()))->assertStatus(422)->assertJsonStructure(['details' => ['errors' => ['filter']]]);
+});
