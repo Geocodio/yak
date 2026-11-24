@@ -1,3 +1,4 @@
+import { cn } from '@geocodio/console-ui';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { ThreadRow } from '@/components/shell/ThreadRow';
@@ -12,6 +13,7 @@ export function ThreadGroup({
     collapsible = false,
     defaultCollapsed = false,
     testId,
+    isCountMuted = false,
 }: {
     groupKey: string;
     title: string;
@@ -21,6 +23,7 @@ export function ThreadGroup({
     collapsible?: boolean;
     defaultCollapsed?: boolean;
     testId?: string;
+    isCountMuted?: boolean;
 }) {
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
@@ -45,7 +48,7 @@ export function ThreadGroup({
                     title
                 )}
                 {count !== undefined && count > 0 ? (
-                    <span className="tnum rounded-pill bg-brand-soft px-1.5 text-[10.5px] text-brand">{count}</span>
+                    <span className={cn('tnum rounded-pill px-1.5 text-[10.5px]', isCountMuted ? 'bg-panel-2 text-muted' : 'bg-brand-soft text-brand')} data-testid="thread-group-count">{count}</span>
                 ) : null}
             </h3>
             {isCollapsed ? null : rows.map((row) => (

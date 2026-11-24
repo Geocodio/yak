@@ -234,7 +234,7 @@ export function ThreadListPanel({
                             <Skeleton key={index} className="h-9 w-full" />
                         ))}
                     </div>
-                ) : hasNoThreadsAtAll ? null : filter === "review" &&
+                ) : filter === "review" &&
                   data.review?.needsGitHubLink ? (
                     <div
                         className="mt-3 rounded-card border border-dashed border-hair p-4 text-center"
@@ -255,7 +255,7 @@ export function ThreadListPanel({
                             Link GitHub in settings
                         </Link>
                     </div>
-                ) : isEmpty ? (
+                ) : hasNoThreadsAtAll ? null : isEmpty ? (
                     <div
                         className="mt-3 rounded-card border border-dashed border-hair p-4 text-center"
                         data-testid="thread-list-empty"
@@ -308,6 +308,8 @@ export function ThreadListPanel({
                             groupKey="approved"
                             testId="review-group-approved"
                             title="Approved by you"
+                            count={data.review.approved.length}
+                            isCountMuted
                             rows={data.review.approved}
                             activeThreadId={activeThreadId}
                             collapsible
