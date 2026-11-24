@@ -19,6 +19,7 @@ use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\QuietPeriodReviewJob;
 use App\Jobs\RecordCiJobGreenJob;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Jobs\RunConfigCheckJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
@@ -130,6 +131,13 @@ class WebhookController extends Controller
             $this->recordPullRequestFacts(fn (PullRequestFacts $facts) => $facts->recordPullRequest(
                 (array) $request->input('pull_request'),
                 (string) $request->input('repository.full_name'),
+            ));
+        }
+
+        if (in_array($action, ['opened', 'reopened', 'synchronize'], true) || ($action === 'edited' && $request->has('changes.base'))) {
+            $this->recordPullRequestFacts(fn () => RefreshPullRequestMergeabilityJob::dispatch(
+                (string) $request->input('repository.full_name'),
+                (int) $request->input('pull_request.number'),
             ));
         }
 
@@ -643,6 +651,15 @@ class WebhookController extends Controller
 
         if ($repo !== null && $request->input('ref') === 'refs/heads/' . $repo->default_branch) {
             app(RepositoryConfig::class)->forget($repo);
+
+            $this->recordPullRequestFacts(function () use ($repo, $request): void {
+                ThreadRepository::query()
+                    ->where('repo', $repo->slug)
+                    ->where('pull_request_state', 'open')
+                    ->distinct()
+                    ->pluck('pull_request_number')
+                    ->each(fn ($number) => RefreshPullRequestMergeabilityJob::dispatch((string) $request->input('repository.full_name'), (int) $number));
+            });
         }
 
         if ($repo === null || ! $repo->deployments_enabled) {
