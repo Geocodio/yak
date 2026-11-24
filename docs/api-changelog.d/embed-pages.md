@@ -6,4 +6,4 @@ The server announces the pages in `me.web.pages`, a list of `deployments` and `p
 
 The pages hide every write action (rebuild, destroy, hibernation, share link, manifest, re-run a review) and answer 404 if one is called. A link to a thread or any page outside `/app/embed/` posts `link`; the list pages link to their detail pages inside `/app/embed/`.
 
-Bridge: `ready` from these pages is `{ url, title }` with no `threadId` or `latestSequence` (a thread page still sends all four; a message with only one of the two is malformed), posted once per address when the page has mounted. Contract fixture: `embed-bridge/page-ready-page`.
+Bridge: `ready` from these pages is `{ url, title }` with no `threadId` or `latestSequence` (a thread page still sends all four; a message with only one of the two is malformed), posted once per address when the page has mounted. A client decodes `threadId` and `latestSequence` as optional and shows the page as ready on this message; the fixture for it is added with the app's decoder, so the existing fixtures stay unchanged.
