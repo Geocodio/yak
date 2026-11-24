@@ -1,0 +1,245 @@
+{
+    "facets": {
+        "sources": [
+            {
+                "count": 4,
+                "key": "dashboard",
+                "label": "Dashboard"
+            }
+        ],
+        "starters": [
+            {
+                "avatarUrl": null,
+                "count": 4,
+                "key": "user:1",
+                "name": "Test person"
+            }
+        ]
+    },
+    "gitHubLinkPath": "/settings/profile",
+    "hasAnyThreads": true,
+    "needsGitHubLink": false,
+    "needsYou": [],
+    "needsYouCount": 0,
+    "reviewCount": 2,
+    "reviewGroups": [
+        {
+            "key": "back_to_you",
+            "label": "Back to you",
+            "rows": [
+                {
+                    "canDelete": true,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "2026-11-15T11:00:00+00:00",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "example/web",
+                    "review": {
+                        "hasNewCommitsSinceApproval": false,
+                        "otherApprovals": 0,
+                        "pullRequests": [
+                            {
+                                "approvedByYou": false,
+                                "checks": "failing",
+                                "isDraft": true,
+                                "mergeability": "conflicts",
+                                "number": 1,
+                                "repository": "example/web",
+                                "url": "https://github.com/example/web/pull/1"
+                            }
+                        ]
+                    },
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "user:1",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "title": "Retry failed uploads",
+                    "type": "thread"
+                }
+            ]
+        },
+        {
+            "key": "not_reviewed",
+            "label": "Not reviewed",
+            "rows": [
+                {
+                    "canDelete": true,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "2026-11-15T11:00:00+00:00",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "example/web",
+                    "review": {
+                        "hasNewCommitsSinceApproval": false,
+                        "otherApprovals": 0,
+                        "pullRequests": [
+                            {
+                                "approvedByYou": false,
+                                "checks": "passing",
+                                "isDraft": false,
+                                "mergeability": "clean",
+                                "number": 1,
+                                "repository": "example/web",
+                                "url": "https://github.com/example/web/pull/1"
+                            }
+                        ]
+                    },
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "user:1",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "title": "Tidy the README",
+                    "type": "thread"
+                }
+            ]
+        },
+        {
+            "key": "with_yak",
+            "label": "With Yak",
+            "rows": [
+                {
+                    "canDelete": true,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "2026-11-15T11:00:00+00:00",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "example/web",
+                    "review": {
+                        "hasNewCommitsSinceApproval": false,
+                        "otherApprovals": 0,
+                        "pullRequests": [
+                            {
+                                "approvedByYou": false,
+                                "checks": null,
+                                "isDraft": false,
+                                "mergeability": "unknown",
+                                "number": 1,
+                                "repository": "example/web",
+                                "url": "https://github.com/example/web/pull/1"
+                            }
+                        ]
+                    },
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "user:1",
+                        "name": "Test person"
+                    },
+                    "status": "running",
+                    "step": null,
+                    "title": "Add a health check",
+                    "type": "thread"
+                }
+            ]
+        },
+        {
+            "key": "approved",
+            "label": "Approved by you",
+            "rows": [
+                {
+                    "canDelete": true,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "2026-11-15T11:00:00+00:00",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "example/web",
+                    "review": {
+                        "hasNewCommitsSinceApproval": false,
+                        "otherApprovals": 1,
+                        "pullRequests": [
+                            {
+                                "approvedByYou": true,
+                                "checks": "pending",
+                                "isDraft": false,
+                                "mergeability": "unknown",
+                                "number": 1,
+                                "repository": "example/web",
+                                "url": "https://github.com/example/web/pull/1"
+                            }
+                        ]
+                    },
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "user:1",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "title": "Speed up the importer",
+                    "type": "thread"
+                }
+            ]
+        }
+    ],
+    "starred": [],
+    "threads": []
+}
