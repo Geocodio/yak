@@ -13,9 +13,9 @@ struct StubUpload: Decodable {
 }
 
 extension StubControl {
-    /// The last multipart upload the stub took; nil before one arrived.
+    /// The last multipart upload the stub took; nil before one arrived (the stub answers 404 until then).
     func lastUpload() -> StubUpload? {
-        guard let text = try? get("attachments") else { return nil }
+        guard let text = getIfPresent("attachments") else { return nil }
         return try? JSONDecoder().decode(StubUpload.self, from: Data(text.utf8))
     }
 }

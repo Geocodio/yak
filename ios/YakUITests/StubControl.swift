@@ -60,7 +60,20 @@ struct StubControl {
         try get("preview/log").split(separator: "\n").map(String.init)
     }
 
+    /// The text `/__stub/<endpoint>` answers with 200, or nil when it answers anything else (a route that has nothing yet
+    /// answers 404). A poll for something that has not arrived yet must not count as a failure.
+    func getIfPresent(_ endpoint: String) -> String? {
+        let (status, text) = exchange("GET", endpoint, body: nil)
+        return status == 200 ? text : nil
+    }
+
     private func send(_ method: String, _ endpoint: String, body: String?) throws -> String {
+        let (status, text) = exchange(method, endpoint, body: body)
+        XCTAssertEqual(status, 200, "the stub did not accept \(method) \(endpoint)")
+        return text
+    }
+
+    private func exchange(_ method: String, _ endpoint: String, body: String?) -> (status: Int, text: String) {
         var request = URLRequest(url: URL(string: "\(url)/__stub/\(endpoint)")!)
         request.httpMethod = method
         request.httpBody = body.map { Data($0.utf8) }
@@ -74,7 +87,6 @@ struct StubControl {
             done.fulfill()
         }.resume()
         XCTWaiter().wait(for: [done], timeout: 30)
-        XCTAssertEqual(status, 200, "the stub did not accept \(method) \(endpoint)")
-        return text
+        return (status, text)
     }
 }
