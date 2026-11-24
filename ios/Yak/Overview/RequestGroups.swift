@@ -8,8 +8,10 @@ struct RequestGroupView: View {
 
     var body: some View {
         OverviewGroupCard(kind: .request, title: "overview.group.request") {
-            row("overview.request.source") { source }
-            RowDivider()
+            if request.source.summary != nil {
+                row("overview.request.source") { source }
+                RowDivider()
+            }
             row("overview.request.startedBy") { Text(verbatim: request.starter.name) }
             RowDivider()
             row("overview.request.responsible") {
@@ -35,7 +37,7 @@ struct RequestGroupView: View {
     }
 
     @ViewBuilder private var source: some View {
-        let text = [request.source.label, request.source.reference].compactMap { $0 }.joined(separator: " ")
+        let text = request.source.summary ?? ""
         if let url = WebLinkRule.safeURL(request.source.url) {
             Button {
                 open(url)

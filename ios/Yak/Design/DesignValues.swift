@@ -49,6 +49,8 @@ enum Design {
         /// A code block and a table in the chat.
         static let block: CGFloat = 10
         static let row: CGFloat = 6
+        /// The source and task badge of a drawer row.
+        static let badge: CGFloat = 4
         static let group: CGFloat = 8
         static let question: CGFloat = 26
         static let bar: CGFloat = 8
@@ -74,6 +76,8 @@ enum Design {
         static let paneItemWidth: CGFloat = 50
         static let paneItemHeight: CGFloat = 50
         static let row: CGFloat = 52
+        /// The widest a drawer row's badge grows before its label is cut.
+        static let badgeMaxWidth: CGFloat = 96
         static let option: CGFloat = 52
         static let statusDot: CGFloat = 9
         /// A status pill's smallest height.
@@ -264,6 +268,10 @@ extension Font {
     static let yakGroupHeading = Font.yak(.footnote, .semibold)
     /// A chip and a terminal key: 13 pt medium.
     static let yakChip = Font.yak(.footnote, .medium)
+    /// The badge on a drawer row's second line: 11 pt medium, so it keeps the detail text's line height.
+    static let yakBadge = Font.yak(.caption2, .medium)
+    /// A repository on a drawer row's second line: 12 pt monospaced.
+    static let yakRowRepository = Font.yak(.caption, isMonospaced: true)
     /// The terminal: 13 pt monospaced.
     static let yakTerminal = Font.yak(.footnote, isMonospaced: true)
     /// The message field: 16 pt.

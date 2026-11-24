@@ -82,6 +82,22 @@ private let statesOfThreads: [(id: String, title: String)] = [
     ("n0events", "A thread with no messages yet"),
 ]
 
+/// The channels the rows of `thread-states` cycle through: four known ones, one unknown key, a row without one and a very long label.
+private var sourcesOfThreads: [Any] {
+    [
+        ["key": "slack", "label": "Slack", "reference": NSNull(), "url": NSNull()],
+        ["key": "linear", "label": "Linear", "reference": "ENG-12", "url": NSNull()],
+        ["key": "sentry", "label": "Sentry", "reference": NSNull(), "url": NSNull()],
+        ["key": "dashboard", "label": "Dashboard", "reference": NSNull(), "url": NSNull()],
+        ["key": "pagerduty", "label": "PagerDuty", "reference": NSNull(), "url": NSNull()],
+        NSNull(),
+        [
+            "key": "newchannel", "label": "A channel label from a much newer server version", "reference": NSNull(),
+            "url": NSNull(),
+        ],
+    ]
+}
+
 private func update(_ dictionary: inout [String: Any], _ key: String, _ change: (inout [String: Any]) -> Void) {
     var inner = dictionary[key] as? [String: Any] ?? [:]
     change(&inner)
@@ -158,11 +174,12 @@ extension Scenario {
                 } ?? [:]
             list["needsYou"] = [[String: Any]]()
             list["needsYouCount"] = 0
-            list["threads"] = statesOfThreads.map { state -> [String: Any] in
+            list["threads"] = statesOfThreads.enumerated().map { index, state -> [String: Any] in
                 var row = template
                 row["id"] = state.id
                 row["title"] = state.title
                 row["status"] = state.id == "c10sed00" ? "closed" : "stopped"
+                row["source"] = sourcesOfThreads[index % sourcesOfThreads.count]
                 return row
             }
         default:

@@ -31,12 +31,7 @@ struct DrawerRowView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         title
-                        HStack(spacing: Design.Space.small) {
-                            if isTask { taskBadge }
-                            Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
-                        }
+                        detailLine
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
@@ -90,16 +85,37 @@ struct DrawerRowView: View {
         return Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
     }
 
-    /// The mark of a task item: a small badge on the quiet fill, as the board's source badge.
-    private var taskBadge: some View {
-        HStack(spacing: Design.Space.tight) {
-            Image(systemName: "checklist").imageScale(.small)
-            Text("drawer.taskLabel")
+    /// The second line: the badges at its start (the source first, then a task's mark), then the reason or detail, or
+    /// the repository in the mono face for a row with neither a source nor a reason. The badges never shorten; the
+    /// text after them does. At accessibility sizes the badges sit above the text, which wraps.
+    private var detailLine: some View {
+        let layout =
+            isLarge
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
+            : AnyLayout(HStackLayout(spacing: Design.Space.small))
+        return layout {
+            if row.source != nil || isTask {
+                HStack(spacing: Design.Space.small) {
+                    if let source = row.source {
+                        DrawerBadge(text: source).accessibilityIdentifier("drawer.sourceLabel")
+                    }
+                    if isTask {
+                        DrawerBadge(text: String(localized: "drawer.taskLabel"), systemImage: "checklist")
+                            .accessibilityIdentifier("drawer.taskLabel")
+                    }
+                }
+                .layoutPriority(1)
+            }
+            if let repository = row.repositoryDetail {
+                Text(repository).font(.yakRowRepository).foregroundStyle(subtitleColor)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(wrapsLines ? nil : 1).truncationMode(.middle)
+            } else {
+                Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
+            }
         }
-        .font(.yak(.caption, .medium)).foregroundStyle(Color.yakText)
-        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
-        .background(Color.yakBubble, in: .rect(cornerRadius: 4))
-        .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
     }
 
     /// A question reads in the brand color and a block in the failure color; everything else is quiet.
@@ -184,6 +200,8 @@ struct DrawerRowView: View {
 
     private var accessibilityLabel: String {
         var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
+        if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
+        if let repository = row.repositoryDetail { parts.append(repository) }
         if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
@@ -191,8 +209,9 @@ struct DrawerRowView: View {
     }
 }
 
-/// The status mark at the start of a row: a dot, a spinning arc or a glyph. Color is never the only signal,
-/// because the subtitle says the same in words.
+/// The status mark at the start of a row: a dot, a spinning arc or a glyph. Color is never the only signal: the
+/// subtitle says the same in words, except on a stopped, closed, paused or waiting row, where the repository replaces
+/// the word and the glyph itself differs.
 struct DrawerIndicator: View {
     let indicator: DrawerRow.Indicator
 
@@ -219,5 +238,47 @@ struct DrawerIndicator: View {
 
     private func glyph(_ name: String) -> some View {
         Image(systemName: name).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
+    }
+}
+
+/// A small label on the quiet fill at the start of a row's second line: a task's mark and a thread's source.
+struct DrawerBadge: View {
+    let text: String
+    var systemImage: String?
+
+    /// A longer label from a newer server ends in an ellipsis here, so it cannot push into the age column.
+    @ScaledMetric(relativeTo: .caption) private var maxWidth = Design.Size.badgeMaxWidth
+
+    var body: some View {
+        CappedWidth(limit: maxWidth) { label }
+    }
+
+    private var label: some View {
+        HStack(spacing: Design.Space.tight) {
+            if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+            Text(text).lineLimit(1)
+        }
+        .font(.yakBadge).foregroundStyle(Color.yakText)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
+        .layoutPriority(1)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Offers its child at most `limit` points of width and takes the child's own size, so a short badge hugs its text and a
+/// long one is cut at the limit.
+private struct CappedWidth: Layout {
+    let limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(
+            at: bounds.origin, anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
     }
 }

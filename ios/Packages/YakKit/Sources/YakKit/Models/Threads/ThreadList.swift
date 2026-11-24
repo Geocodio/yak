@@ -92,6 +92,9 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let group: ThreadRowGroup
     public let children: [ThreadRow]
     public let step: String?
+    /// Where the thread started (Slack, Linear, the dashboard...); nil from an older server, when it sent none, and
+    /// when it sent something that is not a source object. A bad `source` never fails the row.
+    public let source: ThreadSource?
 
     public init(
         id: String,
@@ -109,7 +112,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         lastActivityAt: String? = nil,
         group: ThreadRowGroup,
         children: [ThreadRow],
-        step: String? = nil
+        step: String? = nil,
+        source: ThreadSource? = nil
     ) {
         self.id = id
         self.title = title
@@ -127,6 +131,33 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.group = group
         self.children = children
         self.step = step
+        self.source = source
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, repo, status, needsYouReason, needsYouLabel, isPrivate, isShared, isUnattended, isStarred
+        case canDelete, ownerInitials, lastActivityAt, group, children, step, source
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        repo = try container.decode(String.self, forKey: .repo)
+        status = try container.decode(ThreadRowStatus.self, forKey: .status)
+        needsYouReason = try container.decodeIfPresent(NeedsYouReason.self, forKey: .needsYouReason)
+        needsYouLabel = try container.decodeIfPresent(String.self, forKey: .needsYouLabel)
+        isPrivate = try container.decode(Bool.self, forKey: .isPrivate)
+        isShared = try container.decode(Bool.self, forKey: .isShared)
+        isUnattended = try container.decode(Bool.self, forKey: .isUnattended)
+        isStarred = try container.decode(Bool.self, forKey: .isStarred)
+        canDelete = try container.decode(Bool.self, forKey: .canDelete)
+        ownerInitials = try container.decodeIfPresent(String.self, forKey: .ownerInitials)
+        lastActivityAt = try container.decodeIfPresent(String.self, forKey: .lastActivityAt)
+        group = try container.decode(ThreadRowGroup.self, forKey: .group)
+        children = try container.decode([ThreadRow].self, forKey: .children)
+        step = try container.decodeIfPresent(String.self, forKey: .step)
+        source = (try? container.decodeIfPresent(ThreadSource.self, forKey: .source)) ?? nil
     }
 }
 
@@ -161,7 +192,7 @@ extension ThreadRow {
             children: children.map {
                 $0.idsIncludingDescendants.contains(threadID) ? $0.applying(task, to: threadID) : $0
             },
-            step: step)
+            step: step, source: source)
     }
 
     /// The row of a task item whose thread is not in the list.

@@ -12,6 +12,29 @@ import XCTest
         try shoot("drawer")
     }
 
+    /// Rows with a Slack, Linear, Sentry, Dashboard and an unknown source, and one without a source.
+    func testDrawerSources() throws {
+        try start("thread-states", paired: true)
+        try waitForDrawer()
+        // Each row's label carries its source once ("From Slack"); the row with no source reads none.
+        let expected: [(id: String, source: String?)] = [
+            ("c10sed00", "Slack"), ("readc0py", "Linear"), ("c0mp7ter", "Sentry"), ("vsage000", "Dashboard"),
+            ("g7ard000", "PagerDuty"), ("rest0re0", nil),
+            ("acc07nt0", "A channel label from a much newer server version"),
+        ]
+        for (id, source) in expected {
+            let row = app.descendants(matching: .any)["drawer.row.thread:\(id)"]
+            XCTAssertTrue(row.waitForExistence(timeout: 10), id)
+            if let source {
+                XCTAssertTrue(row.label.contains("From \(source)"), "\(id): \(row.label)")
+            } else {
+                XCTAssertFalse(row.label.contains("From "), "\(id): \(row.label)")
+                XCTAssertTrue(row.label.contains("example/api"), "\(id): \(row.label)")
+            }
+        }
+        try shoot("drawer-sources")
+    }
+
     func testDrawerSubThreadsOpen() throws {
         try start("paired", paired: true)
         try waitForDrawer()

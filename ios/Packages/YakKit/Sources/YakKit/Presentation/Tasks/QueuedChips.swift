@@ -29,7 +29,7 @@ public enum QueuedChips {
             let isQueued = message.mode == .queue
             return QueuedChip(
                 uuid: uuid, text: message.text, isQueued: isQueued, attachmentCount: message.attachments?.count ?? 0,
-                sourceLabel: message.via?.label,
+                sourceLabel: message.via?.displayName,
                 menu: QueuedMessageMenu.items(canEditText: message.canEditText, isQueued: isQueued))
         }
     }

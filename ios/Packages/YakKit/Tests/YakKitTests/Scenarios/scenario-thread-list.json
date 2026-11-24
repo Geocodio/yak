@@ -15,6 +15,7 @@
       "isStarred": false,
       "canDelete": true,
       "ownerInitials": "TP",
+      "source": { "key": "slack", "label": "Slack", "reference": "#ops", "url": null },
       "lastActivityAt": "2026-11-15T09:30:00Z",
       "group": "today",
       "children": []
@@ -43,6 +44,7 @@
       "isStarred": false,
       "canDelete": true,
       "ownerInitials": "TP",
+      "source": { "key": "pagerduty", "label": "PagerDuty", "reference": null, "url": null },
       "lastActivityAt": "2026-11-15T07:00:00Z",
       "group": "today",
       "children": [
