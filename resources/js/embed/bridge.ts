@@ -24,6 +24,7 @@ export type PageMessage =
     | { type: 'unsentAction'; key: string; action: 'retry' | 'edit' | 'discard' }
     | { type: 'auth'; state: 'expired' }
     | { type: 'focusMissed'; fragment: string }
+    | { type: 'agents'; running: number; newest: string | null }
     | { type: 'error'; kind: 'http' | 'network' | 'script'; status?: number };
 
 /** App to page. */
@@ -35,7 +36,7 @@ export type AppMessage =
     | { type: 'refresh' }
     | { type: 'connectivity'; online: boolean };
 
-export const PAGE_MESSAGE_TYPES = ['ready', 'threadChanged', 'link', 'openPane', 'quickLook', 'cardAnswered', 'unsentAction', 'auth', 'focusMissed', 'error'] as const;
+export const PAGE_MESSAGE_TYPES = ['ready', 'threadChanged', 'link', 'openPane', 'quickLook', 'cardAnswered', 'unsentAction', 'auth', 'focusMissed', 'agents', 'error'] as const;
 export const APP_MESSAGE_TYPES = ['open', 'focus', 'scrollToBottom', 'outbox', 'refresh', 'connectivity'] as const;
 
 export type Validation<T> = { kind: 'ok'; message: T } | { kind: 'unknown' } | { kind: 'malformed'; reason: string };
@@ -73,6 +74,7 @@ const pageChecks: Record<(typeof PAGE_MESSAGE_TYPES)[number], (message: Shape) =
     unsentAction: (m) => isNonEmpty(m.key, 100) && isOneOf(m.action, ['retry', 'edit', 'discard'] as const),
     auth: (m) => m.state === 'expired',
     focusMissed: (m) => isFragment(m.fragment),
+    agents: (m) => isCount(m.running) && (m.newest === null || isFragment(m.newest)),
     error: (m) => isOneOf(m.kind, ['http', 'network', 'script'] as const) && isOptional(m.status, isCount),
 };
 

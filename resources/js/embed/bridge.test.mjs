@@ -6,6 +6,8 @@ import { cardActionOf } from './cardActions.ts';
 import { visibleOutbox } from './outboxSource.ts';
 
 const FIXTURES = new URL('../../../tests/Fixtures/app-api/v1/embed-bridge/', import.meta.url);
+/** Types the page sends before the app decodes them: no fixture yet, the shape is pinned in this file and the changelog. */
+const TYPES_WITHOUT_FIXTURE = ['agents'];
 const fixtures = readdirSync(FIXTURES).filter((name) => name.endsWith('.json')).map((name) => ({ name, message: JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8')) }));
 
 test('it ignores unknown types', () => {
@@ -41,7 +43,7 @@ test('every fixture validates against the bridge and every type has one', () => 
         const result = name.startsWith('page-') ? validatePageMessage(message) : validateAppMessage(message);
         assert.equal(result.kind, 'ok', name);
     }
-    for (const type of PAGE_MESSAGE_TYPES) {
+    for (const type of PAGE_MESSAGE_TYPES.filter((type) => !TYPES_WITHOUT_FIXTURE.includes(type))) {
         assert.ok(fixtures.some(({ name, message }) => name.startsWith('page-') && message.type === type), `page-${type}`);
     }
     for (const type of APP_MESSAGE_TYPES) {
@@ -77,4 +79,18 @@ test('only same-origin urls go to the quick look', () => {
 
 test('a threadChanged without the previous thread is malformed', () => {
     assert.equal(validatePageMessage({ v: 1, type: 'threadChanged', threadId: 'd0e515ef', previousThreadId: null }).kind, 'malformed');
+});
+
+test('an agents message carries the running count and the newest card id, or null', () => {
+    const agents = { v: 1, type: 'agents', running: 2, newest: 'agent-a0f3c9' };
+
+    assert.equal(validatePageMessage(agents).kind, 'ok');
+    assert.equal(validatePageMessage({ ...agents, running: 0, newest: null }).kind, 'ok');
+    assert.equal(validatePageMessage({ ...agents, newest: undefined }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...agents, newest: 'agent a' }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...agents, newest: 'a'.repeat(65) }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...agents, running: -1 }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...agents, running: 1.5 }).kind, 'malformed');
+    assert.equal(validateAppMessage(agents).kind, 'unknown');
+    assert.equal(validateAppMessage({ v: 1, type: 'focus', fragment: agents.newest }).kind, 'ok');
 });

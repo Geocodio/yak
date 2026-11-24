@@ -22,6 +22,9 @@ export function mergeAgents(loaded: AgentRowData[], live: Record<string, ThreadA
     return [...merged, ...added];
 }
 
+/** The element id of an agent's card in the conversation; it passes the app's fragment rule `[A-Za-z0-9_-]{1,64}`. */
+export const agentCardId = (agentId: string): string => `agent-${agentId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 57)}`;
+
 export const isRunning = (agent: ThreadAgent): boolean => agent.status === 'running';
 
 /** Running agents come first; each group keeps the order the agents started in. */
@@ -286,4 +289,26 @@ export function continuedLabel(agents: AgentRowData[]): string {
     const who = more > 0 ? `${names.join(', ')} and ${more} more` : names.join(' and ');
 
     return `${who} ${verb}${after === null ? '' : ` after ${after}`}.`;
+}
+
+/**
+ * What the app's bar above the composer shows: how many agents run and the card of the newest one. A nested agent has
+ * no card of its own in the conversation, so the card is the one of the agent Claude started it through.
+ */
+export function agentsForApp(rows: AgentRowData[]): { running: number; newest: string | null } {
+    const running = rows.filter(isRunning);
+    const newest = running.reduce<AgentRowData | null>((best, row) => (best === null || (row.startedAt ?? '') >= (best.startedAt ?? '') ? row : best), null);
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    let top = newest;
+
+    for (let hops = 0; top !== null && top.parentTaskId !== null && hops < 32; hops++) {
+        const parent = byId.get(top.parentTaskId);
+
+        if (parent === undefined || parent.id === top.id) {
+            break;
+        }
+        top = parent;
+    }
+
+    return { running: running.length, newest: top === null ? null : agentCardId(top.id) };
 }
