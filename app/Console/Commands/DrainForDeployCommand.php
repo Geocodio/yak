@@ -5,8 +5,10 @@ namespace App\Console\Commands;
 use App\DataTransferObjects\TaskStop;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Enums\TurnState;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
@@ -90,7 +92,9 @@ class DrainForDeployCommand extends Command
 
         $elapsed = 0;
         while (true) {
-            $inFlight = YakTask::whereIn('status', [TaskStatus::Running, TaskStatus::Retrying])->get();
+            $inFlight = YakTask::whereIn('status', [TaskStatus::Running, TaskStatus::Retrying])->get()
+                ->reject(fn (YakTask $task): bool => $this->isWaitingToContinue($task))
+                ->values();
 
             if ($inFlight->isEmpty()) {
                 $this->components->info('No in-flight tasks — drain complete.');
@@ -116,6 +120,22 @@ class DrainForDeployCommand extends Command
         $this->waitForStragglerWorkers($pollSeconds);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A thread task keeps its Running status after the runaway guard stops its turn, so that
+     * Continue can start the next turn on it. No job or turn runs for it, so it is not in flight:
+     * failing it would make yak:resume-interrupted-tasks restart a turn the guard stopped.
+     */
+    private function isWaitingToContinue(YakTask $task): bool
+    {
+        if ($task->thread_id === null) {
+            return false;
+        }
+
+        $latestTurn = TaskRun::query()->where('thread_id', $task->thread_id)->latest('id')->first();
+
+        return $latestTurn?->turn_state === TurnState::StoppedByGuard;
     }
 
     /**
