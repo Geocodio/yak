@@ -163,6 +163,15 @@
         "number": 41,
         "url": "https://github.com/example/api/pull/41"
     },
+    "pullRequests": [
+        {
+            "checks": null,
+            "number": 41,
+            "repository": "example/api",
+            "state": "open",
+            "url": "https://github.com/example/api/pull/41"
+        }
+    ],
     "question": null,
     "repositoryQuestion": null,
     "request": {
