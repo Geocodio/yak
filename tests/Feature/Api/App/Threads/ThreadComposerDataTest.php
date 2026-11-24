@@ -179,10 +179,12 @@ it('fails the agents when the runner is gone, as the web does', function () {
     expect(composerStoppedAgentIds($thread))->toBe([]);
 });
 
-it('answers 404 when the subagents flag is off, like the web', function () {
+it('answers 404 on the stop route and no agents on thread show when the subagents flag is off', function () {
     [$thread, $user] = composerDataThread();
+    ThreadAgent::factory()->create(['thread_id' => $thread->id]);
     config(['yak.threads.subagents' => false]);
 
+    $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('agents', ['runningCount' => 0, 'running' => []]);
     $this->postJson(appThreadPath($thread, '/agents/stop'), [], phoneHeadersFor($user))->assertNotFound();
 });
 
@@ -217,3 +219,16 @@ it('throttles both routes', function (string $suffix) {
 
     $this->postJson(appThreadPath($thread, $suffix), [], $headers)->assertStatus(429);
 })->with(['/step-limit', '/agents/stop']);
+
+it('keeps stopping agents out of the unnamed throttle bucket other routes share', function () {
+    [$thread, $user] = composerDataThread();
+    $headers = phoneHeadersFor($user);
+
+    foreach (range(1, 31) as $ignored) {
+        $this->getJson('/api/app/v1/threads/new/repository-access', $headers);
+    }
+    $this->getJson('/api/app/v1/threads/new/repository-access', $headers)->assertStatus(429);
+
+    $this->postJson(appThreadPath($thread, '/agents/stop'), [], $headers)->assertOk();
+    $this->postJson(appThreadPath($thread, '/step-limit'), [], $headers)->assertOk();
+});

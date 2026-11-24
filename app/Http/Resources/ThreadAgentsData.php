@@ -74,6 +74,10 @@ final class ThreadAgentsData
      */
     public static function running(Thread $thread): array
     {
+        if (! ThreadAgent::isEnabled()) {
+            return ['runningCount' => 0, 'running' => []];
+        }
+
         $query = ThreadAgent::query()->where('thread_id', $thread->id)->running();
         $count = (clone $query)->count();
         $running = [];
