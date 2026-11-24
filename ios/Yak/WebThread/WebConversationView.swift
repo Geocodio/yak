@@ -46,8 +46,6 @@ final class WebConversationContainer: UIView {
         self.page = page
         super.init(frame: .zero)
         accessibilityIdentifier = "thread.web"
-        // The page ends where the composer's strip begins; nothing of it is drawn outside this frame.
-        clipsToBounds = true
         page.applyZoom(for: traitCollection.preferredContentSizeCategory)
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: WebConversationContainer, _) in
             view.page.applyZoom(for: view.traitCollection.preferredContentSizeCategory)
@@ -69,7 +67,8 @@ final class WebConversationContainer: UIView {
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            webView.topAnchor.constraint(equalTo: topAnchor), webView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            webView.topAnchor.constraint(equalTo: topAnchor),
+            webView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: WebConversationPageView.overhang),
         ])
     }
 
@@ -118,28 +117,32 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         keepInsetsAboveTheComposer()
     }
 
-    /// The web view is laid out between the header and the composer's strip, so no part of it is under either and its
-    /// content needs no inset. WebKit can still apply one (for the keyboard or a safe area) while the layout around it
-    /// moves; a content inset or a scroll indicator inset that is not zero would draw a line of text under the strip or
-    /// leave the indicator short of its edge, so both are put back to zero whenever they change.
+    /// How far the web view reaches below its container, under the composer's opaque strip. A line of text is then
+    /// never cut by the web view's own edge, which leaves a sliver of text without an accessibility element; the strip
+    /// cuts it, and the line's element reaches under the strip.
+    static let overhang: CGFloat = 64
+
+    /// The content and the scroll indicator end where the strip begins: the inset equals the overhang. WebKit can apply
+    /// another inset (for the keyboard) while the layout around it moves, so both are put back whenever they change.
     private func keepInsetsAboveTheComposer() {
         let scrollView = webView.scrollView
+        let wanted = UIEdgeInsets(top: 0, left: 0, bottom: Self.overhang, right: 0)
         insetObservations = [
             scrollView.observe(\.contentInset, options: [.new]) { scrollView, _ in
                 MainActor.assumeIsolated {
-                    if scrollView.contentInset != .zero { scrollView.contentInset = .zero }
+                    if scrollView.contentInset != wanted { scrollView.contentInset = wanted }
                 }
             },
             scrollView.observe(\.verticalScrollIndicatorInsets, options: [.new]) { scrollView, _ in
                 MainActor.assumeIsolated {
-                    if scrollView.verticalScrollIndicatorInsets != .zero {
-                        scrollView.verticalScrollIndicatorInsets = .zero
+                    if scrollView.verticalScrollIndicatorInsets != wanted {
+                        scrollView.verticalScrollIndicatorInsets = wanted
                     }
                 }
             },
         ]
-        scrollView.contentInset = .zero
-        scrollView.verticalScrollIndicatorInsets = .zero
+        scrollView.contentInset = wanted
+        scrollView.verticalScrollIndicatorInsets = wanted
     }
 
     func applyZoom(for category: UIContentSizeCategory) {
