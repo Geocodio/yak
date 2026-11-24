@@ -3,6 +3,7 @@
 use App\Enums\ThreadShareMode;
 use App\Models\Device;
 use App\Models\Thread;
+use App\Models\ThreadAgent;
 use App\Models\User;
 use App\Services\Threads\ThreadSharing;
 use App\Support\AppEmbedRoutes;
@@ -291,3 +292,49 @@ it('a normal web session still reaches settings', function () {
     $this->actingAs($user)->get('/threads/' . Thread::factory()->create(['created_by_user_id' => $user->id])->public_id)->assertOk();
     expect(Auth::getDefaultDriver())->toBe('web');
 });
+
+it('lets an embed session read the log of an agent of a visible thread, and nothing else about agents', function () {
+    ['thread' => $thread, 'session' => $session] = embedWorld();
+    $agent = ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone']);
+
+    actingAsEmbed($session);
+    $embed = $this->getJson("/threads/{$thread->public_id}/agents/{$agent->task_id}/log")->assertOk();
+
+    Auth::forgetGuards();
+    $this->flushSession()->flushHeaders();
+    $web = $this->actingAs(User::query()->findOrFail($thread->created_by_user_id))->getJson("/threads/{$thread->public_id}/agents/{$agent->task_id}/log");
+
+    expect($embed->json())->toBe($web->json())->and(AppEmbedRoutes::ALLOWED)->toContain('threads.agents.log')
+        ->and(AppEmbedRoutes::ALLOWED)->not->toContain('threads.agents.stop', 'threads.agents.stop-all', 'threads.agents.messages.store');
+});
+
+it('answers 404 to an embed session for the log of an agent of another thread', function () {
+    ['thread' => $thread, 'session' => $session] = embedWorld();
+    $other = Thread::factory()->create(['created_by_user_id' => $thread->created_by_user_id]);
+    $agent = ThreadAgent::factory()->create(['thread_id' => $other->id, 'task_id' => 'aother']);
+
+    actingAsEmbed($session);
+    $this->getJson("/threads/{$thread->public_id}/agents/{$agent->task_id}/log")->assertNotFound();
+});
+
+it('answers 404 to an embed session for the log of an agent of a hidden thread', function () {
+    ['session' => $session] = embedWorld();
+    $hidden = privateThreadOf(User::factory()->create());
+    $agent = ThreadAgent::factory()->create(['thread_id' => $hidden->id, 'task_id' => 'ahidden']);
+
+    actingAsEmbed($session);
+    $this->getJson("/threads/{$hidden->public_id}/agents/{$agent->task_id}/log")->assertNotFound();
+});
+
+it('keeps stopping agents closed to an embed session', function (string $method, string $uri) {
+    ['thread' => $thread, 'session' => $session] = embedWorld();
+    $agent = ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone']);
+
+    actingAsEmbed($session);
+    $this->call($method, str_replace(['{thread}', '{agent}'], [$thread->public_id, $agent->task_id], $uri))->assertNotFound();
+
+    expect($agent->refresh()->stop_requested_at)->toBeNull();
+})->with([
+    ['POST', '/threads/{thread}/agents/stop'],
+    ['POST', '/threads/{thread}/agents/{agent}/stop'],
+]);

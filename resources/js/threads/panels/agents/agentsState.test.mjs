@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, matchChild, mergeAgents, nowLabel, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
+import { needsAgentsReport, agentCardId, agentsForApp, agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, matchChild, mergeAgents, nowLabel, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
 
 const agent = (id, extra = {}) => ({
     id, kind: 'agent', parentTaskId: null, toolUseId: null, depth: 1, agentType: 'general-purpose', description: id, workflowName: null, model: null, isBackground: true, status: 'running',
@@ -165,4 +165,40 @@ test('the continued row names every agent of the run in finish order', async () 
     assert.equal(continuedLabel([x, y, z]), 'Y, Z and 1 more finished.');
     assert.equal(continuedLabel([x, y, z, w]), 'Y, Z and 2 more finished.');
     assert.equal(continuedLabel([x, agent('F', { status: 'failed', finishedAt: '2026-11-20T10:00:09Z' })]), 'X and F ended.');
+});
+
+test('the card id of an agent passes the app fragment rule', () => {
+    const fragment = /^[A-Za-z0-9_-]{1,64}$/;
+
+    assert.equal(agentCardId('a0f3c9'), 'agent-a0f3c9');
+    assert.match(agentCardId('weird id/with:chars'), fragment);
+    assert.match(agentCardId('x'.repeat(200)), fragment);
+});
+
+test('the app summary counts running agents and names the newest top-level card', () => {
+    assert.deepEqual(agentsForApp([]), { running: 0, newest: null });
+    assert.deepEqual(agentsForApp([agent('done', { status: 'completed' })]), { running: 0, newest: null });
+
+    const rows = [
+        agent('first', { startedAt: '2026-11-20T10:00:00Z' }),
+        agent('second', { startedAt: '2026-11-20T10:05:00Z' }),
+        agent('finished', { status: 'completed', startedAt: '2026-11-20T10:09:00Z' }),
+    ];
+
+    assert.deepEqual(agentsForApp(rows), { running: 2, newest: 'agent-second' });
+
+    const nested = [...rows, agent('child', { parentTaskId: 'first', startedAt: '2026-11-20T10:08:00Z' })];
+
+    assert.deepEqual(agentsForApp(nested), { running: 3, newest: 'agent-first' });
+    assert.deepEqual(agentsForApp([agent('loop', { parentTaskId: 'loop' })]), { running: 1, newest: 'agent-loop' });
+});
+
+test('the app hears the summary on mount and after a thread switch, then only on a change', () => {
+    const none = { running: 0, newest: null };
+
+    assert.equal(needsAgentsReport(null, 'aaaaaaaa', none), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'aaaaaaaa', none), false);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'bbbbbbbb', none), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'aaaaaaaa', { running: 1, newest: 'agent-a' }), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', running: 1, newest: 'agent-a' }, 'aaaaaaaa', { running: 1, newest: 'agent-b' }), true);
 });

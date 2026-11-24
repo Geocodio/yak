@@ -23,7 +23,7 @@ final class AppEmbedRoutes
     ];
 
     /**
-     * Route names an embed session may call: the thread page, its reads and the card actions, and the read-only Deployments and PR review pages. The phone token
+     * Route names an embed session may call: the thread page, its reads (an agent's log included; stopping agents stays native) and the card actions, and the read-only Deployments and PR review pages. The phone token
      * already does all of this through the app API, and the native composer stays the only sender of messages.
      *
      * @var list<string>
@@ -45,6 +45,7 @@ final class AppEmbedRoutes
         'threads.local-turns',
         'threads.runs.log',
         'threads.tasks.log',
+        'threads.agents.log',
         'threads.repositories.progress',
         'threads.co-owner.candidates',
         'threads.stack.show',
