@@ -20,65 +20,6 @@ private struct UnreadableTokenStore: TokenStore {
 }
 
 @MainActor @Suite(.serialized) struct PreviewWebDataTests {
-    private func cookie(_ name: String) -> HTTPCookie {
-        HTTPCookie(properties: [
-            .domain: "preview.example.test", .path: "/", .name: name, .value: "1", .secure: "FALSE",
-            .expires: Date(timeIntervalSinceNow: 3600),
-        ])!
-    }
-
-    /// Each call makes the store and lets it go again, because a store that is still held cannot be removed.
-    private func setCookie(_ name: String, for instance: UUID, defaults: PreviewDefaults) async {
-        await PreviewWebData.store(for: instance, defaults: defaults).httpCookieStore.setCookie(cookie(name))
-    }
-
-    /// Sets a cookie in the first store and reads both, while both are alive.
-    private func cookiesOfTwoStores(_ first: UUID, _ second: UUID, defaults: PreviewDefaults) async -> (
-        [String], [String]
-    ) {
-        let firstStore = PreviewWebData.store(for: first, defaults: defaults)
-        let secondStore = PreviewWebData.store(for: second, defaults: defaults)
-        await firstStore.httpCookieStore.setCookie(cookie("only-first"))
-        let inFirst = await firstStore.httpCookieStore.allCookies().map(\.name)
-        let inSecond = await secondStore.httpCookieStore.allCookies().map(\.name)
-        return (inFirst, inSecond)
-    }
-
-    /// Sets a cookie in the embed store and reads both stores of the instance, which are let go of afterwards.
-    private func cookiesOfEmbedAndPreviewStores(_ instance: UUID, defaults: PreviewDefaults) async -> (
-        [String], [String]
-    ) {
-        let embedStore = PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults)
-        let previewStore = PreviewWebData.store(for: instance, defaults: defaults)
-        await embedStore.httpCookieStore.setCookie(cookie("session"))
-        let inEmbed = await embedStore.httpCookieStore.allCookies().map(\.name)
-        let inPreview = await previewStore.httpCookieStore.allCookies().map(\.name)
-        return (inEmbed, inPreview)
-    }
-
-    /// WebKit lets go of a released store a moment later, so an erase that finds it still in use is repeated until it succeeds.
-    private func eraseEventually(_ instance: UUID, defaults: PreviewDefaults) async -> Bool {
-        await TestTimeScale.poll { await PreviewWebData.erase(instanceID: instance, defaults: defaults) }
-    }
-
-    private func isUnlisted(_ ids: [UUID]) async -> Bool {
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        return ids.allSatisfy { !existing.contains($0) }
-    }
-
-    /// True once none of `ids` is listed. It only lists, and runs the launch sweep between lists, as the app does: a
-    /// store that WebKit lists again after an erase is for the sweep to remove.
-    private func isUnlistedEventually(_ ids: [UUID], defaults: PreviewDefaults) async -> Bool {
-        let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
-        return await TestTimeScale.poll {
-            await PreviewWebData.sweep(instances: instances, defaults: defaults)
-            guard await isUnlisted(ids) else { return false }
-            // The sweep that finds the stores gone drops their records.
-            await PreviewWebData.sweep(instances: instances, defaults: defaults)
-            return await isUnlisted(ids)
-        }
-    }
-
     private func known(_ defaults: PreviewDefaults) throws -> [UUID] {
         try defaults.data(forKey: PreviewWebData.knownStoresKey).map { try JSONDecoder().decode([UUID].self, from: $0) }
             ?? []
@@ -102,81 +43,76 @@ private struct UnreadableTokenStore: TokenStore {
         #expect(inOrder.contains(log.events))
     }
 
-    @Test func eachInstanceHasItsOwnStore() async throws {
-        let defaults = PreviewDefaults()
-        let first = UUID()
-        let second = UUID()
-        #expect(PreviewDataStoreID.for(instanceID: first) != PreviewDataStoreID.for(instanceID: second))
-        let (inFirst, inSecond) = await cookiesOfTwoStores(first, second, defaults: defaults)
-        #expect(inFirst == ["only-first"])
-        #expect(inSecond.isEmpty)
-        #expect(
-            Set(try known(defaults))
-                == [PreviewDataStoreID.for(instanceID: first), PreviewDataStoreID.for(instanceID: second)])
-        #expect(await eraseEventually(first, defaults: defaults))
-        #expect(await eraseEventually(second, defaults: defaults))
+    // MARK: Erase and sweep against a fake store list
+
+    /// A store a web view still holds: WebKit refuses to remove it until the view lets go.
+    private struct StoreInUse: Error {}
+
+    private func handOut(_ storeIDs: [UUID], _ defaults: PreviewDefaults) throws {
+        defaults.set(try JSONEncoder().encode(storeIDs), forKey: PreviewWebData.knownStoresKey)
     }
 
-    @Test func eraseRemovesTheStore() async throws {
-        let defaults = PreviewDefaults()
-        let instance = UUID()
-        await setCookie("saved", for: instance, defaults: defaults)
-        #expect(await eraseEventually(instance, defaults: defaults))
-        #expect(await isUnlistedEventually([PreviewDataStoreID.for(instanceID: instance)], defaults: defaults))
-        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
-        #expect(try known(defaults).isEmpty)
-    }
+    private let noPause: Duration = .milliseconds(1)
 
-    @Test func theEmbeddedPageHasItsOwnStoreAndEraseRemovesBothStores() async throws {
+    @Test func eraseRemovesBothStoresOfTheInstanceAndLeavesAnotherInstanceAlone() async throws {
         let defaults = PreviewDefaults()
         let instance = UUID()
+        let other = UUID()
         let previewID = PreviewDataStoreID.for(instanceID: instance)
         let embedID = PreviewDataStoreID.for(instanceID: instance, purpose: .embed)
+        let otherID = PreviewDataStoreID.for(instanceID: other)
         #expect(previewID != embedID)
-        let (inEmbed, inPreview) = await cookiesOfEmbedAndPreviewStores(instance, defaults: defaults)
-        #expect(inEmbed == ["session"])
-        #expect(inPreview.isEmpty)
-        #expect(Set(try known(defaults)) == [previewID, embedID])
-        #expect(await eraseEventually(instance, defaults: defaults))
-        #expect(await isUnlistedEventually([embedID, previewID], defaults: defaults))
-        #expect(try known(defaults).isEmpty)
+        #expect(previewID != otherID)
+        try handOut([previewID, embedID, otherID], defaults)
+        let stores = StaleStores(listed: [previewID, embedID, otherID], staysFor: 0)
+        let isErased = await PreviewWebData.erase(
+            instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+            pause: noPause)
+        #expect(isErased)
+        #expect(stores.listed == [otherID])
+        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+        // The records stay until a sweep finds the stores unlisted.
+        #expect(Set(try known(defaults)) == [previewID, embedID, otherID])
     }
 
     @Test func aPendingInstanceErasesItsEmbedStoreEvenWhenTheKnownRecordIsUnreadable() async throws {
         let defaults = PreviewDefaults()
         let instance = UUID()
-        await PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults).httpCookieStore.setCookie(
-            cookie("session"))
+        let embedID = PreviewDataStoreID.for(instanceID: instance, purpose: .embed)
         defaults.set(Data("not json".utf8), forKey: PreviewWebData.knownStoresKey)
         defaults.set(try JSONEncoder().encode([instance]), forKey: PreviewWebData.pendingKey)
-        #expect(await eraseEventually(instance, defaults: defaults))
-        #expect(
-            await isUnlistedEventually(
-                [PreviewDataStoreID.for(instanceID: instance, purpose: .embed)], defaults: defaults))
+        let stores = StaleStores(listed: [embedID], staysFor: 0)
+        let isErased = await PreviewWebData.erase(
+            instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+            pause: noPause)
+        #expect(isErased)
+        #expect(stores.listed.isEmpty)
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
     }
 
     @Test func aStoreInUseBecomesPendingAndPrepareFinishesIt() async throws {
         let defaults = PreviewDefaults()
         let instance = UUID()
-        var view: WKWebView? = WKWebView(
-            frame: .zero,
-            configuration: {
-                let configuration = WKWebViewConfiguration()
-                configuration.websiteDataStore = PreviewWebData.store(for: instance, defaults: defaults)
-                return configuration
-            }())
-        view?.loadHTMLString("<p>x</p>", baseURL: nil)
-        let started = Date()
-        let isErased = await PreviewWebData.erase(instanceID: instance, defaults: defaults)
-        #expect(Date().timeIntervalSince(started) < 6)
-        if !isErased {
-            #expect(defaults.data(forKey: PreviewWebData.pendingKey) != nil)
-            view = nil
-            #expect(await TestTimeScale.poll { await PreviewWebData.prepare(instanceID: instance, defaults: defaults) })
-            #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
-        }
-        withExtendedLifetime(view) {}
+        let storeID = PreviewDataStoreID.for(instanceID: instance)
+        try handOut([storeID], defaults)
+        let stores = StaleStores(listed: [storeID], staysFor: 0)
+        stores.held = [storeID]
+        let isErased = await PreviewWebData.erase(
+            instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+            pause: noPause)
+        #expect(!isErased)
+        #expect(stores.listed == [storeID])
+        let pending = try JSONDecoder().decode(
+            [UUID].self, from: try #require(defaults.data(forKey: PreviewWebData.pendingKey)))
+        #expect(pending == [instance])
+        // The view lets go of the store: the next preparation removes it and the instance is no longer pending.
+        stores.held = []
+        #expect(
+            await PreviewWebData.prepare(
+                instanceID: instance, defaults: defaults, remove: stores.removal, listStores: stores.listing,
+                pause: noPause))
+        #expect(stores.listed.isEmpty)
+        #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
     }
 
     @Test func theSweepErasesGoneInstancesAndLeavesOtherStores() async throws {
@@ -189,43 +125,43 @@ private struct UnreadableTokenStore: TokenStore {
         let needsPairing = try await instances.add(
             url: URL(string: "https://pairing.example.test")!, name: "Example Yak", userName: "Test person", token: "t")
         try tokens.removeToken(for: needsPairing.id)
-        await setCookie("pairing", for: needsPairing.id, defaults: defaults)
-        await setCookie("kept", for: kept.id, defaults: defaults)
-        await setCookie("gone", for: gone, defaults: defaults)
+        let keptID = PreviewDataStoreID.for(instanceID: kept.id)
+        let goneID = PreviewDataStoreID.for(instanceID: gone)
+        let goneEmbedID = PreviewDataStoreID.for(instanceID: gone, purpose: .embed)
+        let pairingID = PreviewDataStoreID.for(instanceID: needsPairing.id)
         let foreignID = UUID()
-        await WKWebsiteDataStore(forIdentifier: foreignID).httpCookieStore.setCookie(cookie("foreign"))
-        // WebKit lets go of a released store a moment later, so a store still in use is swept again until it is gone.
-        var existing: [UUID] = []
-        let deadline = ContinuousClock.now.advanced(by: TestTimeScale.waitBound * 2)
-        repeat {
-            await PreviewWebData.sweep(instances: instances, defaults: defaults)
-            existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-            let isSwept =
-                !existing.contains(PreviewDataStoreID.for(instanceID: gone))
-                && !existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id))
-            if isSwept { break }
-            try await Task.sleep(for: .milliseconds(300))
-        } while ContinuousClock.now < deadline
-        #expect(existing.contains(PreviewDataStoreID.for(instanceID: kept.id)))
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: gone)))
-        #expect(!existing.contains(PreviewDataStoreID.for(instanceID: needsPairing.id)))
-        #expect(existing.contains(foreignID))
-        _ = await PreviewWebData.erase(instanceID: kept.id, defaults: defaults)
-        try await WKWebsiteDataStore.remove(forIdentifier: foreignID)
+        try handOut([keptID, goneID, goneEmbedID, pairingID], defaults)
+        let stores = StaleStores(listed: [keptID, goneID, goneEmbedID, pairingID, foreignID], staysFor: 1)
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+            pause: noPause)
+        #expect(stores.listed == [keptID, foreignID])
+        #expect(stores.removals[keptID] == nil)
+        #expect(stores.removals[foreignID] == nil)
+        // A store removed just now stays recorded until a sweep finds it unlisted.
+        await PreviewWebData.sweep(
+            instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+            pause: noPause)
+        #expect(try known(defaults) == [keptID])
     }
 
     @Test func theSweepKeepsTheStoreOfAnInstanceWhoseTokenIsUnreadable() async throws {
         let defaults = PreviewDefaults()
-        let store = InstanceStore(
+        let instances = InstanceStore(
             defaults: PreviewDefaults(), tokens: UnreadableTokenStore(), now: { Date() })
-        let added = try await store.add(
+        let added = try await instances.add(
             url: URL(string: "https://yak.example.test")!, name: "Example Yak", userName: "Test person", token: "t")
-        #expect(await store.state(of: added.id) == .tokenUnreadable)
-        await setCookie("kept", for: added.id, defaults: defaults)
-        for _ in 0..<3 { await PreviewWebData.sweep(instances: store, defaults: defaults) }
-        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
-        #expect(existing.contains(PreviewDataStoreID.for(instanceID: added.id)))
-        _ = await PreviewWebData.erase(instanceID: added.id, defaults: defaults)
+        #expect(await instances.state(of: added.id) == .tokenUnreadable)
+        let storeID = PreviewDataStoreID.for(instanceID: added.id)
+        try handOut([storeID], defaults)
+        let stores = StaleStores(listed: [storeID], staysFor: 0)
+        for _ in 0..<3 {
+            await PreviewWebData.sweep(
+                instances: instances, defaults: defaults, listStores: stores.listing, remove: stores.removal,
+                pause: noPause)
+        }
+        #expect(stores.listed == [storeID])
+        #expect(stores.removals[storeID] == nil)
     }
 
     @Test func aListingThatTimesOutLeavesTheRecordsAlone() async throws {
@@ -255,6 +191,8 @@ private struct UnreadableTokenStore: TokenStore {
         var listed: Set<UUID>
         var removals: [UUID: Int] = [:]
         let staysFor: Int
+        /// Stores a web view holds: removing one throws.
+        var held: Set<UUID> = []
 
         init(listed: Set<UUID>, staysFor: Int) {
             self.listed = listed
@@ -264,6 +202,7 @@ private struct UnreadableTokenStore: TokenStore {
         var removal: PreviewWebData.Removal {
             { [self] id in
                 removals[id, default: 0] += 1
+                if held.contains(id) { throw StoreInUse() }
                 if removals[id, default: 0] > staysFor { listed.remove(id) }
             }
         }
@@ -272,7 +211,7 @@ private struct UnreadableTokenStore: TokenStore {
     }
 
     private func handOut(_ storeID: UUID, _ defaults: PreviewDefaults) throws {
-        defaults.set(try JSONEncoder().encode([storeID]), forKey: PreviewWebData.knownStoresKey)
+        try handOut([storeID], defaults)
     }
 
     @Test func aStoreThatStaysListedIsRemovedAgainBeforeTheRecordIsCleared() async throws {
@@ -324,5 +263,122 @@ private struct UnreadableTokenStore: TokenStore {
             pause: .milliseconds(1))
         #expect(try known(defaults).isEmpty)
         #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+    }
+}
+
+/// The tests that use real WebKit data stores. WebKit's stores are process-global and its network process is shared by
+/// every web view in the test process, so these run one at a time and next to no other WebKit work: they sit in
+/// the one serialized suite that every test using a web view lives in. Each test uses identifiers of its own, and what
+/// they wait for is the real condition, bounded by the shared `TestTimeScale`. The rules for removal (retrying until
+/// the store is unlisted, the record kept, the sweep finishing the job, a store in use staying pending) are proved
+/// against a fake store list in `PreviewWebDataTests`, because WebKit lists a removed store again at times of its own.
+@MainActor @Suite(.serialized) enum WebKitTests {}
+
+extension WebKitTests {
+    @MainActor @Suite struct PreviewWebDataRealStoreTests {
+        private func cookie(_ name: String) -> HTTPCookie {
+            HTTPCookie(properties: [
+                .domain: "preview.example.test", .path: "/", .name: name, .value: "1", .secure: "FALSE",
+                .expires: Date(timeIntervalSinceNow: 3600),
+            ])!
+        }
+
+        /// Each call makes the store and lets it go again, because a store that is still held cannot be removed.
+        private func setCookie(_ name: String, for instance: UUID, defaults: PreviewDefaults) async {
+            await PreviewWebData.store(for: instance, defaults: defaults).httpCookieStore.setCookie(cookie(name))
+        }
+
+        /// Sets a cookie in the first store and reads both, while both are alive.
+        private func cookiesOfTwoStores(_ first: UUID, _ second: UUID, defaults: PreviewDefaults) async -> (
+            [String], [String]
+        ) {
+            let firstStore = PreviewWebData.store(for: first, defaults: defaults)
+            let secondStore = PreviewWebData.store(for: second, defaults: defaults)
+            await firstStore.httpCookieStore.setCookie(cookie("only-first"))
+            let inFirst = await firstStore.httpCookieStore.allCookies().map(\.name)
+            let inSecond = await secondStore.httpCookieStore.allCookies().map(\.name)
+            return (inFirst, inSecond)
+        }
+
+        /// Sets a cookie in the embed store and reads both stores of the instance, which are let go of afterwards.
+        private func cookiesOfEmbedAndPreviewStores(_ instance: UUID, defaults: PreviewDefaults) async -> (
+            [String], [String]
+        ) {
+            let embedStore = PreviewWebData.store(for: instance, purpose: .embed, defaults: defaults)
+            let previewStore = PreviewWebData.store(for: instance, defaults: defaults)
+            await embedStore.httpCookieStore.setCookie(cookie("session"))
+            let inEmbed = await embedStore.httpCookieStore.allCookies().map(\.name)
+            let inPreview = await previewStore.httpCookieStore.allCookies().map(\.name)
+            return (inEmbed, inPreview)
+        }
+
+        /// WebKit lets go of a released store a moment later, so an erase that finds it still in use is repeated until it succeeds.
+        private func eraseEventually(_ instance: UUID, defaults: PreviewDefaults) async -> Bool {
+            await TestTimeScale.poll { await PreviewWebData.erase(instanceID: instance, defaults: defaults) }
+        }
+
+        private func isUnlisted(_ ids: [UUID]) async -> Bool {
+            let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+            return ids.allSatisfy { !existing.contains($0) }
+        }
+
+        /// True once none of `ids` is listed. It only lists, and runs the launch sweep between lists, as the app does: a
+        /// store that WebKit lists again after an erase is for the sweep to remove.
+        private func isUnlistedEventually(_ ids: [UUID], defaults: PreviewDefaults) async -> Bool {
+            let instances = InstanceStore(defaults: PreviewDefaults(), tokens: InMemoryTokenStore(), now: { Date() })
+            return await TestTimeScale.poll {
+                await PreviewWebData.sweep(instances: instances, defaults: defaults)
+                guard await isUnlisted(ids) else { return false }
+                // The sweep that finds the stores gone drops their records.
+                await PreviewWebData.sweep(instances: instances, defaults: defaults)
+                return await isUnlisted(ids)
+            }
+        }
+
+        private func known(_ defaults: PreviewDefaults) throws -> [UUID] {
+            try defaults.data(forKey: PreviewWebData.knownStoresKey).map {
+                try JSONDecoder().decode([UUID].self, from: $0)
+            }
+                ?? []
+        }
+
+        @Test func eachInstanceHasItsOwnStore() async throws {
+            let defaults = PreviewDefaults()
+            let first = UUID()
+            let second = UUID()
+            #expect(PreviewDataStoreID.for(instanceID: first) != PreviewDataStoreID.for(instanceID: second))
+            let (inFirst, inSecond) = await cookiesOfTwoStores(first, second, defaults: defaults)
+            #expect(inFirst == ["only-first"])
+            #expect(inSecond.isEmpty)
+            #expect(
+                Set(try known(defaults))
+                    == [PreviewDataStoreID.for(instanceID: first), PreviewDataStoreID.for(instanceID: second)])
+            // The stores of this test are removed so they do not pile up; whether WebKit lets go at once is not tested here.
+            _ = await PreviewWebData.erase(instanceID: first, defaults: defaults)
+            _ = await PreviewWebData.erase(instanceID: second, defaults: defaults)
+        }
+
+        @Test func eraseRemovesTheStore() async throws {
+            let defaults = PreviewDefaults()
+            let instance = UUID()
+            await setCookie("saved", for: instance, defaults: defaults)
+            #expect(await eraseEventually(instance, defaults: defaults))
+            #expect(await isUnlistedEventually([PreviewDataStoreID.for(instanceID: instance)], defaults: defaults))
+            #expect(defaults.data(forKey: PreviewWebData.pendingKey) == nil)
+            #expect(try known(defaults).isEmpty)
+        }
+
+        @Test func theEmbeddedPageHasItsOwnStore() async throws {
+            let defaults = PreviewDefaults()
+            let instance = UUID()
+            let previewID = PreviewDataStoreID.for(instanceID: instance)
+            let embedID = PreviewDataStoreID.for(instanceID: instance, purpose: .embed)
+            #expect(previewID != embedID)
+            let (inEmbed, inPreview) = await cookiesOfEmbedAndPreviewStores(instance, defaults: defaults)
+            #expect(inEmbed == ["session"])
+            #expect(inPreview.isEmpty)
+            #expect(Set(try known(defaults)) == [previewID, embedID])
+            _ = await PreviewWebData.erase(instanceID: instance, defaults: defaults)
+        }
     }
 }
