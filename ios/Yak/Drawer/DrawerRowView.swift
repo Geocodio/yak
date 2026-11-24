@@ -104,7 +104,7 @@ struct DrawerRowView: View {
                             .accessibilityIdentifier("drawer.taskLabel")
                     }
                 }
-                .fixedSize()
+                .layoutPriority(1)
             }
             if let repository = row.repositoryDetail {
                 Text(repository).font(.yakRowRepository).foregroundStyle(subtitleColor)
@@ -201,6 +201,7 @@ struct DrawerRowView: View {
     private var accessibilityLabel: String {
         var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
         if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
+        if let repository = row.repositoryDetail { parts.append(repository) }
         if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
@@ -208,8 +209,9 @@ struct DrawerRowView: View {
     }
 }
 
-/// The status mark at the start of a row: a dot, a spinning arc or a glyph. Color is never the only signal,
-/// because the subtitle says the same in words.
+/// The status mark at the start of a row: a dot, a spinning arc or a glyph. Color is never the only signal: the
+/// subtitle says the same in words, except on a stopped, closed, paused or waiting row, where the repository replaces
+/// the word and the glyph itself differs.
 struct DrawerIndicator: View {
     let indicator: DrawerRow.Indicator
 
@@ -244,15 +246,39 @@ struct DrawerBadge: View {
     let text: String
     var systemImage: String?
 
+    /// A longer label from a newer server ends in an ellipsis here, so it cannot push into the age column.
+    @ScaledMetric(relativeTo: .caption) private var maxWidth = Design.Size.badgeMaxWidth
+
     var body: some View {
+        CappedWidth(limit: maxWidth) { label }
+    }
+
+    private var label: some View {
         HStack(spacing: Design.Space.tight) {
             if let systemImage { Image(systemName: systemImage).imageScale(.small) }
             Text(text).lineLimit(1)
         }
         .font(.yakBadge).foregroundStyle(Color.yakText)
-        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
         .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
-        .fixedSize()
+        .layoutPriority(1)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Offers its child at most `limit` points of width and takes the child's own size, so a short badge hugs its text and a
+/// long one is cut at the limit.
+private struct CappedWidth: Layout {
+    let limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(
+            at: bounds.origin, anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
     }
 }

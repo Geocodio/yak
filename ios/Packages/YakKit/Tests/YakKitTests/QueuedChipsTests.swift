@@ -43,6 +43,17 @@ private func queued(_ count: Int) -> [QueuedChip] {
     #expect(QueuedChips.chips(from: [message("queued-message-1")]).first?.attachmentCount == 0)
 }
 
+@Test func aChannelWithNoLabelShowsItsKeyAndOneWithNeitherShowsNothing() {
+    func chip(_ source: ThreadSource) -> QueuedChip? {
+        let value = ThreadMessage(
+            id: "queued-message-1", uuid: "u", text: "t", authorInitials: "MH", state: .pending, mode: .queue,
+            sentAt: "", bodyHtml: "", via: source)
+        return QueuedChips.chips(from: [value]).first
+    }
+    #expect(chip(ThreadSource(key: SourceKey(rawValue: "email"), label: ""))?.sourceLabel == "email")
+    #expect(chip(ThreadSource(key: SourceKey(rawValue: ""), label: " "))?.sourceLabel == nil)
+}
+
 @Test func upToThreeChipsShowAndMoreFoldBehindAnNMoreRow() {
     #expect(QueuedChips.visible(queued(1), isExpanded: false).hiddenCount == 0)
     #expect(QueuedChips.visible(queued(3), isExpanded: false).shown.count == 3)

@@ -24,6 +24,13 @@ public struct ThreadSource: Codable, Equatable, Sendable {
         url = try? container.decodeIfPresent(String.self, forKey: .url)
     }
 
+    /// The source as one line for a detail row: the name, then the reference. Nil when neither has text.
+    public var summary: String? {
+        let parts = [displayName, reference].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
+    }
+
     /// What a badge says: the label, or the key when the server sent no label. Nil when there is neither. Every field
     /// is read leniently, so an older or newer server never makes a row fail to decode.
     public var displayName: String? {

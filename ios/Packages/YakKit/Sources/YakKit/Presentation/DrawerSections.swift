@@ -30,10 +30,15 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     /// The repository of a root thread, nil when the list row has none.
     public let repository: String?
 
-    /// The repository the second line shows in the mono face: only when the row has no source and no reason of its own.
+    /// The repository the second line shows in the mono face in place of the status word. Only a status whose mark
+    /// differs without color (stopped, closed, paused, waiting for a repository) gives way; running, blocked, unseen
+    /// and any unknown status keep their words, so color is never the only signal.
     public var repositoryDetail: String? {
-        guard source == nil, case .status = subtitle else { return nil }
-        return repository
+        guard case .status = subtitle else { return nil }
+        switch indicator {
+        case .stopped, .closed, .paused, .waiting: return repository
+        default: return nil
+        }
     }
 
     init(

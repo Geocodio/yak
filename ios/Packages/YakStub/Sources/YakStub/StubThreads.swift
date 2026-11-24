@@ -82,7 +82,7 @@ private let statesOfThreads: [(id: String, title: String)] = [
     ("n0events", "A thread with no messages yet"),
 ]
 
-/// The channels the rows of `thread-states` cycle through: four known ones, one unknown key and a row without one.
+/// The channels the rows of `thread-states` cycle through: four known ones, one unknown key, a row without one and a very long label.
 private var sourcesOfThreads: [Any] {
     [
         ["key": "slack", "label": "Slack", "reference": NSNull(), "url": NSNull()],
@@ -91,6 +91,10 @@ private var sourcesOfThreads: [Any] {
         ["key": "dashboard", "label": "Dashboard", "reference": NSNull(), "url": NSNull()],
         ["key": "pagerduty", "label": "PagerDuty", "reference": NSNull(), "url": NSNull()],
         NSNull(),
+        [
+            "key": "newchannel", "label": "A channel label from a much newer server version", "reference": NSNull(),
+            "url": NSNull(),
+        ],
     ]
 }
 

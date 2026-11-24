@@ -61,28 +61,67 @@ private func decodedRow(source: String?) throws -> ThreadRow {
         #expect(copy == list)
     }
 
-    @Test func theDrawerRowCarriesTheSourceOfARootOnly() {
-        let child = ThreadRow(
-            id: "c1", title: "C", repo: "example/api", status: .stopped, isPrivate: false, isShared: false,
-            isUnattended: false, isStarred: false, canDelete: false, group: .today, children: [],
-            source: ThreadSource(key: .slack, label: "Slack"))
-        let root = ThreadRow(
-            id: "r1", title: "R", repo: "example/api", status: .stopped, isPrivate: false, isShared: false,
-            isUnattended: false, isStarred: false, canDelete: true, group: .today, children: [child],
-            source: ThreadSource(key: .slack, label: "Slack"))
-        let bare = ThreadRow(
-            id: "b1", title: "B", repo: "example/web", status: .stopped, isPrivate: false, isShared: false,
-            isUnattended: false, isStarred: false, canDelete: true, group: .today, children: [])
-        let list = ThreadList(starred: [], needsYou: [], threads: [root, bare], needsYouCount: 0, hasAnyThreads: true)
-        guard
-            case .sections(let sections) = DrawerSections.make(
-                list: list, filter: .mine, search: nil, expanded: ["thread:r1": true], unsentNewThreads: [])
-        else {
-            Issue.record("no sections")
-            return
-        }
-        let rows = sections.flatMap(\.rows)
-        #expect(rows.map(\.source) == ["Slack", nil, nil])
-        #expect(rows.map(\.repositoryDetail) == [nil, nil, "example/web"])
+    @Test func aSourceOfTheWrongTypeNeverFailsTheRow() throws {
+        #expect(try decodedRow(source: #""slack""#).source == nil)
+        #expect(try decodedRow(source: #"["slack"]"#).source == nil)
+        #expect(try decodedRow(source: "5").source == nil)
     }
+
+    @Test func theSummaryHidesWhatIsMissing() {
+        #expect(ThreadSource(key: .slack, label: "Slack", reference: "#ops").summary == "Slack #ops")
+        #expect(ThreadSource(key: .slack, label: "", reference: nil).summary == "slack")
+        #expect(ThreadSource(key: SourceKey(rawValue: ""), label: "", reference: "ENG-1").summary == "ENG-1")
+        #expect(ThreadSource(key: SourceKey(rawValue: ""), label: " ", reference: " ").summary == nil)
+    }
+
+    @Test func theDrawerRowCarriesTheSourceOfARootOnly() {
+        let child = threadRow(
+            "c1", status: .stopped, canDelete: false, source: ThreadSource(key: .slack, label: "Slack"))
+        let root = threadRow(
+            "r1", status: .stopped, children: [child], source: ThreadSource(key: .slack, label: "Slack"))
+        let bare = threadRow("b1", repo: "example/web", status: .stopped)
+        let rows = drawerRows([root, bare], expanded: ["thread:r1": true])
+        #expect(rows.map(\.source) == ["Slack", nil, nil])
+        #expect(rows.map(\.repository) == ["example/api", nil, "example/web"])
+    }
+
+    @Test(arguments: [
+        ("stopped", true), ("closed", true), ("paused", true), ("waiting_for_repository", true),
+        ("running", false), ("blocked", false), ("something_new", false),
+    ])
+    func theRepositoryReplacesOnlyAStatusWhoseMarkDiffersWithoutColor(status: String, replaces: Bool) {
+        let source = ThreadSource(key: .slack, label: "Slack")
+        for badge in [source, nil] {
+            let row = drawerRows([
+                threadRow("a1", repo: "example/web", status: ThreadRowStatus(rawValue: status), source: badge)
+            ])[0]
+            #expect(row.repositoryDetail == (replaces ? "example/web" : nil))
+            #expect(row.source == badge?.label)
+        }
+    }
+
+    @Test func aReasonOrAnEmptyRepositoryKeepsTheWords() {
+        let unseen = drawerRows([threadRow("a1", status: .stopped, reason: .unseen)])[0]
+        #expect(unseen.repositoryDetail == nil)
+        let noRepository = drawerRows([threadRow("a2", repo: "", status: .stopped)])[0]
+        #expect(noRepository.repositoryDetail == nil)
+    }
+}
+
+private func threadRow(
+    _ id: String, repo: String = "example/api", status: ThreadRowStatus, reason: NeedsYouReason? = nil,
+    canDelete: Bool = true, children: [ThreadRow] = [], source: ThreadSource? = nil
+) -> ThreadRow {
+    ThreadRow(
+        id: id, title: id, repo: repo, status: status, needsYouReason: reason, isPrivate: false, isShared: false,
+        isUnattended: false, isStarred: false, canDelete: canDelete, group: .today, children: children, source: source)
+}
+
+private func drawerRows(_ threads: [ThreadRow], expanded: [String: Bool] = [:]) -> [DrawerRow] {
+    let list = ThreadList(starred: [], needsYou: [], threads: threads, needsYouCount: 0, hasAnyThreads: true)
+    guard
+        case .sections(let sections) = DrawerSections.make(
+            list: list, filter: .mine, search: nil, expanded: expanded, unsentNewThreads: [])
+    else { return [] }
+    return sections.flatMap(\.rows)
 }

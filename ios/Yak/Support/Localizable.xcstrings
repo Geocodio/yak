@@ -1941,7 +1941,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "from %@"
+            "value" : "From %@"
           }
         }
       }
