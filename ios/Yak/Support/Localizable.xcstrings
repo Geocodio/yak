@@ -1936,6 +1936,16 @@
         }
       }
     },
+    "drawer.from %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "from %@"
+          }
+        }
+      }
+    },
     "drawer.hideChildren" : {
       "localizations" : {
         "en" : {

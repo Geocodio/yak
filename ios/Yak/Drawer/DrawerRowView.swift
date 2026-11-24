@@ -31,12 +31,7 @@ struct DrawerRowView: View {
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         title
-                        HStack(spacing: Design.Space.small) {
-                            if isTask { taskBadge }
-                            Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
-                        }
+                        detailLine
                         if isLarge {
                             // The indicator moves in front of the age so the title keeps the whole width.
                             HStack(spacing: 8) {
@@ -90,16 +85,37 @@ struct DrawerRowView: View {
         return Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
     }
 
-    /// The mark of a task item: a small badge on the quiet fill, as the board's source badge.
-    private var taskBadge: some View {
-        HStack(spacing: Design.Space.tight) {
-            Image(systemName: "checklist").imageScale(.small)
-            Text("drawer.taskLabel")
+    /// The second line: the badges at its start (the source first, then a task's mark), then the reason or detail, or
+    /// the repository in the mono face for a row with neither a source nor a reason. The badges never shorten; the
+    /// text after them does. At accessibility sizes the badges sit above the text, which wraps.
+    private var detailLine: some View {
+        let layout =
+            isLarge
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
+            : AnyLayout(HStackLayout(spacing: Design.Space.small))
+        return layout {
+            if row.source != nil || isTask {
+                HStack(spacing: Design.Space.small) {
+                    if let source = row.source {
+                        DrawerBadge(text: source).accessibilityIdentifier("drawer.sourceLabel")
+                    }
+                    if isTask {
+                        DrawerBadge(text: String(localized: "drawer.taskLabel"), systemImage: "checklist")
+                            .accessibilityIdentifier("drawer.taskLabel")
+                    }
+                }
+                .fixedSize()
+            }
+            if let repository = row.repositoryDetail {
+                Text(repository).font(.yakRowRepository).foregroundStyle(subtitleColor)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(wrapsLines ? nil : 1).truncationMode(.middle)
+            } else {
+                Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
+            }
         }
-        .font(.yak(.caption, .medium)).foregroundStyle(Color.yakText)
-        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
-        .background(Color.yakBubble, in: .rect(cornerRadius: 4))
-        .accessibilityElement(children: .combine).accessibilityIdentifier("drawer.taskLabel")
     }
 
     /// A question reads in the brand color and a block in the failure color; everything else is quiet.
@@ -184,6 +200,7 @@ struct DrawerRowView: View {
 
     private var accessibilityLabel: String {
         var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
+        if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
         if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
@@ -219,5 +236,23 @@ struct DrawerIndicator: View {
 
     private func glyph(_ name: String) -> some View {
         Image(systemName: name).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
+    }
+}
+
+/// A small label on the quiet fill at the start of a row's second line: a task's mark and a thread's source.
+struct DrawerBadge: View {
+    let text: String
+    var systemImage: String?
+
+    var body: some View {
+        HStack(spacing: Design.Space.tight) {
+            if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+            Text(text).lineLimit(1)
+        }
+        .font(.yakBadge).foregroundStyle(Color.yakText)
+        .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.nudge)
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
+        .fixedSize()
+        .accessibilityElement(children: .combine)
     }
 }

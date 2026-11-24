@@ -12,6 +12,14 @@ import XCTest
         try shoot("drawer")
     }
 
+    /// Rows with a Slack, Linear, Sentry, Dashboard and an unknown source, and one without a source.
+    func testDrawerSources() throws {
+        try start("thread-states", paired: true)
+        try waitForDrawer()
+        XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:c10sed00"].waitForExistence(timeout: 10))
+        try shoot("drawer-sources")
+    }
+
     func testDrawerSubThreadsOpen() throws {
         try start("paired", paired: true)
         try waitForDrawer()

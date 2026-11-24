@@ -92,6 +92,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let group: ThreadRowGroup
     public let children: [ThreadRow]
     public let step: String?
+    /// Where the thread started (Slack, Linear, the dashboard...); nil from an older server or when it sent none.
+    public let source: ThreadSource?
 
     public init(
         id: String,
@@ -109,7 +111,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         lastActivityAt: String? = nil,
         group: ThreadRowGroup,
         children: [ThreadRow],
-        step: String? = nil
+        step: String? = nil,
+        source: ThreadSource? = nil
     ) {
         self.id = id
         self.title = title
@@ -127,6 +130,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.group = group
         self.children = children
         self.step = step
+        self.source = source
     }
 }
 
@@ -161,7 +165,7 @@ extension ThreadRow {
             children: children.map {
                 $0.idsIncludingDescendants.contains(threadID) ? $0.applying(task, to: threadID) : $0
             },
-            step: step)
+            step: step, source: source)
     }
 
     /// The row of a task item whose thread is not in the list.

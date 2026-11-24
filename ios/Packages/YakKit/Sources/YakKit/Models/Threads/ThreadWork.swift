@@ -1,3 +1,5 @@
+import Foundation
+
 /// Where a request came from. `key` is an open enum; the app shows `label`.
 public struct ThreadSource: Codable, Equatable, Sendable {
     public let key: SourceKey
@@ -16,10 +18,19 @@ public struct ThreadSource: Codable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        key = try container.decode(SourceKey.self, forKey: .key)
-        label = try container.decode(String.self, forKey: .label)
-        reference = try container.decodeIfPresent(String.self, forKey: .reference)
-        url = try container.decodeIfPresent(String.self, forKey: .url)
+        key = (try? container.decodeIfPresent(SourceKey.self, forKey: .key)) ?? SourceKey(rawValue: "")
+        label = (try? container.decodeIfPresent(String.self, forKey: .label)) ?? ""
+        reference = try? container.decodeIfPresent(String.self, forKey: .reference)
+        url = try? container.decodeIfPresent(String.self, forKey: .url)
+    }
+
+    /// What a badge says: the label, or the key when the server sent no label. Nil when there is neither. Every field
+    /// is read leniently, so an older or newer server never makes a row fail to decode.
+    public var displayName: String? {
+        let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty { return name }
+        let fallback = key.rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return fallback.isEmpty ? nil : fallback
     }
 }
 

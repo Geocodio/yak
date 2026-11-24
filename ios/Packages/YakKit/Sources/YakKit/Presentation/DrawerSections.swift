@@ -25,6 +25,35 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     public let childCount: Int
     /// Meaningful when `childCount > 0`.
     public let isExpanded: Bool
+    /// The channel of a root thread, shown as a badge; nil for a sub-thread, a task and a row without one.
+    public let source: String?
+    /// The repository of a root thread, nil when the list row has none.
+    public let repository: String?
+
+    /// The repository the second line shows in the mono face: only when the row has no source and no reason of its own.
+    public var repositoryDetail: String? {
+        guard source == nil, case .status = subtitle else { return nil }
+        return repository
+    }
+
+    init(
+        id: String, target: Target, title: String, subtitle: DrawerSubtitle, indicator: Indicator, isPrivate: Bool,
+        lastActivity: Date?, depth: Int, childCount: Int, isExpanded: Bool, source: String? = nil,
+        repository: String? = nil
+    ) {
+        self.id = id
+        self.target = target
+        self.title = title
+        self.subtitle = subtitle
+        self.indicator = indicator
+        self.isPrivate = isPrivate
+        self.lastActivity = lastActivity
+        self.depth = depth
+        self.childCount = childCount
+        self.isExpanded = isExpanded
+        self.source = source
+        self.repository = repository
+    }
 }
 
 public enum DrawerSubtitle: Equatable, Sendable {
@@ -121,7 +150,9 @@ public enum DrawerSections {
         let line = DrawerRow(
             id: id, target: .thread(row.id), title: row.title, subtitle: subtitle, indicator: indicator(of: row),
             isPrivate: row.isPrivate, lastActivity: RelativeAge.parse(row.lastActivityAt), depth: depth,
-            childCount: row.children.count, isExpanded: isExpanded)
+            childCount: row.children.count, isExpanded: isExpanded,
+            source: depth == 0 ? row.source?.displayName : nil,
+            repository: depth == 0 && !row.repo.isEmpty ? row.repo : nil)
         guard isExpanded else { return [line] }
         return [line] + row.children.flatMap { flatten($0, depth: depth + 1, expanded: expanded) }
     }
