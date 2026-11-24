@@ -36,7 +36,7 @@ class RefreshPullRequestMergeabilityJob implements ShouldQueue
 
         if (($pullRequest['mergeable'] ?? null) === null) {
             if ($this->attempts() < $this->tries) {
-                $this->release($this->backoff()[$this->attempts() - 1] ?? 120);
+                $this->release($this->backoff()[$this->attempts() - 1]);
             }
 
             return;

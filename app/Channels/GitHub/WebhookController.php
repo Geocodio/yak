@@ -215,7 +215,11 @@ class WebhookController extends Controller
         try {
             $record(app(PullRequestFacts::class));
         } catch (\Throwable $exception) {
-            Log::warning('Recording pull request facts failed', ['error' => $exception->getMessage()]);
+            Log::warning('Recording pull request facts failed', [
+                'error' => $exception->getMessage(),
+                'repository' => (string) request()->input('repository.full_name'),
+                'pullRequestNumber' => (int) request()->input('pull_request.number'),
+            ]);
         }
     }
 
@@ -656,6 +660,7 @@ class WebhookController extends Controller
                 ThreadRepository::query()
                     ->where('repo', $repo->slug)
                     ->where('pull_request_state', 'open')
+                    ->whereNotNull('pull_request_number')
                     ->distinct()
                     ->pluck('pull_request_number')
                     ->each(fn ($number) => RefreshPullRequestMergeabilityJob::dispatch((string) $request->input('repository.full_name'), (int) $number));

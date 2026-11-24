@@ -3,8 +3,11 @@
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\User;
 use App\Providers\ChannelServiceProvider;
+use App\Services\Threads\PullRequests\PullRequestFacts;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 
@@ -122,4 +125,29 @@ it('stores reviews when review triage is disabled', function () {
     postFactsWebhook('pull_request_review', reviewPayload('submitted', 'APPROVED'));
 
     expect($this->row->refresh()->pull_request_reviews)->toHaveKey('mathias');
+});
+
+it('lists a thread under approved after the viewer approves the head commit by webhook', function () {
+    $viewer = User::factory()->create(['github_login' => 'Mathias']);
+    $this->row->thread->forceFill(['created_by_user_id' => $viewer->id])->save();
+    $this->row->forceFill(['pull_request_head_sha' => 'abc'])->save();
+
+    postFactsWebhook('pull_request_review', reviewPayload('submitted', 'approved'))->assertOk();
+
+    $this->actingAs($viewer)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('review.approved.0.id', $this->row->thread->public_id)
+        ->assertJsonCount(0, 'review.notReviewed');
+});
+
+it('keeps the normal review handler running when recording the facts throws', function () {
+    $facts = Mockery::mock(PullRequestFacts::class);
+    $facts->shouldReceive('recordReview')->andThrow(new RuntimeException('storage down'));
+    app()->instance(PullRequestFacts::class, $facts);
+    Log::spy();
+
+    postFactsWebhook('pull_request_review', reviewPayload('submitted', 'approved'))->assertOk()->assertJsonMissingPath('error');
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => $message === 'Recording pull request facts failed'
+        && $context['repository'] === 'acme/app' && $context['pullRequestNumber'] === 42)->once();
 });

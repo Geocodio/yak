@@ -92,6 +92,16 @@ it('dispatches for every open PR on a default branch push', function () {
     Queue::assertPushed(fn (RefreshPullRequestMergeabilityJob $job) => $job->prNumber === 43);
 });
 
+it('skips an open row that has no pull request number on a default branch push', function () {
+    Queue::fake();
+    ThreadRepository::factory()->for(Thread::factory()->create())->create(['repo' => 'acme-app', 'pull_request_state' => 'open', 'pull_request_number' => null]);
+
+    postMergeabilityWebhook('push', ['ref' => 'refs/heads/main', 'after' => 'def', 'repository' => ['full_name' => 'acme/app']]);
+
+    Queue::assertPushed(RefreshPullRequestMergeabilityJob::class, 1);
+    Queue::assertNotPushed(fn (RefreshPullRequestMergeabilityJob $job) => $job->prNumber === 0);
+});
+
 it('ignores a push to another branch', function () {
     Queue::fake();
 
