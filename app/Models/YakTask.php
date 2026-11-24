@@ -10,6 +10,7 @@ use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
 use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
+use App\Jobs\RunFollowUpJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Models\Concerns\HasClarificationRounds;
 use App\Models\Concerns\HasPublicId;
@@ -229,6 +230,26 @@ class YakTask extends Model
             ->where('mode', TaskMode::Fix)
             ->where('targets_external_pr', false)
             ->whereNull('pr_url')
+            ->where('auto_recovery_count', '<', (int) config('yak.self_recovery.max_attempts'))
+            ->whereRaw('COALESCE(completed_at, updated_at) >= ?', [now()->subHours((int) config('yak.self_recovery.window_hours'))]);
+    }
+
+    /**
+     * PR-comment follow-ups Yak stopped before their turn started, inside the
+     * recovery window with automatic budget left. Nothing ran, so running the
+     * follow-up again loses no work.
+     *
+     * @param  Builder<covariant YakTask>  $query
+     * @return Builder<covariant YakTask>
+     */
+    public function scopeFollowUpsStoppedBeforeTurn(Builder $query): Builder
+    {
+        return $query
+            ->where('status', TaskStatus::Failed)
+            ->where('stop_kind', StopKind::YakStopped)
+            ->where('claimed_job_class', RunFollowUpJob::class)
+            ->whereNotNull('branch_name')
+            ->whereDoesntHave('runs')
             ->where('auto_recovery_count', '<', (int) config('yak.self_recovery.max_attempts'))
             ->whereRaw('COALESCE(completed_at, updated_at) >= ?', [now()->subHours((int) config('yak.self_recovery.window_hours'))]);
     }

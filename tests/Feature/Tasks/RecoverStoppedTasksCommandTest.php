@@ -6,10 +6,12 @@ use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
+use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\Tasks\TaskActions;
 use Illuminate\Console\Scheduling\Schedule;
@@ -289,4 +291,47 @@ it('ignores a successful run for an older commit when the branch head is a diffe
 
     Queue::assertNothingPushed();
     expect($task->fresh()->status)->toBe(TaskStatus::Failed)->and($task->fresh()->auto_recovery_count)->toBe(0);
+});
+
+function followUpStoppedBeforeTurn(array $attributes = []): YakTask
+{
+    return yakStoppedTask($attributes + [
+        'claimed_job_class' => RunFollowUpJob::class,
+        'pr_url' => 'https://github.com/example/api/pull/7',
+        'error_log' => "Could not check whether branch 'yak/upgrade-sdk' exists on the remote: Invalid username or token.",
+    ]);
+}
+
+it('runs a follow-up again when Yak stopped it before its turn started', function () {
+    $task = followUpStoppedBeforeTurn();
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertPushed(RunFollowUpJob::class, fn (RunFollowUpJob $job) => $job->task->is($task));
+    assertNoRecoveryAgentJobs();
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Pending)
+        ->and($task->auto_recovery_count)->toBe(1)
+        ->and($task->error_log)->toBeNull()
+        ->and($task->stop_kind)->toBeNull()
+        ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'Recovered automatically: running the follow-up again')->exists())->toBeTrue();
+});
+
+it('leaves a follow-up alone once its turn has run', function () {
+    $task = followUpStoppedBeforeTurn();
+    TaskRun::factory()->create(['yak_task_id' => $task->id]);
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertNotPushed(RunFollowUpJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+});
+
+it('runs a stopped follow-up again only once', function () {
+    $task = followUpStoppedBeforeTurn(['auto_recovery_count' => 1]);
+
+    $this->artisan('yak:recover-stopped-tasks')->assertSuccessful();
+
+    Queue::assertNotPushed(RunFollowUpJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
 });

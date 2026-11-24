@@ -20,6 +20,7 @@ use App\Jobs\RenderVideoJob;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
+use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
@@ -73,6 +74,8 @@ class TaskActions
     public const RECOVERY_OUTCOME_RETRYING_ON_BRANCH = 'retrying_on_branch';
 
     public const RECOVERY_OUTCOME_FRESH_RETRY = 'fresh_retry';
+
+    public const RECOVERY_OUTCOME_FOLLOW_UP_RESTARTED = 'follow_up_restarted';
 
     /** @var list<TaskStatus> */
     private const CANCELLABLE = [
@@ -847,6 +850,44 @@ class TaskActions
             && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true));
 
         return ['runs' => $runs, 'pending' => count($pending), 'failed' => count($failed)];
+    }
+
+    /**
+     * Runs a follow-up again that Yak stopped before its turn started, for
+     * yak:recover-stopped-tasks. It spends one automatic recovery, and the
+     * row lock and status check keep a person's Retry from acting as well.
+     *
+     * @return string one of the RECOVERY_OUTCOME_* constants
+     */
+    public function restartStoppedFollowUp(YakTask $task): string
+    {
+        $claimed = $this->locked($task, function (YakTask $locked): bool {
+            if ($locked->status !== TaskStatus::Failed || $locked->stop_kind !== StopKind::YakStopped || $locked->runs()->exists()) {
+                return false;
+            }
+
+            $locked->update([
+                'status' => TaskStatus::Pending,
+                'auto_recovery_count' => $locked->auto_recovery_count + 1,
+                'error_log' => null,
+                'stop_kind' => null,
+                'stop_summary' => null,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+            TaskLogger::info($locked, 'Recovered automatically: running the follow-up again');
+
+            return true;
+        });
+
+        if (! $claimed) {
+            return self::RECOVERY_OUTCOME_SKIPPED;
+        }
+
+        RunFollowUpJob::dispatch($task->refresh());
+
+        return self::RECOVERY_OUTCOME_FOLLOW_UP_RESTARTED;
     }
 
     /**

@@ -28,12 +28,14 @@ class RecoverStoppedTasksCommand extends Command
             return self::SUCCESS;
         }
 
-        $tasks = YakTask::withoutVisibilityScope()->recoverableAfterYakStop()->get();
+        // A follow-up that stopped before its turn runs again as a follow-up, never as a plain retry of the task.
+        $followUps = YakTask::withoutVisibilityScope()->followUpsStoppedBeforeTurn()->get();
+        $tasks = YakTask::withoutVisibilityScope()->recoverableAfterYakStop()->whereNotIn('id', $followUps->modelKeys())->get();
         $acted = 0;
 
-        foreach ($tasks as $task) {
+        foreach ($followUps->concat($tasks) as $task) {
             try {
-                $outcome = $taskActions->recoverStoppedTask($task);
+                $outcome = $followUps->contains($task) ? $taskActions->restartStoppedFollowUp($task) : $taskActions->recoverStoppedTask($task);
             } catch (Throwable $e) {
                 report($e);
                 $this->components->warn("Task #{$task->id} could not be recovered: {$e->getMessage()}");
@@ -48,7 +50,7 @@ class RecoverStoppedTasksCommand extends Command
             }
         }
 
-        $this->components->info("Recovered {$acted} of {$tasks->count()} stopped task(s).");
+        $this->components->info("Recovered {$acted} of " . ($followUps->count() + $tasks->count()) . ' stopped task(s).');
 
         return self::SUCCESS;
     }
