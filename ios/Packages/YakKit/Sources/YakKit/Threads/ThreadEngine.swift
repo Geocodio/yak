@@ -14,9 +14,6 @@ private func logFailure(_ message: String) {
 /// or a pointer is closed by a catch-up that runs one at a time, and snapshots are paced to a frame.
 public actor ThreadEngine {
     public static let historyPage = 500
-    /// Events asked for per page of earlier history. A small page keeps the list's height estimate for the new rows
-    /// close, so the row the person is reading stays in place, and costs less memory and network.
-    public static let olderPage = 60
     /// A cached copy further behind than this is dropped and the newest page is loaded instead.
     private static let largestUsableGap = 2000
     /// How often a visible engine catches up while the socket is not delivering.
@@ -79,11 +76,6 @@ public actor ThreadEngine {
     private var isRefreshRequested = false
     private var refreshGeneration = 0
     private var slowTask: Task<Void, Never>?
-    private var olderTask: Task<Void, Never>?
-    private var isLoadingOlder = false
-    private var didOlderFail = false
-    /// Counts the times the loaded window was replaced, so a page fetched for an earlier window is dropped.
-    private var windowGeneration = 0
 
     public init(
         threadID: String, client: APIClient, cache: Cache, clock: any YakClock,
@@ -125,13 +117,12 @@ public actor ThreadEngine {
         frameTask?.cancel()
         cacheTask?.cancel()
         for task in sideTasks.values { task.cancel() }
-        for task in [pollTask, refreshTask, slowTask, olderTask] { task?.cancel() }
+        for task in [pollTask, refreshTask, slowTask] { task?.cancel() }
         for task in actionTasks.values { task.cancel() }
         actionTasks = [:]
         pollTask = nil
         refreshTask = nil
         slowTask = nil
-        olderTask = nil
         catchUpTask = nil
         frameTask = nil
         cacheTask = nil
@@ -209,18 +200,6 @@ public actor ThreadEngine {
             requestCatchUp()
         }
         updatePolling()
-    }
-
-    /// Fetches the older page of events. A second call while one runs, or at the start of the thread, does nothing.
-    public func loadOlder() async {
-        guard !isClosed, isOpenFinished, load == .ready, firstLoadedAfter > 0, !isLoadingOlder else { return }
-        isLoadingOlder = true
-        didOlderFail = false
-        changed(isStored: false)
-        let task = Task { await self.runLoadOlder() }
-        olderTask = task
-        await task.value
-        if olderTask == task { olderTask = nil }
     }
 
     /// Fetches the thread now and replaces the page's messages, composer, question and panes with the answer.
@@ -312,7 +291,6 @@ public actor ThreadEngine {
         isOffline = false
         problem = nil
         changed(isStored: true)
-        await dropStaleQuestionDraft()
         // Events applied after the answer was made are newer than it: fetch again rather than lose them.
         if answered.latestSequence < state.lastSequence { scheduleShowRefresh() }
         return true
@@ -340,35 +318,7 @@ public actor ThreadEngine {
         isOffline = false
         problem = nil
         changed(isStored: true)
-        await dropStaleQuestionDraft()
         return nil
-    }
-
-    private func runLoadOlder() async {
-        let bound = firstLoadedAfter
-        let generation = windowGeneration
-        let after = max(0, bound - Self.olderPage)
-        let page: EventsPage
-        do {
-            page = try await client.send(.events(threadID, after: after, limit: Self.olderPage))
-        } catch {
-            isLoadingOlder = false
-            didOlderFail = true
-            guard !isClosed, !Task.isCancelled else { return }
-            fail(ThreadProblem(error), what: "history")
-            return
-        }
-        isLoadingOlder = false
-        guard !isClosed, !Task.isCancelled else { return }
-        guard generation == windowGeneration else {
-            changed(isStored: false)
-            return
-        }
-        state.prependOlder(page.events.filter { $0.sequence <= bound })
-        firstLoadedAfter = after
-        isOffline = false
-        problem = nil
-        changed(isStored: true)
     }
 
     /// Reacts to events that were just applied: a closed question leaves the page at once, and anything
@@ -508,7 +458,6 @@ public actor ThreadEngine {
             let start = max(0, fetched.latestSequence - Self.historyPage)
             state = ThreadEventState(lastSequence: start)
             firstLoadedAfter = start
-            windowGeneration += 1
             isShowingCachedCopy = false
             if load == .ready {
                 load = .loading
@@ -517,7 +466,6 @@ public actor ThreadEngine {
         }
         markSeenOnce()
         changed(isStored: true)
-        await dropStaleQuestionDraft()
         return true
     }
 
@@ -631,10 +579,9 @@ public actor ThreadEngine {
             ConversationSnapshot(
                 load: load, show: visibleShow, entries: entries,
                 currentStepKey: ConversationMerge.currentStepKey(in: entries, turn: state.turn),
-                waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
+                turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
-                isOffline: isOffline, hasOlderHistory: firstLoadedAfter > 0, isLoadingOlder: isLoadingOlder,
-                didOlderFail: didOlderFail,
+                isOffline: isOffline,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,
                 lastDiffUpdateSequence: lastDiffUpdateSequence, isActionSlow: !slowWaits.isEmpty,
                 lastSendNotice: sendNotices.last))

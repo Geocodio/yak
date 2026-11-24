@@ -13,6 +13,7 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     var isHidden = false
     var archive: Data? = Data("archive".utf8)
     var captures = 0
+    var pauses = 0
     var beforeArchive: (@MainActor () async -> Void)?
 
     func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void) {
@@ -29,6 +30,7 @@ private let instanceURL = URL(string: "https://yak.example.com")!
     func deliver(_ message: EmbedAppMessage) { messages.append(message) }
     func quickLook(url: URL, name: String) { quickLooks.append(url) }
     func setHidden(_ isHidden: Bool) { self.isHidden = isHidden }
+    func pauseMedia() { pauses += 1 }
 }
 
 /// A sleep the test releases by hand: no real time passes, and a cancelled sleep ends at once.
@@ -80,7 +82,7 @@ private actor SleepGate {
     }
 
     init(
-        supports: Bool = true, attachesPage: Bool = true,
+        supports: Bool = true, attachesPage: Bool = true, hasPane: Bool = true,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { _ in try await Task.sleep(for: .seconds(3600)) }
     ) {
         var box: Harness?
@@ -97,7 +99,7 @@ private actor SleepGate {
             now: { box?.now ?? ContinuousClock.now }, sleep: sleep)
         box = self
         if attachesPage { model.attach(page) }
-        model.handleRequest = { [unowned self] in requests.append($0) }
+        if hasPane { model.takeRequests(owner: self) { [unowned self] in requests.append($0) } }
         model.configure(supportsEmbeddedThread: supports)
     }
 
@@ -406,11 +408,12 @@ private actor SleepGate {
         #expect(await TestTimeScale.poll { await harness.store.entries().isEmpty })
     }
 
-    @Test func aServerWithoutTheEmbeddedPageUsesTheNativeChat() async {
+    @Test func aServerWithoutTheEmbeddedPageAsksForAnUpdate() async {
         let harness = Harness(supports: false)
         harness.model.show(thread: "d0e515ef")
-        #expect(harness.model.mode == .native)
+        #expect(harness.model.mode == .unsupported)
         #expect(harness.model.phase == .unsupported)
+        #expect(harness.model.loadPresentation == .serverNeedsUpdate)
         try? await Task.sleep(for: .milliseconds(50))
         #expect(harness.paths.isEmpty && harness.page.redeems.isEmpty)
     }
@@ -419,7 +422,7 @@ private actor SleepGate {
         let harness = Harness(supports: false)
         harness.model.show(thread: "d0e515ef")
         harness.model.configure(supportsEmbeddedThread: false)
-        #expect(harness.model.mode == .native)
+        #expect(harness.model.mode == .unsupported)
         harness.model.configure(supportsEmbeddedThread: true)
         #expect(harness.model.mode == .web)
         #expect(await harness.waitForRedeems(1))
@@ -427,7 +430,7 @@ private actor SleepGate {
         harness.model.receive(Harness.ready("d0e515ef"))
         #expect(harness.model.loadPresentation == .conversation)
         harness.model.configure(supportsEmbeddedThread: false)
-        #expect(harness.model.mode == .native && harness.model.phase == .unsupported)
+        #expect(harness.model.mode == .unsupported && harness.model.phase == .unsupported)
         harness.model.configure(supportsEmbeddedThread: true)
         #expect(await harness.waitForRedeems(2))
         #expect(harness.model.loadPresentation == .loading)
@@ -1010,6 +1013,148 @@ private func target(_ thread: String = "d0e515ef", _ fragment: String = "card-qu
         harness.model.setPageHidden(false)
         #expect(focusMessages(harness.page) == [.focus(fragment: "card-question")])
         #expect(harness.model.pendingFocusTarget == nil)
+    }
+
+    // MARK: Media
+
+    @Test func lockingAndLeavingTheForegroundPauseTheMediaOfThePage() {
+        let harness = Harness()
+        harness.model.setPageHidden(false)
+        #expect(harness.page.pauses == 0)
+        harness.model.setPageHidden(true)
+        #expect(harness.page.pauses == 1)
+        harness.model.appLeftForeground()
+        #expect(harness.page.pauses == 2)
+    }
+
+    // MARK: Prewarm
+
+    private static func policy(_ thread: String) -> WebPrewarmPolicy {
+        WebPrewarmPolicy(
+            isActive: true, isLocked: false, isSessionActive: true, isOnline: true, isLowDataMode: false,
+            serverOffersPage: true, hasPreparedPage: false, candidateThreadID: thread)
+    }
+
+    private func prewarmHarness(supports: Bool = true) -> Harness {
+        let harness = Harness(supports: supports, attachesPage: false, hasPane: false)
+        harness.model.makePage = { [page = harness.page] _ in page }
+        return harness
+    }
+
+    @Test func aPreparedPageIsMintedAndLoadedBeforeAPaneShowsTheThread() async {
+        let harness = prewarmHarness()
+        #expect(!harness.model.hasPreparedPage)
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        #expect(harness.model.hasPreparedPage)
+        #expect(await harness.waitForRedeems(1))
+        #expect(harness.paths == ["/app/embed/threads/d0e515ef"])
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        // The pane that shows the thread finds it ready and asks for nothing more.
+        harness.model.show(thread: "d0e515ef")
+        #expect(harness.model.loadPresentation == .conversation)
+        #expect(harness.paths.count == 1 && harness.page.redeems.count == 1)
+    }
+
+    @Test func aPaneThatShowsAnotherThreadSwitchesThePreparedPageWithoutAnotherSession() async {
+        let harness = prewarmHarness()
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready("d0e515ef"))
+        harness.model.show(thread: "a1b2c3d4")
+        #expect(harness.page.messages.contains(.open(threadID: "a1b2c3d4", fragment: nil)))
+        #expect(harness.paths.count == 1 && harness.page.redeems.count == 1)
+    }
+
+    @Test func onePageIsPreparedAtMost() async {
+        let harness = prewarmHarness()
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        harness.model.prewarm(Self.policy("a1b2c3d4"))
+        #expect(await harness.waitForRedeems(1))
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(harness.paths == ["/app/embed/threads/d0e515ef"])
+        #expect(harness.model.threadID == "d0e515ef")
+    }
+
+    @Test func nothingIsPreparedOnceAThreadIsShown() async {
+        let harness = prewarmHarness()
+        harness.model.attach(harness.page)
+        harness.model.show(thread: "d0e515ef")
+        harness.model.prewarm(Self.policy("a1b2c3d4"))
+        #expect(harness.model.threadID == "d0e515ef")
+        #expect(await harness.waitForRedeems(1))
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(harness.paths == ["/app/embed/threads/d0e515ef"])
+    }
+
+    @Test func nothingIsPreparedForAServerWithoutThePageOrBeforeTheServerHasAnswered() async {
+        let older = prewarmHarness(supports: false)
+        older.model.prewarm(Self.policy("d0e515ef"))
+        #expect(!older.model.hasPreparedPage)
+        let undecided = Harness(supports: true, attachesPage: false, hasPane: false)
+        undecided.model.makePage = { [page = undecided.page] _ in page }
+        let fresh = WebConversationModel(
+            instanceURL: instanceURL, allowsLoopbackHTTP: false, mint: { _ in .failed(.network) })
+        fresh.makePage = { _ in undecided.page }
+        fresh.prewarm(Self.policy("d0e515ef"))
+        #expect(!fresh.hasPreparedPage)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(older.paths.isEmpty && undecided.paths.isEmpty)
+    }
+
+    // MARK: Copies of prepared pages
+
+    /// Lets the page of `id` finish loading and the model's quiet period for saving run out.
+    private func readyAndStill(_ harness: Harness, _ id: String) async {
+        #expect(await harness.waitForRedeems(1))
+        harness.model.navigationCommitted()
+        harness.model.receive(Harness.ready(id))
+    }
+
+    @Test func aPreparedPageNoPaneShowedIsNeverSaved() async {
+        let harness = prewarmHarness()
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        await readyAndStill(harness, "d0e515ef")
+        await harness.model.saveCopy()
+        harness.model.appLeftForeground()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(await harness.store.entries().isEmpty)
+        #expect(harness.page.captures == 0)
+    }
+
+    @Test func aPreparedPageIsNotSavedWhenAnotherThreadIsOpenedAfterwards() async {
+        let harness = prewarmHarness()
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        await readyAndStill(harness, "d0e515ef")
+        harness.model.takeRequests(owner: harness) { _ in }
+        harness.model.show(thread: "a1b2c3d4")
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(await harness.store.entries().isEmpty)
+        #expect(harness.page.captures == 0)
+    }
+
+    @Test func aPreparedPageThatAPaneShowsIsSavedAsBefore() async {
+        let harness = prewarmHarness()
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        await readyAndStill(harness, "d0e515ef")
+        harness.model.takeRequests(owner: harness) { _ in }
+        harness.model.show(thread: "d0e515ef")
+        await harness.model.saveCopy()
+        #expect(await harness.store.entries().map(\.threadID) == ["d0e515ef"])
+    }
+
+    @Test func nothingIsSavedWhileNoPaneShowsTheConversation() async {
+        let harness = Harness(hasPane: false)
+        await harness.open("d0e515ef")
+        await harness.model.saveCopy()
+        #expect(await harness.store.entries().isEmpty)
+    }
+
+    @Test func withoutAPageFactoryNothingIsPrepared() {
+        let harness = Harness(supports: true, attachesPage: false, hasPane: false)
+        harness.model.prewarm(Self.policy("d0e515ef"))
+        #expect(!harness.model.hasPreparedPage)
     }
 }
 

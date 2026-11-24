@@ -66,7 +66,7 @@ private final class ThreadTransport: HTTPTransport, @unchecked Sendable {
             body = Self.show
         } else if path.hasSuffix("events") {
             body = #"{"events":[],"latestSequence":14,"source":"database"}"#
-        } else if path.hasSuffix("threads/d0e515ef/continue") {
+        } else if path.hasSuffix("threads/d0e515ef/cancel") {
             return Self.refusal(url, status: 409, code: "turn_running", message: "m")
         } else if path.hasSuffix("threads/d0e515ef/messages") {
             if let answer = lock.withLock({ messageAnswer }) {
@@ -199,14 +199,23 @@ private func chatSnapshot(
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     let items = [textItem("m1:0", "Looking."), textItem("m2:0", "Done. All good.")]
-    await model.apply(try chatSnapshot(.running, items: items))
-    await model.apply(try chatSnapshot(.running, items: items))
+    model.apply(try chatSnapshot(.running, items: items))
+    model.apply(try chatSnapshot(.running, items: items))
     #expect(model.announcementSerial == 0)
-    await model.apply(try chatSnapshot(.completed, items: items))
+    model.apply(try chatSnapshot(.completed, items: items))
     #expect(model.announcementSerial == 1)
     #expect(model.announcement == "Yak finished. Done. All good.")
-    await model.apply(try chatSnapshot(.completed, items: items))
+    model.apply(try chatSnapshot(.completed, items: items))
     #expect(model.announcementSerial == 1)
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aTurnEndWithoutATextSaysOnlyThatYakFinished() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    model.apply(try chatSnapshot(.running))
+    model.apply(try chatSnapshot(.completed))
+    #expect(model.announcement == "Yak finished")
     await fixture.session.stop()
 }
 
@@ -214,25 +223,9 @@ private func chatSnapshot(
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     let items = [textItem("m1:0", String(repeating: "a", count: 500))]
-    await model.apply(try chatSnapshot(.running, items: items))
-    await model.apply(try chatSnapshot(.completed, items: items))
+    model.apply(try chatSnapshot(.running, items: items))
+    model.apply(try chatSnapshot(.completed, items: items))
     #expect(model.announcement == "Yak finished. " + String(repeating: "a", count: 200))
-    await fixture.session.stop()
-}
-
-@MainActor @Test func aThreadWithoutARepositoryNeverNamesThePlaceholder() async throws {
-    let fixture = try await Fixture()
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    let cards = ThreadCardModel(thread: model)
-    let withoutRepository = ThreadTransport.show.replacingOccurrences(
-        of: #""repo":"example/api""#, with: #""repo":"unknown","hasRepository":false"#)
-    await model.apply(
-        try chatSnapshot(
-            .completed, show: JSONDecoder().decode(ThreadShow.self, from: Data(withoutRepository.utf8))))
-    #expect(model.snapshot?.show?.thread.shownRepo == nil)
-    #expect(cards.repositoryName == String(localized: "thread.card.coOwner.thisRepository"))
-    await model.apply(try chatSnapshot(.completed))
-    #expect(cards.repositoryName == "example/api")
     await fixture.session.stop()
 }
 
@@ -243,23 +236,23 @@ private func chatSnapshot(
     let notice = SendNotice(id: UUID(), text: "Trying again with your note.")
     var snapshot = try chatSnapshot(.completed)
     snapshot.lastSendNotice = notice
-    await model.apply(snapshot)
+    model.apply(snapshot)
     #expect(model.actionLine == notice.text)
     clock.advance(.seconds(30))
-    await model.apply(snapshot)
+    model.apply(snapshot)
     #expect(model.actionLine == notice.text)
     var changed = snapshot
     changed.show = try JSONDecoder().decode(
         ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "15}").utf8))
-    await model.apply(changed)
+    model.apply(changed)
     #expect(model.actionLine == notice.text)
     changed.show = try JSONDecoder().decode(
         ThreadShow.self, from: Data(ThreadTransport.show.replacingOccurrences(of: "14}", with: "16}").utf8))
-    await model.apply(changed)
+    model.apply(changed)
     #expect(model.actionLine == nil)
     let second = SendNotice(id: UUID(), text: "Two.")
     changed.lastSendNotice = second
-    await model.apply(changed)
+    model.apply(changed)
     #expect(model.actionLine == "Two.")
     model.sendStarted()
     #expect(model.actionLine == nil)
@@ -276,7 +269,7 @@ private func chatSnapshot(
     #expect(model.isActionLineInformation)
     await model.performWork(.retryRender)
     #expect(model.actionLine == String(localized: "chat.work.renderRetried"))
-    await model.continueTurn()
+    await model.performWork(.cancel)
     #expect(model.actionLine == "m" && !model.isActionLineInformation)
     await model.stop()
     await fixture.session.stop()
@@ -287,9 +280,8 @@ private func chatSnapshot(
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     await model.start(initialTitle: nil)
     #expect(await fixture.eventually { model.snapshot?.load == .ready })
-    await model.continueTurn()
+    await model.performWork(.cancel)
     #expect(model.actionLine == "m")
-    #expect(model.isNoticeActionRunning == false)
     await model.stop()
     await fixture.session.stop()
 }
@@ -358,70 +350,8 @@ private func chatSnapshot(
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     #expect(model.replacementThreadID == nil)
-    await model.apply(ConversationSnapshot(load: .ready, replacementThreadID: "n3w7hr3d"))
+    model.apply(ConversationSnapshot(load: .ready, replacementThreadID: "n3w7hr3d"))
     #expect(model.replacementThreadID == "n3w7hr3d")
-    await fixture.session.stop()
-}
-
-@MainActor @Test func rowsComeFromTheSnapshotWithADayDivider() async throws {
-    let fixture = try await Fixture()
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    #expect(model.rows.isEmpty)
-    await model.apply(try chatSnapshot(.completed, items: [textItem("m1:0", "Hi")]))
-    #expect(model.rows.count == 2)
-    guard case .divider = model.rows[0], case .entry = model.rows[1] else {
-        Issue.record("expected a day divider and one entry")
-        return
-    }
-    await fixture.session.stop()
-}
-
-@MainActor @Test func historyStateFollowsTheSnapshot() async throws {
-    let fixture = try await Fixture()
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    #expect(model.historyState == .hidden)
-    await model.apply(ConversationSnapshot(load: .ready, hasOlderHistory: true))
-    #expect(model.historyState == .available)
-    await model.apply(ConversationSnapshot(load: .ready, hasOlderHistory: true, isLoadingOlder: true))
-    #expect(model.historyState == .loading)
-    await model.apply(ConversationSnapshot(load: .ready, hasOlderHistory: true, didOlderFail: true))
-    #expect(model.historyState == .failed)
-    // A problem elsewhere is not a history problem.
-    await model.apply(ConversationSnapshot(load: .ready, isOffline: true, hasOlderHistory: true, problem: .offline))
-    #expect(model.historyState == .available)
-    await model.apply(ConversationSnapshot(load: .ready, isOffline: true))
-    #expect(model.historyState == .hidden)
-    await fixture.session.stop()
-}
-
-@MainActor @Test func aStreamingTextGetsADocumentAfterItsFirstParse() async throws {
-    let fixture = try await Fixture()
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    await model.apply(try chatSnapshot(.running, items: [textItem("m1:0", "Hello **there**", isStreaming: true)]))
-    #expect(model.documents["m1:0"] == nil)
-    #expect(await fixture.eventually { model.documents["m1:0"] != nil })
-    await fixture.session.stop()
-}
-
-@MainActor @Test func markdownRendersAfterRetry() async throws {
-    let clock = ManualClock()
-    let fixture = try await Fixture(clock: clock)
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    await model.start(initialTitle: nil)
-    /// The engine's own snapshots can arrive after a canned one and replace the items waiting for a parse, so the
-    /// canned snapshot is applied until a parse has finished and its publication waits for the flush delay.
-    func applyUntilAFlushWaits(_ snapshot: ConversationSnapshot) async throws -> Bool {
-        await TestTimeScale.poll {
-            await model.apply(snapshot)
-            return clock.sleeperCount(waking: .milliseconds(50)) >= 1
-        }
-    }
-    #expect(try await applyUntilAFlushWaits(chatSnapshot(.completed, items: [textItem("m1:0", "First")])))
-    await model.retry()
-    #expect(try await applyUntilAFlushWaits(chatSnapshot(.completed, items: [textItem("m2:0", "Second")])))
-    clock.advance(.milliseconds(50))
-    #expect(await fixture.eventually { model.documents["m2:0"] != nil })
-    await model.stop()
     await fixture.session.stop()
 }
 
@@ -430,20 +360,6 @@ private final class ThreadRecorder: @unchecked Sendable {
     private var values: [Bool] = []
     var isMainThread: [Bool] { lock.withLock { values } }
     func record(_ value: Bool) { lock.withLock { values.append(value) } }
-}
-
-@MainActor @Test func rowsAreBuiltOffTheMainActor() async throws {
-    let fixture = try await Fixture()
-    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
-    let recorder = ThreadRecorder()
-    model.buildRows = { snapshot, now, calendar in
-        recorder.record(Thread.isMainThread)
-        return ThreadModel.defaultRowsBuilder(snapshot, now, calendar)
-    }
-    await model.apply(try chatSnapshot(.completed, items: [textItem("m1:0", "Hi")]))
-    #expect(recorder.isMainThread == [false])
-    #expect(model.rows.count == 2)
-    await fixture.session.stop()
 }
 
 @MainActor @Test func aLaterModelOfTheSameThreadKeepsTheComposerOfTheEarlierOne() async throws {
@@ -484,8 +400,7 @@ private final class ThreadRecorder: @unchecked Sendable {
     }
     #expect(isRefused)
     #expect(model.replacementThreadID == nil)
-    // The failure shows as for any message: the item stays in the outbox, in the conversation, for Retry or Edit.
-    #expect(await fixture.eventually { model.rows.isEmpty == false })
+    // The failure shows as for any message: the item stays in the outbox, for Retry or Edit.
     #expect(await outbox.items().map(\.id) == [sent.id])
     await model.stop()
     await fixture.session.stop()
@@ -517,9 +432,9 @@ private final class ThreadRecorder: @unchecked Sendable {
     let fixture = try await Fixture()
     let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
     #expect(model.actionLine == nil)
-    await model.apply(ConversationSnapshot(load: .ready, isActionSlow: true))
+    model.apply(ConversationSnapshot(load: .ready, isActionSlow: true))
     #expect(model.actionLine == String(localized: "chat.action.slow"))
-    await model.apply(ConversationSnapshot(load: .ready))
+    model.apply(ConversationSnapshot(load: .ready))
     #expect(model.actionLine == nil)
     await fixture.session.stop()
 }

@@ -99,10 +99,6 @@ struct YakApp: App {
                 } else if TestMode.value("yakTestScreen") == "widget-gallery" {
                     WidgetGallery(
                         stateName: ProcessInfo.processInfo.environment["YAK_TEST_GALLERY_STATE"] ?? "needs-you")
-                } else if UserDefaults.standard.bool(forKey: "yakMarkdownGallery") {
-                    MarkdownGallery()
-                } else if let page = UserDefaults.standard.string(forKey: "yakChatGallery") {
-                    ChatGallery(page: page).preferredColorScheme(TestMode.colorScheme())
                 } else {
                     rootView($request).preferredColorScheme(TestMode.colorScheme())
                         .overlay(alignment: .top) {

@@ -171,25 +171,24 @@ public actor Cache {
         if lastOpenedThreadID() == id { delete(lastOpenedPath) }
     }
 
-    // MARK: Question drafts
+    // MARK: Data of removed features
 
-    public func questionDraft(thread id: String) -> QuestionDraft? {
-        load(QuestionDraft.self, at: "\(folder(id))/question.json")
-    }
+    private var legacyMarkerPath: String { "\(root)/legacy-chat-data-removed" }
 
-    public func saveQuestionDraft(_ draft: QuestionDraft?, thread id: String) {
-        let path = "\(folder(id))/question.json"
-        if let draft {
-            store(draft, at: path, protection: .complete)
-        } else {
-            delete(path)
+    /// Deletes what the native chat left in each thread's folder: the question answer drafts (`question.json`) and the
+    /// attachment thumbnails (`attachments/`). It runs once per instance; a marker file records that it did.
+    public func removeRemovedFeatureData() {
+        do {
+            if try files.exists(legacyMarkerPath) { return }
+            for name in try files.list("\(root)/threads") {
+                let folder = "\(root)/threads/\(name)"
+                delete("\(folder)/question.json")
+                delete("\(folder)/attachments")
+            }
+            try files.write(Data(), to: legacyMarkerPath, protection: .untilFirstUnlock)
+        } catch {
+            logFailure("legacy data removal failed: \(Swift.type(of: error))")
         }
-    }
-
-    /// Deletes the saved draft only when its round key passes `shouldRemove`, in one step.
-    public func removeQuestionDraft(thread id: String, where shouldRemove: @Sendable (String) -> Bool) {
-        guard let draft = questionDraft(thread: id), shouldRemove(draft.roundKey) else { return }
-        delete("\(folder(id))/question.json")
     }
 
     // MARK: Composer drafts

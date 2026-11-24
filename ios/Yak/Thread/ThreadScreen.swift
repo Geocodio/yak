@@ -192,7 +192,7 @@ struct ThreadScreen: View {
         let isChatVisible = focused == .chat || slots.contains { $0.content == .pane(.chat) }
         let showsOwnLine = web.map { ($0.savedCopy != nil && $0.savedCopyState != nil) || $0.showsOfflineLine } ?? false
         return HeaderConnection.line(
-            thread.connectionLine, isWebConversation: web?.mode == .web, chatIsVisible: isChatVisible,
+            thread.connectionLine, chatIsVisible: isChatVisible,
             chatShowsOwnLine: showsOwnLine)
     }
 

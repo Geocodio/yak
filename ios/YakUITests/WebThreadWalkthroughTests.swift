@@ -34,6 +34,22 @@ import XCTest
         try shootThread("web-thread-failed")
     }
 
+    /// The end of the page above the composer or the home indicator, and a `focus` target in view.
+    func testWebConversationScrolledToTheBottom() throws {
+        try open("embed-basic")
+        XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: Wait.firstLoad))
+        let page = app.webViews["thread.web.page"]
+        for _ in 0..<8 { page.swipeUp(velocity: .fast) }
+        try shootThread("web-thread-bottom")
+    }
+
+    func testWebConversationServerNeedsUpdate() throws {
+        try open("embed-unsupported")
+        XCTAssertTrue(app.staticTexts["Update needed"].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.buttons["thread.openInBrowser"].exists)
+        try shootThread("web-thread-needs-update")
+    }
+
     func testWaitingMessages() throws {
         try open("embed-working")
         try stub.setPlaybackMilliseconds(1000)

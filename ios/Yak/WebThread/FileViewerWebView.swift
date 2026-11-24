@@ -16,6 +16,8 @@ struct FileViewerWebView: UIViewRepresentable {
     let dataStore: WKWebsiteDataStore
     let version: String
     let isHidden: Bool
+    /// The app left the foreground: media of the report stops.
+    var pausesMedia = false
     let openLink: (URL) -> Void
     let openThread: (String) -> Void
     let notify: @MainActor (String) -> Void
@@ -33,6 +35,7 @@ struct FileViewerWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         webView.overrideUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         context.coordinator.page?.setHidden(isHidden)
+        if isHidden || pausesMedia { context.coordinator.page?.pauseMedia() }
         context.coordinator.page?.openLink = openLink
         context.coordinator.page?.openThread = openThread
     }
@@ -94,6 +97,7 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore
         configuration.limitsNavigationsToAppBoundDomains = false
+        WebMedia.configure(configuration)
         configuration.applicationNameForUserAgent = "YakApp/\(version) (embed)"
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
@@ -125,6 +129,8 @@ final class FileViewerPageView: NSObject, FileViewerPage, WKNavigationDelegate, 
         webView.stopLoading()
         quickLook.cancel()
     }
+
+    func pauseMedia() { webView.pauseAllMediaPlayback {} }
 
     /// A hidden page also gives up focus, so a field of the report cannot take keystrokes under the lock cover.
     func setHidden(_ isHidden: Bool) {

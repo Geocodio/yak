@@ -96,35 +96,4 @@ public struct ThreadEventState: Equatable, Sendable {
         }
     }
 
-    /// Adds a history page. Only events older than everything held are taken, so a repeated page changes
-    /// nothing. Turn, thread, card data, message states, the open question and `lastSequence` stay as they are.
-    public mutating func prependOlder(_ events: [ThreadEvent]) {
-        let bound = min(entries.first?.sequence ?? .max, storedEvents.first?.sequence ?? .max)
-        let older = events.filter { $0.sequence < bound }.sorted { $0.sequence < $1.sequence }
-        var olderEntries: [StoredEntry] = []
-        for event in older {
-            switch event.payload {
-            case .entry(let entry):
-                olderEntries.append(StoredEntry(entry: entry, sequence: event.sequence, createdAt: event.createdAt))
-            case .child(let card):
-                let key = card.childThreadId.value
-                if let held = children[key] {
-                    children[key] = Card(firstSequence: min(held.firstSequence, event.sequence), data: held.data)
-                } else {
-                    children[key] = Card(firstSequence: event.sequence, data: card)
-                }
-            case .repository(let card):
-                if let held = repositories[card.repo] {
-                    repositories[card.repo] = Card(
-                        firstSequence: min(held.firstSequence, event.sequence), data: held.data)
-                } else {
-                    repositories[card.repo] = Card(firstSequence: event.sequence, data: card)
-                }
-            default:
-                break
-            }
-        }
-        entries = olderEntries + entries
-        storedEvents = older.filter(\.isStored) + storedEvents
-    }
 }

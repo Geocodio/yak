@@ -239,6 +239,7 @@ final class StubServer: Sendable {
                 return core()
             }
             let route = "\(request.method) \(request.path.dropFirst(Scenario.apiPrefix.count))"
+            for feature in features { feature.saw(route: route) }
             for feature in features {
                 if let reply = feature.answer(route: route, request: request, context: context) {
                     return route == "GET me" ? StubEmbed.meReply(reply, scenario: context.scenario) : reply

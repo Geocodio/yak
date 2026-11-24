@@ -7,8 +7,8 @@ import Foundation
 /// turn runs is saved as a waiting (queued) message that the thread's show lists until it is changed or withdrawn,
 /// `embed-failed` refuses every mint with a 503, and `embed-unsupported` has a `me` without `web` and no
 /// mint.
-/// Every scenario, not only these, serves the routes, so a test of another screen can open the page; only the
-/// embed scenarios (but `embed-unsupported`) put `web` in `me`.
+/// Every scenario serves the routes and puts `web` in `me`, so the thread of every test shows this page; only
+/// `embed-unsupported` leaves `web` out.
 final class StubEmbed: StubFeature, @unchecked Sendable {
     let name = "embed"
     let scenarios = [
@@ -28,6 +28,8 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     private var mints = 0
     private var redeems = 0
     private var pageLoads = 0
+    /// How many times the app asked for a thread's show (`GET threads/<id>`), which a card answered on the page makes it do.
+    private var shows = 0
     private var expiresNextLoad = false
     private var isOnline = true
     /// How the shared file pages answer: `ok`, `missing` (404), `forbidden` (403), `broken` (500), `attachment` (the page is sent as a download) or `slow` (the page
@@ -47,12 +49,18 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             mints = 0
             redeems = 0
             pageLoads = 0
+            shows = 0
             expiresNextLoad = false
             fileMode = "ok"
         }
     }
 
     func setOnline(_ isOnline: Bool) { lock.withLock { self.isOnline = isOnline } }
+
+    func saw(route: String) {
+        guard route.hasPrefix("GET threads/"), !route.dropFirst("GET threads/".count).contains("/") else { return }
+        lock.withLock { shows += 1 }
+    }
 
     // MARK: API
 
@@ -67,11 +75,8 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         }
     }
 
-    /// Only the embed scenarios announce the embedded thread page; every other scenario keeps the native conversation
-    /// that its tests were written against.
-    static func offersEmbeddedThread(_ scenario: String) -> Bool {
-        ["embed-basic", "embed-expired-once", "embed-slow", "embed-failed", workingScenario].contains(scenario)
-    }
+    /// Every scenario announces the embedded thread page but `embed-unsupported`, which plays an older server.
+    static func offersEmbeddedThread(_ scenario: String) -> Bool { scenario != "embed-unsupported" }
 
     private func withoutWeb(_ context: StubContext) -> StubReply? {
         guard case .reply(let status, let contentType, let body) = context.core(), status == 200,
@@ -132,7 +137,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
     func control(_ request: StubRequest) -> StubReply? {
         switch request.path {
         case "/__stub/embed/state":
-            let text = lock.withLock { "mints=\(mints) redeems=\(redeems) loads=\(pageLoads)" }
+            let text = lock.withLock { "mints=\(mints) redeems=\(redeems) loads=\(pageLoads) shows=\(shows)" }
             return StubReply(answer: .reply(status: 200, contentType: "text/plain", body: Data(text.utf8)))
         case "/__stub/embed/expire" where request.method == "POST":
             lock.withLock { expiresNextLoad = true }
@@ -278,6 +283,8 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <button id="send-link" data-testid="embed-link">Open a link</button>
         <button id="send-pane" data-testid="embed-pane">Open the files pane</button>
         <button id="send-card" data-testid="embed-card">Answer the question</button>
+        <button id="send-approve" data-testid="embed-approve">Approve the co-owner decision</button>
+        <button id="send-file" data-testid="embed-file">Open a file</button>
         <button id="send-auth" data-testid="embed-auth">Expire the session</button>
         </div>
         <section aria-label="Shared report" data-testid="embed-report">
@@ -340,10 +347,16 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
           el("send-card").addEventListener("click", function () {
             post({ type: "cardAnswered", card: "question", action: "answer", ok: true });
           });
+          el("send-approve").addEventListener("click", function () {
+            post({ type: "cardAnswered", card: "co_owner", action: "approve", ok: true });
+          });
           el("copy-report").addEventListener("click", function () {
             navigator.clipboard.writeText(location.origin + "/files/01HZX3K9ABCDEFGHJKMNPQRSTV").then(
               function () { el("last").textContent = "Copied the link"; },
               function () { el("last").textContent = "Could not copy the link"; });
+          });
+          el("send-file").addEventListener("click", function () {
+            post({ type: "quickLook", url: location.origin + "/files/01HZX3K9ABCDEFGHJKMNPQRSTV", name: "report.txt", mime: "text/plain" });
           });
           el("send-auth").addEventListener("click", function () { post({ type: "auth", state: "expired" }); });
           var outboxItems = [];

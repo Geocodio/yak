@@ -125,7 +125,6 @@ import UIKit
             ("brand", .yakSlate, calm), ("warning", .yakWarning, [page, sidebar, card, bar, quiet]),
             ("blocked", .yakCardDangerText, everywhere), ("action", .yakAction, [page, card, bar, sidebar]),
             ("danger", .yakDanger, [page, card, bar, sidebar]),
-            ("card secondary", .yakCardSecondaryText, [page, card, bar, quiet]),
         ]
         if !highContrast {
             // Not text under Increase Contrast: the dots and the success mark are never read as words.

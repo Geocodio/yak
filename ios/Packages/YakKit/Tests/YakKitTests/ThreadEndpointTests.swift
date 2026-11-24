@@ -203,16 +203,6 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     }
 }
 
-@Test func answersAQuestionWithExplicitNulls() throws {
-    let endpoint = Endpoint<StatusResponse>.answerQuestion(
-        "t", answers: ["q1": QuestionAnswer(choices: ["a"], other: nil)], note: nil)
-    let data = try encodedBody(endpoint)
-    let text = String(decoding: data, as: UTF8.self)
-    #expect(text.contains("\"note\":null"))
-    #expect(text.contains("\"other\":null"))
-    #expect(text.contains("\"choices\":[\"a\"]"))
-}
-
 @Test func updatesAQueuedMessageWithOnlyTheGivenKeys() throws {
     let endpoint = Endpoint<StatusResponse>.updateQueuedMessage("t", uuid: "u", mode: .steer, text: nil)
     #expect(try jsonBody(endpoint) as NSDictionary == ["mode": "steer"])
@@ -256,9 +246,7 @@ private let rows: [Row] = [
             "t", text: "x", model: nil, delivery: .steer, sendKey: sendKey, attachments: [], references: [])),
     Row("updateQueuedMessage", Endpoint<StatusResponse>.updateQueuedMessage("t", uuid: "u", mode: nil, text: "x")),
     Row("withdrawQueuedMessage", Endpoint<EmptyResponse>.withdrawQueuedMessage("t", uuid: "u")),
-    Row("answerQuestion", Endpoint<StatusResponse>.answerQuestion("t", answers: [:], note: nil)),
     Row("stopTurn", Endpoint<StatusResponse>.stopTurn("t")),
-    Row("continueTurn", Endpoint<StatusResponse>.continueTurn("t")),
     Row("retryRestore", Endpoint<StatusResponse>.retryRestore("t")),
     Row("authorizeChannel", Endpoint<ChannelAuthorization>.authorizeChannel(socketID: "s", channelName: "c")),
 ]
@@ -275,9 +263,7 @@ private let expected: [String: (Endpoint<EmptyResponse>.Method, String)] = [
     "sendMessage": (.post, "threads/t/messages"),
     "updateQueuedMessage": (.patch, "threads/t/queued-messages/u"),
     "withdrawQueuedMessage": (.delete, "threads/t/queued-messages/u"),
-    "answerQuestion": (.post, "threads/t/clarification-answers"),
     "stopTurn": (.post, "threads/t/stop"),
-    "continueTurn": (.post, "threads/t/continue"),
     "retryRestore": (.post, "threads/t/restore/retry"),
     "authorizeChannel": (.post, "broadcasting/auth"),
 ]

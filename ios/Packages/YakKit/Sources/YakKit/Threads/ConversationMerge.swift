@@ -42,16 +42,6 @@ public struct ReadTracker: Equatable, Sendable {
     }
 }
 
-public struct WaitingRow: Equatable, Sendable {
-    public let isQueued: Bool
-    public let since: String?
-
-    public init(isQueued: Bool, since: String? = nil) {
-        self.isQueued = isQueued
-        self.since = since
-    }
-}
-
 /// A port of the web client's `mergeConversation.ts`, plus the unsent and delivered items.
 public enum ConversationMerge {
     /// - Parameters:
@@ -223,18 +213,6 @@ public enum ConversationMerge {
             item.kind == .tools, item.isRunning
         else { return nil }
         return item.key
-    }
-
-    public static func waitingRow(in entries: [ConversationEntry], turn: TurnChange?) -> WaitingRow? {
-        guard let last = entries.last else { return nil }
-        switch last {
-        case .event(let item) where item.kind == .tools && item.isRunning: return nil
-        case .person(let message, true): return WaitingRow(isQueued: true, since: message.sentAt)
-        case .unsent(let item): return WaitingRow(isQueued: true, since: timestamp(item.createdAt))
-        case .delivered(let delivery) where delivery.status == .queued:
-            return WaitingRow(isQueued: true, since: timestamp(delivery.sentAt))
-        default: return turn?.state.isActive == true ? WaitingRow(isQueued: false, since: nil) : nil
-        }
     }
 
     private static func timestamp(_ date: Date) -> String {

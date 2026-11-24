@@ -36,8 +36,8 @@ final class QueuedChipsModel {
     }
 }
 
-/// The messages waiting for a busy thread, above the native composer while the conversation is the web page (which
-/// leaves them out of its own list). Each offers what the native chat's own waiting message offered.
+/// The messages waiting for a busy thread, above the native composer (the web page leaves them out of its own list).
+/// Each offers to edit, to send now or after the turn, and to remove.
 struct QueuedChipsView: View {
     let thread: ThreadModel
     @State private var model = QueuedChipsModel()

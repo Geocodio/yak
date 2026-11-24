@@ -15,7 +15,7 @@ struct DebugGalleryEntry: Identifiable {
 enum DebugGallery {
     /// The order of the sections.
     static let areas = [
-        "Pairing", "Threads", "Chat", "Preview", "Files", "Terminal", "Overview", "Tasks", "Push", "Settings",
+        "Pairing", "Threads", "Preview", "Files", "Terminal", "Overview", "Tasks", "Push", "Settings",
         "App lock",
     ]
 
@@ -48,6 +48,7 @@ enum DebugGallery {
         ("notFound", .notFound),
         ("offline", .offlineWithoutCopy),
         ("serverError", .serverError(message: GallerySamples.serverError)),
+        ("serverNeedsUpdate", .serverNeedsUpdate),
     ].map { identifier, presentation in
         DebugGalleryEntry(id: "threads.\(identifier)", area: "Threads") {
             AnyView(ThreadLoadView(presentation: presentation, retry: {}, openThreads: {}))

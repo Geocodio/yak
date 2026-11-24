@@ -27,7 +27,6 @@ struct InstanceShell: View {
     @State private var drawerAnimates = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    @Environment(\.walkthroughPlayback) private var walkthroughPlayback
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
 
@@ -79,9 +78,12 @@ struct InstanceShell: View {
             case .serverTooOld: problem("signedIn.serverTooOld")
             }
         }
-        .walkthroughPlayerHost(scene: scene)
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
+        .webPrewarm(
+            model: model, webConversation: webConversation, session: session, scene: scene,
+            isSessionActive: status == .active
+        )
         .task(id: status) { await refreshStoredInstance() }
         .task {
             #if DEBUG
@@ -306,7 +308,7 @@ struct InstanceShell: View {
     /// A sheet of this window is open: the menu commands wait for it to close.
     private var hasSheetOpen: Bool {
         scene.isSettingsOpen || scene.isThreadSheetOpen || showsSwitcher || isConnecting.wrappedValue
-            || isBrowsing.wrappedValue || walkthroughPlayback?.presentedScene == ObjectIdentifier(scene)
+            || isBrowsing.wrappedValue
     }
 
     /// The menu commands of this window: Command N, K, backslash, 1 to 5, I and comma.

@@ -18,6 +18,7 @@ struct FileViewerSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var browserURL: BrowserLink?
     @State private var copiedLink = 0
+    @Environment(\.scenePhase) private var scenePhase
     @State private var notice: String?
 
     var body: some View {
@@ -25,6 +26,7 @@ struct FileViewerSheet: View {
             ZStack {
                 FileViewerWebView(
                     model: model, dataStore: dataStore, version: version, isHidden: isCovered,
+                    pausesMedia: scenePhase != .active,
                     openLink: { browserURL = BrowserLink(url: $0) },
                     openThread: { id in
                         dismiss()

@@ -25,21 +25,18 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
 }
 
 @Suite struct ThreadCardStateTests {
-    @Test func onlyTheNamedCardShows() throws {
+    @Test func onlyTheNamedCardCounts() throws {
         func kind(_ card: String) throws -> String {
             switch ThreadCardState.make(show: try show(["card": "\"\(card)\""]), isForbidden: false) {
             case .none: "none"
             case .question: "question"
-            case .repositoryQuestion: "repositoryQuestion"
-            case .earlyWarning: "earlyWarning"
-            case .coOwner: "coOwner"
-            case .stopped: "stopped"
+            case .card(let named, _): named.rawValue
             case .unknown: "unknown"
             }
         }
-        #expect(try kind("repository_question") == "repositoryQuestion")
-        #expect(try kind("early_warning") == "earlyWarning")
-        #expect(try kind("co_owner") == "coOwner")
+        #expect(try kind("repository_question") == "repository_question")
+        #expect(try kind("early_warning") == "early_warning")
+        #expect(try kind("co_owner") == "co_owner")
         #expect(try kind("stopped") == "stopped")
         // The question card needs the question itself.
         #expect(try kind("question") == "none")
@@ -65,7 +62,7 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
     @Test func anUnknownCardShowsNothing() throws {
         let state = ThreadCardState.make(show: try show(["card": #""hologram""#]), isForbidden: false)
         #expect(state == .unknown("hologram"))
-        #expect(!state.hasNoButtons)
+        #expect(!state.hasNoButtons && !state.needsYou)
     }
 
     @Test func aReaderSeesNoButtons() throws {
@@ -76,19 +73,12 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
             let state = ThreadCardState.make(show: readOnly, isForbidden: false)
             #expect(state != .none && state.hasNoButtons, "\(card)")
             // The engine's forbidden flag does the same for a person whose page still says they can drive.
-            let forbidden = ThreadCardState.make(show: reader, isForbidden: true)
-            #expect(forbidden.hasNoButtons, "\(card) forbidden")
+            #expect(ThreadCardState.make(show: reader, isForbidden: true).hasNoButtons, "\(card) forbidden")
             #expect(!ThreadCardState.make(show: reader, isForbidden: false).hasNoButtons, "\(card) driver")
         }
     }
 
-    @Test func theRepositoryQuestionKeepsItsOptions() throws {
-        let state = ThreadCardState.make(show: try show(["card": #""repository_question""#]), isForbidden: false)
-        guard case .repositoryQuestion(let question, let canAnswer) = state else {
-            Issue.record("not the repository question")
-            return
-        }
-        #expect(question.options == ["example/api", "example/web"] && canAnswer)
+    @Test func theRepositoryQuestionFollowsTheServersCanAnswer() throws {
         let closedToTheServerAnswer = try show([
             "card": #""repository_question""#,
             "repositoryQuestion": #"{"prompt":"P","options":["a"],"selected":null,"canAnswer":false}"#,
@@ -102,98 +92,41 @@ private func show(_ extra: [String: String] = [:]) throws -> ThreadShow {
             "earlyWarning":
                 #"{"areas":[],"state":"tagged","taggedName":"Second person","fallbackName":null,"repoName":"example/api","canPick":false}"#,
         ])
-        guard case .earlyWarning(let row, _) = ThreadCardState.make(show: tagged, isForbidden: false) else {
-            Issue.record("not the early warning")
-            return
-        }
-        #expect(row == .asked(name: "Second person"))
-        guard
-            case .earlyWarning(let pick, let notice) = ThreadCardState.make(
-                show: try show(["card": #""early_warning""#]), isForbidden: false)
-        else {
-            Issue.record("not the early warning")
-            return
-        }
-        #expect(pick == .pick(fallbackName: "Test person") && notice.areas.count == 1)
+        #expect(ThreadCardState.make(show: tagged, isForbidden: false).hasNoButtons)
+        #expect(ThreadCardState.make(show: try show(["card": #""early_warning""#]), isForbidden: false).needsYou)
     }
 
     @Test func theCoOwnerCardFollowsCanDecide() throws {
-        let decide = ThreadCardState.make(show: try show(["card": #""co_owner""#]), isForbidden: false)
-        guard case .coOwner(let decision, let panel) = decide else {
-            Issue.record("not the co-owner card")
-            return
-        }
-        #expect(decision == .decide && panel.viewerIsAsked == true)
+        #expect(ThreadCardState.make(show: try show(["card": #""co_owner""#]), isForbidden: false).needsYou)
         let cannotDecide = try show([
             "card": #""co_owner""#,
             "coOwner": panelJSON.replacingOccurrences(of: #""canDecide":true"#, with: #""canDecide":false"#),
         ])
-        guard case .coOwner(let blocked, _) = ThreadCardState.make(show: cannotDecide, isForbidden: false) else {
-            Issue.record("not the co-owner card")
-            return
-        }
-        #expect(blocked == .none)
+        #expect(ThreadCardState.make(show: cannotDecide, isForbidden: false).hasNoButtons)
         let decided = try show([
             "card": #""co_owner""#, "coOwner": panelJSON.replacingOccurrences(of: #""pending""#, with: #""approved""#),
         ])
-        guard case .coOwner(let afterwards, _) = ThreadCardState.make(show: decided, isForbidden: false) else {
-            Issue.record("not the co-owner card")
-            return
-        }
-        #expect(afterwards == .decided(status: "approved", by: nil))
+        #expect(ThreadCardState.make(show: decided, isForbidden: false).hasNoButtons)
     }
 
-    @Test func theStoppedCardOffersWhatTheFlagsAllow() throws {
-        let state = ThreadCardState.make(show: try show(["card": #""stopped""#]), isForbidden: false)
-        guard case .stopped(let stop, let canRetry, let canSetUp, let targets) = state else {
-            Issue.record("not the stopped card")
-            return
-        }
-        #expect(stop.summary == "Tests kept failing." && canRetry && !canSetUp && targets == ["example/web"])
-        let waiting = try show([
-            "card": #""stopped""#,
-            "stopped": stoppedJSON.replacingOccurrences(
-                of: #""isWaitingForSetup":false"#, with: #""isWaitingForSetup":true"#),
-        ])
-        guard
-            case .stopped(_, let retryWhileWaiting, let setUp, _) = ThreadCardState.make(
-                show: waiting, isForbidden: false)
-        else {
-            Issue.record("not the stopped card")
-            return
-        }
-        #expect(!retryWhileWaiting && setUp)
-    }
-
-    @Test func theExpiredCoOwnerStopOffersNoRetry() throws {
+    @Test func theStoppedCardNeedsThePersonOnlyWhenTheFlagsAllowAnAction() throws {
+        #expect(ThreadCardState.make(show: try show(["card": #""stopped""#]), isForbidden: false).needsYou)
         let expired = try show([
             "card": #""stopped""#,
-            "stopped":
-                #"{"kind":"needs_you","summary":"Nobody decided within 7 days, so Yak did not open the pull request.","detail":null,"nextStep":"Send a message to continue this work.","isWaitingForSetup":false}"#,
             "actions":
                 #"{"canStop":false,"canRetry":false,"canCancel":false,"canMove":false,"moveTargets":[],"canRequestReview":false,"canRetryRender":false}"#,
         ])
-        guard
-            case .stopped(let stop, let canRetry, let canSetUp, let targets) = ThreadCardState.make(
-                show: expired, isForbidden: false)
-        else {
-            Issue.record("not the stopped card")
-            return
-        }
-        #expect(stop.kind == .needsYou && !canRetry && !canSetUp && targets.isEmpty)
+        #expect(ThreadCardState.make(show: expired, isForbidden: false).hasNoButtons)
     }
 
     @Test func moveNeedsBothTheFlagAndATarget() throws {
-        let noTargets = try show([
+        let noRetryNoTargets = try show([
             "card": #""stopped""#,
             "actions": actionsJSON.replacingOccurrences(
-                of: #""moveTargets":["example/web"]"#, with: #""moveTargets":[]"#),
+                of: #""moveTargets":["example/web"]"#, with: #""moveTargets":[]"#
+            ).replacingOccurrences(of: #""canRetry":true"#, with: #""canRetry":false"#),
         ])
-        guard case .stopped(_, _, _, let targets) = ThreadCardState.make(show: noTargets, isForbidden: false) else {
-            Issue.record("not the stopped card")
-            return
-        }
-        #expect(targets.isEmpty)
+        #expect(ThreadCardState.make(show: noRetryNoTargets, isForbidden: false).hasNoButtons)
     }
 }
 

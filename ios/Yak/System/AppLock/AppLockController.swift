@@ -12,7 +12,6 @@ final class AppLockController {
     @ObservationIgnored private let authenticator: any DeviceOwnerAuthenticator
     @ObservationIgnored private let clock: any YakClock
     @ObservationIgnored private let coversWhenActive: Bool
-    @ObservationIgnored private let closePlayback: @MainActor () -> Void
     @ObservationIgnored private var launchAskPending: Bool
 
     @ObservationIgnored private var lockWindows: AnyObject?
@@ -38,10 +37,8 @@ final class AppLockController {
     /// The policy starts locked when the lock is on, so the first frame is already covered.
     init(
         settings: PrivacySettings, authenticator: any DeviceOwnerAuthenticator, clock: any YakClock,
-        backgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit, coversWhenActive: Bool = false,
-        closePlayback: @escaping @MainActor () -> Void = {}
+        backgroundLimit: TimeInterval = AppLockPolicy.backgroundLimit, coversWhenActive: Bool = false
     ) {
-        self.closePlayback = closePlayback
         self.settings = settings
         self.authenticator = authenticator
         self.clock = clock
@@ -62,14 +59,10 @@ final class AppLockController {
         deferred = action
     }
 
-    /// The one place the policy changes: when it goes from open to locked, the walkthrough playback closes so no
-    /// video, sound or picture in picture window continues behind the lock.
+    /// The one place the policy changes.
     @discardableResult
     private func apply(_ event: AppLockEvent) -> Bool {
-        let wasLocked = policy.isLocked
-        let result = policy.handle(event)
-        if policy.isLocked && !wasLocked { closePlayback() }
-        return result
+        policy.handle(event)
     }
 
     private func runDeferredIfOpen() {
@@ -130,8 +123,6 @@ final class AppLockController {
     func appEnteredBackground() {
         backgroundCount += 1
         apply(.enteredBackground(clock.now()))
-        // A lock that is on, or unknown, never lets playback or picture in picture run on while the app is away.
-        if policy.isOn || storeUnreadable { closePlayback() }
         authenticator.cancel()
     }
 

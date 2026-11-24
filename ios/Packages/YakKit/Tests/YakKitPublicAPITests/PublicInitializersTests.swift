@@ -56,7 +56,6 @@ import YakKit
     _ = RepositoryCard(id: nil, repo: "example/api", role: "extra", state: "ready")
     _ = ChildCard(childThreadId: LenientID("c"), name: "n", kind: "k", state: "running", messagesPaused: false)
     _ = ThreadEvent(sequence: 1, type: "stream.reset", createdAt: "2026-11-15T09:00:00Z", data: .null)
-    _ = WaitingRow(isQueued: true)
     _ = ToolStep(
         key: "tool:1", category: .command, tool: "Bash", label: "ls", isFailed: false, isRunning: false)
     _ = ConversationSnapshot()

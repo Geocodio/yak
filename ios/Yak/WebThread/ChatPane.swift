@@ -1,8 +1,8 @@
 import SwiftUI
 import YakKit
 
-/// The Chat pane. Until the chat itself arrives it shows the load states and an empty conversation area, and its
-/// bar row is the composer.
+/// The Chat pane: the thread's conversation as the server's web page, with the native composer in its bar row. A server
+/// too old to offer the page gets a short state with a button that opens the thread in the browser sheet.
 extension PaneDescriptor {
     static let chat = PaneDescriptor(
         id: .chat, name: "pane.chat", symbol: "bubble.left",
@@ -26,13 +26,12 @@ private struct ChatPane: View {
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.scenePhase) private var scenePhase
     @Environment(SystemFeatures.self) private var system
-    @State private var paneHeight: CGFloat = 600
     @State private var browserURL: BrowserLink?
     @State private var fileViewer: FileViewerItem?
     /// Names this pane to the window's web conversation, which hands the page's requests to one pane at a time.
     @State private var requestOwner = RequestOwner()
 
-    /// The page shows the conversation and its cards; the native chat shows them when the server has no page.
+    /// The page shows the conversation and its cards; a server that has no page gets the update state instead.
     private var usesWeb: Bool { web?.mode == .web }
     /// The app is locked or covered: the web view is hidden, so a field of the page cannot keep focus under the cover.
     private var isCovered: Bool {
@@ -46,11 +45,6 @@ private struct ChatPane: View {
             if usesWeb || thread.loadPresentation == .conversation, thread.composer.bar.line != nil {
                 legacyLine
             }
-            if !usesWeb, web?.mode != .undecided, case .conversation = thread.loadPresentation {
-                ThreadCardHost(
-                    thread: thread, paneHeight: paneHeight, openWeb: { browserURL = BrowserLink(url: $0) },
-                    openFiles: thread.panes.contains(.files) ? { scene.select(.files) } : nil)
-            }
         }
         .task(id: canChooseConversation) { await followConversationChoice() }
         .task(id: usesWeb) { await followOutbox() }
@@ -62,6 +56,11 @@ private struct ChatPane: View {
             takeFocusRequest()
         }
         .onChange(of: scene.focusRequest) { takeFocusRequest() }
+        .onChange(of: thread.announcementSerial) {
+            if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
+        }
+        .onChange(of: thread.unsentItems, initial: true) { sendOutbox() }
+        .onChange(of: thread.uploadSummary.failed) { sendOutbox() }
         .onDisappear {
             web?.paneLeft()
             web?.releaseRequests(owner: requestOwner)
@@ -69,13 +68,6 @@ private struct ChatPane: View {
         .onChange(of: thread.isOffline, initial: true) { web?.connectivityChanged(isOnline: !thread.isOffline) }
         .onChange(of: isCovered, initial: true) { web?.setPageHidden(isCovered) }
         .onChange(of: scenePhase) { if scenePhase != .active { web?.appLeftForeground() } }
-        .sensoryFeedback(.success, trigger: thread.question.sentCount)
-        .sensoryFeedback(.error, trigger: thread.question.failureCount)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: {
-            paneHeight = $0
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.yakPage)
         .accessibilityElement(children: .contain)
@@ -138,28 +130,29 @@ private struct ChatPane: View {
         if let web, web.mode == .web {
             webConversation(web)
         } else {
-            ZStack {
-                if web?.mode != .undecided, case .conversation = thread.loadPresentation {
-                    ChatView(thread: thread, openThread: openThread)
-                }
-                ThreadLoadView(
-                    presentation: nativePresentation, retry: { Task { await thread.retry() } },
-                    openThreads: openThreads)
-            }
+            ThreadLoadView(
+                presentation: web?.mode == .unsupported ? .serverNeedsUpdate : undecidedPresentation,
+                retry: { Task { await thread.retry() } }, openThreads: openThreads,
+                openInBrowser: { browserURL = BrowserLink(url: serverPageURL) }
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .motion(Motion.crossFade, value: thread.loadPresentation)
+            .motion(Motion.crossFade, value: web?.mode)
         }
     }
 
-    /// Until the page or the native chat is chosen, a ready thread still shows the loading state.
-    private var nativePresentation: ThreadLoadPresentation {
-        web?.mode == .undecided && thread.loadPresentation == .conversation ? .loading : thread.loadPresentation
+    /// The thread's own page on the instance, for a server that cannot show it in the app.
+    private var serverPageURL: URL { thread.instanceURL.appending(path: "threads").appending(path: thread.threadID) }
+
+    /// Until the server has said whether it offers the page, a ready thread still shows the loading state.
+    private var undecidedPresentation: ThreadLoadPresentation {
+        thread.loadPresentation == .conversation ? .loading : thread.loadPresentation
     }
 
     private func webConversation(_ web: WebConversationModel) -> some View {
         let presentation = web.loadPresentation
         let isShown = presentation == .conversation && !isCovered
         return VStack(spacing: 0) {
+            if let line = thread.actionLine { FileLine(text: Text(verbatim: line), identifier: "thread.actionLine") }
             if let notice = web.noticeLine {
                 FileLine(text: Text(verbatim: notice), identifier: "thread.web.notice")
             }
@@ -220,16 +213,19 @@ private struct ChatPane: View {
 
     // MARK: From the page
 
-    /// Sends the unsent messages of the thread to the page, and tells it when the server took one.
+    /// Tells the page when the server took a message of the thread.
     private func followOutbox() async {
         guard usesWeb, let web, let outbox = await thread.session.outbox() else { return }
         let threadID = thread.threadID
         for await update in await outbox.updates() {
-            switch update {
-            case .items(let items): web.outboxChanged(threadID: threadID, items: items)
-            case .delivery(let delivery): if delivery.threadID == threadID { web.messageDelivered() }
-            }
+            if case .delivery(let delivery) = update, delivery.threadID == threadID { web.messageDelivered() }
         }
+    }
+
+    /// The unsent messages of the thread, and the uploads that failed, go to the page.
+    private func sendOutbox() {
+        web?.outboxChanged(
+            threadID: thread.threadID, items: thread.unsentItems, failedUploads: thread.uploadSummary.failed)
     }
 
     private func handle(_ request: WebConversationRequest, thread: ThreadModel, scene: SceneModel) {

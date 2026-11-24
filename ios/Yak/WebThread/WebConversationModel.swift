@@ -24,7 +24,7 @@ enum WebConversationRequest: Equatable {
 }
 
 extension EnvironmentValues {
-    /// The window's web conversation; nil where no window provides one, which shows the native chat.
+    /// The window's web conversation; nil where no window provides one.
     @Entry var webConversation: WebConversationModel?
 }
 
@@ -36,6 +36,8 @@ extension EnvironmentValues {
     /// Downloads a same-origin file through the web view's session and shows it in Quick Look.
     func quickLook(url: URL, name: String)
     func setHidden(_ isHidden: Bool)
+    /// Pauses every audio or video of the page.
+    func pauseMedia()
     /// Starts an archive of the page as it is now and calls `completion` with it; nil when the web view cannot make
     /// one. The archive is requested before this returns, so a message sent right after it cannot change what it holds.
     func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void)
@@ -70,8 +72,8 @@ enum SavedCopyState: Equatable {
 /// every thread of the window, so a switch of thread is an `open` message to the page and no new session.
 @MainActor @Observable
 final class WebConversationModel {
-    /// Whether the conversation is the page, the native chat, or not decided yet.
-    enum Mode: Equatable { case undecided, web, native }
+    /// Whether the server offers the conversation as a page, does not (it is too old), or has not answered yet.
+    enum Mode: Equatable { case undecided, web, unsupported }
 
     enum MintOutcome {
         case minted(WebSession)
@@ -118,6 +120,11 @@ final class WebConversationModel {
 
     @ObservationIgnored var handleRequest: @MainActor (WebConversationRequest) -> Void = { _ in }
     @ObservationIgnored private var requestOwner: ObjectIdentifier?
+    /// The thread of a page that was prepared ahead and that no pane has shown yet. Its page is never saved as an
+    /// offline copy: the person has not read it.
+    @ObservationIgnored private var unseenThreadID: String?
+    /// A pane that shows the conversation exists, so what the page holds was opened by the person.
+    private var isShownByPane: Bool { requestOwner != nil }
     @ObservationIgnored private(set) var page: (any WebConversationPage)?
     @ObservationIgnored private let mint: Mint
     @ObservationIgnored private let copies: Copies
@@ -145,6 +152,8 @@ final class WebConversationModel {
     @ObservationIgnored private var focusSerial = 0
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
     @ObservationIgnored private var hasBegun = false
+    /// Makes the web view before a pane shows it; the window's shell sets it, and only a prepared page needs it.
+    @ObservationIgnored var makePage: (@MainActor (WebConversationModel) -> any WebConversationPage)?
     @ObservationIgnored private var isPageHidden = false
 
     init(
@@ -224,13 +233,13 @@ final class WebConversationModel {
 
     // MARK: Decision
 
-    /// Chooses the page or the native chat from what the server offers, and follows a later change of the answer:
+    /// Chooses the page or the server-too-old state from what the server offers, and follows a later change of the answer:
     /// the machine is built again for the new answer, because it is built for one `me.web` value.
     func configure(supportsEmbeddedThread: Bool) {
-        let chosen: Mode = supportsEmbeddedThread ? .web : .native
+        let chosen: Mode = supportsEmbeddedThread ? .web : .unsupported
         guard mode != chosen else { return }
         mode = chosen
-        if chosen == .native { pendingFocus.clear() }
+        if chosen == .unsupported { pendingFocus.clear() }
         mintTask?.cancel()
         switchTask?.cancel()
         tickTask?.cancel()
@@ -258,9 +267,13 @@ final class WebConversationModel {
     /// The pane shows `threadID`: the first time this loads the page, later it asks the open page to switch.
     func show(thread id: String) {
         pendingFocus.drop(unlessForThread: id)
-        guard threadID != id else { return }
+        guard threadID != id else {
+            if unseenThreadID == id { unseenThreadID = nil }
+            return
+        }
         // The copy of the thread being left is as new as what the person last saw.
         if mode == .web, let old = threadID { saveOnLeaving(old) }
+        if unseenThreadID != nil { unseenThreadID = nil }
         threadID = id
         guard mode == .web else { return }
         refreshCopyAvailability()
@@ -276,6 +289,22 @@ final class WebConversationModel {
         } else {
             switchPageIfNeeded()
         }
+    }
+
+    /// A page exists or a thread is shown, so another page is not prepared.
+    var hasPreparedPage: Bool { page != nil || threadID != nil }
+
+    /// Prepares the page for the thread `WebPrewarmPolicy` names: the web view is made and the session minted, so the
+    /// pane that shows the thread finds the page loading or ready. The policy decides; nothing is prepared once a page
+    /// exists or a thread is shown, so one page at most is prepared. A pane that shows another thread asks the page to switch, as for any thread.
+    func prewarm(_ conditions: WebPrewarmPolicy) {
+        var policy = conditions
+        policy.serverOffersPage = mode == .web
+        policy.hasPreparedPage = hasPreparedPage
+        guard let id = policy.threadToPrepare, let makePage else { return }
+        attach(makePage(self))
+        show(thread: id)
+        unseenThreadID = id
     }
 
     private func begin() {
@@ -495,7 +524,7 @@ final class WebConversationModel {
     /// A push or link named an element of `target.threadID`. It is sent once, after the page reports that thread ready
     /// (at once when the page already shows it), and a later target replaces one that has not been sent.
     func focus(_ target: PendingFocus) {
-        guard mode != .native, target.threadID == threadID else { return }
+        guard mode != .unsupported, target.threadID == threadID else { return }
         pendingFocus.set(target)
         deliverPendingFocus()
     }
@@ -525,8 +554,8 @@ final class WebConversationModel {
     /// The unsent messages of a thread, kept per thread so an update from a pane that is leaving cannot replace the
     /// list of the thread that is arriving. The page is told when the list changes; a list that the page has not
     /// seen yet is sent when it is ready.
-    func outboxChanged(threadID: String, items: [OutboxItem]) {
-        let message = EmbedOutboxProjection.message(threadID: threadID, items: items)
+    func outboxChanged(threadID: String, items: [OutboxItem], failedUploads: Set<UUID> = []) {
+        let message = EmbedOutboxProjection.message(threadID: threadID, items: items, failedUploads: failedUploads)
         guard message != lastOutbox[threadID] else { return }
         lastOutbox[threadID] = message
         if machine.phase == .ready, pageThreadID == threadID { send(message) }
@@ -564,13 +593,14 @@ final class WebConversationModel {
     func setPageHidden(_ isHidden: Bool) {
         isPageHidden = isHidden
         page?.setHidden(isHidden)
+        if isHidden { page?.pauseMedia() }
         // A target that came in while the lock covered the page is sent now that the person can see it.
         if !isHidden { deliverPendingFocus() }
     }
 
     // MARK: What the pane draws
 
-    /// The load state the pane draws over the page, in the words of the native chat's own states.
+    /// The load state the pane draws over the page.
     var loadPresentation: ThreadLoadPresentation {
         if savedCopyState != nil { return .conversation }
         switch machine.phase {
@@ -580,7 +610,7 @@ final class WebConversationModel {
         case .slow: return .slow
         // A copy that is still being read shows the loading state; a copy that cannot be read ends in `.failed(.network)`.
         case .offline: return .loading
-        case .unsupported: return .conversation
+        case .unsupported: return .serverNeedsUpdate
         case .failed(let failure): return Self.presentation(of: failure, isOnline: isOnline)
         }
     }
@@ -600,7 +630,7 @@ final class WebConversationModel {
         }
     }
 
-    /// The page is up and the connection is gone: the native offline line shows over the last page.
+    /// The page is up and the connection is gone: the offline line shows over the last page.
     var showsOfflineLine: Bool { machine.phase == .ready && !isOnline }
 }
 
@@ -718,6 +748,7 @@ extension WebConversationModel {
 
     /// The app leaves the foreground: the copy is saved now, because the page may not live on.
     func appLeftForeground() {
+        page?.pauseMedia()
         captureTask?.cancel()
         let endBackgroundTime = holdBackgroundTime()
         captureTask = Task { [weak self] in
@@ -735,8 +766,8 @@ extension WebConversationModel {
     /// the thread it was made for. A page that is not that thread's ready page, or moved on by the time the archive
     /// is back, is not saved.
     private func saveOnLeaving(_ id: String) {
-        guard mode == .web, isOnline, machine.phase == .ready, readyThreadID == id, pageThreadID == id, let page,
-            let store = knownStore
+        guard mode == .web, isOnline, isShownByPane, unseenThreadID != id, machine.phase == .ready,
+            readyThreadID == id, pageThreadID == id, let page, let store = knownStore
         else { return }
         page.captureArchive { [weak self] archive in
             guard let self, let archive else { return }
@@ -747,8 +778,8 @@ extension WebConversationModel {
     /// Saves the page as it is, when it is the ready page of the shown thread. A page that moved on, failed or went
     /// offline while the archive was made is not saved.
     func saveCopy() async {
-        guard !Task.isCancelled, mode == .web, isOnline, machine.phase == .ready, let id = threadID,
-            readyThreadID == id, pageThreadID == id, let page
+        guard !Task.isCancelled, mode == .web, isOnline, isShownByPane, machine.phase == .ready, let id = threadID,
+            unseenThreadID != id, readyThreadID == id, pageThreadID == id, let page
         else { return }
         // The store is taken before the archive is made: an archive that finishes after the copies were erased meets
         // the erased store, which refuses it.

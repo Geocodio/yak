@@ -145,24 +145,6 @@ private func merge(
     #expect(ConversationMerge.currentStepKey(in: after, turn: turn("running")) == nil)
 }
 
-@Test func theWaitingRow() {
-    let pending = message(uuid: "p", sentAt: "2026-11-15T10:00:00Z")
-    let queued = ConversationMerge.waitingRow(in: merge(messages: [pending]), turn: nil)
-    #expect(queued == WaitingRow(isQueued: true, since: "2026-11-15T10:00:00Z"))
-    let text = [ConversationEntry.event(item("t", 1))]
-    #expect(ConversationMerge.waitingRow(in: text, turn: turn("running")) == WaitingRow(isQueued: false, since: nil))
-    #expect(ConversationMerge.waitingRow(in: text, turn: turn("completed")) == nil)
-    #expect(ConversationMerge.waitingRow(in: text, turn: nil) == nil)
-    let tools = [ConversationEntry.event(item("k", 1, kind: .tools, running: true))]
-    #expect(ConversationMerge.waitingRow(in: tools, turn: turn("running")) == nil)
-    #expect(ConversationMerge.waitingRow(in: [], turn: turn("running")) == nil)
-    let unsent = ConversationMerge.waitingRow(in: merge(unsent: [outboxItem()]), turn: nil)
-    #expect(unsent?.isQueued == true)
-    let queuedDelivery = merge(delivered: [delivery(uuid: "x", status: .queued)])
-    #expect(ConversationMerge.waitingRow(in: queuedDelivery, turn: nil)?.isQueued == true)
-    #expect(ConversationMerge.waitingRow(in: merge(delivered: [delivery(uuid: "x")]), turn: nil) == nil)
-}
-
 @Test func deliveredItemsDoNotDuplicateStreamedItems() {
     #expect(merge(items: [item("k", 1), item("k", 1)]).count == 1)
 }

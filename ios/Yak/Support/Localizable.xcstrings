@@ -691,240 +691,6 @@
         }
       }
     },
-    "chat.attachment.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This file could not be loaded. Try again."
-          }
-        }
-      }
-    },
-    "chat.attachment.hint" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the file"
-          }
-        }
-      }
-    },
-    "chat.attachment.image %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Image %@"
-          }
-        }
-      }
-    },
-    "chat.attachment.image.speech %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@, %2$@, image"
-          }
-        }
-      }
-    },
-    "chat.attachment.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Offline"
-          }
-        }
-      }
-    },
-    "chat.attachment.webOnly" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open this thread on the web to see this file."
-          }
-        }
-      }
-    },
-    "chat.attachments.more %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "and %lld more files"
-          }
-        }
-      }
-    },
-    "chat.child.files %lld" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld file changed"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld files changed"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "chat.child.open" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opens the sub-thread"
-          }
-        }
-      }
-    },
-    "chat.collapsed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Collapsed"
-          }
-        }
-      }
-    },
-    "chat.composerPlaceholder" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message Yak"
-          }
-        }
-      }
-    },
-    "chat.day.today" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today"
-          }
-        }
-      }
-    },
-    "chat.day.yesterday" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yesterday"
-          }
-        }
-      }
-    },
-    "chat.edits.counts %lld %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+%1$lld −%2$lld"
-          }
-        }
-      }
-    },
-    "chat.edits.file %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "File %@"
-          }
-        }
-      }
-    },
-    "chat.edits.summary %lld" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Edited %lld file"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Edited %lld files"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "chat.empty.body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Write what Yak should do. It starts when you send."
-          }
-        }
-      }
-    },
-    "chat.empty.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No messages yet"
-          }
-        }
-      }
-    },
-    "chat.expanded" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Expanded"
-          }
-        }
-      }
-    },
-    "chat.history.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not load earlier messages"
-          }
-        }
-      }
-    },
-    "chat.history.loading" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading earlier messages"
-          }
-        }
-      }
-    },
     "chat.jumpToLatest" : {
       "localizations" : {
         "en" : {
@@ -975,16 +741,6 @@
         }
       }
     },
-    "chat.message.from %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ said: %2$@"
-          }
-        }
-      }
-    },
     "chat.message.menu" : {
       "localizations" : {
         "en" : {
@@ -1001,16 +757,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Remove"
-          }
-        }
-      }
-    },
-    "chat.message.replyBy %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@, replied in %2$@"
           }
         }
       }
@@ -1045,392 +791,12 @@
         }
       }
     },
-    "chat.message.sendsAfterTurn" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sends after this turn"
-          }
-        }
-      }
-    },
-    "chat.message.viaBy %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@, via %2$@"
-          }
-        }
-      }
-    },
-    "chat.message.waitingToBeRead" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for Yak to read it"
-          }
-        }
-      }
-    },
-    "chat.message.you" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You"
-          }
-        }
-      }
-    },
-    "chat.notice.continue" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue"
-          }
-        }
-      }
-    },
-    "chat.notice.openMoved" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the new thread"
-          }
-        }
-      }
-    },
-    "chat.notice.resets %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resets in %@"
-          }
-        }
-      }
-    },
-    "chat.notice.resetsNow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resetting now"
-          }
-        }
-      }
-    },
-    "chat.output.cut" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The output is longer than this. Only the start is shown."
-          }
-        }
-      }
-    },
-    "chat.output.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Output"
-          }
-        }
-      }
-    },
-    "chat.repository.changes" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes"
-          }
-        }
-      }
-    },
-    "chat.repository.context" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Context"
-          }
-        }
-      }
-    },
-    "chat.result.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The turn failed"
-          }
-        }
-      }
-    },
     "chat.retry" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Retry"
-          }
-        }
-      }
-    },
-    "chat.retry.number %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retry %lld"
-          }
-        }
-      }
-    },
-    "chat.step.command.done %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ran %@"
-          }
-        }
-      }
-    },
-    "chat.step.command.running %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Running %@"
-          }
-        }
-      }
-    },
-    "chat.step.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed"
-          }
-        }
-      }
-    },
-    "chat.step.fetch.done %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fetched %@"
-          }
-        }
-      }
-    },
-    "chat.step.fetch.running %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fetching %@"
-          }
-        }
-      }
-    },
-    "chat.step.read.done %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Read %@"
-          }
-        }
-      }
-    },
-    "chat.step.read.running %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading %@"
-          }
-        }
-      }
-    },
-    "chat.step.search.done %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Searched for %@"
-          }
-        }
-      }
-    },
-    "chat.step.search.running %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Searching for %@"
-          }
-        }
-      }
-    },
-    "chat.step.showOutput" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shows the output"
-          }
-        }
-      }
-    },
-    "chat.thinking" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thinking"
-          }
-        }
-      }
-    },
-    "chat.unsent.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent. It sends when you are back online."
-          }
-        }
-      }
-    },
-    "chat.unsent.queued" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting to send"
-          }
-        }
-      }
-    },
-    "chat.unsent.refused %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent. %@"
-          }
-        }
-      }
-    },
-    "chat.unsent.sending" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sending"
-          }
-        }
-      }
-    },
-    "chat.unsent.slow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Still sending"
-          }
-        }
-      }
-    },
-    "chat.unsent.trying" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent yet. Trying again."
-          }
-        }
-      }
-    },
-    "chat.upload.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent. Tap Retry, or it tries again later."
-          }
-        }
-      }
-    },
-    "chat.upload.progress %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uploading, %lld %%"
-          }
-        }
-      }
-    },
-    "chat.upload.progress.speech %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uploading, %lld percent"
-          }
-        }
-      }
-    },
-    "chat.upload.slow %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uploading, %lld %%. The connection is slow."
-          }
-        }
-      }
-    },
-    "chat.upload.waiting" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for a connection. It sends by itself."
-          }
-        }
-      }
-    },
-    "chat.waiting.active" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak is working"
-          }
-        }
-      }
-    },
-    "chat.waiting.queued" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for Yak to start"
           }
         }
       }
@@ -4600,16 +3966,6 @@
         }
       }
     },
-    "gallery.area.Chat" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chat"
-          }
-        }
-      }
-    },
     "gallery.area.Files" : {
       "localizations" : {
         "en" : {
@@ -4886,6 +4242,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The server answered with an error"
+          }
+        }
+      }
+    },
+    "gallery.title.threads.serverNeedsUpdate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server needs an update"
           }
         }
       }
@@ -5430,6 +4796,46 @@
         }
       }
     },
+    "load.update.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update needed"
+          }
+        }
+      }
+    },
+    "chat.upload.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Tap Retry, or it tries again later."
+          }
+        }
+      }
+    },
+    "chat.upload.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a connection. It sends by itself."
+          }
+        }
+      }
+    },
+    "load.update.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Yak server needs an update to show conversations in the app. You can still send messages and use the other panes."
+          }
+        }
+      }
+    },
     "load.slow.body" : {
       "localizations" : {
         "en" : {
@@ -5576,86 +4982,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlocking"
-          }
-        }
-      }
-    },
-    "markdown.more" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show more"
-          }
-        }
-      }
-    },
-    "markdown.more.label" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show the next part of this message"
-          }
-        }
-      }
-    },
-    "markdown.page.announcement" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Showing part %1$lld of %2$lld"
-          }
-        }
-      }
-    },
-    "markdown.previous" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show previous"
-          }
-        }
-      }
-    },
-    "markdown.previous.label" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show the previous part of this message"
-          }
-        }
-      }
-    },
-    "markdown.task.done" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done, "
-          }
-        }
-      }
-    },
-    "markdown.task.notDone" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not done, "
-          }
-        }
-      }
-    },
-    "markdown.unformatted.notice" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shown as plain text from here, because this message is very long."
           }
         }
       }
@@ -10718,26 +10044,6 @@
         }
       }
     },
-    "question.back" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back"
-          }
-        }
-      }
-    },
-    "question.card.label" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Question from Yak"
-          }
-        }
-      }
-    },
     "question.chip %lld" : {
       "localizations" : {
         "en" : {
@@ -10780,42 +10086,12 @@
         }
       }
     },
-    "question.closed.detail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your answers were not sent."
-          }
-        }
-      }
-    },
     "question.dismiss" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dismiss"
-          }
-        }
-      }
-    },
-    "question.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent. Try again."
-          }
-        }
-      }
-    },
-    "question.failed.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not sent. Check the connection and try again."
           }
         }
       }
@@ -10830,52 +10106,12 @@
         }
       }
     },
-    "question.multiHint" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose all that apply"
-          }
-        }
-      }
-    },
     "question.next" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next"
-          }
-        }
-      }
-    },
-    "question.note" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add a note for Yak (optional)"
-          }
-        }
-      }
-    },
-    "question.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are offline. Your answers stay here until you send them."
-          }
-        }
-      }
-    },
-    "question.progress %lld %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Question %lld of %lld"
           }
         }
       }
@@ -10890,72 +10126,12 @@
         }
       }
     },
-    "question.retry" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retry"
-          }
-        }
-      }
-    },
-    "question.review.edit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this answer"
-          }
-        }
-      }
-    },
-    "question.review.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check your answers"
-          }
-        }
-      }
-    },
     "question.send" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send answers"
-          }
-        }
-      }
-    },
-    "question.sending" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sending answers"
-          }
-        }
-      }
-    },
-    "question.slow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is taking longer than usual."
-          }
-        }
-      }
-    },
-    "question.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak needs an answer"
           }
         }
       }
@@ -12310,82 +11486,12 @@
         }
       }
     },
-    "state.completed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Completed"
-          }
-        }
-      }
-    },
-    "state.done" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
-          }
-        }
-      }
-    },
-    "state.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed"
-          }
-        }
-      }
-    },
-    "state.needs_input" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Needs input"
-          }
-        }
-      }
-    },
-    "state.queued" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Queued"
-          }
-        }
-      }
-    },
-    "state.running" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Running"
-          }
-        }
-      }
-    },
     "state.waiting" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting"
-          }
-        }
-      }
-    },
-    "state.working" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Working"
           }
         }
       }
@@ -12462,56 +11568,6 @@
         }
       }
     },
-    "task.approve.opening" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opening the pull request"
-          }
-        }
-      }
-    },
-    "task.asked %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Asked %@"
-          }
-        }
-      }
-    },
-    "task.body.review" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Review"
-          }
-        }
-      }
-    },
-    "task.body.yak" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak"
-          }
-        }
-      }
-    },
-    "task.body.you" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You"
-          }
-        }
-      }
-    },
     "task.cancel.confirm" : {
       "localizations" : {
         "en" : {
@@ -12552,66 +11608,6 @@
         }
       }
     },
-    "task.decided.approved" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Approved"
-          }
-        }
-      }
-    },
-    "task.decided.approvedBy %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Approved by %@"
-          }
-        }
-      }
-    },
-    "task.decided.changesRequested" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes requested"
-          }
-        }
-      }
-    },
-    "task.decided.rejected" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rejected"
-          }
-        }
-      }
-    },
-    "task.decided.withdrawn" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Withdrawn"
-          }
-        }
-      }
-    },
-    "task.decision.accessFailed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak could not check your GitHub access."
-          }
-        }
-      }
-    },
     "task.decision.approve" : {
       "localizations" : {
         "en" : {
@@ -12632,62 +11628,12 @@
         }
       }
     },
-    "task.decision.linkButton" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Link on the web"
-          }
-        }
-      }
-    },
-    "task.decision.noWriteAccess %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You need write access to %@ to decide"
-          }
-        }
-      }
-    },
-    "task.decision.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are offline"
-          }
-        }
-      }
-    },
-    "task.decision.reject" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reject"
-          }
-        }
-      }
-    },
     "task.decision.requestChanges" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Request changes"
-          }
-        }
-      }
-    },
-    "task.decision.waiting %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for %@"
           }
         }
       }
@@ -12782,152 +11728,12 @@
         }
       }
     },
-    "task.reject.confirm" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reject"
-          }
-        }
-      }
-    },
-    "task.reject.keep" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep it"
-          }
-        }
-      }
-    },
-    "task.reject.message" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak closes the task without a PR."
-          }
-        }
-      }
-    },
-    "task.reject.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reject this change?"
-          }
-        }
-      }
-    },
-    "task.requestChanges.count %lld %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld of %@ characters"
-          }
-        }
-      }
-    },
     "task.requestChanges.field" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Feedback"
-          }
-        }
-      }
-    },
-    "task.requestChanges.prompt" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tell Yak what to change before it opens the PR."
-          }
-        }
-      }
-    },
-    "task.requestChanges.send" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send"
-          }
-        }
-      }
-    },
-    "task.requestChanges.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Request changes"
-          }
-        }
-      }
-    },
-    "task.tag.checking" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checking who can approve"
-          }
-        }
-      }
-    },
-    "task.tag.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not check who can approve"
-          }
-        }
-      }
-    },
-    "task.tag.fallback %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If you skip this, %@ reviews it."
-          }
-        }
-      }
-    },
-    "task.tag.nobody" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nobody else can approve this change"
-          }
-        }
-      }
-    },
-    "task.tag.notNeeded" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not needed"
-          }
-        }
-      }
-    },
-    "task.tag.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask a co-owner"
           }
         }
       }
@@ -13802,264 +12608,12 @@
         }
       }
     },
-    "thread.card.approveSlow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Still working. GitHub can take up to a minute to open the PR."
-          }
-        }
-      }
-    },
-    "thread.card.checkAccessAgain" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check my access again"
-          }
-        }
-      }
-    },
-    "thread.card.checkAgain" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check again"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.approve" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Approve and open the PR"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.askAdmin" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask a repository admin for write access, then check again."
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.askedBy %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ asked you."
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.checkFailed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak could not check your GitHub access"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.checkFailedBody" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub did not answer. Nothing was decided."
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.files %lld %lld %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld files, +%2$lld −%3$lld"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.linkBody %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak must know that you can write to %@ before you approve or reject."
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.linkTitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Link GitHub to decide"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.linkedAs %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Linked as %@"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.moreFiles %lld" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld more file in Files"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld more files in Files"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.noAccess %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your GitHub account does not have write access to %@, so you cannot decide yet."
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.thisRepository" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "this repository"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak waits for you before it opens the PR"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.waiting %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for %@"
-          }
-        }
-      }
-    },
-    "thread.card.coOwner.waitingBody" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak opens the PR when a co-owner approves."
-          }
-        }
-      }
-    },
-    "thread.card.early.body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It touches code that other people own. Pick a co-owner now, so the PR is not held later."
-          }
-        }
-      }
-    },
-    "thread.card.early.notNow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not now"
-          }
-        }
-      }
-    },
     "thread.card.early.pick" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pick a co-owner"
-          }
-        }
-      }
-    },
-    "thread.card.early.risk.high" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "High risk"
-          }
-        }
-      }
-    },
-    "thread.card.early.risk.low" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Low risk"
-          }
-        }
-      }
-    },
-    "thread.card.early.risk.medium" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medium risk"
-          }
-        }
-      }
-    },
-    "thread.card.early.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This change will need a co-owner"
           }
         }
       }
@@ -14074,72 +12628,12 @@
         }
       }
     },
-    "thread.card.offline.decide" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can decide when the connection is back. Nothing is queued."
-          }
-        }
-      }
-    },
-    "thread.card.offline.other" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can do this when the connection is back. Nothing is queued."
-          }
-        }
-      }
-    },
-    "thread.card.openChangeInFiles" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the change in Files"
-          }
-        }
-      }
-    },
     "thread.card.reader" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only people who can drive this thread can answer."
-          }
-        }
-      }
-    },
-    "thread.card.repository.body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The request did not name one. Work starts after you choose."
-          }
-        }
-      }
-    },
-    "thread.card.stopped.details" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Details"
-          }
-        }
-      }
-    },
-    "thread.card.stopped.moveElsewhere" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move to another repository"
           }
         }
       }
@@ -14486,86 +12980,6 @@
         }
       }
     },
-    "walkthrough.expired" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The video link has expired."
-          }
-        }
-      }
-    },
-    "walkthrough.failed.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The walkthrough could not be played."
-          }
-        }
-      }
-    },
-    "walkthrough.offline" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are offline. The video plays when the connection returns."
-          }
-        }
-      }
-    },
-    "walkthrough.other" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Something stopped the video."
-          }
-        }
-      }
-    },
-    "walkthrough.slow" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is taking longer than usual."
-          }
-        }
-      }
-    },
-    "walkthrough.timedOut" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The video did not answer."
-          }
-        }
-      }
-    },
-    "walkthrough.tryAgain" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try again"
-          }
-        }
-      }
-    },
-    "walkthrough.unsupported" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This video format cannot be played on this device."
-          }
-        }
-      }
-    },
     "web.copy.label" : {
       "localizations" : {
         "en" : {
@@ -14762,6 +13176,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A private thread"
+          }
+        }
+      }
+    },
+    "chat.upload.progress %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %1$lld %%"
           }
         }
       }

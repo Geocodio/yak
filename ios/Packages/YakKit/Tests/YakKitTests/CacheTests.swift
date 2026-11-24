@@ -36,12 +36,10 @@ struct CacheTests {
         let (cache, files, id) = makeCache()
         await cache.saveThreadList(try decoded(ThreadList.self, "scenario-thread-list"), filter: .mine)
         await cache.saveThread("d0e515ef", try cachedSimpleTurn())
-        await cache.saveQuestionDraft(QuestionDraft(roundKey: "r1"), thread: "d0e515ef")
         #expect(files.protection(of: "instances/\(id)/cache/lists/mine.json") == .untilFirstUnlock)
         #expect(files.protection(of: "instances/\(id)/cache/index.json") == .untilFirstUnlock)
         #expect(files.protection(of: "instances/\(id)/cache/threads/d0e515ef/show.json") == .complete)
         #expect(files.protection(of: "instances/\(id)/cache/threads/d0e515ef/events.json") == .complete)
-        #expect(files.protection(of: "instances/\(id)/cache/threads/d0e515ef/question.json") == .complete)
         await cache.saveWidgetSnapshot(
             WidgetSnapshot(instanceName: "Example Yak", needsYouCount: 0, needsYou: [], running: [], updatedAt: Date()))
         #expect(files.protection(of: InstanceFolders.widgetSnapshot(id)) == .untilFirstUnlock)
@@ -72,7 +70,6 @@ struct CacheTests {
         let (cache, _, _) = makeCache()
         #expect(await cache.thread("nope") == nil)
         #expect(await cache.threadList(.everyone) == nil)
-        #expect(await cache.questionDraft(thread: "nope") == nil)
         #expect(await cache.widgetSnapshot() == nil)
     }
 
@@ -159,14 +156,20 @@ struct CacheTests {
         #expect(try files.read(path) == nil)
     }
 
-    @Test func roundTripsAQuestionDraft() async {
-        let (cache, _, _) = makeCache()
-        let draft = QuestionDraft(
-            roundKey: "round-1", answers: ["q1": QuestionAnswer(choices: ["a"], other: "more")], note: "Test note")
-        await cache.saveQuestionDraft(draft, thread: "d0e515ef")
-        #expect(await cache.questionDraft(thread: "d0e515ef") == draft)
-        await cache.saveQuestionDraft(nil, thread: "d0e515ef")
-        #expect(await cache.questionDraft(thread: "d0e515ef") == nil)
+    @Test func theDataOfRemovedFeaturesIsDeletedOnceAndTheThreadsStay() async throws {
+        let (cache, files, id) = makeCache()
+        await cache.saveThread("d0e515ef", try cachedSimpleTurn())
+        let folder = "instances/\(id)/cache/threads/d0e515ef"
+        try files.write(Data("{}".utf8), to: "\(folder)/question.json", protection: .complete)
+        try files.write(Data("jpg".utf8), to: "\(folder)/attachments/41.jpg", protection: .complete)
+        await cache.removeRemovedFeatureData()
+        #expect(try files.read("\(folder)/question.json") == nil)
+        #expect(try files.read("\(folder)/attachments/41.jpg") == nil)
+        #expect(await cache.thread("d0e515ef") != nil)
+        // Once: a file written afterwards is not touched.
+        try files.write(Data("{}".utf8), to: "\(folder)/question.json", protection: .complete)
+        await cache.removeRemovedFeatureData()
+        #expect(try files.read("\(folder)/question.json") != nil)
     }
 
     @Test func aThreadIdCannotEscapeItsFolder() async throws {

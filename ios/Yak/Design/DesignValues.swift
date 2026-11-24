@@ -23,24 +23,14 @@ enum Design {
         static let section: CGFloat = 24
         /// Left and right of text, bubbles and the cards of every pane, so all panes line up.
         static let pageInset: CGFloat = 16
-        /// Left and right inside a message bubble.
-        static let bubbleInset: CGFloat = 15
         /// Left and right of a list of grouped rows (the boards' 14 point inset around a group).
         static let groupInset: CGFloat = 14
         /// Left and right inside a group's row.
         static let rowInset: CGFloat = 16
-        /// Left and right of the floating top row and of the pane's bars.
-        static let barInset: CGFloat = 10
-        /// Between a pane's bottom edge and the bar.
-        static let barGap: CGFloat = 6
         /// Between the screen's bottom edge and the bar.
         static let barEdgeGap: CGFloat = 24
-        /// Padding between a bar's edge and its controls.
-        static let barPadding: CGFloat = 6
         /// Padding inside the terminal around its text.
         static let terminalInset: CGFloat = 14
-        /// Between two blocks of the chat.
-        static let chatGap: CGFloat = 16
         /// Top and bottom padding of a status pill.
         static let pillVertical: CGFloat = 3
     }
@@ -63,28 +53,8 @@ enum Design {
         static let question: CGFloat = 26
         static let bar: CGFloat = 8
         static let bubble: CGFloat = 22
-        static let bubbleTail: CGFloat = 8
         /// The pane's own corners in a layout with two panes.
         static let pane: CGFloat = 28
-        /// The card above the composer.
-        static let workCard: CGFloat = 22
-    }
-
-    /// The card above the composer.
-    enum Card {
-        /// A share of the pane's height, and the card scrolls its text inside beyond it.
-        static let heightShare: CGFloat = 0.6
-        /// A pane shorter than this (a phone on its side, or with the keyboard up) offers the card the short share.
-        static let shortPane: CGFloat = 500
-        static let shortShare: CGFloat = 0.45
-        /// At the accessibility sizes the card leaves more of the pane to the chat.
-        static let largeShare: CGFloat = 0.5
-        /// The least height the card is offered: its title and buttons.
-        static let leastHeight: CGFloat = 160
-        /// The least the chat keeps above a card, so its text always has room to be read.
-        static let chatLeastHeight: CGFloat = 120
-        /// The least a card's text area keeps when the buttons under it need the room: a title line.
-        static let textLeastHeight: CGFloat = 60
     }
 
     /// Control sizes.
@@ -92,8 +62,6 @@ enum Design {
         static let control: CGFloat = 44
         /// A distance that puts a view wholly outside any screen.
         static let offscreen: CGFloat = 4000
-        /// The widest a person's message bubble grows.
-        static let bubbleMaximumWidth: CGFloat = 300
         /// The drawer's search field and new thread button.
         static let bar: CGFloat = 44
         static let key: CGFloat = 44
@@ -102,26 +70,14 @@ enum Design {
         static let filterChip: CGFloat = 40
         /// The status column of a step list.
         static let stepColumn: CGFloat = 24
-        static let uploadBarWidth: CGFloat = 160
-        static let uploadBarHeight: CGFloat = 3
         /// One item of the pane row on a wide screen.
         static let paneItemWidth: CGFloat = 50
         static let paneItemHeight: CGFloat = 50
-        static let smallChip: CGFloat = 32
         static let row: CGFloat = 52
-        static let listRow: CGFloat = 50
         static let option: CGFloat = 52
-        static let statusColumn: CGFloat = 20
         static let statusDot: CGFloat = 9
-        static let sectionDot: CGFloat = 10
-        /// A card's button.
-        static let cardButton: CGFloat = 50
-        /// The widest the request row and the chat's text grow on a wide screen.
-        static let chatMaximumWidth: CGFloat = 720
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
-        /// The source chip's drawn height.
-        static let sourceChip: CGFloat = 28
     }
 }
 
@@ -180,9 +136,6 @@ extension Color {
     /// A control inside the composer card: `--panel-2`.
     static let yakBarFill = board(
         dark: 0x232427, light: 0xEEF0F2, highContrast: BoardContrast(dark: 0x45464A, light: 0xDCDCDE))
-    /// A selected or pressed control inside the composer card.
-    static let yakBarFillStrong = board(
-        dark: 0x303137, light: 0xE0E1E6, highContrast: BoardContrast(dark: 0x55565A, light: 0xCBCBCD))
     /// The line between rows and under and above a bar: `--border`.
     static let yakLine = board(
         dark: 0x232428, light: 0xEBECEF, highContrast: BoardContrast(dark: 0x8A8D95, light: 0x6A6D75))
@@ -220,19 +173,12 @@ extension Color {
 
 /// The colors of the cards, pills and chips that show the work of a thread, from the work boards.
 extension Color {
-    /// The white row on a card.
-    static let yakCardRow = board(dark: 0x2C2C2E, light: 0xFFFFFF)
     /// The source chip and the neutral card.
     static let yakCardSurface = board(dark: 0x1C1C1E, light: 0xF2F2F7)
     static let yakCardWarnSurface = board(dark: 0x2E2206, light: 0xFDF3DC)
     static let yakCardBadSurface = board(dark: 0x32110F, light: 0xFDECEA)
-    static let yakCardButton = board(dark: 0x3A3A3C, light: 0xE5E5EA)
-    static let yakCardPrimary = board(dark: 0xFFFFFF, light: 0x1C1C1E)
-    static let yakCardPrimaryText = board(dark: 0x000000, light: 0xFFFFFF)
     static let yakCardDangerText = board(
         dark: 0xFF8A80, light: 0xA0201A, highContrast: BoardContrast(dark: 0xFFC2BA, light: 0x8A1812))
-    static let yakCardSeparator = board(dark: 0x3A3A3C, light: 0xD1D1D6)
-    static let yakCardSecondaryText = board(dark: 0xD1D1D6, light: 0x3A3A3C)
     static let yakPillNeutral = board(dark: 0x2C2C2E, light: 0xE5E5EA)
     static let yakPillNeutralText = board(dark: 0xE5E5EA, light: 0x2C2C2E)
     static let yakPillOK = board(dark: 0x12381F, light: 0xDCF2E3)

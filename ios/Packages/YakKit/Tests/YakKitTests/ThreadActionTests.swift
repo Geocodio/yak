@@ -98,10 +98,10 @@ private func body(of request: URLRequest) throws -> String {
 
 @Test func networkFailureIsOfflineWithoutRefresh() async throws {
     let rig = try await makeRig()
-    let route = "POST threads/\(threadID)/continue"
+    let route = "POST threads/\(threadID)/stop"
     await rig.transport.on(route, .failure(.notConnectedToInternet))
     let shows = await rig.transport.requests(on: showRoute).count
-    #expect(await rig.engine.continueTurn() == .failed(.offline))
+    #expect(await rig.engine.stopTurn() == .failed(.offline))
     #expect(await rig.transport.requests(on: showRoute).count == shows)
 }
 
@@ -112,60 +112,6 @@ private func body(of request: URLRequest) throws -> String {
     let shows = await rig.transport.requests(on: showRoute).count
     #expect(await rig.engine.retryRestore() == .failed(.server(code: "server_error", message: "Boom.")))
     #expect(await rig.transport.requests(on: showRoute).count == shows + 1)
-}
-
-@Test func theDraftSurvivesAndIsSent() async throws {
-    let first = try await makeRig()
-    let draft = QuestionDraft(
-        roundKey: roundKey,
-        answers: [
-            "on_failure": QuestionAnswer(choices: ["Mark the row as failed"]),
-            "notify": QuestionAnswer(choices: ["The owner", "The channel"]),
-        ])
-    await first.engine.updateQuestionDraft(draft)
-    await first.engine.close()
-
-    let second = try await makeRig(cache: first.cache)
-    #expect(await second.engine.questionDraft() == draft)
-    let route = "POST threads/\(threadID)/clarification-answers"
-    await second.transport.on(route, ok)
-    #expect(await second.engine.answerQuestion() == .done)
-    let request = try #require(await second.transport.requests(on: route).first)
-    let data = try #require(request.httpBody)
-    let sent = try #require(JSONSerialization.jsonObject(with: data) as? NSDictionary)
-    let expected: NSDictionary = [
-        "answers": [
-            "on_failure": ["choices": ["Mark the row as failed"], "other": NSNull()],
-            "notify": ["choices": ["The owner", "The channel"], "other": NSNull()],
-        ],
-        "note": NSNull(),
-    ]
-    #expect(sent == expected)
-    #expect(await second.engine.questionDraft() == nil)
-}
-
-@Test func aDraftForAnotherRoundIsIgnored() async throws {
-    let rig = try await makeRig()
-    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: "other:x"))
-    #expect(await rig.engine.questionDraft() == nil)
-}
-
-@Test func aNewRoundDropsTheOldDraft() async throws {
-    let rig = try await makeRig()
-    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: roundKey))
-    #expect(await rig.engine.questionDraft() != nil)
-    let data = try Scenarios.data("scenario-thread-question", setting: ["question", "taskId"], toJSON: #""z9z9z9z9""#)
-    await rig.transport.on(showRoute, .json(200, String(decoding: data, as: UTF8.self)))
-    await rig.engine.refreshShow()
-    #expect(await rig.engine.questionDraft() == nil)
-}
-
-@Test func answeringWithoutARoundIsRefusedLocally() async throws {
-    let rig = try await makeRig(question: false)
-    let route = "POST threads/\(threadID)/clarification-answers"
-    #expect(
-        await rig.engine.answerQuestion() == .refused(code: "question_closed", message: "", fieldErrors: [:]))
-    #expect(await rig.transport.requests(on: route).isEmpty)
 }
 
 @Test func withdrawAndModeUseTheMessageUUID() async throws {
@@ -210,43 +156,9 @@ private func body(of request: URLRequest) throws -> String {
     await rig.transport.waitForRequests(1, on: route)
     await rig.engine.close()
     _ = await running
-    #expect(await rig.engine.continueTurn() == .failed(.offline))
+    #expect(await rig.engine.stopTurn() == .failed(.offline))
     #expect(await rig.transport.requests(on: showRoute).count == shows)
-    #expect(await rig.transport.requests(on: "POST threads/\(threadID)/continue").isEmpty)
-}
-
-@Test func aRefreshWithoutAQuestionDropsTheDraft() async throws {
-    let rig = try await makeRig()
-    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: roundKey))
-    let data = try Scenarios.data("scenario-thread-show")
-    await rig.transport.on(showRoute, .json(200, String(decoding: data, as: UTF8.self)))
-    await rig.engine.refreshShow()
-    #expect(await rig.engine.questionDraft() == nil)
-}
-
-@Test func aDraftSavedOnTheCachedCopySurvivesUntilConfirmed() async throws {
-    let cache = Cache(instance: UUID(), files: InMemoryFileStore(), clock: ManualClock())
-    let rig = try await makeRig(cache: cache)
-    await rig.engine.updateQuestionDraft(QuestionDraft(roundKey: roundKey))
-    await rig.engine.close()
-    // A second engine whose show request is held stays on the cached copy.
-    let transport = ScriptedTransport()
-    await transport.on(showRoute, try .scenario(200, "scenario-thread-question"))
-    await transport.hold(showRoute)
-    await transport.on("POST threads/\(threadID)/seen", .json(200, "{}"))
-    await EventServer(threadID: threadID, events: []).install(on: transport)
-    let client = APIClient(
-        baseURL: URL(string: "https://example.test")!, token: "test-token", transport: transport,
-        appVersion: "1.0", systemDescription: "Test", sleep: { _ in })
-    let engine = ThreadEngine(
-        threadID: threadID, client: client, cache: cache, clock: ManualClock(), frameInterval: .zero)
-    await engine.open()
-    await transport.waitForRequests(1, on: showRoute)
-    #expect(await engine.questionDraft() != nil)
-    await transport.release(showRoute)
-    _ = try await StreamRecorder(await engine.snapshots()).next { $0.load == .ready && !$0.isShowingCachedCopy }
-    #expect(await engine.questionDraft() != nil)
-    await engine.close()
+    #expect(await rig.transport.requests(on: route).count == 1)
 }
 
 // MARK: Rate limits and read-only refusals

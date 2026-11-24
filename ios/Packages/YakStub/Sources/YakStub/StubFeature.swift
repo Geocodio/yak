@@ -30,6 +30,8 @@ protocol StubFeature: Sendable {
     /// Called for every API request in every scenario, before the core routes. `route` is the method and the path
     /// after the API prefix ("GET threads/abc"). Nil: not this feature's (the feature may still note the request).
     func answer(route: String, request: StubRequest, context: StubContext) -> StubReply?
+    /// Told of every API request before any feature answers it, so a feature can count requests another one answers.
+    func saw(route: String)
     /// Called for every request under `/app/embed/`, which is the instance's own web pages rather than the API. `context`
     /// is the same as for `answer`. Nil: not this feature's.
     func web(_ request: StubRequest, context: StubContext) -> StubReply?
@@ -64,6 +66,7 @@ extension StubFeature {
     func played(scenario: String) {}
     func coreScenario(for scenario: String) -> String? { nil }
     func setOnline(_ isOnline: Bool) {}
+    func saw(route: String) {}
     func attach(publish: @escaping @Sendable (_ thread: String, _ json: String) -> Void) {}
     func subscribed(thread id: String, scenario: String, fixtures: StubFixtures) {}
 }
@@ -74,11 +77,6 @@ enum StubFeatures {
         StubWidgets(),
         StubPush(),
         StubPreviewFeature(),
-        StubWalkthroughVideo(),
-        // Before the changes feature, which answers the core thread's show in every scenario.
-        StubQuestions(),
-        // Before the changes feature too: its scenarios answer the thread's show from their own files.
-        StubThreadWork(),
         StubEmbedWaiting(),
         StubChanges(),
         StubTerminalFeature.shared,

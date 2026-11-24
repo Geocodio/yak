@@ -361,5 +361,6 @@ private actor ViewerSleepGate {
     func deliver(_ message: EmbedAppMessage) {}
     func quickLook(url: URL, name: String) {}
     func setHidden(_ isHidden: Bool) {}
+    func pauseMedia() {}
     func captureArchive(_ completion: @escaping @MainActor (Data?) -> Void) { completion(nil) }
 }

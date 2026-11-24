@@ -175,8 +175,7 @@ private func settled(_ engine: ThreadEngine, at sequence: Int = 14) async throws
     await server.publish(through: 1800)
     let rig = try await openedEngine(server: server, show: showData(latestSequence: 1800))
     #expect(await server.requestedAfters.first == 1300)
-    let snapshot = try await settled(rig.engine, at: 1800)
-    #expect(snapshot.hasOlderHistory)
+    _ = try await settled(rig.engine, at: 1800)
     let request = try #require(await rig.transport.requests(on: "GET threads/\(threadID)/events").first)
     #expect(request.url?.query?.contains("limit=500") == true)
 }
