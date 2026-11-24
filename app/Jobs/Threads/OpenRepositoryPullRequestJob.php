@@ -59,7 +59,7 @@ class OpenRepositoryPullRequestJob implements ShouldQueue
             throw new \RuntimeException('GitHub PR creation failed: ' . ($pull['message'] ?? json_encode($pull)));
         }
 
-        $sync->recordOpened($row, (int) $pull['number'], (string) $pull['html_url'], (string) ($pull['title'] ?? $title));
+        $sync->recordOpened($row, (int) $pull['number'], (string) $pull['html_url'], (string) ($pull['title'] ?? $title), $pull);
     }
 
     /**

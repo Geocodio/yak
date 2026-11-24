@@ -80,7 +80,7 @@ export function ThreadFilterMenu({
             <Popover.Trigger
                 render={<Button variant="secondary" icon={<ListFilter size={13} />} className="shrink-0 px-2" data-testid="thread-filter-menu-button" />}
             >
-                Filter
+                <span className="sr-only">Filter</span>
                 {pickedCount > 0 ? <span className="ml-1 rounded-pill bg-panel-2 px-1.5 text-[11px] tabular-nums">{pickedCount}</span> : null}
             </Popover.Trigger>
             <Popover.Portal>

@@ -99,7 +99,7 @@ class CreatePullRequestJob implements ShouldQueue
             }
 
             $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number'], 'pr_opened_at' => $this->task->pr_opened_at ?? now()]);
-            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''), (array) $existing);
             $this->markCoOwned($gitHub, $repository, $installationId, (int) $existing['number']);
 
             return;
@@ -114,7 +114,7 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_url' => $existing['html_url'],
                 'pr_number' => $existing['number'],
             ]);
-            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''), (array) $existing);
 
             Telemetry::record('pr.updated', ['pr_number' => (int) $existing['number']], task: $this->task);
 
@@ -209,7 +209,7 @@ class CreatePullRequestJob implements ShouldQueue
         // that can fail, and the follow-up calls are best effort.
         if ($this->approvedRequest !== null) {
             $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
-            $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
+            $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title, (array) $prResponse);
             $this->bestEffort(fn () => $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels));
             $this->bestEffort(fn () => $this->recordOpened($prNumber, $openedAt));
             $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
@@ -220,7 +220,7 @@ class CreatePullRequestJob implements ShouldQueue
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
         $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
-        $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
+        $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title, (array) $prResponse);
 
         $this->recordOpened($prNumber, $openedAt);
     }
@@ -228,7 +228,10 @@ class CreatePullRequestJob implements ShouldQueue
     /**
      * A thread's primary repo row mirrors the task chain's pull request.
      */
-    private function syncPrimaryRow(int $number, string $url, string $title): void
+    /**
+     * @param  array<string, mixed>  $pullRequest
+     */
+    private function syncPrimaryRow(int $number, string $url, string $title, array $pullRequest): void
     {
         if ($this->task->thread_id === null) {
             return;
@@ -240,7 +243,7 @@ class CreatePullRequestJob implements ShouldQueue
             ->first();
 
         if ($row !== null) {
-            app(ThreadPullRequestSync::class)->recordOpened($row, $number, $url, $title !== '' ? $title : (string) $row->pull_request_title);
+            app(ThreadPullRequestSync::class)->recordOpened($row, $number, $url, $title !== '' ? $title : (string) $row->pull_request_title, $pullRequest);
         }
     }
 

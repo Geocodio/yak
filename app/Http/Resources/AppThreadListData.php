@@ -22,7 +22,7 @@ final class AppThreadListData
      */
     public static function for(User $user, ThreadListFilter $filter, ?string $search, array $sources = [], array $starters = []): array
     {
-        $list = ThreadList::for($user, $filter, $search, $sources, $starters);
+        $list = ThreadList::for($user, $filter, $search, $sources, $starters, withReviewCount: false);
         $hasListFilters = $sources !== [] || $starters !== [];
         $taskItems = $filter === ThreadListFilter::Closed || $hasListFilters ? [] : NeedsYouTasks::for($user, $search, includesCoOwnerOnOpenThread: true);
         $needsYou = [...self::typed($list['needsYou']), ...$taskItems];

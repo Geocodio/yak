@@ -1,9 +1,16 @@
 <?php
 
+use App\Enums\ThreadListFilter;
 use App\Enums\ThreadSource;
+use App\Enums\TurnState;
+use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadView;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\Threads\ThreadList;
+use Illuminate\Support\Facades\DB;
 
 test('guests are redirected', function () {
     $this->get(route('threads.list'))->assertRedirect(route('login'));
@@ -107,4 +114,121 @@ test('sources must be an array of strings', function () {
 
     $this->getJson(route('threads.list', ['sources' => 'slack']))->assertUnprocessable();
     $this->getJson(route('threads.list', ['starters' => 'yak']))->assertUnprocessable();
+});
+
+test('the review filter groups threads by review state', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $makeThread = function (array $repository) use ($user): Thread {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+        ThreadRepository::factory()->create([
+            'thread_id' => $thread->id,
+            'pull_request_state' => 'open',
+            'pull_request_number' => 1,
+            'pull_request_head_sha' => 'head1',
+            ...$repository,
+        ]);
+
+        return $thread;
+    };
+    $backToYou = $makeThread(['pull_request_reviews' => ['mathias' => ['state' => 'commented', 'commitSha' => 'head1']]]);
+    $notReviewed = $makeThread([]);
+    $approved = $makeThread(['pull_request_reviews' => ['mathias' => ['state' => 'approved', 'commitSha' => 'head1']]]);
+    Thread::factory()->create(['created_by_user_id' => $user->id]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('reviewCount', 2)
+        ->assertJsonPath('review.needsGitHubLink', false)
+        ->assertJsonPath('review.backToYou.0.id', $backToYou->public_id)
+        ->assertJsonPath('review.backToYou.0.review.state', 'back_to_you')
+        ->assertJsonPath('review.notReviewed.0.id', $notReviewed->public_id)
+        ->assertJsonPath('review.approved.0.id', $approved->public_id)
+        ->assertJsonCount(0, 'review.withYak')
+        ->assertJsonCount(0, 'threads');
+
+    $this->getJson(route('threads.list'))->assertJsonPath('reviewCount', 2)->assertJsonMissingPath('review');
+});
+
+test('the review filter asks a viewer without a github login to link it', function () {
+    $user = User::factory()->create(['github_login' => null]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('review.needsGitHubLink', true)
+        ->assertJsonCount(0, 'review.backToYou')
+        ->assertJsonCount(0, 'review.notReviewed');
+});
+
+test('reviewCount ignores the search box on every filter', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    foreach (['Alpha work', 'Beta work'] as $title) {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => $title]);
+        ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+    }
+
+    foreach (['mine', 'review'] as $filter) {
+        $this->actingAs($user)->getJson(route('threads.list', ['filter' => $filter, 'search' => 'Alpha']))
+            ->assertOk()
+            ->assertJsonPath('reviewCount', 2);
+    }
+});
+
+test('the review count adds only a few queries and builds no rows', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $countQueries = function () use ($user): int {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson(route('threads.list'))->assertOk();
+        $count = count(DB::getQueryLog());
+        DB::flushQueryLog();
+
+        return $count;
+    };
+    foreach (range(1, 5) as $number) {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+        ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'merged', 'pull_request_number' => $number]);
+    }
+    $baseline = $countQueries();
+
+    ThreadRepository::query()->update(['pull_request_state' => 'open']);
+    $withOpenPullRequests = $countQueries();
+
+    expect($withOpenPullRequests - $baseline)->toBeLessThanOrEqual(4);
+});
+
+test('only the review tab and the review count read pull request data, and callers can skip the count', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+    $reviewQueries = function (callable $load): int {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $load();
+        $count = count(array_filter(DB::getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'pull_request_reviews')));
+        DB::flushQueryLog();
+
+        return $count;
+    };
+
+    expect($reviewQueries(fn () => ThreadList::for($user, withReviewCount: false)))->toBe(0)
+        ->and($reviewQueries(fn () => ThreadList::for($user)))->toBeLessThanOrEqual(2)
+        ->and($reviewQueries(fn () => ThreadList::for($user, ThreadListFilter::Review)))->toBeGreaterThanOrEqual(1);
+    expect(ThreadList::for($user, withReviewCount: false)['reviewCount'])->toBe(0);
+});
+
+test('a queued turn counts as with yak in the review tab and not as a review count entry', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Pending]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('review.withYak.0.id', $thread->public_id)
+        ->assertJsonCount(0, 'review.notReviewed')
+        ->assertJsonPath('reviewCount', 0);
+    $this->getJson(route('threads.list'))->assertJsonPath('reviewCount', 0);
 });
