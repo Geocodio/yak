@@ -1,0 +1,18 @@
+{
+    "pullRequests": [
+        {
+            "checks": "failing",
+            "number": 12,
+            "repository": "example/web",
+            "state": "merged",
+            "url": "https://github.com/example/web/pull/12"
+        },
+        {
+            "checks": "pending",
+            "number": 41,
+            "repository": "example/api",
+            "state": "open",
+            "url": "https://github.com/example/api/pull/41"
+        }
+    ]
+}
