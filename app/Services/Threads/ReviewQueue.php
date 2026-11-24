@@ -54,12 +54,12 @@ class ReviewQueue
 
         return [
             'state' => $state->value,
-            'pullRequests' => $pullRequests->map(fn (ThreadRepository $repository): array => [
+            'pullRequests' => array_values($pullRequests->map(fn (ThreadRepository $repository): array => [
                 'repo' => $repository->repo,
                 'number' => (int) $repository->pull_request_number,
                 'url' => (string) $repository->pull_request_url,
                 'isDraft' => $repository->pull_request_is_draft,
-            ])->all(),
+            ])->all()),
             'blockedLabel' => match (true) {
                 $pullRequests->contains(fn (ThreadRepository $repository): bool => $repository->pull_request_mergeable_state === 'dirty') => 'Conflicts',
                 $pullRequests->contains(fn (ThreadRepository $repository): bool => $repository->ci_status === 'failing') => 'CI failing',

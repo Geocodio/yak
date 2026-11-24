@@ -208,7 +208,7 @@ class WebhookController extends Controller
     /**
      * Stores PR facts for the review queue; a storage failure never blocks the real handlers.
      *
-     * @param  callable(PullRequestFacts): void  $record
+     * @param  callable(PullRequestFacts): mixed  $record
      */
     private function recordPullRequestFacts(callable $record): void
     {
