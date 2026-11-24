@@ -1,0 +1,212 @@
+{
+  "thread": {
+    "id": "d0e515ef",
+    "name": "retry-failed-rows",
+    "title": "Retry failed rows when the import times out",
+    "repo": "example/api",
+    "kind": "root",
+    "status": "open",
+    "visibility": "team",
+    "branch": "yak/retry-failed-rows",
+    "sandboxState": "running",
+    "runnerState": "idle",
+    "ownerSide": "yak",
+    "blockedReason": null,
+    "parentThreadId": null,
+    "rootThreadId": null,
+    "lastActivityAt": "2026-11-15T09:30:00Z",
+    "pullRequestCount": 0,
+    "isOwner": true,
+    "isStarred": false,
+    "hasRepository": true
+  },
+  "canDrive": true,
+  "messages": [
+    {
+      "id": "turn-message-1",
+      "uuid": "00000000-0000-4000-8000-000000000001",
+      "sendKey": null,
+      "text": "Retry failed rows when the import times out",
+      "authorName": "Test Person",
+      "authorInitials": "TP",
+      "model": null,
+      "state": "read",
+      "mode": null,
+      "intent": null,
+      "sentAt": "2026-11-15T09:00:00Z",
+      "readAfterSequence": 2,
+      "bodyHtml": "<p>Retry failed rows when the import times out</p>"
+    }
+  ],
+  "composer": {
+    "state": "idle",
+    "model": "sonnet",
+    "accountName": "Test account",
+    "nextAttachmentNumber": 1,
+    "models": [
+      {
+        "family": "sonnet",
+        "latest": {
+          "value": "sonnet",
+          "label": "Sonnet 5.5",
+          "description": "Fast and capable"
+        },
+        "older": [
+          {
+            "value": "claude-sonnet-5-0",
+            "label": "Sonnet 5"
+          }
+        ]
+      }
+    ]
+  },
+  "notice": null,
+  "panes": {
+    "chat": true,
+    "preview": false,
+    "terminal": true,
+    "changes": true,
+    "files": true
+  },
+  "question": null,
+  "latestSequence": 14,
+  "request": {
+    "source": {
+      "key": "dashboard",
+      "label": "Dashboard",
+      "reference": null,
+      "url": null
+    },
+    "starter": {
+      "key": "name:Test person",
+      "name": "Test person",
+      "avatarUrl": null
+    },
+    "responsibleName": null,
+    "status": {
+      "key": "waiting_for_co_owner",
+      "label": "Waiting for a co-owner",
+      "tone": "warn"
+    }
+  },
+  "progress": {
+    "steps": [
+      {
+        "key": "received",
+        "label": "Received",
+        "tooltip": "Task landed in the queue.",
+        "state": "done"
+      },
+      {
+        "key": "picked_up",
+        "label": "Picked up",
+        "tooltip": "An agent has claimed the task and started setup.",
+        "state": "done"
+      },
+      {
+        "key": "working",
+        "label": "Working",
+        "tooltip": "Agent is investigating the codebase and implementing the fix.",
+        "state": "done"
+      },
+      {
+        "key": "pushed",
+        "label": "Pushed",
+        "tooltip": "Changes committed and pushed to a branch.",
+        "state": "done"
+      },
+      {
+        "key": "ci",
+        "label": "CI passed",
+        "tooltip": "CI verifies the changes before the pull request opens.",
+        "state": "done"
+      },
+      {
+        "key": "co_owner",
+        "label": "Co-owner",
+        "tooltip": "A co-owner decides before the pull request opens.",
+        "state": "current"
+      },
+      {
+        "key": "pull_request",
+        "label": "Pull request",
+        "tooltip": "Pull request opened for human review.",
+        "state": "upcoming"
+      },
+      {
+        "key": "done",
+        "label": "Done",
+        "tooltip": "Task complete.",
+        "state": "upcoming"
+      }
+    ]
+  },
+  "milestones": [],
+  "card": "co_owner",
+  "repositoryQuestion": null,
+  "earlyWarning": null,
+  "coOwner": {
+    "id": 3,
+    "status": "pending",
+    "heldAt": "2026-11-15T09:20:00Z",
+    "expiresAt": "2026-11-22T09:20:00Z",
+    "decidedAt": null,
+    "decidedBy": null,
+    "feedback": null,
+    "repoName": "example/api",
+    "branch": "yak/retry-failed-rows",
+    "compareUrl": "https://github.com/example/api/compare/main...yak/retry-failed-rows",
+    "prUrl": null,
+    "areas": [
+      {
+        "name": "API middleware",
+        "risk": "high",
+        "rationale": "Every request passes through it.",
+        "files": [
+          {
+            "path": "app/Http/Middleware/**",
+            "status": "modified"
+          }
+        ]
+      }
+    ],
+    "holdReasons": [
+      "Touches shared middleware."
+    ],
+    "stat": {
+      "additions": 42,
+      "deletions": 3,
+      "files": 2
+    },
+    "asked": [
+      "Second person"
+    ],
+    "attempts": [],
+    "fallbackOwner": null,
+    "viewer": {
+      "isRequester": false,
+      "isLinked": true,
+      "login": "test-person",
+      "access": "write"
+    },
+    "connectUrl": "https://yak.example.com/connect/github",
+    "requesterName": "Test person",
+    "linkError": null,
+    "canDecide": true,
+    "viewerIsAsked": true
+  },
+  "stopped": null,
+  "actions": {
+    "canStop": false,
+    "canRetry": false,
+    "canCancel": false,
+    "canMove": true,
+    "moveTargets": [
+      "example/web"
+    ],
+    "canRequestReview": false,
+    "canRetryRender": false
+  },
+  "isLegacy": false,
+  "legacyAnswers": []
+}
