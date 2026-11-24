@@ -89,9 +89,11 @@ it('stores an approval keyed by lowercased login', function () {
 
 it('a comment does not replace an approval', function () {
     postFactsWebhook('pull_request_review', reviewPayload('submitted', 'APPROVED'));
-    postFactsWebhook('pull_request_review', reviewPayload('submitted', 'COMMENTED'));
+    $comment = reviewPayload('submitted', 'COMMENTED');
+    $comment['review']['commit_id'] = 'def';
+    postFactsWebhook('pull_request_review', $comment);
 
-    expect($this->row->refresh()->pull_request_reviews['mathias']['state'])->toBe('approved');
+    expect($this->row->refresh()->pull_request_reviews['mathias'])->toBe(['state' => 'approved', 'commitSha' => 'abc']);
 });
 
 it('changes requested replaces an approval', function () {

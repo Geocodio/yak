@@ -64,9 +64,13 @@ class PullRequestFacts
 
         foreach ($this->rowsFor($repoFullName, $prNumber) as $row) {
             $reviews = $row->pull_request_reviews ?? [];
+            $existing = $reviews[$login] ?? null;
+            $state = self::mergeReview($existing, $incoming);
             $reviews[$login] = [
-                'state' => self::mergeReview($reviews[$login] ?? null, $incoming),
-                'commitSha' => $review['commit_id'] ?? null,
+                'state' => $state,
+                'commitSha' => $existing !== null && $state === $existing['state'] && $incoming !== $state
+                    ? $existing['commitSha']
+                    : ($review['commit_id'] ?? null),
             ];
             $row->pull_request_reviews = $reviews;
             $row->save();
