@@ -240,7 +240,7 @@ it('answers the review tab in the web groups with one pull request line per row'
             'otherApprovals' => 0,
         ])
         ->and(reviewGroupRows($response, 'not_reviewed')[0]['id'])->toBe($notReviewed->public_id)
-        ->and(reviewGroupRows($response, 'not_reviewed')[0]['review']['pullRequests'][0])->toMatchArray(['mergeability' => 'clean', 'checks' => 'passing'])
+        ->and(reviewGroupRows($response, 'not_reviewed')[0]['review']['pullRequests'][0])->toMatchArray(['mergeability' => 'no_conflicts', 'checks' => 'passing'])
         ->and(reviewGroupRows($response, 'with_yak')[0]['id'])->toBe($withYak->public_id)
         ->and(reviewGroupRows($response, 'with_yak')[0]['review']['pullRequests'][0])->toMatchArray(['mergeability' => 'unknown', 'checks' => null])
         ->and(reviewGroupRows($response, 'approved')[0]['id'])->toBe($approved->public_id)
@@ -290,16 +290,70 @@ it('puts an approval on an older commit back to the viewer with new commits', fu
         ->and($row['review']['pullRequests'][0]['approvedByYou'])->toBeFalse();
 });
 
-it('never shows another person\'s private thread in the review rows or count', function () {
+it('never shows a thread that the person created but that is now private to someone else', function () {
     $user = User::factory()->create(['github_login' => 'test-person']);
     $stranger = User::factory()->create(['github_login' => 'other-person']);
-    $private = privateThreadOf($stranger);
-    ThreadRepository::factory()->create(['thread_id' => $private->id, 'pull_request_state' => 'open', 'pull_request_number' => 3]);
+    $hidden = privateThreadOf($stranger, ['created_by_user_id' => $user->id]);
+    ThreadRepository::factory()->create(['thread_id' => $hidden->id, 'pull_request_state' => 'open', 'pull_request_number' => 3]);
     $own = reviewListThread($user);
 
     $response = $this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor($user))->assertOk()->assertJsonPath('reviewCount', 1);
 
     expect(collect($response->json('reviewGroups'))->flatMap(fn (array $group): array => array_column($group['rows'], 'id'))->all())->toBe([$own->public_id]);
+});
+
+it('lists a sub-thread pull request on its root row', function () {
+    $user = User::factory()->create(['github_login' => 'test-person']);
+    $root = Thread::factory()->create(['created_by_user_id' => $user->id, 'repo' => 'example/web']);
+    $child = Thread::factory()->child($root)->create(['created_by_user_id' => $user->id, 'repo' => 'example/api']);
+    ThreadRepository::factory()->create(['thread_id' => $child->id, 'repo' => 'example/api', 'pull_request_state' => 'open', 'pull_request_number' => 5, 'pull_request_url' => 'https://github.com/example/api/pull/5']);
+
+    $rows = reviewGroupRows($this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor($user))->assertOk(), 'not_reviewed');
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['id'])->toBe($root->public_id)
+        ->and($rows[0]['review']['pullRequests'][0])->toMatchArray(['number' => 5, 'repository' => 'example/api']);
+});
+
+it('lists only the open pull requests of a thread', function () {
+    $user = User::factory()->create(['github_login' => 'test-person']);
+    $thread = reviewListThread($user);
+    foreach (['merged' => 2, 'closed' => 3] as $state => $number) {
+        ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => "example/{$state}", 'pull_request_state' => $state, 'pull_request_number' => $number, 'pull_request_url' => "https://github.com/example/{$state}/pull/{$number}"]);
+    }
+
+    $rows = reviewGroupRows($this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor($user))->assertOk(), 'not_reviewed');
+
+    expect(array_column($rows[0]['review']['pullRequests'], 'number'))->toBe([1]);
+});
+
+it('reports the approval per pull request', function () {
+    $user = User::factory()->create(['github_login' => 'test-person']);
+    $thread = reviewListThread($user, ['merge_position' => 1, 'pull_request_reviews' => ['test-person' => ['state' => 'approved', 'commitSha' => 'head1']]]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'example/api', 'pull_request_state' => 'open', 'pull_request_number' => 9, 'pull_request_url' => 'https://github.com/example/api/pull/9', 'merge_position' => 2, 'pull_request_head_sha' => 'head9']);
+
+    $response = $this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor($user))->assertOk();
+    $rows = reviewGroupRows($response, 'not_reviewed') ?: reviewGroupRows($response, 'back_to_you');
+
+    expect(array_column($rows[0]['review']['pullRequests'], 'approvedByYou'))->toBe([true, false]);
+});
+
+it('keeps the review count from the narrow query when the review tab is searched', function () {
+    $user = User::factory()->create(['github_login' => 'test-person']);
+    reviewListThread($user, [], ['title' => 'Retry failed uploads']);
+    reviewListThread($user, ['pull_request_number' => 2], ['title' => 'Tidy the README']);
+
+    $response = $this->getJson('/api/app/v1/threads?filter=review&search=upload', phoneHeadersFor($user))->assertOk()
+        ->assertJsonPath('reviewCount', 2);
+
+    expect(reviewGroupRows($response, 'not_reviewed'))->toHaveCount(1);
+});
+
+it('adds no task items under the review filter', function () {
+    $user = User::factory()->create(['github_login' => 'test-person']);
+    YakTask::factory()->create(['thread_id' => null, 'status' => TaskStatus::AwaitingClarification, 'started_by_user_id' => $user->id]);
+
+    $this->getJson('/api/app/v1/threads?filter=review', phoneHeadersFor($user))->assertOk()->assertJsonPath('needsYou', []);
 });
 
 it('reads the review tab without calls to GitHub and with a flat query count', function () {

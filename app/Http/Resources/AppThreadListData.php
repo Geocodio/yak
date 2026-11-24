@@ -26,7 +26,7 @@ final class AppThreadListData
     {
         $list = ThreadList::for($user, $filter, $search, $sources, $starters);
         $hasListFilters = $sources !== [] || $starters !== [];
-        $taskItems = $filter === ThreadListFilter::Closed || $hasListFilters ? [] : NeedsYouTasks::for($user, $search, includesCoOwnerOnOpenThread: true);
+        $taskItems = in_array($filter, [ThreadListFilter::Closed, ThreadListFilter::Review], true) || $hasListFilters ? [] : NeedsYouTasks::for($user, $search, includesCoOwnerOnOpenThread: true);
         $needsYou = [...self::typed($list['needsYou']), ...$taskItems];
 
         usort($needsYou, fn (array $a, array $b): int => match (true) {
@@ -67,7 +67,7 @@ final class AppThreadListData
     {
         $groups = [];
         $slugs = collect($review)->except('needsGitHubLink')->flatten(1)->flatMap(fn (array $row): array => array_column($row['review']['pullRequests'] ?? [], 'repo'))->unique()->values()->all();
-        $names = Repository::query()->whereIn('slug', $slugs)->pluck('github_full_name', 'slug');
+        $names = $slugs === [] ? collect() : Repository::query()->whereIn('slug', $slugs)->pluck('github_full_name', 'slug');
 
         foreach ([['back_to_you', 'backToYou', 'Back to you'], ['not_reviewed', 'notReviewed', 'Not reviewed'], ['with_yak', 'withYak', 'With Yak'], ['approved', 'approved', 'Approved by you']] as [$key, $field, $label]) {
             $groups[] = ['key' => $key, 'label' => $label, 'rows' => array_map(fn (array $row): array => self::withReviewLine($row, $names), self::typed($review[$field] ?? []))];

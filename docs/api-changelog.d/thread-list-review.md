@@ -26,7 +26,7 @@ Clients show the server's `label` and treat a `key` they do not know as one more
 }
 ```
 
-`pullRequests` lists the thread's open pull requests in merge order. `mergeability` is `conflicts`, `clean` or `unknown`; `checks` is `passing`, `failing`, `pending` or `null`, the same words as `pullRequests[].checks` in `GET threads/{id}`; `approvedByYou` is true when the person's approval is on the current head commit; `hasNewCommitsSinceApproval` is true when they approved an older commit; `otherApprovals` counts other people with an approval. Clients treat any unknown value as "show the label" or hide the badge. Everything is read from stored facts; the request makes no GitHub call.
+`pullRequests` lists the thread's open pull requests in merge order. `mergeability` is `conflicts`, `no_conflicts` or `unknown`, and only says whether the pull request has merge conflicts; it never means "ready to merge"; `checks` is `passing`, `failing`, `pending` or `null`, the same words as `pullRequests[].checks` in `GET threads/{id}`; `approvedByYou` is true when the person's approval is on the current head commit; `hasNewCommitsSinceApproval` is true when they approved an older commit; `otherApprovals` counts other people with an approval. Clients treat any unknown value as "show the label" or hide the badge. Everything is read from stored facts; the request makes no GitHub call.
 
 Every `GET threads` answer (all filters) gains:
 

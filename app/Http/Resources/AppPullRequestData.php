@@ -21,16 +21,16 @@ final class AppPullRequestData
     }
 
     /**
-     * Only a dirty merge state is a conflict; no stored state is unknown.
+     * Only says whether the pull request has merge conflicts, never that it is ready to merge. Only a dirty merge state is a conflict; no stored state is unknown.
      *
-     * @return 'conflicts'|'clean'|'unknown'
+     * @return 'conflicts'|'no_conflicts'|'unknown'
      */
     public static function mergeability(?string $mergeableState): string
     {
         return match ($mergeableState) {
             'dirty' => 'conflicts',
             null, 'unknown' => 'unknown',
-            default => 'clean',
+            default => 'no_conflicts',
         };
     }
 }

@@ -106,7 +106,7 @@
                                 "approvedByYou": false,
                                 "checks": "passing",
                                 "isDraft": false,
-                                "mergeability": "clean",
+                                "mergeability": "no_conflicts",
                                 "number": 1,
                                 "repository": "example/web",
                                 "url": "https://github.com/example/web/pull/1"
