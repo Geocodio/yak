@@ -16,7 +16,7 @@ function pullRequestRow(int $number, string $state = 'open'): ThreadRepository
     return ThreadRepository::factory()->for(Thread::factory()->create())->withPullRequest($number)->create(['repo' => 'acme-app', 'pull_request_state' => $state]);
 }
 
-function review(string $login, string $state, string $commit = 'abc'): array
+function refreshFactsReviewPayload(string $login, string $state, string $commit = 'abc'): array
 {
     return ['user' => ['login' => $login], 'state' => $state, 'commit_id' => $commit];
 }
@@ -25,10 +25,10 @@ it('fills facts for open pull requests', function () {
     $row = pullRequestRow(7);
     Http::fake(gitHubTokenFake() + [
         'api.github.com/repos/acme/app/pulls/7/reviews*' => Http::response([
-            review('Mathias', 'APPROVED'),
-            review('Mathias', 'COMMENTED', 'def'),
-            review('teammate', 'CHANGES_REQUESTED', 'def'),
-            review('yak-bot[bot]', 'APPROVED'),
+            refreshFactsReviewPayload('Mathias', 'APPROVED'),
+            refreshFactsReviewPayload('Mathias', 'COMMENTED', 'def'),
+            refreshFactsReviewPayload('teammate', 'CHANGES_REQUESTED', 'def'),
+            refreshFactsReviewPayload('yak-bot[bot]', 'APPROVED'),
         ]),
         'api.github.com/repos/acme/app/pulls/7' => Http::response([
             'number' => 7,

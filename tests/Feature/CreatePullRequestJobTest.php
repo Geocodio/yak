@@ -3,6 +3,7 @@
 use App\Ai\Agents\PullRequestTitleWriter;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Jobs\CreatePullRequestJob;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
@@ -11,8 +12,10 @@ use App\Models\YakTask;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
+    Queue::fake([RefreshPullRequestMergeabilityJob::class]);
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($keyPair, $privateKey);
 

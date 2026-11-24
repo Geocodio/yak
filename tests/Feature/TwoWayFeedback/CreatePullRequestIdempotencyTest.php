@@ -2,10 +2,13 @@
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Jobs\CreatePullRequestJob;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
+    Queue::fake([RefreshPullRequestMergeabilityJob::class]);
     config()->set('yak.channels.github.installation_id', 4242);
 });
 
