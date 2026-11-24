@@ -19,7 +19,7 @@ use Tests\Support\ContractFixture;
 const COMPOSER_SHOW_VOLATILE = ['thread.id', 'thread.rootThreadId', 'thread.preview.targets.*.threadId', 'messages.*.id', 'messages.*.uuid', 'question.taskId', 'teleport.command', 'teleport.link'];
 
 /** @return array{0: Thread, 1: User, 2: TaskRun} a private thread with a running turn that has a step limit */
-function composerThread(): array
+function composerDataThread(): array
 {
     config(['yak.max_turns' => 300]);
     $user = User::factory()->create(['name' => 'Test person']);
@@ -30,14 +30,14 @@ function composerThread(): array
     return [$thread, $user, $run];
 }
 
-function stoppedAgentIds(Thread $thread): array
+function composerStoppedAgentIds(Thread $thread): array
 {
     return array_values(array_map(fn (array $command): string => $command['taskId'], array_filter(app(BrokerStreams::class)->commands('threads:' . $thread->id), fn (array $command): bool => $command['type'] === 'stop_agent')));
 }
 
 it('serves the slash commands the web composer offers', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     $thread->forceFill([
         'slash_commands' => [
             ['name' => 'review', 'description' => 'Review the diff', 'argumentHint' => '[focus]', 'kind' => 'skill'],
@@ -57,7 +57,7 @@ it('serves the slash commands the web composer offers', function () {
 });
 
 it('serves only the built-in commands before a session has listed any', function () {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
 
     $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()
         ->assertJsonPath('slashCommands.capturedAt', null)
@@ -65,7 +65,7 @@ it('serves only the built-in commands before a session has listed any', function
 });
 
 it('lists the thread of a share recipient with the same commands and agents', function () {
-    [$thread, $owner] = composerThread();
+    [$thread, $owner] = composerDataThread();
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone', 'description' => 'Read the spec']);
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
@@ -78,7 +78,7 @@ it('lists the thread of a share recipient with the same commands and agents', fu
 
 it('shows the composer data on thread show and writes the contract fixture', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     $thread->forceFill(['event_sequence' => 40, 'slash_commands' => [['name' => 'review', 'description' => 'Review the diff', 'argumentHint' => '[focus]', 'kind' => 'skill']], 'slash_commands_captured_at' => now()])->save();
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone', 'description' => 'Read the spec', 'started_at' => now()->subMinutes(5)]);
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'atwo', 'description' => 'Build mockups', 'started_at' => now()->subMinutes(2), 'stop_requested_at' => now()]);
@@ -95,7 +95,7 @@ it('shows the composer data on thread show and writes the contract fixture', fun
 });
 
 it('caps the short agent list and counts them all', function () {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     ThreadAgent::factory()->count(23)->create(['thread_id' => $thread->id]);
 
     $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()
@@ -104,7 +104,7 @@ it('caps the short agent list and counts them all', function () {
 });
 
 it('raises the step limit of the running turn like the web', function () {
-    [$thread, $user, $run] = composerThread();
+    [$thread, $user, $run] = composerDataThread();
 
     $response = $this->postJson(appThreadPath($thread, '/step-limit'), [], phoneHeadersFor($user))->assertOk()
         ->assertExactJson(['status' => 'raised', 'added' => 300, 'turn' => ['steps' => 262, 'limit' => 600, 'canAddSteps' => true, 'stepsToAdd' => 300]]);
@@ -114,7 +114,7 @@ it('raises the step limit of the running turn like the web', function () {
 });
 
 it('adds the steps again on every call, as the web does', function () {
-    [$thread, $user, $run] = composerThread();
+    [$thread, $user, $run] = composerDataThread();
     $headers = phoneHeadersFor($user);
 
     $this->postJson(appThreadPath($thread, '/step-limit'), [], $headers)->assertOk();
@@ -124,7 +124,7 @@ it('adds the steps again on every call, as the web does', function () {
 });
 
 it('refuses a step limit raise with no limited turn', function (string $case) {
-    [$thread, $user, $run] = composerThread();
+    [$thread, $user, $run] = composerDataThread();
     $case === 'started by a person' ? $run->update(['driver_user_id' => $user->id]) : $run->update(['turn_state' => TurnState::Completed]);
 
     $response = $this->postJson(appThreadPath($thread, '/step-limit'), [], phoneHeadersFor($user))->assertStatus(409)
@@ -136,7 +136,7 @@ it('refuses a step limit raise with no limited turn', function (string $case) {
 
 it('stops every running agent and answers the agents that remain', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone', 'description' => 'Read the spec']);
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'atwo', 'description' => 'Build mockups']);
     ThreadAgent::factory()->finished()->create(['thread_id' => $thread->id, 'task_id' => 'adone']);
@@ -147,13 +147,13 @@ it('stops every running agent and answers the agents that remain', function () {
         ->assertJsonPath('agents.runningCount', 2)
         ->assertJsonPath('agents.running.0.state', 'stopping');
 
-    expect(stoppedAgentIds($thread))->toBe(['aone', 'atwo'])
+    expect(composerStoppedAgentIds($thread))->toBe(['aone', 'atwo'])
         ->and(ThreadAgent::query()->where('task_id', 'adone')->value('stop_requested_at'))->toBeNull();
     ContractFixture::assertMatches('app', 'thread-agents-stop', $response->json());
 });
 
 it('answers idle when no agent runs, and a repeat asks the runner again for the ones still running', function () {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     $headers = phoneHeadersFor($user);
 
     $idle = $this->postJson(appThreadPath($thread, '/agents/stop'), [], $headers)->assertOk()
@@ -169,25 +169,25 @@ it('answers idle when no agent runs, and a repeat asks the runner again for the 
 });
 
 it('fails the agents when the runner is gone, as the web does', function () {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     $thread->forceFill(['runner_state' => RunnerState::None])->save();
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone']);
 
     $this->postJson(appThreadPath($thread, '/agents/stop'), [], phoneHeadersFor($user))->assertOk()
         ->assertJsonPath('stopped', 1)
         ->assertJsonPath('agents.runningCount', 0);
-    expect(stoppedAgentIds($thread))->toBe([]);
+    expect(composerStoppedAgentIds($thread))->toBe([]);
 });
 
 it('answers 404 when the subagents flag is off, like the web', function () {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     config(['yak.threads.subagents' => false]);
 
     $this->postJson(appThreadPath($thread, '/agents/stop'), [], phoneHeadersFor($user))->assertNotFound();
 });
 
 it('keeps both routes closed to others', function (string $suffix) {
-    [$thread, $owner, $run] = composerThread();
+    [$thread, $owner, $run] = composerDataThread();
     ThreadAgent::factory()->create(['thread_id' => $thread->id, 'task_id' => 'aone']);
     $recipient = User::factory()->create();
     app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$recipient->id]);
@@ -203,12 +203,12 @@ it('keeps both routes closed to others', function (string $suffix) {
     $this->postJson($path, [], $headers)->assertUnauthorized()->assertJsonPath('error', 'device_revoked');
 
     expect($run->refresh()->extra_turns)->toBe(0)
-        ->and(stoppedAgentIds($thread))->toBe([])
+        ->and(composerStoppedAgentIds($thread))->toBe([])
         ->and(ThreadAgent::query()->whereNotNull('stop_requested_at')->count())->toBe(0);
 })->with(['/step-limit', '/agents/stop']);
 
 it('throttles both routes', function (string $suffix) {
-    [$thread, $user] = composerThread();
+    [$thread, $user] = composerDataThread();
     $headers = phoneHeadersFor($user);
 
     foreach (range(1, 30) as $ignored) {
