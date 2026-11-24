@@ -1,0 +1,8 @@
+{
+    "agents": {
+        "running": [],
+        "runningCount": 0
+    },
+    "status": "idle",
+    "stopped": 0
+}

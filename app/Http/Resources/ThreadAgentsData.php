@@ -21,6 +21,7 @@ use App\Services\Threads\ThreadTurns;
  * @phpstan-type AgentRow array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int}
  * @phpstan-type AgentRowWithMessages array{id: string, kind: string, parentTaskId: ?string, toolUseId: ?string, depth: int, agentType: ?string, description: ?string, prompt: ?string, workflowName: ?string, model: ?string, isBackground: bool, status: string, lastTool: ?string, lastToolTarget: ?string, summary: ?string, totalTokens: int, toolUses: int, durationMs: int, startedAt: ?string, finishedAt: ?string, stopRequestedAt: ?string, stopError: ?string, workflowProgress: ?list<array<string, mixed>>, startedByTurnId: ?int, followUpTurnId: ?int, messages: list<AgentMessageRow>}
  * @phpstan-type AgentMessageRow array{id: int, text: string, authorName: ?string, sentAt: string, forwardedAt: ?string}
+ * @phpstan-type RunningAgents array{runningCount: int, running: list<array{id: string, name: string, state: 'running'|'stopping', startedAt: ?string}>}
  * @phpstan-type SubThreadRow array{id: string, name: string, title: string, kind: string, state: 'starting'|'queued'|'working'|'waiting'|'done'|'failed'|'closed', step: ?string, branch: ?string, pullRequestUrl: ?string}
  */
 final class ThreadAgentsData
@@ -60,6 +61,33 @@ final class ThreadAgentsData
             'subThreads' => self::subThreads($thread),
             'runningCount' => $running,
         ];
+    }
+
+    /** The most running agents the short list carries; `runningCount` always counts all of them. */
+    public const int RUNNING_LIST_LIMIT = 20;
+
+    /**
+     * The running agents in short, for the app: the count the Agents panel shows and the first few agents, oldest first.
+     * `state` is `stopping` once a stop was asked for and the agent has not finished yet.
+     *
+     * @return RunningAgents
+     */
+    public static function running(Thread $thread): array
+    {
+        $query = ThreadAgent::query()->where('thread_id', $thread->id)->running();
+        $count = (clone $query)->count();
+        $running = [];
+
+        foreach ($query->orderBy('id')->limit(self::RUNNING_LIST_LIMIT)->get() as $agent) {
+            $running[] = [
+                'id' => $agent->task_id,
+                'name' => $agent->label(),
+                'state' => $agent->stop_requested_at === null ? 'running' : 'stopping',
+                'startedAt' => $agent->started_at?->toIso8601String(),
+            ];
+        }
+
+        return ['runningCount' => $count, 'running' => $running];
     }
 
     /**

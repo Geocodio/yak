@@ -1,0 +1,10 @@
+{
+    "added": 300,
+    "status": "raised",
+    "turn": {
+        "canAddSteps": true,
+        "limit": 600,
+        "steps": 262,
+        "stepsToAdd": 300
+    }
+}

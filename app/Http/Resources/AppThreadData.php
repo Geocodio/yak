@@ -10,6 +10,7 @@ use App\Services\Push\LiveActivities\LiveActivityChannels;
 use App\Services\Tasks\AppMediaLinks;
 use App\Services\Threads\PullRequests\MergeOrder;
 use App\Services\Threads\PullRequests\OpenPullRequest;
+use App\Services\Threads\SlashCommands;
 
 /**
  * Thread show for the app: the web page props plus the panes it offers, the open question and the latest event sequence.
@@ -19,7 +20,7 @@ use App\Services\Threads\PullRequests\OpenPullRequest;
 final class AppThreadData
 {
     /**
-     * Panes, question, latestSequence, canOpenPullRequest, liveActivityChannel and pullRequests extend the ThreadShow shape.
+     * Panes, question, latestSequence, canOpenPullRequest, liveActivityChannel, pullRequests, slashCommands and agents extend the ThreadShow shape.
      *
      * @return ThreadShow
      */
@@ -51,6 +52,8 @@ final class AppThreadData
             'canOpenPullRequest' => app(OpenPullRequest::class)->canOpen($thread, $viewer),
             'liveActivityChannel' => app(LiveActivityChannels::class)->visibleFor($thread),
             'pullRequests' => self::pullRequests($thread),
+            'slashCommands' => app(SlashCommands::class)->forThread($thread),
+            'agents' => ThreadAgentsData::running($thread),
         ];
     }
 

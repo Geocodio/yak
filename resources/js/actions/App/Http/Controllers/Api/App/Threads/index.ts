@@ -10,6 +10,8 @@ import QueuedMessageController from './QueuedMessageController'
 import ThreadEventController from './ThreadEventController'
 import ThreadDiffController from './ThreadDiffController'
 import PullRequestController from './PullRequestController'
+import ThreadStepLimitController from './ThreadStepLimitController'
+import ThreadAgentController from './ThreadAgentController'
 import StackController from './StackController'
 import ThreadEnvironmentController from './ThreadEnvironmentController'
 import ThreadRepositoryController from './ThreadRepositoryController'
@@ -34,6 +36,8 @@ const Threads = {
     ThreadEventController: Object.assign(ThreadEventController, ThreadEventController),
     ThreadDiffController: Object.assign(ThreadDiffController, ThreadDiffController),
     PullRequestController: Object.assign(PullRequestController, PullRequestController),
+    ThreadStepLimitController: Object.assign(ThreadStepLimitController, ThreadStepLimitController),
+    ThreadAgentController: Object.assign(ThreadAgentController, ThreadAgentController),
     StackController: Object.assign(StackController, StackController),
     ThreadEnvironmentController: Object.assign(ThreadEnvironmentController, ThreadEnvironmentController),
     ThreadRepositoryController: Object.assign(ThreadRepositoryController, ThreadRepositoryController),

@@ -8,6 +8,8 @@ import events from './events'
 import diff from './diff'
 import pullRequest from './pull-request'
 import pullRequests from './pull-requests'
+import stepLimit from './step-limit'
+import agents from './agents'
 import stack from './stack'
 import environment from './environment'
 import repositories from './repositories'
@@ -1079,6 +1081,8 @@ const threads = {
     diff: Object.assign(diff, diff),
     pullRequest: Object.assign(pullRequest, pullRequest),
     pullRequests: Object.assign(pullRequests, pullRequests),
+    stepLimit: Object.assign(stepLimit, stepLimit),
+    agents: Object.assign(agents, agents),
     stack: Object.assign(stack, stack),
     environment: Object.assign(environment, environment),
     repositories: Object.assign(repositories, repositories),
