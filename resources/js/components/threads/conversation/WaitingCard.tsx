@@ -1,7 +1,9 @@
 import { Hourglass, Users } from 'lucide-react';
 import { cn } from '@geocodio/console-ui';
 import type { ThreadNotice, ThreadWaiting } from '@/types/threads';
+import { useEmbed } from '@/embed/useEmbed';
 import { useDocsUrl } from '@/lib/docsUrl';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { CapacityMeter } from './CapacityMeter';
 
 
@@ -57,8 +59,13 @@ function slotTitle(slot: Slot, grace: number): string {
 
 function SlotStrip({ waiting, freeCount }: { waiting: ThreadWaiting; freeCount: number }) {
     const grace = waiting.idleGraceMinutes;
+    // The time left shows on hover; the app's web view and any touch screen have no hover, so the text sits under the strip.
+    const isEmbed = useEmbed() !== null;
+    const isTouch = useMediaQuery('(hover: none)');
+    const hasNoHover = isEmbed || isTouch;
 
     return (
+        <>
         <ul className="mt-2 flex flex-wrap gap-1.5" data-testid="waiting-slots">
             {waiting.slots.map((slot, index) => {
                 const stoppable = isStoppable(slot, grace);
@@ -93,6 +100,14 @@ function SlotStrip({ waiting, freeCount }: { waiting: ThreadWaiting; freeCount: 
                 <li key={`free-${index}`} data-state="free" title="Free slot" className="h-7 min-w-7 rounded-md border border-dashed border-hair" />
             ))}
         </ul>
+        {hasNoHover && (
+            <ul className="mt-2 flex flex-col gap-0.5 text-[12px] text-muted" data-testid="waiting-slot-details">
+                {waiting.slots.map((slot, index) => (
+                    <li key={index}>{slotTitle(slot, grace)}</li>
+                ))}
+            </ul>
+        )}
+        </>
     );
 }
 
