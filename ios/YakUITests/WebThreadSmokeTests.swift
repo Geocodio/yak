@@ -120,14 +120,77 @@ import XCTest
             timeout: Wait.appear)
     }
 
-    func testAnOlderServerShowsTheNativeChat() throws {
+    /// A server that does not offer the page says so in the Chat pane; the composer still sends, another pane still
+    /// works, and the button opens the thread in the browser sheet.
+    func testAnOlderServerAsksForAnUpdateAndTheComposerStillSends() throws {
         try launch(scenario: "embed-unsupported")
         openThread()
-        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.firstLoad))
-        XCTAssertTrue(app.textFields["composer.field"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.staticTexts["Update needed"].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(
+            app.staticTexts[
+                "This Yak server needs an update to show conversations in the app. You can still send messages and use the other panes."
+            ].exists)
         // Only the web page has a web view and the stub page's text.
         XCTAssertFalse(app.webViews["thread.web.page"].exists)
         XCTAssertFalse(page("Stub conversation d0e515ef").exists)
+        XCTAssertTrue(try embedState().contains("mints=0"))
+        try audit()
+        let field = app.textFields["composer.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
+        field.tap()
+        field.typeText("Sent to an older server")
+        app.buttons["composer.send"].tap()
+        let sent = NSPredicate { _, _ in self.stub.lastMessage().contains("Sent to an older server") }
+        wait(for: [XCTNSPredicateExpectation(predicate: sent, object: nil)], timeout: Wait.appear)
+        app.buttons["thread.openInBrowser"].tap()
+        let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+        XCTAssertTrue(sheet.wait(for: .runningForeground, timeout: Wait.appear))
+    }
+
+    private func shows() throws -> Int {
+        let state = try embedState()
+        let value = state.split(separator: " ").first { $0.hasPrefix("shows=") }.map { $0.dropFirst("shows=".count) }
+        return try XCTUnwrap(value.flatMap { Int($0) }, state)
+    }
+
+    /// A card answered on the page (the question, a co-owner's decision) makes the app fetch the thread again, so the
+    /// header, the panes and the composer follow what the page did.
+    func testAnAnsweredCardMakesTheAppFetchTheThreadAgain() throws {
+        try launch(scenario: "embed-basic")
+        openThread()
+        waitForPage()
+        for (button, count) in [("Answer the question", 1), ("Approve the co-owner decision", 2)] {
+            let before = try shows()
+            app.buttons[button].tap()
+            let deadline = Date().addingTimeInterval(Wait.appear)
+            while Date() < deadline, (try? shows()) ?? 0 < before + 1 { Thread.sleep(forTimeInterval: 0.3) }
+            let state = try embedState()
+            XCTAssertGreaterThanOrEqual(try shows(), before + 1, "answer \(count): \(state), before \(before)")
+        }
+        XCTAssertTrue(app.textFields["composer.field"].isHittable)
+    }
+
+    /// The page of the first listed thread is prepared while the drawer shows, before any row is tapped, and the row's
+    /// tap then finds it: no second session is minted for it.
+    func testThePageOfTheFirstListedThreadIsPreparedBeforeARowIsTapped() throws {
+        try launch(scenario: "embed-basic")
+        let drawer = app.otherElements["drawer"]
+        XCTAssertTrue(drawer.waitForExistence(timeout: Wait.firstLoad))
+        let prepared = NSPredicate { _, _ in ((try? self.embedState()) ?? "").contains("redeems=1") }
+        wait(for: [XCTNSPredicateExpectation(predicate: prepared, object: nil)], timeout: Wait.firstLoad)
+        XCTAssertTrue(try embedState().contains("mints=1 redeems=1"))
+        openThread()
+        waitForPage()
+        XCTAssertTrue(try embedState().contains("mints=1 redeems=1"))
+    }
+
+    /// Nothing is prepared while the app lock covers the app.
+    func testNoPageIsPreparedWhileTheAppIsLocked() throws {
+        try launch(
+            scenario: "embed-basic",
+            extraArguments: ["-yakTestAppLock", "on", "-yakTestAuthentication", "cancel", "-yakTestAppLockLimit", "0"])
+        XCTAssertTrue(app.descendants(matching: .any)["lock.screen"].waitForExistence(timeout: Wait.appear))
+        Thread.sleep(forTimeInterval: 3)
         XCTAssertTrue(try embedState().contains("mints=0"))
     }
 

@@ -11,10 +11,6 @@ host_allowed_files=(
     Packages/YakKit/Sources/YakKit/Intents/QuickActionItems.swift
     # The reserved .invalid domain builds a response object for a stored answer; no request is made.
     Packages/YakKit/Sources/YakKit/Uploads/UploadLedger.swift
-    # The debug-only Markdown gallery renders a sample document with an example.com link; no request is made.
-    Yak/Markdown/MarkdownGallery.swift
-    # The debug-only chat gallery names example.test and example.com in canned data; no request is made.
-    Yak/Chat/ChatGallery.swift
     # The debug-only share sheet test host builds a sample instance and link on example.com addresses; it is compiled out of release builds and no request is made.
     Yak/Support/ShareTestHost.swift
 )

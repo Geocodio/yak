@@ -95,14 +95,14 @@ enum HeaderMark: Equatable {
     }
 }
 
-/// Whether the header says the connection is down. In a web conversation the Chat pane draws its own line (the saved
-/// copy or the offline line) while it shows, so the header leaves it out then and only then.
+/// Whether the header says the connection is down. The Chat pane draws its own line (the saved copy or the offline
+/// line) while it shows, so the header leaves it out then and only then.
 enum HeaderConnection {
     static func line(
-        _ line: ConnectionLine?, isWebConversation: Bool, chatIsVisible: Bool, chatShowsOwnLine: Bool
+        _ line: ConnectionLine?, chatIsVisible: Bool, chatShowsOwnLine: Bool
     ) -> ConnectionLine? {
         guard let line else { return nil }
-        return isWebConversation && chatIsVisible && chatShowsOwnLine ? nil : line
+        return chatIsVisible && chatShowsOwnLine ? nil : line
     }
 }
 

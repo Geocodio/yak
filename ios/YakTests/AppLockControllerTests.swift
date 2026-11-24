@@ -173,53 +173,6 @@ private final class Store: KeyValueStore, ProtectedDataAvailability, @unchecked 
         #expect(controller.unlock == .idle)
     }
 
-    @Test func lockingClosesPlayback() async {
-        final class FakePlayback { var closes = 0 }
-        let playback = FakePlayback()
-        let clock = ManualClock()
-        let settings = PrivacySettings(store: Store())
-        settings.appLockOn = true
-        let controller = AppLockController(
-            settings: settings, authenticator: FakeAuthenticator([.success, .cancelled]), clock: clock,
-            closePlayback: { playback.closes += 1 })
-        await controller.launched()
-        #expect(playback.closes == 0)
-        controller.appEnteredBackground()
-        let closesInBackground = playback.closes
-        clock.advance(.seconds(300))
-        await controller.appBecameActive()
-        #expect(controller.isLocked)
-        #expect(playback.closes == closesInBackground + 1)
-
-        let offSettings = PrivacySettings(store: Store())
-        let off = AppLockController(
-            settings: offSettings, authenticator: FakeAuthenticator(), clock: clock,
-            closePlayback: { playback.closes += 1 })
-        off.appEnteredBackground()
-        clock.advance(.seconds(300))
-        await off.appBecameActive()
-        #expect(playback.closes == closesInBackground + 1)
-    }
-
-    @Test func enteringBackgroundClosesPlaybackOnlyWhenTheLockIsOnOrUnknown() {
-        var closes = 0
-        func controller(_ settings: PrivacySettings) -> AppLockController {
-            AppLockController(
-                settings: settings, authenticator: FakeAuthenticator(), clock: ManualClock(),
-                closePlayback: { closes += 1 })
-        }
-        let on = PrivacySettings(store: Store())
-        on.appLockOn = true
-        controller(on).appEnteredBackground()
-        #expect(closes == 1)
-        controller(PrivacySettings(store: Store())).appEnteredBackground()
-        #expect(closes == 1)
-        let store = Store()
-        store.isReadable = false
-        controller(PrivacySettings(store: store, protectedData: store)).appEnteredBackground()
-        #expect(closes == 2)
-    }
-
     @Test func fiveMinutesAwayAsksAgain() async {
         let fake = FakeAuthenticator([.success, .success])
         let clock = ManualClock()

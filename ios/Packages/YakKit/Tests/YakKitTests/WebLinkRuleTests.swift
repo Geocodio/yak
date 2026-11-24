@@ -17,6 +17,11 @@ import Testing
         #expect(WebLinkRule.safeURL(text) == nil)
     }
 
+    @Test func anAddressOverTheLengthLimitIsRejected() {
+        let longPath = String(repeating: "a", count: WebLinkRule.maximumLength)
+        #expect(WebLinkRule.safeURL("https://example.test/" + longPath) == nil)
+    }
+
     @Test func nilIsRejected() {
         #expect(WebLinkRule.safeURL(nil) == nil)
     }

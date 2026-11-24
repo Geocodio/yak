@@ -19,7 +19,6 @@ struct BottomBar: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.webConversation) private var web
     @State private var isTyping = false
     private let swipeDistance: CGFloat = 60
 
@@ -29,14 +28,14 @@ struct BottomBar: View {
     private var showsPaneButton: Bool { placement?.showsPaneButtonInBar == true }
 
     var body: some View {
-        if !isInStrip, !thread.question.isEditing { bar }
+        if !isInStrip { bar }
     }
 
     /// The bar is docked: a strip on the page color with a rule above it, holding one card. The card holds the waiting
-    /// messages (while the conversation is the web page, which leaves them out of its list), then the controls.
+    /// messages (the web page leaves them out of its list), then the controls.
     private var bar: some View {
         VStack(spacing: 0) {
-            if pane == .chat, web?.mode == .web { QueuedChipsView(thread: thread) }
+            if pane == .chat { QueuedChipsView(thread: thread) }
             layout
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Design.Space.nudge + 1)

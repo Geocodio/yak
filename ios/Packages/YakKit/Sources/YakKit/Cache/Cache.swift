@@ -171,27 +171,6 @@ public actor Cache {
         if lastOpenedThreadID() == id { delete(lastOpenedPath) }
     }
 
-    // MARK: Question drafts
-
-    public func questionDraft(thread id: String) -> QuestionDraft? {
-        load(QuestionDraft.self, at: "\(folder(id))/question.json")
-    }
-
-    public func saveQuestionDraft(_ draft: QuestionDraft?, thread id: String) {
-        let path = "\(folder(id))/question.json"
-        if let draft {
-            store(draft, at: path, protection: .complete)
-        } else {
-            delete(path)
-        }
-    }
-
-    /// Deletes the saved draft only when its round key passes `shouldRemove`, in one step.
-    public func removeQuestionDraft(thread id: String, where shouldRemove: @Sendable (String) -> Bool) {
-        guard let draft = questionDraft(thread: id), shouldRemove(draft.roundKey) else { return }
-        delete("\(folder(id))/question.json")
-    }
-
     // MARK: Composer drafts
 
     private func composerPath(_ key: ComposerDraftKey) -> String {

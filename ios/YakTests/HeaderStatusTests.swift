@@ -19,19 +19,16 @@ import YakKit
 
     @Test func theHeaderHidesTheLineOnlyWhileTheChatPaneShowsItsOwn() {
         let line = ConnectionLine.offlineSavedCopy
-        // Web conversation, Chat visible, Chat draws a line: hidden.
+        // Chat visible, Chat draws a line: hidden.
         #expect(
-            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: true, chatShowsOwnLine: true) == nil)
+            HeaderConnection.line(line, chatIsVisible: true, chatShowsOwnLine: true) == nil)
         // Another pane shows: the header says it.
         #expect(
-            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: false, chatShowsOwnLine: true) == line)
+            HeaderConnection.line(line, chatIsVisible: false, chatShowsOwnLine: true) == line)
         // Chat shows but has no line of its own: the header says it.
         #expect(
-            HeaderConnection.line(line, isWebConversation: true, chatIsVisible: true, chatShowsOwnLine: false) == line)
-        // The native chat draws none: the header says it.
+            HeaderConnection.line(line, chatIsVisible: true, chatShowsOwnLine: false) == line)
         #expect(
-            HeaderConnection.line(line, isWebConversation: false, chatIsVisible: true, chatShowsOwnLine: true) == line)
-        #expect(
-            HeaderConnection.line(nil, isWebConversation: true, chatIsVisible: false, chatShowsOwnLine: false) == nil)
+            HeaderConnection.line(nil, chatIsVisible: false, chatShowsOwnLine: false) == nil)
     }
 }

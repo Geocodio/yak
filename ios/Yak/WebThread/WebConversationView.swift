@@ -46,6 +46,8 @@ final class WebConversationContainer: UIView {
         self.page = page
         super.init(frame: .zero)
         accessibilityIdentifier = "thread.web"
+        // The page ends where the composer's strip begins; nothing of it is drawn outside this frame.
+        clipsToBounds = true
         page.applyZoom(for: traitCollection.preferredContentSizeCategory)
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: WebConversationContainer, _) in
             view.page.applyZoom(for: view.traitCollection.preferredContentSizeCategory)
@@ -86,6 +88,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
     private weak var model: WebConversationModel?
     private let policy: EmbedNavigationPolicy
     private let quickLook: WebQuickLook
+    private var insetObservations: [NSKeyValueObservation] = []
 
     init(model: WebConversationModel, dataStore: WKWebsiteDataStore, version: String) {
         self.model = model
@@ -111,6 +114,31 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         webView.underPageBackgroundColor = color
         webView.accessibilityIdentifier = "thread.web.page"
         webView.accessibilityLabel = String(localized: "web.page.label")
+        keepInsetsAboveTheComposer()
+    }
+
+    /// The web view is laid out between the header and the composer's strip, so no part of it is under either and its
+    /// content needs no inset. WebKit can still apply one (for the keyboard or a safe area) while the layout around it
+    /// moves; a content inset or a scroll indicator inset that is not zero would draw a line of text under the strip or
+    /// leave the indicator short of its edge, so both are put back to zero whenever they change.
+    private func keepInsetsAboveTheComposer() {
+        let scrollView = webView.scrollView
+        insetObservations = [
+            scrollView.observe(\.contentInset, options: [.new]) { scrollView, _ in
+                MainActor.assumeIsolated {
+                    if scrollView.contentInset != .zero { scrollView.contentInset = .zero }
+                }
+            },
+            scrollView.observe(\.verticalScrollIndicatorInsets, options: [.new]) { scrollView, _ in
+                MainActor.assumeIsolated {
+                    if scrollView.verticalScrollIndicatorInsets != .zero {
+                        scrollView.verticalScrollIndicatorInsets = .zero
+                    }
+                }
+            },
+        ]
+        scrollView.contentInset = .zero
+        scrollView.verticalScrollIndicatorInsets = .zero
     }
 
     func applyZoom(for category: UIContentSizeCategory) {

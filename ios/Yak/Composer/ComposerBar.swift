@@ -10,11 +10,10 @@ struct ComposerBar: View {
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.webConversation) private var web
     @State private var isKeyboardUp = false
 
     /// A field of the conversation page has the keyboard: the composer shrinks to one line so the page keeps its room.
-    private var isCollapsed: Bool { web?.mode == .web && isKeyboardUp && !isFocused }
+    private var isCollapsed: Bool { isKeyboardUp && !isFocused }
 
     private var composer: ComposerModel { thread.composer }
 

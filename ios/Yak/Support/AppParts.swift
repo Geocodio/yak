@@ -40,15 +40,13 @@ final class AppParts {
     let previewData: PreviewWebDataObserver
     /// App lock, Spotlight, the debug menu and the privacy choices behind them.
     let system: SystemFeatures
-    /// The one walkthrough player: audio session, picture in picture, which scene shows it.
-    let walkthroughPlayback: WalkthroughPlayback
     /// One line per observer; `AppModel` tells each after a pairing, a removal and a revoke.
     private(set) var observers: [any InstanceLifecycleObserver]
 
     private init(
         storage: SharedStorage?, isTestMode: Bool, push: PushController, uploads: UploadSessions?,
         widgets: WidgetReloadScheduler, steps: [BackgroundRefreshStep], previewData: PreviewWebDataObserver,
-        walkthroughPlayback: WalkthroughPlayback, system: SystemFeatures, observers: [any InstanceLifecycleObserver]
+        system: SystemFeatures, observers: [any InstanceLifecycleObserver]
     ) {
         self.storage = storage
         self.isTestMode = isTestMode
@@ -57,7 +55,6 @@ final class AppParts {
         self.widgets = widgets
         self.backgroundRefreshSteps = steps
         self.previewData = previewData
-        self.walkthroughPlayback = walkthroughPlayback
         self.system = system
         self.observers = observers
     }
@@ -70,7 +67,6 @@ final class AppParts {
             instances: context.instances, registrar: registrar, permission: context.permission,
             center: context.center, activityHost: context.activityHost, normalize: context.normalizeAddress)
         let previewData = PreviewWebDataObserver(defaults: context.defaults)
-        let walkthroughPlayback = WalkthroughPlayback.system(isOnline: { true })
         let widgetRegistration = WidgetPushRegistration(
             instances: context.instances, tokens: context.tokens, environment: context.makeEnvironment(),
             build: PushBuild.current())
@@ -79,8 +75,7 @@ final class AppParts {
         let settings = PrivacySettings(store: context.defaults)
         let appLock = AppLockController(
             settings: settings, authenticator: context.authenticator, clock: SystemClock(),
-            backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive,
-            closePlayback: { walkthroughPlayback.close() })
+            backgroundLimit: context.appLockBackgroundLimit, coversWhenActive: context.coversWhenActive)
         push.gate = { [weak appLock] action in
             if let appLock { appLock.whenOpen(action) } else { Task { await action() } }
         }
@@ -108,9 +103,9 @@ final class AppParts {
         ]
         return AppParts(
             storage: storage, isTestMode: isTestMode, push: push, uploads: context.uploads, widgets: widgets,
-            steps: steps, previewData: previewData, walkthroughPlayback: walkthroughPlayback, system: system,
+            steps: steps, previewData: previewData, system: system,
             observers: [
-                push, previewData, WidgetLifecycle(scheduler: widgets), walkthroughPlayback, spotlight,
+                push, previewData, WidgetLifecycle(scheduler: widgets), spotlight,
                 OfflineCopyEraser(
                     files: context.makeEnvironment().files,
                     existingSession: { box.model?.sessions.existingSession(for: $0) }),
@@ -162,10 +157,6 @@ extension View {
             .modifier(SpotlightRoot(system: parts.system, model: model))
             .modifier(PushRoot(push: parts.push, model: model))
             .environment(\.previewDefaults, parts.previewData.defaults)
-            .environment(\.walkthroughPlayback, parts.walkthroughPlayback)
-            .onChange(of: model.network.isOnline, initial: true) { _, isOnline in
-                parts.walkthroughPlayback.networkChanged(isOnline: isOnline)
-            }
             .task { await parts.previewData.sweep(instances: model.instances) }
             #if DEBUG
                 .overlay(alignment: .topLeading) { TestInstanceID(model: model) }

@@ -24,7 +24,7 @@ enum WebConversationRequest: Equatable {
 }
 
 extension EnvironmentValues {
-    /// The window's web conversation; nil where no window provides one, which shows the native chat.
+    /// The window's web conversation; nil where no window provides one.
     @Entry var webConversation: WebConversationModel?
 }
 
@@ -70,8 +70,8 @@ enum SavedCopyState: Equatable {
 /// every thread of the window, so a switch of thread is an `open` message to the page and no new session.
 @MainActor @Observable
 final class WebConversationModel {
-    /// Whether the conversation is the page, the native chat, or not decided yet.
-    enum Mode: Equatable { case undecided, web, native }
+    /// Whether the server offers the conversation as a page, does not (it is too old), or has not answered yet.
+    enum Mode: Equatable { case undecided, web, unsupported }
 
     enum MintOutcome {
         case minted(WebSession)
@@ -145,6 +145,8 @@ final class WebConversationModel {
     @ObservationIgnored private var focusSerial = 0
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
     @ObservationIgnored private var hasBegun = false
+    /// Makes the web view before a pane shows it; the window's shell sets it, and only a prepared page needs it.
+    @ObservationIgnored var makePage: (@MainActor (WebConversationModel) -> any WebConversationPage)?
     @ObservationIgnored private var isPageHidden = false
 
     init(
@@ -224,13 +226,13 @@ final class WebConversationModel {
 
     // MARK: Decision
 
-    /// Chooses the page or the native chat from what the server offers, and follows a later change of the answer:
+    /// Chooses the page or the server-too-old state from what the server offers, and follows a later change of the answer:
     /// the machine is built again for the new answer, because it is built for one `me.web` value.
     func configure(supportsEmbeddedThread: Bool) {
-        let chosen: Mode = supportsEmbeddedThread ? .web : .native
+        let chosen: Mode = supportsEmbeddedThread ? .web : .unsupported
         guard mode != chosen else { return }
         mode = chosen
-        if chosen == .native { pendingFocus.clear() }
+        if chosen == .unsupported { pendingFocus.clear() }
         mintTask?.cancel()
         switchTask?.cancel()
         tickTask?.cancel()
@@ -276,6 +278,18 @@ final class WebConversationModel {
         } else {
             switchPageIfNeeded()
         }
+    }
+
+    /// A page exists or a thread is shown, so another page is not prepared.
+    var hasPreparedPage: Bool { page != nil || threadID != nil }
+
+    /// Prepares the page for a thread that is likely to open: the web view is made and the session minted, so the pane
+    /// that shows the thread finds the page loading or ready. Does nothing once a page exists or a thread is shown,
+    /// so one page at most is prepared. A pane that shows another thread asks the page to switch, as for any thread.
+    func prewarm(thread id: String) {
+        guard mode == .web, !hasPreparedPage, let makePage else { return }
+        attach(makePage(self))
+        show(thread: id)
     }
 
     private func begin() {
@@ -495,7 +509,7 @@ final class WebConversationModel {
     /// A push or link named an element of `target.threadID`. It is sent once, after the page reports that thread ready
     /// (at once when the page already shows it), and a later target replaces one that has not been sent.
     func focus(_ target: PendingFocus) {
-        guard mode != .native, target.threadID == threadID else { return }
+        guard mode != .unsupported, target.threadID == threadID else { return }
         pendingFocus.set(target)
         deliverPendingFocus()
     }
@@ -570,7 +584,7 @@ final class WebConversationModel {
 
     // MARK: What the pane draws
 
-    /// The load state the pane draws over the page, in the words of the native chat's own states.
+    /// The load state the pane draws over the page.
     var loadPresentation: ThreadLoadPresentation {
         if savedCopyState != nil { return .conversation }
         switch machine.phase {
@@ -580,7 +594,7 @@ final class WebConversationModel {
         case .slow: return .slow
         // A copy that is still being read shows the loading state; a copy that cannot be read ends in `.failed(.network)`.
         case .offline: return .loading
-        case .unsupported: return .conversation
+        case .unsupported: return .serverNeedsUpdate
         case .failed(let failure): return Self.presentation(of: failure, isOnline: isOnline)
         }
     }
@@ -600,7 +614,7 @@ final class WebConversationModel {
         }
     }
 
-    /// The page is up and the connection is gone: the native offline line shows over the last page.
+    /// The page is up and the connection is gone: the offline line shows over the last page.
     var showsOfflineLine: Bool { machine.phase == .ready && !isOnline }
 }
 

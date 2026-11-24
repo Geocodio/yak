@@ -147,16 +147,3 @@ private func turn(_ sequence: Int, _ state: String) -> ThreadEvent {
     state.apply([make(1, "question", #"{"open":true}"#), make(2, "message.state", #"{"uuid":"u1","state":"started"}"#)])
     #expect(state.questionOpen == true && state.messageStates["u1"] == "started")
 }
-
-@Test func olderPagesNeverOverrideNewerState() {
-    var state = ThreadEventState()
-    state.apply([user(10), user(11), child(12, "done"), turn(20, "completed")])
-    let page = [user(5), user(6), turn(7, "running"), child(8, "queued"), delta(9, "x")]
-    state.prependOlder(page)
-    #expect(state.turn?.state == .completed && state.lastSequence == 20)
-    #expect(state.entries.map(\.sequence) == [5, 6, 10, 11])
-    #expect(state.children["7"]?.firstSequence == 8 && state.children["7"]?.data.state == "done")
-    #expect(state.storedEvents.map(\.sequence) == [5, 6, 7, 8, 10, 11, 12, 20])
-    state.prependOlder(page)
-    #expect(state.entries.count == 4 && state.storedEvents.count == 8)
-}

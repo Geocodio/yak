@@ -53,9 +53,9 @@ import XCTest
         try audit()
     }
 
-    /// Smoke test 3, the frame: the thread opens from the drawer on the server's own fixtures, and its conversation
-    /// area ends up with neither a load state nor an error.
-    func testServerFixturesOpen() throws {
+    /// Smoke test 3, the frame: the drawer lists the server's own thread fixtures, with neither a load state nor an
+    /// error. The fixtures' ids are placeholders, so the thread page itself is not opened here.
+    func testServerFixturesFillTheDrawer() throws {
         try launch(scenario: "server-fixtures")
         openDrawerIfNeeded()
         let rows = app.descendants(matching: .any).matching(
@@ -64,161 +64,10 @@ import XCTest
         for text in ["This thread is not here anymore", "You are offline"] {
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
-        rows.firstMatch.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.appear))
-        let gone = NSPredicate(format: "exists == false")
-        for identifier in ["thread.loading", "thread.slow", "thread.notFound", "thread.offline", "thread.error"] {
-            let element = app.descendants(matching: .any)[identifier]
-            wait(for: [XCTNSPredicateExpectation(predicate: gone, object: element)], timeout: Wait.appear)
-            XCTAssertFalse(element.exists, identifier)
-        }
-        for text in ["This thread is not here anymore", "This is taking longer than usual", "Loading the conversation"]
-        {
-            XCTAssertFalse(app.staticTexts[text].exists, text)
-        }
         try audit()
     }
 
-    /// Smoke test 3: a turn streams in, and its texts end up in the order they were written with the tool group
-    /// between them. The composer's stop button belongs to the composer, so the end of the turn is the last text.
-    func testAStreamedTurnAppearsInOrderAndEnds() throws {
-        try launch(scenario: "one-thread-working")
-        openDrawerIfNeeded()
-        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
-        row.tap()
-        let first = app.staticTexts["Looking at the importer."]
-        let last = app.staticTexts["Done. Failed rows now retry three times."]
-        XCTAssertTrue(first.waitForExistence(timeout: Wait.appear))
-        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear))
-        let group = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@", "Read 1 file, Ran 1 command")
-        ).firstMatch
-        XCTAssertTrue(group.waitForExistence(timeout: Wait.appear))
-        XCTAssertLessThan(first.frame.minY, group.frame.minY)
-        XCTAssertLessThan(group.frame.minY, last.frame.minY)
-        // No step is still running once the turn has ended.
-        let running = app.descendants(matching: .any)["step.current"]
-        wait(
-            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: running)],
-            timeout: Wait.appear)
-        try audit()
-    }
-
-    /// Guards that a reader who scrolled up stays in place while a turn streams. The conversation has 60 earlier
-    /// steps, so it is taller than two screens, and the turn plays after them.
-    func testStreamingTextDoesNotMoveAReaderWhoScrolledUp() throws {
-        try launch(scenario: "long-turn")
-        try stub.hold(after: 67)
-        openDrawerIfNeeded()
-        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
-        row.tap()
-        XCTAssertTrue(app.staticTexts["Looking at the importer."].waitForExistence(timeout: Wait.appear))
-        let list = app.descendants(matching: .any)["conversation"].firstMatch
-        list.swipeDown()
-        func firstStep() throws -> any XCUIElementSnapshot {
-            func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
-                let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
-                return own + node.children.flatMap { steps(in: $0) }
-            }
-            let top = list.frame.minY + 60
-            return try XCTUnwrap(
-                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
-                    .min { $0.frame.minY < $1.frame.minY })
-        }
-        // The swipe's momentum has ended when two reads a moment apart agree.
-        var tracked = try firstStep()
-        for _ in 0..<10 {
-            Thread.sleep(forTimeInterval: 0.3)
-            let now = try firstStep()
-            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
-            tracked = now
-        }
-        try stub.hold(after: nil)
-        // The rest of the turn plays one event every 400 ms; its end is below the screen, so it cannot be waited for.
-        Thread.sleep(forTimeInterval: 8)
-        let moved = app.staticTexts[tracked.label]
-        XCTAssertTrue(moved.exists, "\(tracked.label) left the screen")
-        XCTAssertEqual(moved.frame.minY, tracked.frame.minY, accuracy: 1)
-    }
-
-    /// A long conversation opens at its end, also when its first page arrives late: here the thread opens while the
-    /// instance is unreachable, and the rows and their Markdown arrive once it is back.
-    func testALongConversationThatArrivesLateOpensAtItsEnd() throws {
-        try launch(scenario: "long-history")
-        openDrawerIfNeeded()
-        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
-        try stub.setOnline(false)
-        row.tap()
-        Thread.sleep(forTimeInterval: 4)
-        try stub.setOnline(true)
-        let last = app.staticTexts["Step 1200."]
-        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear))
-        // The rows keep arriving and growing as their Markdown is parsed; the end stays in view through all of it.
-        Thread.sleep(forTimeInterval: 3)
-        let list = app.descendants(matching: .any)["conversation"].firstMatch
-        XCTAssertTrue(list.waitForExistence(timeout: Wait.firstLoad))
-        XCTAssertTrue(last.waitForExistence(timeout: Wait.appear), "the end left the screen")
-        let centre = CGPoint(x: last.frame.midX, y: last.frame.midY)
-        XCTAssertTrue(list.frame.contains(centre), "\(last.frame) is outside \(list.frame)")
-        XCTAssertFalse(app.descendants(matching: .any)["chat.jumpToLatest"].exists)
-    }
-
-    /// The row at the top of the screen stays where it is when earlier messages arrive above it.
-    func testEarlierMessagesKeepTheRowInPlace() throws {
-        try launch(scenario: "long-history")
-        openDrawerIfNeeded()
-        let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
-        row.tap()
-        XCTAssertTrue(app.staticTexts["Step 1200."].waitForExistence(timeout: Wait.appear))
-        let list = app.descendants(matching: .any)["conversation"].firstMatch
-        XCTAssertTrue(list.waitForExistence(timeout: Wait.firstLoad))
-        let loading = app.staticTexts["Loading earlier messages"]
-        var isLoading = false
-        // The row shows for the 12 seconds the stub holds the page; on a slow machine a swipe takes long, so every
-        // fourth swipe looks for it with more time.
-        for swipe in 1...80 where !isLoading {
-            list.swipeDown(velocity: .fast)
-            isLoading = loading.waitForExistence(timeout: swipe.isMultiple(of: 4) ? 3 : 0.5)
-        }
-        XCTAssertTrue(isLoading)
-        // One snapshot of the screen, so rows that are being replaced do not vanish between two queries.
-        func steps(in node: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
-            let own = node.label.wholeMatch(of: /Step \d+\./) != nil ? [node] : []
-            return own + node.children.flatMap { steps(in: $0) }
-        }
-        let top = list.frame.minY + 60
-        func firstStep() throws -> any XCUIElementSnapshot {
-            try XCTUnwrap(
-                steps(in: try app.snapshot()).filter { $0.frame.minY > top && $0.frame.maxY < list.frame.maxY }
-                    .min { $0.frame.minY < $1.frame.minY })
-        }
-        // The swipe's momentum has ended when two reads a moment apart agree.
-        var tracked = try firstStep()
-        for _ in 0..<10 {
-            Thread.sleep(forTimeInterval: 0.3)
-            let now = try firstStep()
-            if now.label == tracked.label, abs(now.frame.minY - tracked.frame.minY) < 0.5 { break }
-            tracked = now
-        }
-        let label = tracked.label
-        let before = tracked.frame.minY
-        let result = XCTWaiter().wait(
-            for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: loading)],
-            timeout: Wait.appear)
-        XCTAssertEqual(result, .completed)
-        let moved = app.staticTexts[label]
-        XCTAssertTrue(
-            moved.waitForExistence(timeout: Wait.appear), "\(label) left the screen when the earlier messages arrived")
-        print("earlier messages moved \(label) by \(moved.frame.minY - before) points")
-        XCTAssertEqual(moved.frame.minY, before, accuracy: 2)
-    }
-
-    /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues. The
-    /// "Sends after this turn" line under the bubble belongs to the chat.
+    /// Smoke test 5, the composer's half: a send while a turn runs steers, and a long press on Send queues.
     func testSendWhileATurnRunsSteersAndLongPressQueues() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
         try launch(scenario: "one-thread-working")
@@ -338,8 +187,8 @@ import XCTest
         try audit()
     }
 
-    /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns.
-    /// The "Not sent" line under the bubble belongs to the chat.
+    /// Smoke test 6, the composer's half: a send while offline is kept and goes out when the connection returns. The
+    /// Chat pane says it shows what was loaded while the connection is down.
     func testADroppedConnectionShowsOfflineAndRecovers() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone, "iPhone only")
         try launch(scenario: "paired")
@@ -349,10 +198,11 @@ import XCTest
         row.tap()
         let field = app.textFields["composer.field"]
         XCTAssertTrue(field.waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: Wait.firstLoad))
         try stub.setOnline(false)
         field.tap()
         field.typeText("Also update the changelog")
-        let offline = app.staticTexts["Offline. Showing a saved copy"]
+        let offline = app.staticTexts["Offline. Showing what was loaded"]
         XCTAssertTrue(offline.waitForExistence(timeout: Wait.appear), app.debugDescription)
         app.buttons["composer.send"].tap()
         XCTAssertFalse(stub.lastMessage().contains("Also update the changelog"))

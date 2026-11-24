@@ -34,6 +34,13 @@ import XCTest
         try shootThread("web-thread-failed")
     }
 
+    func testWebConversationServerNeedsUpdate() throws {
+        try open("embed-unsupported")
+        XCTAssertTrue(app.staticTexts["Update needed"].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.buttons["thread.openInBrowser"].exists)
+        try shootThread("web-thread-needs-update")
+    }
+
     func testWaitingMessages() throws {
         try open("embed-working")
         try stub.setPlaybackMilliseconds(1000)

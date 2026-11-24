@@ -21,4 +21,8 @@ import YakKit
     var machine = WebConversationMachine(
         supportsEmbeddedThread: true, hasOfflineCopy: false, threadID: "d0e515ef", timing: timing)
     #expect(machine.handle(.begin, at: ContinuousClock.now) == [.mint])
+    let prewarm = WebPrewarmPolicy(
+        isActive: true, isLocked: false, isSessionActive: true, isOnline: true, isLowDataMode: false,
+        serverOffersPage: true, hasPreparedPage: false, candidateThreadID: "d0e515ef")
+    #expect(prewarm.threadToPrepare == "d0e515ef")
 }

@@ -104,7 +104,7 @@ import Testing
         #expect(try mint(StubEmbed(), "embed-failed").status == 503)
     }
 
-    @Test func theServerTakesWebOutOfAnyFeaturesMeUnlessTheScenarioOffersIt() {
+    @Test func theServerTakesWebOutOfAnyFeaturesMeOnlyForAnOlderServer() {
         let me = StubReply(
             answer: .reply(
                 status: 200, contentType: "application/json", body: Data(#"{"web":{"embed":1},"user":{}}"#.utf8)))
@@ -112,20 +112,18 @@ import Testing
             guard case .reply(_, _, let data) = StubEmbed.meReply(me, scenario: scenario).answer else { return "" }
             return String(decoding: data, as: UTF8.self)
         }
-        #expect(!body("paired").contains("web") && body("paired").contains("user"))
+        #expect(body("paired").contains("web") && body("paired").contains("user"))
         #expect(!body("embed-unsupported").contains("web"))
         #expect(body("embed-basic").contains("web"))
         #expect(body("embed-slow").contains("web"))
     }
 
-    @Test func onlyTheEmbedScenariosPutWebInMe() throws {
+    @Test func onlyTheOlderServerLeavesWebOutOfMe() throws {
         let feature = StubEmbed()
         let request = StubRequest(method: "GET", path: "/api/app/v1/me", headers: bearer)
-        for scenario in ["paired", "question-open", "slow"] {
-            let me = try parts(feature.answer(route: "GET me", request: request, context: context(scenario)))
-            #expect(!me.body.contains("\"web\""), Comment(rawValue: scenario))
-        }
-        for scenario in ["embed-basic", "embed-expired-once", "embed-slow"] {
+        let older = try parts(feature.answer(route: "GET me", request: request, context: context("embed-unsupported")))
+        #expect(!older.body.contains("\"web\""))
+        for scenario in ["paired", "question-open", "slow", "embed-basic", "embed-expired-once", "embed-slow"] {
             #expect(
                 feature.answer(route: "GET me", request: request, context: try context(scenario)) == nil,
                 Comment(rawValue: scenario))
@@ -215,10 +213,19 @@ import Testing
         let session = try signedIn(feature)
         _ = try load(feature, cookie: session)
         let state = try parts(feature.control(StubRequest(method: "GET", path: "/__stub/embed/state")))
-        #expect(state.body == "mints=1 redeems=1 loads=1")
+        #expect(state.body == "mints=1 redeems=1 loads=1 shows=0")
         _ = feature.control(StubRequest(method: "POST", path: "/__stub/embed/expire"))
         #expect(try load(feature, cookie: session).status == 401)
         #expect(try load(feature, cookie: session).status == 200)
+    }
+
+    @Test func theShowsOfThreadsAreCountedAndOtherRoutesAreNot() throws {
+        let feature = StubEmbed()
+        for route in ["GET threads/d0e515ef", "GET threads/d0e515ef/events", "POST threads/d0e515ef", "GET me"] {
+            feature.saw(route: route)
+        }
+        let state = try parts(feature.control(StubRequest(method: "GET", path: "/__stub/embed/state")))
+        #expect(state.body.hasSuffix("shows=1"))
     }
 
     @Test func offlineDropsThePageRequests() throws {

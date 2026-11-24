@@ -62,6 +62,16 @@ final class DrawerModel {
 
     var filter: ThreadListFilter { scene.state.filter }
 
+    /// The thread of the first listed row that opens as a thread, which is the first one needing the person when any
+    /// does. The web conversation of that thread is prepared ahead while no thread is shown.
+    var firstThreadID: String? {
+        guard case .sections(let sections)? = content else { return nil }
+        for row in sections.flatMap(\.rows) {
+            if case .thread(let id) = row.target { return id }
+        }
+        return nil
+    }
+
     /// Follows the feed and the outbox until the calling task is cancelled.
     func run() async {
         async let listing: Void = followFeed()

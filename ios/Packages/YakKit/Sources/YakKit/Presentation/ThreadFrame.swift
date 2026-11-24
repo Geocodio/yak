@@ -28,6 +28,8 @@ public enum ThreadLoadPresentation: Equatable, Sendable {
     case notFound
     case offlineWithoutCopy
     case serverError(message: String)
+    /// The server is too old to offer the conversation as a page.
+    case serverNeedsUpdate
     /// Pairing and version problems belong to the session's status screen.
     case sessionOwns
 

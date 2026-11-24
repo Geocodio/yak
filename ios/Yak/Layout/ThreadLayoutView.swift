@@ -92,7 +92,7 @@ struct ThreadLayoutView: View {
             // The saved page of the web conversation carries its own line.
             if singlePlacement.hidesTitle,
                 let line = HeaderConnection.line(
-                    thread.connectionLine, isWebConversation: web?.mode == .web, chatIsVisible: focused == .chat,
+                    thread.connectionLine, chatIsVisible: focused == .chat,
                     chatShowsOwnLine: web.map {
                         ($0.savedCopy != nil && $0.savedCopyState != nil) || $0.showsOfflineLine
                     }

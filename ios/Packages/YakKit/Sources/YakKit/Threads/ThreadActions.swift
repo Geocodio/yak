@@ -31,9 +31,6 @@ public enum ThreadActionOutcome: Equatable, Sendable {
         if (400..<500).contains(error.status) { return true }
         return error.status >= 500 && !["unavailable", "server_error", "unknown"].contains(error.code)
     }
-
-    fileprivate static let questionClosed = ThreadActionOutcome.refused(
-        code: "question_closed", message: "", fieldErrors: [:])
 }
 
 extension ThreadEngine {
@@ -41,34 +38,8 @@ extension ThreadEngine {
         await perform("stop", .stopTurn(threadID))
     }
 
-    public func continueTurn() async -> ThreadActionOutcome {
-        await perform("continue", .continueTurn(threadID))
-    }
-
     public func retryRestore() async -> ThreadActionOutcome {
         await perform("retryRestore", .retryRestore(threadID))
-    }
-
-    /// Sends the saved draft for the open round.
-    public func answerQuestion() async -> ThreadActionOutcome {
-        guard let question = show?.question,
-            let draft = await cache.questionDraft(thread: threadID), draft.roundKey == question.roundKey
-        else { return .questionClosed }
-        return await perform(
-            "answer", .answerQuestion(threadID, answers: draft.answers, note: draft.note),
-            onDone: { [answeredRoundKey = draft.roundKey] in
-                await $0.cache.removeQuestionDraft(thread: $0.threadID) { $0 == answeredRoundKey }
-            })
-    }
-
-    public func questionDraft() async -> QuestionDraft? {
-        await cache.questionDraft(thread: threadID)
-    }
-
-    /// Saves the draft at once. A draft for a round that is not the open one is ignored.
-    public func updateQuestionDraft(_ draft: QuestionDraft) async {
-        guard !isClosed, show?.question?.roundKey == draft.roundKey else { return }
-        await cache.saveQuestionDraft(draft, thread: threadID)
     }
 
     /// Sends one work action of the thread (retry, move, a co-owner decision and the rest). The answer carries
@@ -179,11 +150,6 @@ extension ThreadEngine {
         changed(isStored: false)
     }
 
-    /// Removes a saved draft that belongs to another round, or to none, once the page is known.
-    func dropStaleQuestionDraft() async {
-        let currentRoundKey = show?.question?.roundKey
-        await cache.removeQuestionDraft(thread: threadID) { $0 != currentRoundKey }
-    }
 }
 
 /// The messages the server listed per field in `details.errors` of a refusal.

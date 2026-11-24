@@ -108,25 +108,6 @@ import XCTest
         XCTAssertFalse(app.buttons["Pair again"].exists, "the app still asks to pair again")
     }
 
-    // MARK: Journey 3
-
-    /// Waits for the thread question card, which is in another pull request and not on main yet. Until it lands this
-    /// test is skipped, and the skip shows in every run's summary. The steps, with the card's identifiers, are:
-    ///
-    /// 1. Launch paired with the main phone and open `server.seed.threads.question` from the drawer. The seed gives
-    ///    that thread an open round with one question, "What should happen to a row that fails?", and two options,
-    ///    "Mark the row as failed" and "Fail the whole batch".
-    /// 2. Wait for `question.card`.
-    /// 3. Tap `question.option.0` ("Mark the row as failed"), then `question.next`.
-    /// 4. Wait for `question.review`, which lists the answer.
-    /// 5. Tap `question.send`.
-    /// 6. Wait for `question.card` to go, and for the turn to continue: `composer.stop` shows while the fake runner
-    ///    answers, then goes, and the composer placeholder reads "Message Yak" again.
-    /// 7. Run the audit.
-    func testJourney3AnswersAQuestionAndTheTurnContinues() throws {
-        throw XCTSkip("The thread question card is not on main yet")
-    }
-
     // MARK: Journey 2
 
     func testJourney2StartsAThreadAndWatchesItStreamOverReverb() throws {
@@ -175,16 +156,16 @@ import XCTest
         app.buttons["composer.send"].tap()
         let stop = app.buttons["composer.stop"]
         JourneyWait.until(stop, within: 45, "the stop button while the held turn runs", in: self)
-        // Only the fake runner writes this line (the held turn's tool call): a server with no runner never shows it.
-        JourneyWait.until(
-            app.staticTexts["Running scrubbed command 1"], within: 30, "the runner's step line of the held turn",
-            in: self)
+        // The composer follows the thread's own state: while the held turn runs, a message steers it.
+        let steering = NSPredicate { [app] _, _ in app.textFields["composer.field"].placeholderValue == "Steer Yak" }
+        wait(for: [XCTNSPredicateExpectation(predicate: steering, object: nil)], timeout: 30)
         XCTAssertEqual(composerPlaceholder, "Steer Yak")
         field.tap()
         field.typeText("Also cover the empty file case")
         app.buttons["composer.send"].tap()
         JourneyWait.until(
-            app.staticTexts["Also cover the empty file case"], within: 10, "the steer message in the chat", in: self)
+            app.staticTexts["Also cover the empty file case"], within: 10, "the steer message in the conversation page",
+            in: self)
         XCTAssertFalse(app.staticTexts["Sends after this turn"].exists, "the steer waits for the end of the turn")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Not sent'")).firstMatch.exists)
         stop.tap()

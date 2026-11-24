@@ -7,6 +7,8 @@ import Observation
 @MainActor @Observable
 final class NetworkMonitor {
     private(set) var isOnline = true
+    /// The network is under Low Data Mode, which the person chose to save data with.
+    private(set) var isConstrained = false
 
     @ObservationIgnored private let monitor: NWPathMonitor?
     @ObservationIgnored private var pollTask: Task<Void, Never>?
@@ -19,7 +21,11 @@ final class NetworkMonitor {
             self.monitor = monitor
             monitor.pathUpdateHandler = { [weak self] path in
                 let online = path.status == .satisfied
-                Task { @MainActor in self?.isOnline = online }
+                let constrained = path.isConstrained
+                Task { @MainActor in
+                    self?.isOnline = online
+                    self?.isConstrained = constrained
+                }
             }
             monitor.start(queue: DispatchQueue(label: "NetworkMonitor"))
             return

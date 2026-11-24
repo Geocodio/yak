@@ -7,6 +7,8 @@ struct ThreadLoadView: View {
     let presentation: ThreadLoadPresentation
     let retry: () -> Void
     let openThreads: () -> Void
+    /// Opens the thread in the browser sheet, for the state where the server cannot show it in the app.
+    var openInBrowser: () -> Void = {}
     /// What the offline state says under its title.
     var offlineBody: LocalizedStringKey = "load.offline.body"
     /// The line beside the spinner, and what the slow card says under its title.
@@ -26,6 +28,17 @@ struct ThreadLoadView: View {
                 Button(action: openThreads) { Text("load.openThreads").fixedSize(horizontal: false, vertical: true) }
                     .buttonStyle(.bordered).tint(.primary).controlSize(.large)
                     .accessibilityIdentifier("thread.openThreads")
+            }
+        case .serverNeedsUpdate:
+            message(
+                title: "load.update.title", body: "load.update.body", systemImage: "arrow.down.circle",
+                identifier: "thread.serverNeedsUpdate"
+            ) {
+                Button(action: openInBrowser) {
+                    Text("thread.openWeb").fixedSize(horizontal: false, vertical: true)
+                }
+                .buttonStyle(.bordered).tint(.primary).controlSize(.large)
+                .accessibilityIdentifier("thread.openInBrowser")
             }
         case .offlineWithoutCopy:
             message(
