@@ -8,6 +8,10 @@
         "canStop": false,
         "moveTargets": []
     },
+    "agents": {
+        "running": [],
+        "runningCount": 0
+    },
     "brief": null,
     "canDrive": true,
     "canOpenPullRequest": false,
@@ -263,6 +267,17 @@
         "stepCount": 0
     },
     "sharedFiles": [],
+    "slashCommands": {
+        "capturedAt": null,
+        "commands": [
+            {
+                "argumentHint": null,
+                "description": "Start a fresh conversation on a new thread, linked back to this one",
+                "kind": "yak",
+                "name": "clear"
+            }
+        ]
+    },
     "stackParent": null,
     "stopped": null,
     "teleport": {
