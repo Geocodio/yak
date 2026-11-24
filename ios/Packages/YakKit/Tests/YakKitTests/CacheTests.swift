@@ -156,6 +156,22 @@ struct CacheTests {
         #expect(try files.read(path) == nil)
     }
 
+    @Test func theDataOfRemovedFeaturesIsDeletedOnceAndTheThreadsStay() async throws {
+        let (cache, files, id) = makeCache()
+        await cache.saveThread("d0e515ef", try cachedSimpleTurn())
+        let folder = "instances/\(id)/cache/threads/d0e515ef"
+        try files.write(Data("{}".utf8), to: "\(folder)/question.json", protection: .complete)
+        try files.write(Data("jpg".utf8), to: "\(folder)/attachments/41.jpg", protection: .complete)
+        await cache.removeRemovedFeatureData()
+        #expect(try files.read("\(folder)/question.json") == nil)
+        #expect(try files.read("\(folder)/attachments/41.jpg") == nil)
+        #expect(await cache.thread("d0e515ef") != nil)
+        // Once: a file written afterwards is not touched.
+        try files.write(Data("{}".utf8), to: "\(folder)/question.json", protection: .complete)
+        await cache.removeRemovedFeatureData()
+        #expect(try files.read("\(folder)/question.json") != nil)
+    }
+
     @Test func aThreadIdCannotEscapeItsFolder() async throws {
         let (cache, files, id) = makeCache()
         await cache.saveThread("../../x", try cachedSimpleTurn())

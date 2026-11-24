@@ -56,6 +56,11 @@ private struct ChatPane: View {
             takeFocusRequest()
         }
         .onChange(of: scene.focusRequest) { takeFocusRequest() }
+        .onChange(of: thread.announcementSerial) {
+            if let text = thread.announcement { UIAccessibility.post(notification: .announcement, argument: text) }
+        }
+        .onChange(of: thread.unsentItems, initial: true) { sendOutbox() }
+        .onChange(of: thread.uploadSummary.failed) { sendOutbox() }
         .onDisappear {
             web?.paneLeft()
             web?.releaseRequests(owner: requestOwner)
@@ -147,6 +152,7 @@ private struct ChatPane: View {
         let presentation = web.loadPresentation
         let isShown = presentation == .conversation && !isCovered
         return VStack(spacing: 0) {
+            if let line = thread.actionLine { FileLine(text: Text(verbatim: line), identifier: "thread.actionLine") }
             if let notice = web.noticeLine {
                 FileLine(text: Text(verbatim: notice), identifier: "thread.web.notice")
             }
@@ -207,16 +213,19 @@ private struct ChatPane: View {
 
     // MARK: From the page
 
-    /// Sends the unsent messages of the thread to the page, and tells it when the server took one.
+    /// Tells the page when the server took a message of the thread.
     private func followOutbox() async {
         guard usesWeb, let web, let outbox = await thread.session.outbox() else { return }
         let threadID = thread.threadID
         for await update in await outbox.updates() {
-            switch update {
-            case .items(let items): web.outboxChanged(threadID: threadID, items: items)
-            case .delivery(let delivery): if delivery.threadID == threadID { web.messageDelivered() }
-            }
+            if case .delivery(let delivery) = update, delivery.threadID == threadID { web.messageDelivered() }
         }
+    }
+
+    /// The unsent messages of the thread, and the uploads that failed, go to the page.
+    private func sendOutbox() {
+        web?.outboxChanged(
+            threadID: thread.threadID, items: thread.unsentItems, failedUploads: thread.uploadSummary.failed)
     }
 
     private func handle(_ request: WebConversationRequest, thread: ThreadModel, scene: SceneModel) {

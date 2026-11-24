@@ -2,20 +2,22 @@ import SwiftUI
 import YakKit
 
 /// Prepares the web conversation of the thread that is likely to open next while the drawer is on screen or the app
-/// comes to the front, so a tap on a row finds the page loading or ready. The rules are `WebPrewarmPolicy`'s.
+/// comes to the front, so a tap on a row finds the page loading or ready. This only gathers the facts; the rules are
+/// `WebPrewarmPolicy`'s, which the model asks.
 struct WebPrewarm: ViewModifier {
     let model: AppModel
     let webConversation: WebConversationModel
     let session: InstanceSession
     let scene: SceneModel
-    let drawer: DrawerModel?
     let isSessionActive: Bool
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.previewDefaults) private var defaults
     @Environment(SystemFeatures.self) private var system
+    /// What the server's `me` says about the page; nil until it has answered.
+    @State private var offersPage: Bool?
 
-    /// Everything the rules read, so the task runs again when one of them changes.
+    /// Everything the rules read, so the task runs again when one of them changes, such as a `me` that arrives late.
     private struct Key: Hashable {
         let isActive: Bool
         let isLocked: Bool
@@ -23,8 +25,7 @@ struct WebPrewarm: ViewModifier {
         let isOnline: Bool
         let isLowDataMode: Bool
         let threadID: String?
-        let firstListedThreadID: String?
-        let isDrawerOpen: Bool
+        let offersPage: Bool?
     }
 
     private var key: Key {
@@ -32,8 +33,7 @@ struct WebPrewarm: ViewModifier {
             isActive: scenePhase == .active,
             isLocked: inputBlocked || system.appLock.coversContent(sceneIsActive: scenePhase == .active),
             isSessionActive: isSessionActive, isOnline: model.network.isOnline,
-            isLowDataMode: model.network.isConstrained, threadID: scene.state.threadID,
-            firstListedThreadID: drawer?.firstThreadID, isDrawerOpen: scene.state.isDrawerOpen)
+            isLowDataMode: model.network.isConstrained, threadID: scene.state.threadID, offersPage: offersPage)
     }
 
     private var isTurnedOff: Bool {
@@ -45,40 +45,47 @@ struct WebPrewarm: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.task(id: key) { await prewarm(key) }
+        content
+            .task(id: isSessionActive) {
+                guard isSessionActive else { return }
+                offersPage = await session.me()?.supportsEmbeddedThread
+            }
+            .task(id: key) { await prewarm(key) }
     }
 
     private func prewarm(_ key: Key) async {
-        guard !isTurnedOff, key.isActive, !key.isLocked, key.isSessionActive, key.isOnline, !key.isLowDataMode,
-            !webConversation.hasPreparedPage, let me = await session.me(), me.supportsEmbeddedThread
-        else { return }
-        webConversation.configure(supportsEmbeddedThread: true)
-        // The thread the window shows or will show, else the last one opened, else the first one listed.
-        let lastOpened = await session.instanceCache()?.lastOpenedThreadID()
-        let candidate = key.threadID ?? lastOpened ?? key.firstListedThreadID
-        let policy = WebPrewarmPolicy(
-            isActive: key.isActive, isLocked: key.isLocked, isSessionActive: key.isSessionActive,
-            isOnline: key.isOnline, isLowDataMode: key.isLowDataMode, serverOffersPage: true,
-            hasPreparedPage: webConversation.hasPreparedPage, candidateThreadID: candidate)
-        guard let id = policy.threadToPrepare, !Task.isCancelled else { return }
+        guard !isTurnedOff, let offersPage else { return }
+        webConversation.configure(supportsEmbeddedThread: offersPage)
+        // The thread the window shows or is about to show, else the last one opened.
+        let candidate: String?
+        if let shown = key.threadID {
+            candidate = shown
+        } else {
+            candidate = await session.instanceCache()?.lastOpenedThreadID()
+        }
+        guard !Task.isCancelled else { return }
         webConversation.makePage = { [defaults, session] model in
             WebConversationPageView(
                 model: model,
                 dataStore: PreviewWebData.store(for: session.instance.id, purpose: .embed, defaults: defaults),
                 version: session.appVersion)
         }
-        webConversation.prewarm(thread: id)
+        webConversation.prewarm(
+            WebPrewarmPolicy(
+                isActive: key.isActive, isLocked: key.isLocked, isSessionActive: key.isSessionActive,
+                isOnline: key.isOnline, isLowDataMode: key.isLowDataMode, serverOffersPage: offersPage,
+                hasPreparedPage: false, candidateThreadID: candidate))
     }
 }
 
 extension View {
     func webPrewarm(
         model: AppModel, webConversation: WebConversationModel, session: InstanceSession, scene: SceneModel,
-        drawer: DrawerModel?, isSessionActive: Bool
+        isSessionActive: Bool
     ) -> some View {
         modifier(
             WebPrewarm(
-                model: model, webConversation: webConversation, session: session, scene: scene, drawer: drawer,
+                model: model, webConversation: webConversation, session: session, scene: scene,
                 isSessionActive: isSessionActive))
     }
 }

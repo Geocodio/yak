@@ -579,7 +579,7 @@ public actor ThreadEngine {
             ConversationSnapshot(
                 load: load, show: visibleShow, entries: entries,
                 currentStepKey: ConversationMerge.currentStepKey(in: entries, turn: state.turn),
-                waiting: ConversationMerge.waitingRow(in: entries, turn: state.turn), turn: state.turn,
+                turn: state.turn,
                 thread: state.thread, connection: connection, isShowingCachedCopy: isShowingCachedCopy,
                 isOffline: isOffline,
                 replacementThreadID: replacementThreadID, lastSequence: state.lastSequence, problem: problem,

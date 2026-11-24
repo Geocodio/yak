@@ -70,7 +70,6 @@ targets:
           - $(YAK_BUNDLE_ID).refresh
         UIBackgroundModes:
           - fetch
-          - audio
         UIAppFonts:
           - IBMPlexSans-Regular.ttf
           - IBMPlexSans-Medium.ttf

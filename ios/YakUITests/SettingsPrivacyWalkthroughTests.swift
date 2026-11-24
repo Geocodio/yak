@@ -189,7 +189,7 @@ import XCTest
         app.descendants(matching: .any)["settings.licenses"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["licenses.screen"].waitForExistence(timeout: 10))
         try shoot("licenses")
-        app.descendants(matching: .any)["licenses.swift-markdown"].tap()
+        app.descendants(matching: .any)["licenses.SwiftTerm"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["license.text"].waitForExistence(timeout: 10))
         try shoot("license-text")
     }

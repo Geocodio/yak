@@ -151,6 +151,8 @@ struct StubFixtures: Sendable {
             case "verification_url", "verification_url_complete": return baseURL + "/device"
             case "device_code": return "stub-device-code"
             case "user_code": return "STUB-CODE"
+            // A thread id is 8 letters or digits, so the app can open the thread page of a fixture's thread.
+            case "id", "threadId": return "stub0000"
             default: return "stub"
             }
         case "<volatile:int>": return 1

@@ -20,10 +20,6 @@ import XCTest
         app.buttons["composer.send"].tap()
     }
 
-    private func element(endingWith suffix: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "identifier ENDSWITH %@", suffix)).firstMatch
-    }
-
     func testComposerAttachments() throws {
         try start("chat-attachments", paired: true, attachments: 2)
         try openThread()
@@ -46,7 +42,7 @@ import XCTest
         try start("upload-slow", paired: true, attachments: 1)
         try openThread()
         typeAndSend("Here is the screenshot")
-        XCTAssertTrue(element(endingWith: ".upload").waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.descendants(matching: .any)["upload.progress"].waitForExistence(timeout: Wait.firstLoad))
         try shootThread("attachments-uploading")
     }
 
@@ -58,13 +54,5 @@ import XCTest
         XCTAssertTrue(
             app.staticTexts["Not sent. Tap Retry, or it tries again later."].waitForExistence(timeout: Wait.firstLoad))
         try shootThread("attachments-upload-failed")
-    }
-
-    func testAttachmentsOnAMessage() throws {
-        try start("chat-attachments", paired: true)
-        try openThread()
-        XCTAssertTrue(element(endingWith: ".attachment.41").waitForExistence(timeout: Wait.firstLoad))
-        XCTAssertTrue(element(endingWith: ".attachment.42").waitForExistence(timeout: Wait.appear))
-        try shootThread("attachments-message")
     }
 }

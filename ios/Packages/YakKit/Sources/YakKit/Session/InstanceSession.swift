@@ -228,6 +228,7 @@ public actor InstanceSession {
         feed = ThreadListFeed(
             instance: instance, client: client, cache: newCache, instances: instances, clock: environment.clock)
         Task {
+            await newCache.removeRemovedFeatureData()
             await newOutbox.load()
             await newOutbox.sweepAttachmentFolders(keeping: await newCache.composerAttachmentFolders())
         }

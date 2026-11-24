@@ -69,6 +69,10 @@ import XCTest
         openThreadAndSend("This one fails first")
         // The app reports the first upload as failed in transport; the stub has taken it all the same.
         _ = try XCTUnwrap(upload(waitingFor: Wait.firstLoad), "the stub never took the upload")
+        // The chip above the composer says it plainly and offers Retry.
+        XCTAssertTrue(
+            app.staticTexts["Not sent. Tap Retry, or it tries again later."].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(app.buttons["upload.retry"].exists)
         let instance = app.descendants(matching: .any)["testMode.instanceID"]
         XCTAssertTrue(instance.waitForExistence(timeout: Wait.appear))
         let instanceID = try XCTUnwrap(instance.value as? String)

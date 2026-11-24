@@ -671,6 +671,26 @@
         }
       }
     },
+    "chat.announce.finished" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak finished"
+          }
+        }
+      }
+    },
+    "chat.announce.finishedWith %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak finished. %@"
+          }
+        }
+      }
+    },
     "chat.jumpToLatest" : {
       "localizations" : {
         "en" : {
@@ -4782,6 +4802,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Update needed"
+          }
+        }
+      }
+    },
+    "chat.upload.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not sent. Tap Retry, or it tries again later."
+          }
+        }
+      }
+    },
+    "chat.upload.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a connection. It sends by itself."
           }
         }
       }
@@ -13136,6 +13176,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A private thread"
+          }
+        }
+      }
+    },
+    "chat.upload.progress %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading, %1$lld %%"
           }
         }
       }

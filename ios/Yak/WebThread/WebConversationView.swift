@@ -97,6 +97,7 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore
         configuration.limitsNavigationsToAppBoundDomains = false
+        WebMedia.configure(configuration)
         configuration.applicationNameForUserAgent = "YakApp/\(version) (embed)"
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
@@ -170,6 +171,8 @@ final class WebConversationPageView: NSObject, WebConversationPage, WKNavigation
     func quickLook(url: URL, name: String) { quickLook.start(url: url, name: name, in: webView) }
 
     /// A hidden page also gives up focus, so a field of the page cannot take keystrokes under the lock cover.
+    func pauseMedia() { webView.pauseAllMediaPlayback {} }
+
     func setHidden(_ isHidden: Bool) {
         webView.isHidden = isHidden
         guard isHidden else { return }

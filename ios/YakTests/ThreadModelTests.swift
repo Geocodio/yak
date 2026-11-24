@@ -195,6 +195,40 @@ private func chatSnapshot(
         turn: TurnChange(turnId: LenientID("41"), state: state), connection: .live)
 }
 
+@MainActor @Test func aTurnEndAnnouncesOnce() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let items = [textItem("m1:0", "Looking."), textItem("m2:0", "Done. All good.")]
+    model.apply(try chatSnapshot(.running, items: items))
+    model.apply(try chatSnapshot(.running, items: items))
+    #expect(model.announcementSerial == 0)
+    model.apply(try chatSnapshot(.completed, items: items))
+    #expect(model.announcementSerial == 1)
+    #expect(model.announcement == "Yak finished. Done. All good.")
+    model.apply(try chatSnapshot(.completed, items: items))
+    #expect(model.announcementSerial == 1)
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aTurnEndWithoutATextSaysOnlyThatYakFinished() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    model.apply(try chatSnapshot(.running))
+    model.apply(try chatSnapshot(.completed))
+    #expect(model.announcement == "Yak finished")
+    await fixture.session.stop()
+}
+
+@MainActor @Test func aLongLastTextIsCutForTheAnnouncement() async throws {
+    let fixture = try await Fixture()
+    let model = ThreadModel(threadID: "d0e515ef", session: fixture.session)
+    let items = [textItem("m1:0", String(repeating: "a", count: 500))]
+    model.apply(try chatSnapshot(.running, items: items))
+    model.apply(try chatSnapshot(.completed, items: items))
+    #expect(model.announcement == "Yak finished. " + String(repeating: "a", count: 200))
+    await fixture.session.stop()
+}
+
 @MainActor @Test func aSendNoticeStaysUntilTheShowChangesOrTheNextSendStarts() async throws {
     let clock = ManualClock()
     let fixture = try await Fixture(clock: clock)

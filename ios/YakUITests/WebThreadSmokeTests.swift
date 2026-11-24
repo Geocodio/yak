@@ -170,15 +170,15 @@ import XCTest
         XCTAssertTrue(app.textFields["composer.field"].isHittable)
     }
 
-    /// The page of the first listed thread is prepared while the drawer shows, before any row is tapped, and the row's
-    /// tap then finds it: no second session is minted for it.
-    func testThePageOfTheFirstListedThreadIsPreparedBeforeARowIsTapped() throws {
+    /// Nothing is prepared for a row nobody opened: with no thread shown and none opened before, the drawer alone
+    /// mints no session. Opening a thread mints exactly one.
+    func testNoPageIsPreparedForAListedRowThatNobodyOpened() throws {
         try launch(scenario: "embed-basic")
-        let drawer = app.otherElements["drawer"]
-        XCTAssertTrue(drawer.waitForExistence(timeout: Wait.firstLoad))
-        let prepared = NSPredicate { _, _ in ((try? self.embedState()) ?? "").contains("redeems=1") }
-        wait(for: [XCTNSPredicateExpectation(predicate: prepared, object: nil)], timeout: Wait.firstLoad)
-        XCTAssertTrue(try embedState().contains("mints=1 redeems=1"))
+        XCTAssertTrue(app.otherElements["drawer"].waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: Wait.firstLoad))
+        Thread.sleep(forTimeInterval: 3)
+        XCTAssertTrue(try embedState().contains("mints=0"))
         openThread()
         waitForPage()
         XCTAssertTrue(try embedState().contains("mints=1 redeems=1"))
@@ -192,6 +192,31 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["lock.screen"].waitForExistence(timeout: Wait.appear))
         Thread.sleep(forTimeInterval: 3)
         XCTAssertTrue(try embedState().contains("mints=0"))
+    }
+
+    /// A file on a message opens through the page: the page asks for Quick Look, the app downloads it through the
+    /// page's own session and shows it, and Quick Look closes again.
+    func testAFileOnAMessageOpensInQuickLook() throws {
+        try launch(scenario: "embed-basic")
+        try stub.post("embed/file/attachment", "")
+        openThread()
+        waitForPage()
+        app.buttons["Open a file"].tap()
+        let preview = app.descendants(matching: .any)["QLPreviewControllerView"]
+        XCTAssertTrue(preview.waitForExistence(timeout: Wait.firstLoad), "Quick Look did not appear")
+        let close = app.buttons["QLOverlayDoneButtonAccessibilityIdentifier"]
+        XCTAssertTrue(close.waitForExistence(timeout: Wait.appear), "Quick Look has no close control")
+        let hittable = NSPredicate(format: "isHittable == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: hittable, object: close)], timeout: Wait.appear)
+        let closeGone = NSPredicate(format: "exists == false")
+        var closed = false
+        for _ in 0..<4 where !closed {
+            if close.exists, close.isHittable { close.tap() }
+            closed =
+                XCTWaiter().wait(
+                    for: [XCTNSPredicateExpectation(predicate: closeGone, object: close)], timeout: 15) == .completed
+        }
+        XCTAssertTrue(closed, "tapping Quick Look's close control did not close it")
     }
 
     func testSwitchingThreadsReusesThePage() throws {

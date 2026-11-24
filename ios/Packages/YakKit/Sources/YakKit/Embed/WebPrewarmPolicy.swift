@@ -16,7 +16,7 @@ public struct WebPrewarmPolicy: Equatable, Sendable {
     public var serverOffersPage: Bool
     /// A page already exists or a thread is already shown, so nothing more is prepared.
     public var hasPreparedPage: Bool
-    /// The thread that is likely to open: the one the window shows or will show, else the last opened.
+    /// The thread that is likely to open: the one the window shows or is about to show, else the last opened.
     public var candidateThreadID: String?
 
     public init(

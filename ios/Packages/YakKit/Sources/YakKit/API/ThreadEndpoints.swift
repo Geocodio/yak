@@ -36,20 +36,6 @@ private struct UpdateQueuedMessageBody: Encodable, Sendable {
     let text: String?
 }
 
-private struct AnswerQuestionBody: Encodable, Sendable {
-    let answers: [String: QuestionAnswer]
-    let note: String?
-
-    enum CodingKeys: String, CodingKey { case answers, note }
-
-    /// `note` is always present, `null` when there is none.
-    func encode(to encoder: any Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(answers, forKey: .answers)
-        try container.encode(note, forKey: .note)
-    }
-}
-
 private struct ChannelAuthorizationBody: Encodable, Sendable {
     let socketID: String
     let channelName: String
@@ -194,20 +180,8 @@ extension Endpoint where Response == StatusResponse {
             body: UpdateQueuedMessageBody(mode: mode, text: text))
     }
 
-    public static func answerQuestion(_ id: String, answers: [String: QuestionAnswer], note: String?)
-        -> Endpoint<StatusResponse>
-    {
-        Endpoint(
-            method: .post, path: "threads/\(segment(id))/clarification-answers",
-            body: AnswerQuestionBody(answers: answers, note: note))
-    }
-
     public static func stopTurn(_ id: String) -> Endpoint<StatusResponse> {
         Endpoint(method: .post, path: "threads/\(segment(id))/stop")
-    }
-
-    public static func continueTurn(_ id: String) -> Endpoint<StatusResponse> {
-        Endpoint(method: .post, path: "threads/\(segment(id))/continue")
     }
 
     public static func retryRestore(_ id: String) -> Endpoint<StatusResponse> {

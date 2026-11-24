@@ -53,15 +53,29 @@ import XCTest
         try audit()
     }
 
-    /// Smoke test 3, the frame: the drawer lists the server's own thread fixtures, with neither a load state nor an
-    /// error. The fixtures' ids are placeholders, so the thread page itself is not opened here.
-    func testServerFixturesFillTheDrawer() throws {
+    /// Smoke test 3, the frame: the thread opens from the drawer on the server's own fixtures, and its conversation
+    /// area ends up with neither a load state nor an error. The engine still decodes every fixture for the header and
+    /// the composer; the page is the stub's.
+    func testServerFixturesOpen() throws {
         try launch(scenario: "server-fixtures")
         openDrawerIfNeeded()
         let rows = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "drawer.row.thread:"))
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: Wait.firstLoad))
         for text in ["This thread is not here anymore", "You are offline"] {
+            XCTAssertFalse(app.staticTexts[text].exists, text)
+        }
+        rows.firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["conversation"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: Wait.firstLoad))
+        let gone = NSPredicate(format: "exists == false")
+        for identifier in ["thread.loading", "thread.slow", "thread.notFound", "thread.offline", "thread.error"] {
+            let element = app.descendants(matching: .any)[identifier]
+            wait(for: [XCTNSPredicateExpectation(predicate: gone, object: element)], timeout: Wait.appear)
+            XCTAssertFalse(element.exists, identifier)
+        }
+        for text in ["This thread is not here anymore", "This is taking longer than usual", "Loading the conversation"]
+        {
             XCTAssertFalse(app.staticTexts[text].exists, text)
         }
         try audit()

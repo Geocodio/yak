@@ -73,3 +73,14 @@ func eachStateMapsToItsStatusWithoutAReason(state: OutboxState, status: EmbedOut
 }
 
 private struct EmbedProjectionFailure: Error {}
+
+@Test func aFailedBackgroundUploadIsShownAsNotSentWithRetry() throws {
+    let sent = item(state: .sending, attachments: 1)
+    guard
+        case .outbox(_, let failedRows) = EmbedOutboxProjection.message(
+            threadID: threadID, items: [sent], failedUploads: [sent.id])
+    else { throw EmbedProjectionFailure() }
+    #expect(failedRows.map(\.status) == [.refused])
+    #expect(failedRows.first?.reason == EmbedOutboxProjection.failedUploadReason)
+    #expect(try rows([sent]).map(\.status) == [.sending])
+}

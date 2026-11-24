@@ -284,6 +284,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
         <button id="send-pane" data-testid="embed-pane">Open the files pane</button>
         <button id="send-card" data-testid="embed-card">Answer the question</button>
         <button id="send-approve" data-testid="embed-approve">Approve the co-owner decision</button>
+        <button id="send-file" data-testid="embed-file">Open a file</button>
         <button id="send-auth" data-testid="embed-auth">Expire the session</button>
         </div>
         <section aria-label="Shared report" data-testid="embed-report">
@@ -353,6 +354,9 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             navigator.clipboard.writeText(location.origin + "/files/01HZX3K9ABCDEFGHJKMNPQRSTV").then(
               function () { el("last").textContent = "Copied the link"; },
               function () { el("last").textContent = "Could not copy the link"; });
+          });
+          el("send-file").addEventListener("click", function () {
+            post({ type: "quickLook", url: location.origin + "/files/01HZX3K9ABCDEFGHJKMNPQRSTV", name: "report.txt", mime: "text/plain" });
           });
           el("send-auth").addEventListener("click", function () { post({ type: "auth", state: "expired" }); });
           var outboxItems = [];

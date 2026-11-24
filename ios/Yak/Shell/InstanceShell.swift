@@ -81,7 +81,7 @@ struct InstanceShell: View {
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
         .webPrewarm(
-            model: model, webConversation: webConversation, session: session, scene: scene, drawer: drawerModel,
+            model: model, webConversation: webConversation, session: session, scene: scene,
             isSessionActive: status == .active
         )
         .task(id: status) { await refreshStoredInstance() }

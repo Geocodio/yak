@@ -35,7 +35,10 @@ struct BottomBar: View {
     /// messages (the web page leaves them out of its list), then the controls.
     private var bar: some View {
         VStack(spacing: 0) {
-            if pane == .chat { QueuedChipsView(thread: thread) }
+            if pane == .chat {
+                UploadChipsView(thread: thread)
+                QueuedChipsView(thread: thread)
+            }
             layout
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Design.Space.nudge + 1)

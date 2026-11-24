@@ -171,6 +171,26 @@ public actor Cache {
         if lastOpenedThreadID() == id { delete(lastOpenedPath) }
     }
 
+    // MARK: Data of removed features
+
+    private var legacyMarkerPath: String { "\(root)/legacy-chat-data-removed" }
+
+    /// Deletes what the native chat left in each thread's folder: the question answer drafts (`question.json`) and the
+    /// attachment thumbnails (`attachments/`). It runs once per instance; a marker file records that it did.
+    public func removeRemovedFeatureData() {
+        do {
+            if try files.exists(legacyMarkerPath) { return }
+            for name in try files.list("\(root)/threads") {
+                let folder = "\(root)/threads/\(name)"
+                delete("\(folder)/question.json")
+                delete("\(folder)/attachments")
+            }
+            try files.write(Data(), to: legacyMarkerPath, protection: .untilFirstUnlock)
+        } catch {
+            logFailure("legacy data removal failed: \(Swift.type(of: error))")
+        }
+    }
+
     // MARK: Composer drafts
 
     private func composerPath(_ key: ComposerDraftKey) -> String {

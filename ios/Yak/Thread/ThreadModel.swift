@@ -34,6 +34,15 @@ final class ThreadModel {
     /// The last request whose file the Files pane could not open.
     var fileOpenFailure: FileOpenRequest?
     /// The drawer row's title, shown until the thread's own arrives.
+    /// The unsent messages of the instance and the progress of their background uploads, for the upload chips and the
+    /// page's unsent rows.
+    private(set) var unsentItems: [OutboxItem] = []
+    private(set) var uploadSummary = UploadSummary()
+    @ObservationIgnored private var outboxTask: Task<Void, Never>?
+    @ObservationIgnored private var uploadTask: Task<Void, Never>?
+    /// What VoiceOver says once when a turn ends; `announcementSerial` changes with each one.
+    private(set) var announcement: String?
+    private(set) var announcementSerial = 0
     private var initialTitle: String?
     private var isStarted = false
     private var hasNotedOpened = false
@@ -91,6 +100,10 @@ final class ThreadModel {
     var replacementThreadID: String? { snapshot?.replacementThreadID }
     var instanceURL: URL { session.instance.url }
     var isOffline: Bool { snapshot?.isOffline ?? false }
+    /// The upload chips of this thread's unsent messages.
+    var uploadChips: [UploadChip] {
+        UploadChips.make(items: unsentItems, threadID: threadID, summary: uploadSummary, isOffline: isOffline)
+    }
 
     /// Opens the engine and reads its snapshots until `stop()`. A second call changes nothing.
     func start(initialTitle: String?) async {
@@ -146,6 +159,21 @@ final class ThreadModel {
         engine = opened
         composer.use(backend: LiveComposerBackend(session: session, engine: opened, threadID: threadID))
         await opened.setVisible(isVisible)
+        outboxTask = Task { [weak self] in
+            guard let outbox = await self?.session.outbox() else { return }
+            self?.unsentItems = await outbox.items()
+            for await update in await outbox.updates() {
+                guard !Task.isCancelled else { return }
+                if case .items(let items) = update { self?.unsentItems = items }
+            }
+        }
+        uploadTask = Task { [weak self] in
+            guard let summaries = await self?.session.uploadSummaries() else { return }
+            for await next in summaries {
+                guard !Task.isCancelled else { return }
+                self?.uploadSummary = next
+            }
+        }
         readingTask = Task { [weak self] in
             for await next in await opened.snapshots() {
                 guard let self, !Task.isCancelled else { return }
@@ -163,6 +191,12 @@ final class ThreadModel {
         generation += 1
         readingTask?.cancel()
         readingTask = nil
+        outboxTask?.cancel()
+        uploadTask?.cancel()
+        outboxTask = nil
+        uploadTask = nil
+        unsentItems = []
+        uploadSummary = UploadSummary()
         actionLineTask?.cancel()
         actionLineTask = nil
         reportedActionLine = nil
@@ -175,10 +209,35 @@ final class ThreadModel {
 // MARK: Snapshots
 
 extension ThreadModel {
+    private static let announcementLength = 200
+
+    nonisolated static func isTurnActive(_ snapshot: ConversationSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        return snapshot.turn?.state.isActive ?? (snapshot.show?.composer.state == .working)
+    }
+
+    private func announceTurnEnd(_ snapshot: ConversationSnapshot) {
+        let lastText = snapshot.entries.reversed().lazy.compactMap { entry -> String? in
+            guard case .event(let item) = entry, item.kind == .text, !item.isStreaming else { return nil }
+            return item.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.first { !$0.isEmpty }
+        if let lastText {
+            announcement = String(
+                localized: "chat.announce.finishedWith \(String(lastText.prefix(Self.announcementLength)))")
+        } else {
+            announcement = String(localized: "chat.announce.finished")
+        }
+        announcementSerial += 1
+    }
+}
+
+extension ThreadModel {
     /// Takes a newer snapshot: the send notice and the action line that follows it.
     func apply(_ next: ConversationSnapshot) {
         guard !Task.isCancelled else { return }
+        let wasActive = Self.isTurnActive(snapshot)
         snapshot = next
+        if wasActive, !Self.isTurnActive(next), next.load == .ready { announceTurnEnd(next) }
         if isNoticeShown, next.show != noticeShow {
             if hasNoticeSeenItsRefresh {
                 clearActionLine()
@@ -251,6 +310,7 @@ extension ThreadModel {
     /// Sends a refused or waiting message again now.
     func retryUnsent(_ id: UUID) async {
         await session.outbox()?.retry(id)
+        if uploadSummary.failed.contains(id) { await session.retryFailedUploads() }
     }
 
     /// Takes an unsent message out of the outbox and returns it; nil when it is gone or is sending right now.

@@ -1,15 +1,13 @@
-/// The one card above the composer. The server names it in `card`; the app draws only that one, with
-/// the buttons the server's flags allow. A reader gets the words and no buttons.
+/// What the one card above the composer, which the server names in `card` and the thread page draws, asks of the
+/// person. The app draws no card; it only knows whether one waits for the person, for the activity line of the other
+/// panes. A reader has the words and no buttons.
 public enum ThreadCardState: Equatable, Sendable {
     case none
-    /// The clarification question; its own model draws it.
+    /// The clarification question.
     case question
-    case repositoryQuestion(RepositoryQuestion, canAnswer: Bool)
-    case earlyWarning(EarlyWarningRow, EarlyWarningNotice)
-    case coOwner(TaskDecisionState, CoOwnerPanel)
-    /// `canRetry` offers Retry; `canSetUp` offers Set up and continue instead, while the repository is not set up.
-    case stopped(ThreadStop, canRetry: Bool, canSetUp: Bool, moveTargets: [String])
-    /// A card word this build does not know. Nothing is drawn and the composer stays usable.
+    /// Another card the server named; `hasButtons` is whether the person has something to press on it.
+    case card(ThreadCard, hasButtons: Bool)
+    /// A card word this build does not know.
     case unknown(String)
 
     /// `isForbidden` is the engine's answer to a refused action: the person can read but not drive.
@@ -25,48 +23,38 @@ public enum ThreadCardState: Equatable, Sendable {
             return show.question == nil ? .none : .question
         case .repositoryQuestion:
             guard let question = show.repositoryQuestion else { return .none }
-            return .repositoryQuestion(question, canAnswer: question.canAnswer && canDrive)
+            return .card(card, hasButtons: question.canAnswer && canDrive)
         case .earlyWarning:
             guard let notice = show.earlyWarning else { return .none }
-            return .earlyWarning(EarlyWarningRow.make(canDrive: canDrive, notice: notice), notice)
+            if case .pick = EarlyWarningRow.make(canDrive: canDrive, notice: notice) {
+                return .card(card, hasButtons: true)
+            }
+            return .card(card, hasButtons: false)
         case .coOwner:
             guard let panel = show.coOwner else { return .none }
             let mayDecide = canDrive && (panel.canDecide ?? true)
-            return .coOwner(TaskDecisionState.make(canDrive: mayDecide, panel: panel), panel)
+            switch TaskDecisionState.make(canDrive: mayDecide, panel: panel) {
+            case .none, .decided, .noWriteAccess: return .card(card, hasButtons: false)
+            default: return .card(card, hasButtons: true)
+            }
         case .stopped:
-            guard let stop = show.stopped else { return .none }
+            guard show.stopped != nil else { return .none }
             let flags = show.actions
             let canRetry = canDrive && flags.canRetry
-            let moveTargets = canDrive && flags.canMove ? flags.moveTargets : []
-            return .stopped(
-                stop, canRetry: canRetry && !stop.isWaitingForSetup, canSetUp: canRetry && stop.isWaitingForSetup,
-                moveTargets: moveTargets)
+            let hasMove = canDrive && flags.canMove && !flags.moveTargets.isEmpty
+            return .card(card, hasButtons: canRetry || hasMove)
         default:
             return .unknown(card.rawValue)
         }
     }
 
-    /// True when a card other than the question waits for the person: it is drawn and has something to press.
+    /// True when a card other than the question waits for the person: it has something to press.
     public var needsYou: Bool {
-        switch self {
-        case .none, .question, .unknown: false
-        default: !hasNoButtons
-        }
+        if case .card(_, let hasButtons) = self { hasButtons } else { false }
     }
 
-    /// True when the card is drawn but offers nothing to press.
+    /// True when the card is there but offers nothing to press.
     public var hasNoButtons: Bool {
-        switch self {
-        case .none, .question, .unknown: false
-        case .repositoryQuestion(_, let canAnswer): !canAnswer
-        case .earlyWarning(let row, _):
-            if case .pick = row { false } else { true }
-        case .coOwner(let decision, _):
-            switch decision {
-            case .none, .decided, .noWriteAccess: true
-            default: false
-            }
-        case .stopped(_, let canRetry, let canSetUp, let moveTargets): !canRetry && !canSetUp && moveTargets.isEmpty
-        }
+        if case .card(_, let hasButtons) = self { !hasButtons } else { false }
     }
 }

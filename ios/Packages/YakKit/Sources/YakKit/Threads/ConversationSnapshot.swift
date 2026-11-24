@@ -59,7 +59,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
     public var show: ThreadShow?
     public var entries: [ConversationEntry]
     public var currentStepKey: String?
-    public var waiting: WaitingRow?
     public var turn: TurnChange?
     public var thread: ThreadStateChange?
     public var connection: ConnectionState
@@ -82,7 +81,7 @@ public struct ConversationSnapshot: Equatable, Sendable {
 
     public init(
         load: ThreadLoadState = .loading, show: ThreadShow? = nil, entries: [ConversationEntry] = [],
-        currentStepKey: String? = nil, waiting: WaitingRow? = nil, turn: TurnChange? = nil,
+        currentStepKey: String? = nil, turn: TurnChange? = nil,
         thread: ThreadStateChange? = nil, connection: ConnectionState = .offline,
         isShowingCachedCopy: Bool = false, isOffline: Bool = false, replacementThreadID: String? = nil,
         lastSequence: Int = 0,
@@ -93,7 +92,6 @@ public struct ConversationSnapshot: Equatable, Sendable {
         self.show = show
         self.entries = entries
         self.currentStepKey = currentStepKey
-        self.waiting = waiting
         self.turn = turn
         self.thread = thread
         self.connection = connection
