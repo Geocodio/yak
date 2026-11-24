@@ -168,8 +168,8 @@ it('shows the account waiting card with its turn meter and queue position', func
         ->assertNoJavaScriptErrors();
 });
 
-it('shows the sandbox waiting card with a slot strip and no time estimate', function () {
-    config(['yak.threads.awake_cap' => 2, 'yak.threads.person_awake_cap' => 5]);
+it('shows the sandbox waiting card with a slot strip, a legend and when a sandbox frees', function () {
+    config(['yak.threads.awake_cap' => 2, 'yak.threads.person_awake_cap' => 5, 'yak.threads.eviction_grace_minutes' => 10]);
     $user = User::factory()->create();
     Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'c-1']);
     Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(3)]);
@@ -177,9 +177,11 @@ it('shows the sandbox waiting card with a slot strip and no time estimate', func
     $this->actingAs($user);
 
     $page = visit("/threads/{$thread->public_id}");
-    $page->assertSeeIn('[data-testid="thread-notice"]', 'Yak stops a paused one after 5 idle minutes. It starts this one soon. Your message is saved.')
+    $page->assertSeeIn('[data-testid="thread-notice"]', 'All 2 sandboxes are awake. Yak can stop a paused sandbox once it has been idle for 10 minutes')
         ->assertDontSee('usually within a few minutes')
         ->assertCount('[data-testid="waiting-slots"] li', 2)
+        ->assertSeeIn('[data-testid="waiting-legend"]', 'Running a turn')
+        ->assertSeeIn('[data-testid="waiting-estimate"]', 'Next one frees in about 7 minutes.')
         ->assertNoJavaScriptErrors();
 });
 
