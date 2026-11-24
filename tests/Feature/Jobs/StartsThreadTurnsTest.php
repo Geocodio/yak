@@ -13,6 +13,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadTurns;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -72,6 +73,20 @@ it('prepares the tree and writes the turn, naming its kind', function () {
         ->and($run->kind)->toBe(TaskRunKind::Clarification)
         ->and($run->turn_state)->toBe(TurnState::Running)
         ->and($this->thread->refresh()->append_system_prompt)->not->toBeEmpty();
+});
+
+it('refreshes the sandbox GitHub token before preparing the tree', function () {
+    $preparedAtFirstRefresh = null;
+    $credentials = Mockery::mock(ThreadGitHubCredentials::class);
+    $credentials->shouldReceive('ensureFresh')->atLeast()->once()->andReturnUsing(function () use (&$preparedAtFirstRefresh) {
+        $preparedAtFirstRefresh ??= $this->job->prepared;
+    });
+    app()->instance(ThreadGitHubCredentials::class, $credentials);
+
+    $this->job->start($this->repository);
+
+    expect($preparedAtFirstRefresh)->toBeFalse()
+        ->and($this->job->prepared)->toBeTrue();
 });
 
 it('releases when another turn runs on the thread', function () {

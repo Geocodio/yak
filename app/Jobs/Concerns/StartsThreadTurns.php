@@ -12,6 +12,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\TaskAttachmentStager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadFactory;
@@ -64,6 +65,9 @@ trait StartsThreadTurns
 
                 return false;
             }
+
+            // Preparing the tree fetches from GitHub, so the sandbox token must be fresh before it runs.
+            app(ThreadGitHubCredentials::class)->ensureFresh($thread);
 
             $shell = ThreadShell::for($thread);
             $prepareTree($shell, $thread);
