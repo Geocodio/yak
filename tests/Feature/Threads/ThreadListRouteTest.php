@@ -2,6 +2,7 @@
 
 use App\Enums\ThreadSource;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadView;
 use App\Models\User;
 
@@ -107,4 +108,49 @@ test('sources must be an array of strings', function () {
 
     $this->getJson(route('threads.list', ['sources' => 'slack']))->assertUnprocessable();
     $this->getJson(route('threads.list', ['starters' => 'yak']))->assertUnprocessable();
+});
+
+test('the review filter groups threads by review state', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $makeThread = function (array $repository) use ($user): Thread {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+        ThreadRepository::factory()->create([
+            'thread_id' => $thread->id,
+            'pull_request_state' => 'open',
+            'pull_request_number' => 1,
+            'pull_request_head_sha' => 'head1',
+            ...$repository,
+        ]);
+
+        return $thread;
+    };
+    $backToYou = $makeThread(['pull_request_reviews' => ['mathias' => ['state' => 'commented', 'commitSha' => 'head1']]]);
+    $notReviewed = $makeThread([]);
+    $approved = $makeThread(['pull_request_reviews' => ['mathias' => ['state' => 'approved', 'commitSha' => 'head1']]]);
+    Thread::factory()->create(['created_by_user_id' => $user->id]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('reviewCount', 2)
+        ->assertJsonPath('review.needsGitHubLink', false)
+        ->assertJsonPath('review.backToYou.0.id', $backToYou->public_id)
+        ->assertJsonPath('review.backToYou.0.review.state', 'back_to_you')
+        ->assertJsonPath('review.notReviewed.0.id', $notReviewed->public_id)
+        ->assertJsonPath('review.approved.0.id', $approved->public_id)
+        ->assertJsonCount(0, 'review.withYak')
+        ->assertJsonCount(0, 'threads');
+
+    $this->getJson(route('threads.list'))->assertJsonPath('reviewCount', 2)->assertJsonMissingPath('review');
+});
+
+test('the review filter asks a viewer without a github login to link it', function () {
+    $user = User::factory()->create(['github_login' => null]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+
+    $this->actingAs($user)->getJson(route('threads.list', ['filter' => 'review']))
+        ->assertOk()
+        ->assertJsonPath('review.needsGitHubLink', true)
+        ->assertJsonCount(0, 'review.backToYou')
+        ->assertJsonCount(0, 'review.notReviewed');
 });
