@@ -19,6 +19,7 @@ use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\QuietPeriodReviewJob;
 use App\Jobs\RecordCiJobGreenJob;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Jobs\RunConfigCheckJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
@@ -34,6 +35,7 @@ use App\Services\CiFailure\CiFailureIntake;
 use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use App\Services\Threads\PullRequests\CiCheckDetails;
+use App\Services\Threads\PullRequests\PullRequestFacts;
 use App\Services\Threads\PullRequests\RepositoryCiRetry;
 use App\Services\Threads\PullRequests\RepositoryTurnPrompts;
 use App\Services\Threads\PullRequests\RoutedPullRequest;
@@ -103,6 +105,15 @@ class WebhookController extends Controller
         }
 
         if ($event === 'pull_request_review') {
+            if (in_array($request->input('action'), ['submitted', 'dismissed'], true)) {
+                $this->recordPullRequestFacts(fn (PullRequestFacts $facts) => $facts->recordReview(
+                    (array) $request->input('review'),
+                    (string) $request->input('action'),
+                    (string) $request->input('repository.full_name'),
+                    (int) $request->input('pull_request.number'),
+                ));
+            }
+
             return $this->handlePullRequestReview($request, $github);
         }
 
@@ -115,6 +126,20 @@ class WebhookController extends Controller
         }
 
         $action = $request->input('action');
+
+        if (in_array($action, ['opened', 'reopened', 'ready_for_review', 'converted_to_draft', 'synchronize', 'edited'], true)) {
+            $this->recordPullRequestFacts(fn (PullRequestFacts $facts) => $facts->recordPullRequest(
+                (array) $request->input('pull_request'),
+                (string) $request->input('repository.full_name'),
+            ));
+        }
+
+        if (in_array($action, ['opened', 'reopened', 'synchronize'], true) || ($action === 'edited' && $request->has('changes.base'))) {
+            $this->recordPullRequestFacts(fn () => RefreshPullRequestMergeabilityJob::dispatch(
+                (string) $request->input('repository.full_name'),
+                (int) $request->input('pull_request.number'),
+            ));
+        }
 
         if ($action === 'closed') {
             app(CiFailureIntake::class)->resolveClosedPullRequest($request);
@@ -178,6 +203,24 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'skipped' => "unhandled action: {$action}"]);
+    }
+
+    /**
+     * Stores PR facts for the review queue; a storage failure never blocks the real handlers.
+     *
+     * @param  callable(PullRequestFacts): mixed  $record
+     */
+    private function recordPullRequestFacts(callable $record): void
+    {
+        try {
+            $record(app(PullRequestFacts::class));
+        } catch (\Throwable $exception) {
+            Log::warning('Recording pull request facts failed', [
+                'error' => $exception->getMessage(),
+                'repository' => (string) request()->input('repository.full_name'),
+                'pullRequestNumber' => (int) request()->input('pull_request.number'),
+            ]);
+        }
     }
 
     private function handleWorkflowJob(Request $request): JsonResponse
@@ -612,6 +655,16 @@ class WebhookController extends Controller
 
         if ($repo !== null && $request->input('ref') === 'refs/heads/' . $repo->default_branch) {
             app(RepositoryConfig::class)->forget($repo);
+
+            $this->recordPullRequestFacts(function () use ($repo, $request): void {
+                ThreadRepository::query()
+                    ->where('repo', $repo->slug)
+                    ->where('pull_request_state', 'open')
+                    ->whereNotNull('pull_request_number')
+                    ->distinct()
+                    ->pluck('pull_request_number')
+                    ->each(fn ($number) => RefreshPullRequestMergeabilityJob::dispatch((string) $request->input('repository.full_name'), (int) $number));
+            });
         }
 
         if ($repo === null || ! $repo->deployments_enabled) {

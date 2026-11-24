@@ -1,4 +1,4 @@
-import { usePage } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import { threadIdOfUrl } from "@/components/shell/threadUrl";
 import {
     Button,
@@ -7,6 +7,8 @@ import {
     Tooltip,
     cn,
 } from "@geocodio/console-ui";
+import { Fragment } from "react";
+import { edit as editProfile } from "@/routes/profile";
 import { PanelLeftClose, Plus, Search, X } from "lucide-react";
 import { shortcutLabel } from "@/commandPalette/shortcuts";
 import { isMacPlatform } from "@/commandPalette/platform";
@@ -20,6 +22,7 @@ import type { ThreadListFilter } from "@/types/shell";
 
 const FILTERS: { value: ThreadListFilter; label: string }[] = [
     { value: "mine", label: "Mine" },
+    { value: "review", label: "Review" },
     { value: "everyone", label: "Everyone" },
     { value: "closed", label: "Closed" },
 ];
@@ -75,7 +78,14 @@ export function ThreadListPanel({
         data !== null &&
         data.starred.length === 0 &&
         data.needsYou.length === 0 &&
-        data.threads.length === 0;
+        data.threads.length === 0 &&
+        (data.review === undefined ||
+            (!data.review.needsGitHubLink &&
+                data.review.backToYou.length +
+                    data.review.notReviewed.length +
+                    data.review.withYak.length +
+                    data.review.approved.length ===
+                    0));
     const rowsOf = (group: "today" | "this_week" | "older") =>
         (data?.threads ?? []).filter((row) => row.group === group);
 
@@ -142,7 +152,7 @@ export function ThreadListPanel({
                             <div
                                 role="group"
                                 aria-label="Thread filter"
-                                className="flex rounded-control bg-panel-2 p-0.5"
+                                className="flex min-w-0 rounded-control bg-panel-2 p-0.5"
                             >
                                 {FILTERS.map((option) => (
                                     <button
@@ -158,6 +168,13 @@ export function ThreadListPanel({
                                         )}
                                     >
                                         {option.label}
+                                        {option.value === "review" &&
+                                        data !== null &&
+                                        data.reviewCount > 0 ? (
+                                            <span className="tnum ml-1 rounded-pill bg-brand-soft px-1.5 text-[10.5px] text-brand">
+                                                {data.reviewCount}
+                                            </span>
+                                        ) : null}
                                     </button>
                                 ))}
                             </div>
@@ -216,6 +233,27 @@ export function ThreadListPanel({
                             <Skeleton key={index} className="h-9 w-full" />
                         ))}
                     </div>
+                ) : filter === "review" &&
+                  data.review?.needsGitHubLink ? (
+                    <div
+                        className="mt-3 rounded-card border border-dashed border-hair p-4 text-center"
+                        data-testid="review-link-github-prompt"
+                    >
+                        <div className="text-[13px] font-medium">
+                            Link your GitHub account
+                        </div>
+                        <p className="mt-1 text-[12px] text-muted">
+                            Yak matches your reviews to threads by your GitHub
+                            login.
+                        </p>
+                        <Link
+                            href={editProfile.url()}
+                            data-testid="review-link-github"
+                            className="mt-2 inline-block text-[12px] font-medium text-brand hover:underline"
+                        >
+                            Link GitHub in settings
+                        </Link>
+                    </div>
                 ) : hasNoThreadsAtAll ? null : isEmpty ? (
                     <div
                         className="mt-3 rounded-card border border-dashed border-hair p-4 text-center"
@@ -240,8 +278,45 @@ export function ThreadListPanel({
                             </p>
                         )}
                     </div>
+                ) : filter === "review" && data.review ? (
+                    <Fragment key="review">
+                        <ThreadGroup
+                            groupKey="back-to-you"
+                            testId="review-group-back-to-you"
+                            title="Back to you"
+                            count={data.review.backToYou.length}
+                            rows={data.review.backToYou}
+                            activeThreadId={activeThreadId}
+                        />
+                        <ThreadGroup
+                            groupKey="not-reviewed"
+                            testId="review-group-not-reviewed"
+                            title="Not reviewed"
+                            count={data.review.notReviewed.length}
+                            rows={data.review.notReviewed}
+                            activeThreadId={activeThreadId}
+                        />
+                        <ThreadGroup
+                            groupKey="with-yak"
+                            testId="review-group-with-yak"
+                            title="With Yak"
+                            rows={data.review.withYak}
+                            activeThreadId={activeThreadId}
+                        />
+                        <ThreadGroup
+                            groupKey="approved"
+                            testId="review-group-approved"
+                            title="Approved by you"
+                            count={data.review.approved.length}
+                            isCountMuted
+                            rows={data.review.approved}
+                            activeThreadId={activeThreadId}
+                            collapsible
+                            defaultCollapsed
+                        />
+                    </Fragment>
                 ) : (
-                    <>
+                    <Fragment key="threads">
                         <ThreadGroup
                             groupKey="starred"
                             title="Starred"
@@ -273,7 +348,7 @@ export function ThreadListPanel({
                             rows={rowsOf("older")}
                             activeThreadId={activeThreadId}
                         />
-                    </>
+                    </Fragment>
                 )}
             </div>
         </div>

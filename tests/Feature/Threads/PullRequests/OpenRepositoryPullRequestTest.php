@@ -3,6 +3,7 @@
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadVisibility;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Jobs\Threads\OpenRepositoryPullRequestJob;
 use App\Jobs\Threads\RefreshSiblingBlocksJob;
 use App\Models\Repository;
@@ -148,4 +149,28 @@ it('requires the primary pull request acknowledgement for a private thread', fun
     $primary->forceFill(['pull_request_url' => 'https://github.com/acme/api/pull/1', 'pull_request_number' => 1, 'pull_request_state' => 'open'])->save();
     $run();
     expect($web->refresh()->pull_request_number)->toBe(9);
+});
+
+it('records the review facts from the pull request response and queues a mergeability refresh', function () {
+    Queue::fake();
+    [, , $web] = publishFixture();
+    $web->forceFill(['branch' => 'yak/rename'])->save();
+    mockGitHub(['number' => 5, 'html_url' => 'https://github.com/acme/web/pull/5', 'title' => 'x', 'draft' => true, 'head' => ['sha' => 'abc123'], 'created_at' => '2026-11-24T10:00:00Z'], 0);
+
+    (new OpenRepositoryPullRequestJob($web->id))->handle(app(GitHubAppService::class), app(ThreadPullRequestSync::class));
+
+    expect($web->refresh())->pull_request_is_draft->toBeTrue()->pull_request_head_sha->toBe('abc123')
+        ->and($web->pull_request_opened_at->toIso8601String())->toBe('2026-11-24T10:00:00+00:00');
+    Queue::assertPushed(fn (RefreshPullRequestMergeabilityJob $job) => $job->repoFullName === 'acme/web' && $job->prNumber === 5);
+});
+
+it('stamps the opened time when the response carries none', function () {
+    Queue::fake();
+    [, , $web] = publishFixture();
+    $web->forceFill(['branch' => 'yak/rename'])->save();
+    mockGitHub(['number' => 5, 'html_url' => 'https://github.com/acme/web/pull/5', 'title' => 'x'], 0);
+
+    (new OpenRepositoryPullRequestJob($web->id))->handle(app(GitHubAppService::class), app(ThreadPullRequestSync::class));
+
+    expect($web->refresh()->pull_request_opened_at)->not->toBeNull();
 });

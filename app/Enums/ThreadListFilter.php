@@ -8,4 +8,5 @@ enum ThreadListFilter: string
     case StartedByYak = 'yak';
     case Everyone = 'everyone';
     case Closed = 'closed';
+    case Review = 'review';
 }
