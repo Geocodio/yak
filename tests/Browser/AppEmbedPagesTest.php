@@ -70,3 +70,18 @@ it('shows the PR review pages without the app chrome and posts link for a thread
     expect($sent)->toHaveCount(1)->and($sent[0])->toEndWith("/threads/{$thread->public_id}");
     $page->assertScript('location.pathname', '/app/embed/pr-reviews/example/web.app/17');
 });
+
+it('posts link for a plain anchor to another Yak page and leaves the other anchors alone', function () {
+    [, , $headers] = embedPhone();
+
+    $page = visitEmbedPath('/app/embed/deployments', $headers);
+    $page->assertPresent('[data-testid="embed-toolbar"]');
+    stubEmbedPageHandler($page);
+    $page->script("document.body.insertAdjacentHTML('beforeend', '<a id=\"x-settings\" href=\"/settings\">s</a><a id=\"x-blank\" target=\"_blank\" href=\"/settings\" onclick=\"event.preventDefault()\">b</a><a id=\"x-embed\" href=\"/app/embed/deployments?status=all\" onclick=\"event.preventDefault()\">e</a>'); true");
+    $page->click('#x-blank')->click('#x-embed')->click('#x-settings');
+
+    $sent = settled($page, "window.__sent.some((message) => message.type === 'link')", "window.__sent.filter((message) => message.type === 'link').map((message) => message.url)");
+
+    expect($sent)->toHaveCount(1)->and($sent[0])->toEndWith('/settings');
+    $page->assertScript('location.pathname', '/app/embed/deployments');
+});

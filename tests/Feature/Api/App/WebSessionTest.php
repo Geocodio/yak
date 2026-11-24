@@ -82,6 +82,9 @@ it('refuses a path outside the embed list', function (string $path) {
     '/app/embed/pr-reviews/example/web.app/17/',
     '/app/embed/pr-reviews/example/web.app/x',
     '/app/embed/pr-reviews/for/example/web.app/17',
+    '/app/embed/pr-reviews/a/b/c/17',
+    '/app/embed/pr-reviews/my-repo//17',
+    '/app/embed/pr-reviews/a%2Fb/17',
     '',
 ]);
 
@@ -94,6 +97,7 @@ it('binds a path to each embedded page', function (string $path) {
     '/app/embed/deployments/abcd1234',
     '/app/embed/pr-reviews',
     '/app/embed/pr-reviews/example/web.app/17',
+    '/app/embed/pr-reviews/my-repo/17',
 ]);
 
 it('binds the trimmed path when the app sends edge whitespace', function () {

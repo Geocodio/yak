@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 export const show = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -93,7 +93,7 @@ show.url = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -103,7 +103,7 @@ show.get = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

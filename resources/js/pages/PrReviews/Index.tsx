@@ -234,7 +234,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                             <StackedTd label="PR">
                                                 {comment.repoSlug && comment.prNumber ? (
                                                     <Link
-                                                        href={isEmbed ? embedPrReviews.show.url({ owner: comment.repoSlug.split('/')[0], repo: comment.repoSlug.split('/').slice(1).join('/'), prNumber: comment.prNumber }) : forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
+                                                        href={isEmbed ? embedPrReviews.show.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber }) : forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
                                                         className="text-accent-text hover:underline"
                                                     >
                                                         {comment.repoSlug}#{comment.prNumber}

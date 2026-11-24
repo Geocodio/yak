@@ -1,11 +1,14 @@
 <?php
 
 use App\Enums\DeploymentStatus;
+use App\Enums\TaskMode;
 use App\Models\BranchDeployment;
 use App\Models\Device;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
+use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Support\AppEmbedRoutes;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Route;
@@ -57,7 +60,7 @@ it('answers an embed session with the same props as the web page', function (str
     $web = $this->actingAs($user)->get($webUri)->assertOk()->viewData('page')['props'];
 
     // A paginated prop carries its own address, which differs by design; its rows must not.
-    foreach (['deployments.data', 'deployment', 'filters', 'comments.data', 'stats', 'pr', 'runs', 'logs', 'hibernation'] as $key) {
+    foreach (['deployments.data', 'deployment', 'filters', 'comments.data', 'stats', 'pr', 'runs', 'logs'] as $key) {
         expect(data_get($embed, $key))->toEqual(data_get($web, $key));
     }
 })->with([
@@ -167,8 +170,76 @@ it('redeems a code bound to each page and refuses one bound to a near miss', fun
     'deployment' => ['/app/embed/deployments/abcd1234', true],
     'pr reviews' => ['/app/embed/pr-reviews', true],
     'pr review' => ['/app/embed/pr-reviews/example/web.app/17', true],
+    'pr review with a one-segment slug' => ['/app/embed/pr-reviews/my-repo/17', true],
     'deployments with a query' => ['/app/embed/deployments?status=all', false],
     'deployment with a short id' => ['/app/embed/deployments/abcd123', false],
     'pr review with a trailing path' => ['/app/embed/pr-reviews/example/web.app/17/log', false],
     'pr reviews with a fragment' => ['/app/embed/pr-reviews#x', false],
 ]);
+
+it('links a repository slug without a slash to a review page that renders', function () {
+    ['session' => $session] = embedPagesWorld();
+    $review = PrReview::factory()->create(['repo' => 'my-repo', 'pr_number' => 17, 'pr_url' => 'https://github.com/example/my-repo/pull/17']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id]);
+
+    actingAsEmbed($session);
+    $rows = $this->get('/app/embed/pr-reviews?repo=my-repo')->assertOk()->viewData('page')['props']['comments']['data'];
+    expect($rows[0]['repoSlug'])->toBe('my-repo');
+
+    actingAsEmbed($session);
+    $this->get('/app/embed/pr-reviews/' . $rows[0]['repoSlug'] . '/' . $rows[0]['prNumber'])->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('PrReviews/ForPr')->where('pr.repoSlug', 'my-repo'));
+});
+
+it('hides a deployment and a review of another person\'s private thread', function () {
+    ['session' => $session, 'deployment' => $visible] = embedPagesWorld();
+    $hiddenThread = privateThreadOf(User::factory()->create());
+    $hiddenTask = YakTask::factory()->create(['thread_id' => $hiddenThread->id, 'mode' => TaskMode::Fix]);
+    $hiddenDeployment = BranchDeployment::factory()->create(['yak_task_id' => $hiddenTask->id]);
+    $hiddenReview = PrReview::factory()->create(['yak_task_id' => $hiddenTask->id, 'repo' => 'example/secret', 'pr_number' => 31]);
+    PrReviewComment::factory()->create(['pr_review_id' => $hiddenReview->id]);
+
+    actingAsEmbed($session);
+    $ids = collect($this->get('/app/embed/deployments?status=all')->assertOk()->viewData('page')['props']['deployments']['data'])->pluck('id');
+    expect($ids)->toContain($visible->public_id)->not->toContain($hiddenDeployment->public_id);
+
+    actingAsEmbed($session);
+    $this->get("/app/embed/deployments/{$hiddenDeployment->public_id}")->assertNotFound();
+
+    actingAsEmbed($session);
+    $repos = collect($this->get('/app/embed/pr-reviews')->assertOk()->viewData('page')['props']['comments']['data'])->pluck('repoSlug');
+    expect($repos)->not->toContain('example/secret');
+});
+
+it('serves the review run log only for a visible run of that pull request', function () {
+    ['user' => $user, 'session' => $session] = embedPagesWorld();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id]);
+    $run = fn (Thread $owner, int $number): YakTask => YakTask::factory()->create([
+        'thread_id' => $owner->id, 'mode' => TaskMode::Review, 'repo' => 'example/web.app',
+        'pr_number' => $number, 'pr_url' => "https://github.com/example/web.app/pull/{$number}",
+    ]);
+    $visibleRun = $run($thread, 17);
+    $otherPullRequest = $run($thread, 18);
+    $hiddenRun = $run(privateThreadOf(User::factory()->create()), 17);
+    $log = fn (YakTask $task): string => "/pr-reviews/for/example/web.app/17/runs/{$task->public_id}/log";
+
+    actingAsEmbed($session);
+    $this->get($log($visibleRun))->assertOk();
+    actingAsEmbed($session);
+    $this->get($log($otherPullRequest))->assertNotFound();
+    actingAsEmbed($session);
+    $this->get($log($hiddenRun))->assertNotFound();
+});
+
+it('sends the deployment controls only to a web session', function () {
+    ['user' => $user, 'deployment' => $deployment, 'session' => $session] = embedPagesWorld();
+
+    actingAsEmbed($session);
+    $embed = $this->get("/app/embed/deployments/{$deployment->public_id}")->assertOk()->viewData('page')['props'];
+    expect($embed)->toHaveKey('deployment')->not->toHaveKeys(['manifest', 'hibernation', 'shareLink', 'mintedUrl']);
+
+    app('auth')->forgetGuards();
+    $this->flushSession()->flushHeaders();
+    $web = $this->actingAs($user)->get("/deployments/{$deployment->public_id}")->assertOk()->viewData('page')['props'];
+    expect($web)->toHaveKeys(['manifest', 'hibernation', 'shareLink']);
+});

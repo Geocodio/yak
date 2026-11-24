@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 const indexbe1243fdc40be1d435b49c5c35e2ccf3 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ indexbe1243fdc40be1d435b49c5c35e2ccf3.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 indexbe1243fdc40be1d435b49c5c35e2ccf3.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ indexbe1243fdc40be1d435b49c5c35e2ccf3.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 indexbe1243fdc40be1d435b49c5c35e2ccf3.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ indexbe1243fdc40be1d435b49c5c35e2ccf3.get = (options?: RouteQueryOptions): Route
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/app/embed/deployments'
 */
 indexbe1243fdc40be1d435b49c5c35e2ccf3.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ indexbe1243fdc40be1d435b49c5c35e2ccf3.head = (options?: RouteQueryOptions): Rout
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 const index4a179efa3e1327fe1fa966165df8127c = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ index4a179efa3e1327fe1fa966165df8127c.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 index4a179efa3e1327fe1fa966165df8127c.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ index4a179efa3e1327fe1fa966165df8127c.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 index4a179efa3e1327fe1fa966165df8127c.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ index4a179efa3e1327fe1fa966165df8127c.get = (options?: RouteQueryOptions): Route
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::index
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 index4a179efa3e1327fe1fa966165df8127c.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -99,7 +99,7 @@ export const index = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 const show9ced3244e9539e7413ba9bb81479d15b = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -114,7 +114,7 @@ show9ced3244e9539e7413ba9bb81479d15b.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show9ced3244e9539e7413ba9bb81479d15b.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -147,7 +147,7 @@ show9ced3244e9539e7413ba9bb81479d15b.url = (args: { deployment: string | { publi
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show9ced3244e9539e7413ba9bb81479d15b.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -157,7 +157,7 @@ show9ced3244e9539e7413ba9bb81479d15b.get = (args: { deployment: string | { publi
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/app/embed/deployments/{deployment}'
 */
 show9ced3244e9539e7413ba9bb81479d15b.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -167,7 +167,7 @@ show9ced3244e9539e7413ba9bb81479d15b.head = (args: { deployment: string | { publ
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 const show5479acbafef394b07eb8e9477867ef33 = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -182,7 +182,7 @@ show5479acbafef394b07eb8e9477867ef33.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show5479acbafef394b07eb8e9477867ef33.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -215,7 +215,7 @@ show5479acbafef394b07eb8e9477867ef33.url = (args: { deployment: string | { publi
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show5479acbafef394b07eb8e9477867ef33.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -225,7 +225,7 @@ show5479acbafef394b07eb8e9477867ef33.get = (args: { deployment: string | { publi
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show5479acbafef394b07eb8e9477867ef33.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

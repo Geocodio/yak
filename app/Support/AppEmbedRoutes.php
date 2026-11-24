@@ -19,7 +19,7 @@ final class AppEmbedRoutes
         '#^/app/embed/deployments$#D',
         '#^/app/embed/deployments/[A-Za-z0-9]{8}$#D',
         '#^/app/embed/pr-reviews$#D',
-        '#^/app/embed/pr-reviews/[A-Za-z0-9._-]{1,100}/[A-Za-z0-9._-]{1,100}/\d{1,10}$#D',
+        '#^/app/embed/pr-reviews/[A-Za-z0-9._-]{1,100}(?:/[A-Za-z0-9._-]{1,100})?/\d{1,10}$#D',
     ];
 
     /**
@@ -31,8 +31,9 @@ final class AppEmbedRoutes
     public const ALLOWED = [
         'app.embed.threads.show',
 
-        // Deployments and PR reviews, read-only. Their write actions (rebuild, destroy, hibernation, share link,
-        // manifest, re-run a review) stay off the list: the phone's token cannot do them through the app API.
+        // Deployments and PR reviews are read-only views. Their write actions (rebuild, destroy, hibernation, share
+        // link, manifest, re-run a review) stay off the list on purpose, even where the phone's token could do the
+        // same through the app API.
         'app.embed.deployments.index',
         'app.embed.deployments.show',
         'app.embed.pr-reviews.index',

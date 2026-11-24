@@ -24,7 +24,6 @@ use App\Http\Controllers\Api\Cli\SshLookupController;
 use App\Http\Controllers\Api\Cli\StackMessageController;
 use App\Http\Controllers\Api\Cli\TeleportController;
 use App\Http\Controllers\Api\Cli\ThreadLookupController;
-use App\Http\Controllers\AppEmbed\PrReviewController as EmbedPrReviewController;
 use App\Http\Controllers\AppEmbed\SessionController as AppEmbedSessionController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -155,9 +154,10 @@ Route::middleware('auth:app-embed')->prefix('app/embed')->group(function (): voi
     Route::get('deployments', [DeploymentController::class, 'index'])->name('app.embed.deployments.index');
     Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])->name('app.embed.deployments.show');
     Route::get('pr-reviews', PrReviewFeedbackController::class)->name('app.embed.pr-reviews.index');
-    Route::get('pr-reviews/{owner}/{repo}/{prNumber}', [EmbedPrReviewController::class, 'show'])
+    // The repository slug has the web route's shape: one segment, or two when it came from GitHub (owner/name).
+    Route::get('pr-reviews/{repoSlug}/{prNumber}', [PrReviewForPrController::class, 'show'])
         ->name('app.embed.pr-reviews.show')
-        ->where(['owner' => '[A-Za-z0-9._-]{1,100}', 'repo' => '[A-Za-z0-9._-]{1,100}', 'prNumber' => '[0-9]{1,10}']);
+        ->where(['repoSlug' => '[A-Za-z0-9._-]{1,100}(?:/[A-Za-z0-9._-]{1,100})?', 'prNumber' => '[0-9]{1,10}']);
 });
 
 Route::middleware('guest')->group(function () {

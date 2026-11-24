@@ -44,65 +44,62 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \App\Http\Controllers\AppEmbed\PrReviewController::show
-* @see app/Http/Controllers/AppEmbed/PrReviewController.php:14
-* @route '/app/embed/pr-reviews/{owner}/{repo}/{prNumber}'
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-export const show = (args: { owner: string | number, repo: string | number, prNumber: string | number } | [owner: string | number, repo: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
 
 show.definition = {
     methods: ["get","head"],
-    url: '/app/embed/pr-reviews/{owner}/{repo}/{prNumber}',
+    url: '/app/embed/pr-reviews/{repoSlug}/{prNumber}',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \App\Http\Controllers\AppEmbed\PrReviewController::show
-* @see app/Http/Controllers/AppEmbed/PrReviewController.php:14
-* @route '/app/embed/pr-reviews/{owner}/{repo}/{prNumber}'
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-show.url = (args: { owner: string | number, repo: string | number, prNumber: string | number } | [owner: string | number, repo: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
-            owner: args[0],
-            repo: args[1],
-            prNumber: args[2],
+            repoSlug: args[0],
+            prNumber: args[1],
         }
     }
 
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        owner: args.owner,
-        repo: args.repo,
+        repoSlug: args.repoSlug,
         prNumber: args.prNumber,
     }
 
     return show.definition.url
-            .replace('{owner}', parsedArgs.owner.toString())
-            .replace('{repo}', parsedArgs.repo.toString())
+            .replace('{repoSlug}', parsedArgs.repoSlug.toString())
             .replace('{prNumber}', parsedArgs.prNumber.toString())
             .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
-* @see \App\Http\Controllers\AppEmbed\PrReviewController::show
-* @see app/Http/Controllers/AppEmbed/PrReviewController.php:14
-* @route '/app/embed/pr-reviews/{owner}/{repo}/{prNumber}'
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-show.get = (args: { owner: string | number, repo: string | number, prNumber: string | number } | [owner: string | number, repo: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
 
 /**
-* @see \App\Http\Controllers\AppEmbed\PrReviewController::show
-* @see app/Http/Controllers/AppEmbed/PrReviewController.php:14
-* @route '/app/embed/pr-reviews/{owner}/{repo}/{prNumber}'
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-show.head = (args: { owner: string | number, repo: string | number, prNumber: string | number } | [owner: string | number, repo: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

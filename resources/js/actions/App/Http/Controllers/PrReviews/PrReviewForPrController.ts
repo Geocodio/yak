@@ -2,24 +2,24 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
 * @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-export const show = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show.url(args, options),
+const show985ae47b97aafc398becb570fe8ff6b0 = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show985ae47b97aafc398becb570fe8ff6b0.url(args, options),
     method: 'get',
 })
 
-show.definition = {
+show985ae47b97aafc398becb570fe8ff6b0.definition = {
     methods: ["get","head"],
-    url: '/pr-reviews/for/{repoSlug}/{prNumber}',
+    url: '/app/embed/pr-reviews/{repoSlug}/{prNumber}',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
 * @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
 */
-show.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
+show985ae47b97aafc398becb570fe8ff6b0.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             repoSlug: args[0],
@@ -34,7 +34,68 @@ show.url = (args: { repoSlug: string | number, prNumber: string | number } | [re
         prNumber: args.prNumber,
     }
 
-    return show.definition.url
+    return show985ae47b97aafc398becb570fe8ff6b0.definition.url
+            .replace('{repoSlug}', parsedArgs.repoSlug.toString())
+            .replace('{prNumber}', parsedArgs.prNumber.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
+*/
+show985ae47b97aafc398becb570fe8ff6b0.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: show985ae47b97aafc398becb570fe8ff6b0.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/app/embed/pr-reviews/{repoSlug}/{prNumber}'
+*/
+show985ae47b97aafc398becb570fe8ff6b0.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: show985ae47b97aafc398becb570fe8ff6b0.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
+*/
+const showefbb4b9273f03868efa251b52ecf8ff7 = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: showefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
+    method: 'get',
+})
+
+showefbb4b9273f03868efa251b52ecf8ff7.definition = {
+    methods: ["get","head"],
+    url: '/pr-reviews/for/{repoSlug}/{prNumber}',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::show
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
+* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
+*/
+showefbb4b9273f03868efa251b52ecf8ff7.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
+    if (Array.isArray(args)) {
+        args = {
+            repoSlug: args[0],
+            prNumber: args[1],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        repoSlug: args.repoSlug,
+        prNumber: args.prNumber,
+    }
+
+    return showefbb4b9273f03868efa251b52ecf8ff7.definition.url
             .replace('{repoSlug}', parsedArgs.repoSlug.toString())
             .replace('{prNumber}', parsedArgs.prNumber.toString())
             .replace(/\/+$/, '') + queryParams(options)
@@ -45,8 +106,8 @@ show.url = (args: { repoSlug: string | number, prNumber: string | number } | [re
 * @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
-show.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: show.url(args, options),
+showefbb4b9273f03868efa251b52ecf8ff7.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: showefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
     method: 'get',
 })
 
@@ -55,10 +116,20 @@ show.get = (args: { repoSlug: string | number, prNumber: string | number } | [re
 * @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:25
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
-show.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: show.url(args, options),
+showefbb4b9273f03868efa251b52ecf8ff7.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: showefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
     method: 'head',
 })
+
+/**
+* Multiple routes resolve to \App\Http\Controllers\PrReviews\PrReviewForPrController::show, so this export is a
+* dictionary keyed by URI rather than a callable. Call a specific route with `show['<uri>'](...)`,
+* or import the route by name from your generated `routes/` directory.
+*/
+export const show = {
+    '/app/embed/pr-reviews/{repoSlug}/{prNumber}': show985ae47b97aafc398becb570fe8ff6b0,
+    '/pr-reviews/for/{repoSlug}/{prNumber}': showefbb4b9273f03868efa251b52ecf8ff7,
+}
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewForPrController::rerun

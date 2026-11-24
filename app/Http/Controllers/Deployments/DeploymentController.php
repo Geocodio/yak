@@ -11,6 +11,7 @@ use App\Support\HibernationDuration;
 use App\Support\ReleaseBranch;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ScrollProp;
@@ -33,12 +34,17 @@ class DeploymentController extends Controller
     {
         $deployment->load('repository');
 
-        return Inertia::render('Deployments/Show', [
-            'deployment' => fn () => $this->deploymentData($deployment),
+        // The phone's web view only reads: the cards of these props are hidden there, so they are never sent.
+        $controls = Auth::getDefaultDriver() === 'app-embed' ? [] : [
             'hibernation' => fn () => $this->hibernationData($deployment),
             'manifest' => fn () => $this->manifestData($deployment),
             'shareLink' => fn () => $this->shareLinkData($deployment),
             'mintedUrl' => fn () => $request->session()->get('mintedUrl'),
+        ];
+
+        return Inertia::render('Deployments/Show', [
+            'deployment' => fn () => $this->deploymentData($deployment),
+            ...$controls,
             'logs' => fn () => $this->recentLogs($deployment),
             'pollInterval' => fn () => $this->pollInterval($deployment),
         ]);

@@ -19,8 +19,10 @@ function pageTitleOf(component: string, props: ThreadPage): string {
             return props.pr === undefined ? 'PR review' : `${props.pr.repoSlug}#${props.pr.number}`;
         case 'PrReviews/Index':
             return 'PR reviews';
-        default:
+        case 'Deployments/Index':
             return 'Deployments';
+        default:
+            return typeof document === 'undefined' ? '' : document.title;
     }
 }
 
@@ -35,6 +37,7 @@ export function EmbedBridge() {
 
     useEmbedReady(threadId === null ? null : embed, threadId ?? '', props.thread?.title ?? '', props.isLegacy === true);
     useEmbedPageReady(threadId === null ? embed : null, pageTitleOf(component, props));
+    useExternalAnchors(threadId === null && embed !== null, embed);
 
     useEffect(() => {
         if (embed !== null && threadId !== null && previousThreadId.current !== null && previousThreadId.current !== threadId) {
@@ -132,6 +135,35 @@ export function EmbedBridge() {
     }, [embed !== null]);
 
     return null;
+}
+
+/**
+ * On the pages without a thread, a plain anchor to a page of this origin outside `/app/embed/` (a relative link in
+ * Markdown, a link in an empty state) posts `link` instead of loading a page the embed session cannot open.
+ * Anchors inside `/app/embed/`, `target="_blank"` anchors, downloads and anchors an Inertia link already handled
+ * keep their behavior.
+ */
+function useExternalAnchors(isActive: boolean, embed: ReturnType<typeof useEmbed>): void {
+    useEffect(() => {
+        if (!isActive || embed === null) {
+            return;
+        }
+        const onClick = (event: MouseEvent) => {
+            const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+
+            if (event.defaultPrevented || anchor === null || anchor.hasAttribute('download') || anchor.getAttribute('target') === '_blank') {
+                return;
+            }
+            const url = new URL((anchor as HTMLAnchorElement).href, window.location.href);
+
+            if (url.origin === window.location.origin && !url.pathname.startsWith('/app/embed/') && embed.post({ type: 'link', url: url.href })) {
+                event.preventDefault();
+            }
+        };
+        document.addEventListener('click', onClick);
+
+        return () => document.removeEventListener('click', onClick);
+    }, [isActive, embed]);
 }
 
 /** Sets the address fragment, which `useFragmentScroll` follows; the same fragment again scrolls again. */
