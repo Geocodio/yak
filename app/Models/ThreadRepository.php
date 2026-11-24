@@ -30,6 +30,11 @@ use Illuminate\Support\Str;
  * @property string|null $pull_request_state
  * @property string|null $pull_request_title
  * @property Carbon|null $pull_request_closed_at
+ * @property bool $pull_request_is_draft
+ * @property array<string, array{state: string, commitSha: string|null}>|null $pull_request_reviews
+ * @property string|null $pull_request_mergeable_state
+ * @property Carbon|null $pull_request_opened_at
+ * @property string|null $pull_request_head_sha
  * @property int $ci_retry_count
  * @property string|null $last_refresh_commit
  * @property string|null $setup_output
@@ -70,6 +75,9 @@ class ThreadRepository extends Model
             'setup_started_at' => 'datetime',
             'ci_checks' => 'array',
             'pull_request_closed_at' => 'datetime',
+            'pull_request_is_draft' => 'boolean',
+            'pull_request_reviews' => 'array',
+            'pull_request_opened_at' => 'datetime',
         ];
     }
 
