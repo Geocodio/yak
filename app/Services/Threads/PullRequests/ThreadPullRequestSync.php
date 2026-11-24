@@ -3,7 +3,9 @@
 namespace App\Services\Threads\PullRequests;
 
 use App\Enums\RepositoryRole;
+use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Jobs\Threads\RefreshSiblingBlocksJob;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
@@ -18,9 +20,18 @@ class ThreadPullRequestSync
 {
     public function __construct(private readonly ThreadCloser $closer) {}
 
-    public function recordOpened(ThreadRepository $row, int $number, string $url, string $title): void
+    /**
+     * The `opened` webhook can arrive before the number is written and find no row, so the review
+     * facts come from the creation response here, and the mergeability refresh is queued.
+     *
+     * @param  array<string, mixed>  $pullRequest  the GitHub API response the number came from
+     */
+    public function recordOpened(ThreadRepository $row, int $number, string $url, string $title, array $pullRequest = []): void
     {
         $row->forceFill([
+            'pull_request_is_draft' => (bool) ($pullRequest['draft'] ?? false),
+            'pull_request_head_sha' => $pullRequest['head']['sha'] ?? $row->pull_request_head_sha,
+            'pull_request_opened_at' => $row->pull_request_opened_at ?? $pullRequest['created_at'] ?? now(),
             'pull_request_number' => $number,
             'pull_request_url' => $url,
             'pull_request_title' => $title,
@@ -29,6 +40,7 @@ class ThreadPullRequestSync
         ])->save();
 
         RefreshSiblingBlocksJob::dispatch($row->thread_id);
+        RefreshPullRequestMergeabilityJob::dispatch(Repository::githubNameFor($row->repo), $number);
     }
 
     /**
