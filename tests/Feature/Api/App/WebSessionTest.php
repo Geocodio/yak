@@ -75,8 +75,29 @@ it('refuses a path outside the embed list', function (string $path) {
     '/app/embed/pr-reviews/../../123',
     '/app/embed/pr-reviews/./x/1',
     '/app/embed/deployments/42',
-    '/app/embed/pr-reviews/example/web.app/17',
+    '/app/embed/deployments/',
+    '/app/embed/deployments/abcdefg',
+    '/app/embed/deployments/abcdefghi',
+    '/app/embed/pr-reviews/example/web.app',
+    '/app/embed/pr-reviews/example/web.app/17/',
+    '/app/embed/pr-reviews/example/web.app/x',
+    '/app/embed/pr-reviews/for/example/web.app/17',
+    '/app/embed/pr-reviews/a/b/c/17',
+    '/app/embed/pr-reviews/my-repo//17',
+    '/app/embed/pr-reviews/a%2Fb/17',
     '',
+]);
+
+it('binds a path to each embedded page', function (string $path) {
+    [, $headers] = phoneWithHeaders();
+
+    $this->postJson('/api/app/v1/web-session', ['path' => $path], $headers)->assertCreated();
+})->with([
+    '/app/embed/deployments',
+    '/app/embed/deployments/abcd1234',
+    '/app/embed/pr-reviews',
+    '/app/embed/pr-reviews/example/web.app/17',
+    '/app/embed/pr-reviews/my-repo/17',
 ]);
 
 it('binds the trimmed path when the app sends edge whitespace', function () {

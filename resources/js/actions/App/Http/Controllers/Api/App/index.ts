@@ -9,6 +9,7 @@ import BroadcastAuthController from './BroadcastAuthController'
 import ObservationController from './ObservationController'
 import Tasks from './Tasks'
 import Push from './Push'
+import SearchController from './SearchController'
 import WebSessionController from './WebSessionController'
 import SignedMediaController from './SignedMediaController'
 
@@ -24,6 +25,7 @@ const App = {
     ObservationController: Object.assign(ObservationController, ObservationController),
     Tasks: Object.assign(Tasks, Tasks),
     Push: Object.assign(Push, Push),
+    SearchController: Object.assign(SearchController, SearchController),
     WebSessionController: Object.assign(WebSessionController, WebSessionController),
     SignedMediaController: Object.assign(SignedMediaController, SignedMediaController),
 }

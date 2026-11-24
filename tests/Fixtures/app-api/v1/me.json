@@ -41,6 +41,10 @@
         "name": "Test Person"
     },
     "web": {
-        "embed": 1
+        "embed": 1,
+        "pages": [
+            "deployments",
+            "pr-reviews"
+        ]
     }
 }

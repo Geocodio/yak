@@ -2,10 +2,12 @@ import { Head, InfiniteScroll, Link, router, usePoll } from '@inertiajs/react';
 import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tooltip, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useEmbed } from '@/embed/useEmbed';
 import { AppLayout } from '@/layouts/AppLayout';
 import { useRowEntrance } from '@/lib/useRowEntrance';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { deployments as deploymentsIndex } from '@/routes';
+import embedDeployments from '@/routes/app/embed/deployments';
 import { show } from '@/routes/deployments';
 import type { DeploymentFilters, DeploymentRow } from '@/types/deployments';
 import type { PageProps } from '@/types/shared';
@@ -35,32 +37,35 @@ export default function Index({ deployments, filters }: Props) {
     usePoll(15000, pollInfiniteScroll(['deployments']));
     const entranceClass = useRowEntrance(deployments.data.map((row) => row.id));
 
+    const isEmbed = useEmbed() !== null;
     const selected = STATUS_OPTIONS.find((o) => o.value === filters.status);
 
     const navigate = (status: string) => {
-        router.get(deploymentsIndex.url(), { status }, { preserveState: true, replace: true });
+        router.get(isEmbed ? embedDeployments.index.url() : deploymentsIndex.url(), { status }, { preserveState: true, replace: true });
     };
+
+    const statusMenu = (
+        <Menu
+            trigger={
+                <span className="flex items-center gap-1.5 text-[12px]">
+                    <span className="text-body">{selected ? selected.label : 'Status'}</span>
+                    <ChevronDown size={12} className="text-faint" />
+                </span>
+            }
+            className={isEmbed ? 'h-7 rounded-pill px-2.5' : 'ml-4 h-7 rounded-pill px-2.5'}
+            items={STATUS_OPTIONS.map((option) => ({
+                key: option.value,
+                label: option.label,
+                checked: option.value === filters.status,
+                onSelect: () => navigate(option.value),
+            }))}
+        />
+    );
 
     return (
         <>
             <Head title="Deployments" />
-            <PageHeader crumbs={['Deployments']}>
-                <Menu
-                    trigger={
-                        <span className="flex items-center gap-1.5 text-[12px]">
-                            <span className="text-body">{selected ? selected.label : 'Status'}</span>
-                            <ChevronDown size={12} className="text-faint" />
-                        </span>
-                    }
-                    className="ml-4 h-7 rounded-pill px-2.5"
-                    items={STATUS_OPTIONS.map((option) => ({
-                        key: option.value,
-                        label: option.label,
-                        checked: option.value === filters.status,
-                        onSelect: () => navigate(option.value),
-                    }))}
-                />
-            </PageHeader>
+            {isEmbed ? <div className="border-b border-hair px-4 py-2" data-testid="embed-toolbar">{statusMenu}</div> : <PageHeader crumbs={['Deployments']}>{statusMenu}</PageHeader>}
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {deployments.data.length > 0 ? (
@@ -94,7 +99,7 @@ export default function Index({ deployments, filters }: Props) {
                                         </StackedTd>
                                         <StackedTd label="Branch">
                                             <div className="flex items-center max-md:flex-wrap">
-                                                <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
+                                                <Link href={isEmbed ? embedDeployments.show.url(deployment.id) : show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
                                                     {deployment.branch}
                                                 </Link>
                                                 {deployment.longLived && (

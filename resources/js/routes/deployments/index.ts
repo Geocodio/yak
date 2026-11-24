@@ -3,7 +3,7 @@ import hibernation from './hibernation'
 import share from './share'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 export const show = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show.url = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -51,7 +51,7 @@ show.url = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show.get = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -61,7 +61,7 @@ show.get = (args: { deployment: string | { public_id: string } } | [deployment: 
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:32
+* @see app/Http/Controllers/Deployments/DeploymentController.php:33
 * @route '/deployments/{deployment}'
 */
 show.head = (args: { deployment: string | { public_id: string } } | [deployment: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

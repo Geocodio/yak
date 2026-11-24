@@ -757,7 +757,7 @@ prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 export const deployments = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -772,7 +772,7 @@ deployments.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 deployments.url = (options?: RouteQueryOptions) => {
@@ -781,7 +781,7 @@ deployments.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -791,7 +791,7 @@ deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:20
+* @see app/Http/Controllers/Deployments/DeploymentController.php:21
 * @route '/deployments'
 */
 deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

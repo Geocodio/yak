@@ -149,6 +149,16 @@ Route::get('letmein', function () {
 // The phone's embedded web view: the hand-off (no session yet) and the thread page on its restricted guard.
 Route::post('app/embed/session', AppEmbedSessionController::class)->middleware('throttle:app-embed-redeem')->name('app.embed.session');
 Route::get('app/embed/threads/{thread}', [ThreadController::class, 'show'])->middleware('auth:app-embed')->name('app.embed.threads.show');
+// The same Deployments and PR reviews pages as the web, read-only: the pages hide their write controls in the embed.
+Route::middleware('auth:app-embed')->prefix('app/embed')->group(function (): void {
+    Route::get('deployments', [DeploymentController::class, 'index'])->name('app.embed.deployments.index');
+    Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])->name('app.embed.deployments.show');
+    Route::get('pr-reviews', PrReviewFeedbackController::class)->name('app.embed.pr-reviews.index');
+    // The repository slug has the web route's shape: one segment, or two when it came from GitHub (owner/name).
+    Route::get('pr-reviews/{repoSlug}/{prNumber}', [PrReviewForPrController::class, 'show'])
+        ->name('app.embed.pr-reviews.show')
+        ->where(['repoSlug' => '[A-Za-z0-9._-]{1,100}(?:/[A-Za-z0-9._-]{1,100})?', 'prNumber' => '[0-9]{1,10}']);
+});
 
 Route::middleware('guest')->group(function () {
     Route::view('login', 'auth.login')->name('login');

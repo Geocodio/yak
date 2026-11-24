@@ -2,11 +2,13 @@ import { Head, InfiniteScroll, Link, router } from '@inertiajs/react';
 import { Badge, Button, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Toggle, Tr } from '@geocodio/console-ui';
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useEmbed } from '@/embed/useEmbed';
 import { AppLayout } from '@/layouts/AppLayout';
 import { useRowEntrance } from '@/lib/useRowEntrance';
 import { StatTile } from '@/components/costs/StatTile';
 import { forPr } from '@/routes/pr-reviews';
 import { repos, prReviews as prReviewsIndex } from '@/routes';
+import embedPrReviews from '@/routes/app/embed/pr-reviews';
 import type { PageProps } from '@/types/shared';
 import type { PrReviewCommentPage, PrReviewFilters, PrReviewStats, PrReviewerStat } from '@/types/prReviews';
 
@@ -51,12 +53,13 @@ function FilterMenu({
 }
 
 export default function Index({ comments, stats, reviewerStats, filters }: Props) {
+    const isEmbed = useEmbed() !== null;
     const entranceClass = useRowEntrance(comments.data.map((row) => row.id));
     const navigate = (next: Partial<Pick<PrReviewFilters, 'repo' | 'severity' | 'category' | 'scope' | 'reviewer' | 'reactions' | 'sort' | 'dir' | 'tab'>>) => {
         const reactions = next.reactions !== undefined ? next.reactions : filters.reactions;
 
         router.get(
-            prReviewsIndex.url(),
+            isEmbed ? embedPrReviews.index.url() : prReviewsIndex.url(),
             {
                 repo: filters.repo,
                 severity: filters.severity,
@@ -94,7 +97,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
         return (
             <>
                 <Head title="PR Reviews" />
-                <PageHeader crumbs={['PR Reviews']} />
+                {!isEmbed && <PageHeader crumbs={['PR Reviews']} />}
                 <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                     <MessageCircle size={32} className="text-faint" />
                     <p>No Yak reviews yet. Enable PR review on a repository to get started.</p>
@@ -106,11 +109,8 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
         );
     }
 
-    return (
-        <>
-            <Head title="PR Reviews" />
-            <PageHeader crumbs={['PR Reviews']}>
-                <div className="ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="pr-review-tabs">
+    const tabs = (
+                <div className={cn(isEmbed ? '' : 'ml-4', 'flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5')} data-testid="pr-review-tabs">
                     {(
                         [
                             { key: 'all', label: 'All comments' },
@@ -133,7 +133,12 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                         </button>
                     ))}
                 </div>
-            </PageHeader>
+    );
+
+    return (
+        <>
+            <Head title="PR Reviews" />
+            {isEmbed ? <div className="border-b border-hair px-4 py-2" data-testid="embed-toolbar">{tabs}</div> : <PageHeader crumbs={['PR Reviews']}>{tabs}</PageHeader>}
 
             <div className="grid grid-cols-2 gap-3 px-4 sm:px-5 py-3 md:grid-cols-4">
                 <StatTile label="Reviews" value={String(stats.reviews)} sub="total" />
@@ -229,7 +234,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                             <StackedTd label="PR">
                                                 {comment.repoSlug && comment.prNumber ? (
                                                     <Link
-                                                        href={forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
+                                                        href={isEmbed ? embedPrReviews.show.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber }) : forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
                                                         className="text-accent-text hover:underline"
                                                     >
                                                         {comment.repoSlug}#{comment.prNumber}

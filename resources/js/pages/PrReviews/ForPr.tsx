@@ -4,6 +4,7 @@ import { ChevronRight, ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
+import { useEmbed } from '@/embed/useEmbed';
 import { AppLayout } from '@/layouts/AppLayout';
 import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/shared/FindingsBlock';
@@ -60,6 +61,7 @@ function RunMeta({ run, modelLabels }: { run: PrReviewRun; modelLabels: Record<s
 
 function RunCard({ run, pr, modelLabels, isNewest, isShown, onToggle, onOpenLog }: { run: PrReviewRun; pr: PrReviewForPrSummary; modelLabels: Record<string, string>; isNewest: boolean; isShown: boolean; onToggle: () => void; onOpenLog: () => void }) {
     const form = useForm({});
+    const isEmbed = useEmbed() !== null;
     const [showDetails, setShowDetails] = useState(false);
     const status = STATUS[run.status];
     const title = run.scope === 'incremental' ? 'Incremental review' : 'Full review';
@@ -111,7 +113,7 @@ function RunCard({ run, pr, modelLabels, isNewest, isShown, onToggle, onOpenLog 
                     )}
                     {run.findings === null && run.verdict !== null && <Prose html={run.verdict} className="text-[13px]" />}
                     {run.findings !== null && <FindingsBlock findings={run.findings} variant="table" />}
-                    {run.canRerun && (isFailed || run.status === 'cancelled') && (
+                    {!isEmbed && run.canRerun && (isFailed || run.status === 'cancelled') && (
                         <div>
                             <Button
                                 variant="secondary"
@@ -200,6 +202,8 @@ function SidePanel({ panel }: { panel: PrReviewPullRequest }) {
 
 export default function ForPr({ pr, runs, pullRequest, description, modelLabels }: Props) {
     const form = useForm({});
+    // The phone's web view only reads: re-running a review calls GitHub and starts a paid run.
+    const isEmbed = useEmbed() !== null;
     const [shownIds, setShownIds] = useState<Set<string>>(() => new Set(window.location.hash.startsWith('#run-') ? [window.location.hash.slice(5)] : []));
     const [logTarget, setLogTarget] = useState<RunLogTarget | null>(null);
     const hasLiveRun = runs.some((run) => run.isLive);
@@ -252,25 +256,39 @@ export default function ForPr({ pr, runs, pullRequest, description, modelLabels 
     return (
         <>
             <Head title={`${pr.repoSlug}#${pr.number}`} />
-            <PageHeader
-                crumbs={['PR reviews', `${pr.repoSlug} #${pr.number}`]}
-                actions={
-                    <div className="flex items-center gap-2">
-                        <Button variant="primary" pending={form.processing} onClick={rerunReview} data-testid="rerun-review">
-                            {hasRuns ? 'Re-run review' : 'Review this pull request'}
-                        </Button>
-                        {pullRequest.preview !== null && (
-                            <a href={pullRequest.preview.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-preview">
-                                Preview
-                            </a>
-                        )}
-                        <a href={pr.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-open-pr">
-                            Open PR #{pr.number}
-                            <ExternalLink size={11} aria-hidden />
+            {isEmbed ? (
+                <div className="flex justify-end gap-2 border-b border-hair px-4 py-2" data-testid="embed-toolbar">
+                    {pullRequest.preview !== null && (
+                        <a href={pullRequest.preview.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-preview">
+                            Preview
                         </a>
-                    </div>
-                }
-            />
+                    )}
+                    <a href={pr.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-open-pr">
+                        Open PR #{pr.number}
+                        <ExternalLink size={11} aria-hidden />
+                    </a>
+                </div>
+            ) : (
+                <PageHeader
+                    crumbs={['PR reviews', `${pr.repoSlug} #${pr.number}`]}
+                    actions={
+                        <div className="flex items-center gap-2">
+                            <Button variant="primary" pending={form.processing} onClick={rerunReview} data-testid="rerun-review">
+                                {hasRuns ? 'Re-run review' : 'Review this pull request'}
+                            </Button>
+                            {pullRequest.preview !== null && (
+                                <a href={pullRequest.preview.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-preview">
+                                    Preview
+                                </a>
+                            )}
+                            <a href={pr.url} target="_blank" rel="noopener" className={linkButtonClass} data-testid="review-open-pr">
+                                Open PR #{pr.number}
+                                <ExternalLink size={11} aria-hidden />
+                            </a>
+                        </div>
+                    }
+                />
+            )}
 
             <div className="border-b border-hair px-4 py-3 sm:px-5">
                 <h1 className="truncate text-[15px] font-medium text-body">{pr.title}</h1>
@@ -318,9 +336,11 @@ export default function ForPr({ pr, runs, pullRequest, description, modelLabels 
                         ) : (
                             <div className="rounded-card border border-hair bg-panel px-5 py-12 text-center text-[13px] text-muted shadow-card" data-testid="review-empty">
                                 <p>Yak has not reviewed this pull request.</p>
-                                <Button variant="primary" className="mt-4" pending={form.processing} onClick={rerunReview} data-testid="review-empty-button">
-                                    Review this pull request
-                                </Button>
+                                {!isEmbed && (
+                                    <Button variant="primary" className="mt-4" pending={form.processing} onClick={rerunReview} data-testid="review-empty-button">
+                                        Review this pull request
+                                    </Button>
+                                )}
                             </div>
                         )}
                     </div>

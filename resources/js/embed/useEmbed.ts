@@ -75,3 +75,15 @@ export function useEmbedReady(embed: Embed | null, threadId: string, title: stri
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [embed !== null, threadId]);
 }
+
+/** Tells the app a page that is not a thread is on screen, once per address, after it has mounted. */
+export function useEmbedPageReady(embed: Embed | null, title: string): void {
+    const pathname = usePage().url.split('?')[0];
+
+    useEffect(() => {
+        if (embed !== null) {
+            embed.post({ type: 'ready', url: window.location.pathname + window.location.search, title });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [embed !== null, pathname]);
+}

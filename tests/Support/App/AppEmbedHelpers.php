@@ -73,9 +73,18 @@ function captureYakLog(): string
  */
 function visitEmbedThread(Thread $thread, array $headers, int $width = 390, int $height = 844, bool $isDark = false): mixed
 {
+    return visitEmbedPath("/app/embed/threads/{$thread->public_id}", $headers, $width, $height, $isDark);
+}
+
+/**
+ * Opens any embed page the way the app does; see `visitEmbedThread`.
+ *
+ * @param  array<string, string>  $headers
+ */
+function visitEmbedPath(string $path, array $headers, int $width = 390, int $height = 844, bool $isDark = false): mixed
+{
     $pending = visit('/login')->withUserAgent(EMBED_USER_AGENT);
     $page = ($isDark ? $pending->inDarkMode() : $pending->inLightMode())->resize($width, $height);
-    $path = "/app/embed/threads/{$thread->public_id}";
     $encodedHeaders = json_encode($headers + ['Accept' => 'application/json', 'Content-Type' => 'application/json'], JSON_THROW_ON_ERROR);
 
     $page->script("(() => { setTimeout(async () => {

@@ -4,6 +4,7 @@ import { AlertTriangle, ExternalLink, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import type { PaletteAction } from '@/commandPalette/types';
+import { useEmbed } from '@/embed/useEmbed';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/deployments/ActivityLog';
 import { HibernationCard } from '@/components/deployments/HibernationCard';
@@ -26,6 +27,8 @@ type Props = PageProps<{
 
 export default function Show({ deployment, hibernation, manifest, shareLink, mintedUrl, logs, pollInterval }: Props) {
     usePoll(pollInterval);
+    // The phone's web view only reads: no rebuild, destroy, hibernation, share link or manifest edit.
+    const isEmbed = useEmbed() !== null;
     const [confirm, setConfirm] = useState<'rebuild' | 'destroy' | null>(null);
     const [busy, setBusy] = useState(false);
 
@@ -68,18 +71,27 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
     return (
         <>
             <Head title={deployment.branch} />
-            <PageHeader
-                crumbs={['Deployments', `${deployment.repoSlug} / ${deployment.branch}`]}
-                actions={
-                    <Button variant="primary" icon={<ExternalLink size={13} />} onClick={() => window.open(deployment.url, '_blank', 'noopener')}>
+            {isEmbed ? (
+                <div className="flex justify-end border-b border-hair px-4 py-2" data-testid="embed-toolbar">
+                    <a href={deployment.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-[8px] border border-hair bg-panel px-3 text-[13px] font-medium text-body hover:bg-panel-2">
+                        <ExternalLink size={13} />
                         Open preview
-                    </Button>
-                }
-                overflow={[
-                    { key: 'rebuild', label: 'Rebuild from latest template', icon: <RotateCw size={13} />, onSelect: () => setConfirm('rebuild'), testId: 'rebuild-deployment' },
-                    { key: 'destroy', label: 'Destroy', icon: <Trash2 size={13} />, danger: true, dividerAbove: true, onSelect: () => setConfirm('destroy'), testId: 'destroy-deployment' },
-                ]}
-            />
+                    </a>
+                </div>
+            ) : (
+                <PageHeader
+                    crumbs={['Deployments', `${deployment.repoSlug} / ${deployment.branch}`]}
+                    actions={
+                        <Button variant="primary" icon={<ExternalLink size={13} />} onClick={() => window.open(deployment.url, '_blank', 'noopener')}>
+                            Open preview
+                        </Button>
+                    }
+                    overflow={[
+                        { key: 'rebuild', label: 'Rebuild from latest template', icon: <RotateCw size={13} />, onSelect: () => setConfirm('rebuild'), testId: 'rebuild-deployment' },
+                        { key: 'destroy', label: 'Destroy', icon: <Trash2 size={13} />, danger: true, dividerAbove: true, onSelect: () => setConfirm('destroy'), testId: 'destroy-deployment' },
+                    ]}
+                />
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto">
                 <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-8">
@@ -123,14 +135,16 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className={isEmbed ? 'grid grid-cols-1 gap-6' : 'grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]'}>
                         <ActivityLog logs={logs} />
 
-                        <div className="flex flex-col gap-4">
-                            <HibernationCard deploymentId={deployment.id} hibernation={hibernation} />
-                            <ManifestCard repoSlug={deployment.repoSlug} manifest={manifest} />
-                            <ShareLinkCard deploymentId={deployment.id} shareLink={shareLink} mintedUrl={mintedUrl} />
-                        </div>
+                        {!isEmbed && (
+                            <div className="flex flex-col gap-4">
+                                <HibernationCard deploymentId={deployment.id} hibernation={hibernation} />
+                                <ManifestCard repoSlug={deployment.repoSlug} manifest={manifest} />
+                                <ShareLinkCard deploymentId={deployment.id} shareLink={shareLink} mintedUrl={mintedUrl} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
