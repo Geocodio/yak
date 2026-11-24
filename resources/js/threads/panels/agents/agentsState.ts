@@ -291,6 +291,11 @@ export function continuedLabel(agents: AgentRowData[]): string {
     return `${who} ${verb}${after === null ? '' : ` after ${after}`}.`;
 }
 
+/** Whether the app has to hear the summary: always the first time for a thread, then only when it changed. */
+export function needsAgentsReport(sent: { threadId: string; running: number; newest: string | null } | null, threadId: string, summary: { running: number; newest: string | null }): boolean {
+    return sent === null || sent.threadId !== threadId || sent.running !== summary.running || sent.newest !== summary.newest;
+}
+
 /**
  * What the app's bar above the composer shows: how many agents run and the card of the newest one. A nested agent has
  * no card of its own in the conversation, so the card is the one of the agent Claude started it through.

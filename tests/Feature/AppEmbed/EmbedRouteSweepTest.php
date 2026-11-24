@@ -162,7 +162,7 @@ it('answers 404 on the routes that must never be reachable', function (string $n
 
 it('keeps the sensitive routes off the allow-list', function () {
     $sensitive = collect(Route::getRoutes()->getRoutes())
-        ->filter(fn (LaravelRoute $route): bool => preg_match('/^(settings|profile|device|account|auth|mcp|skills|marketplaces|prompts|repos|deployments)\b|^(login|letmein|threads\.(messages|destroy|close|star|share\.|files|terminal|teleport|stack\.(children|take|split|drop|stop|limit)))/', (string) $route->getName()) === 1)
+        ->filter(fn (LaravelRoute $route): bool => preg_match('/^(settings|profile|device|account|auth|mcp|skills|marketplaces|prompts|repos|deployments)\b|^(login|letmein|threads\.(messages|destroy|close|star|share\.|files|terminal|teleport|step-limit|agents\.(stop|messages)|stack\.(children|take|split|drop|stop|limit)))/', (string) $route->getName()) === 1)
         ->map(fn (LaravelRoute $route): string => (string) $route->getName())
         ->all();
 

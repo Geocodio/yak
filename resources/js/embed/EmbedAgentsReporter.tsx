@@ -1,31 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
-import { agentsForApp } from '@/threads/panels/agents/agentsState';
+import { agentsForApp, needsAgentsReport } from '@/threads/panels/agents/agentsState';
 import { useEmbed } from './useEmbed';
 
 /** The app's bar is told once the set has been steady this long, so a burst of agent events is one message. */
 const SETTLE_MS = 300;
 
 /**
- * Tells the app how many agents run and which card is the newest, whenever that changes. The app has no second source
- * of truth: a page that loads with nothing running says nothing, and a thread switch starts from nothing again.
- * Draws nothing; renders inside the agents provider of the thread page.
+ * Tells the app how many agents run and which card is the newest: once when the thread page mounts and after a thread
+ * switch (also when nothing runs, so the app's bar never keeps a stale count after a reload), then whenever the pair
+ * changes. Draws nothing; renders inside the agents provider of the thread page.
  */
 export function EmbedAgentsReporter() {
     const embed = useEmbed();
     const agents = useAgents();
     const summary = agentsForApp(agents?.rows ?? []);
     const threadId = agents?.threadId ?? null;
-    const sent = useRef<{ threadId: string | null; running: number; newest: string | null }>({ threadId: null, running: 0, newest: null });
+    const sent = useRef<{ threadId: string; running: number; newest: string | null } | null>(null);
 
     useEffect(() => {
-        if (embed === null || threadId === null) {
-            return;
-        }
-        if (sent.current.threadId !== threadId) {
-            sent.current = { threadId, running: 0, newest: null };
-        }
-        if (sent.current.running === summary.running && sent.current.newest === summary.newest) {
+        if (embed === null || threadId === null || !needsAgentsReport(sent.current, threadId, summary)) {
             return;
         }
         const timer = window.setTimeout(() => {

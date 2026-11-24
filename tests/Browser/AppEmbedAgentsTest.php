@@ -57,12 +57,13 @@ it('expands an agent card in the embed without a Stop button and posts agents wh
         ->assertSeeIn('[data-testid="agent-card-body"]', 'echo agent-step-one')
         ->assertMissing('[data-testid="agent-stop"]');
 
-    // Nothing runs, so the page has said nothing yet. A start shows after the page reads its agents again.
-    expect(json_decode((string) postedAgents($page, 'false'), true))->toBe([]);
+    // Nothing runs, and the page says so once on mount. A start shows after the page reads its agents again.
+    $some = fn (int $count) => "(window.__yakEmbedLog ?? []).filter((message) => message.type === 'agents').length >= {$count}";
+    expect(json_decode((string) postedAgents($page, $some(1)), true))->toBe([['running' => 0, 'newest' => null]]);
     $agent->forceFill(['status' => ThreadAgentStatus::Running, 'finished_at' => null])->save();
     $page->script("window.__yakEmbed.receive({ v: 1, type: 'refresh' }); true");
 
-    expect(json_decode((string) postedAgents($page, "(window.__yakEmbedLog ?? []).some((message) => message.type === 'agents')"), true))->toBe([['running' => 1, 'newest' => 'agent-aone']]);
+    expect(json_decode((string) postedAgents($page, $some(2)), true))->toBe([['running' => 0, 'newest' => null], ['running' => 1, 'newest' => 'agent-aone']]);
     waitUntilPresent($page, '[data-testid="agent-card"][data-status="running"]');
     $page->assertMissing('[data-testid="agent-stop"]')->assertNoJavaScriptErrors();
 });

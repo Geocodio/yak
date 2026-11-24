@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agentCardId, agentsForApp, agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, matchChild, mergeAgents, nowLabel, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
+import { needsAgentsReport, agentCardId, agentsForApp, agentsTabCount, buildTree, cardSubtitle, continuedByRun, countRunning, flattenTree, formatAgentDuration, formatTokens, matchChild, mergeAgents, nowLabel, rowSubtitle, runningSummary, workflowPhases } from './agentsState.ts';
 
 const agent = (id, extra = {}) => ({
     id, kind: 'agent', parentTaskId: null, toolUseId: null, depth: 1, agentType: 'general-purpose', description: id, workflowName: null, model: null, isBackground: true, status: 'running',
@@ -191,4 +191,14 @@ test('the app summary counts running agents and names the newest top-level card'
 
     assert.deepEqual(agentsForApp(nested), { running: 3, newest: 'agent-first' });
     assert.deepEqual(agentsForApp([agent('loop', { parentTaskId: 'loop' })]), { running: 1, newest: 'agent-loop' });
+});
+
+test('the app hears the summary on mount and after a thread switch, then only on a change', () => {
+    const none = { running: 0, newest: null };
+
+    assert.equal(needsAgentsReport(null, 'aaaaaaaa', none), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'aaaaaaaa', none), false);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'bbbbbbbb', none), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', ...none }, 'aaaaaaaa', { running: 1, newest: 'agent-a' }), true);
+    assert.equal(needsAgentsReport({ threadId: 'aaaaaaaa', running: 1, newest: 'agent-a' }, 'aaaaaaaa', { running: 1, newest: 'agent-b' }), true);
 });

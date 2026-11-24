@@ -43,6 +43,9 @@ test('every fixture validates against the bridge and every type has one', () => 
         const result = name.startsWith('page-') ? validatePageMessage(message) : validateAppMessage(message);
         assert.equal(result.kind, 'ok', name);
     }
+    for (const type of TYPES_WITHOUT_FIXTURE) {
+        assert.ok(!fixtures.some(({ message }) => message.type === type), `${type} now has a fixture: remove it from TYPES_WITHOUT_FIXTURE`);
+    }
     for (const type of PAGE_MESSAGE_TYPES.filter((type) => !TYPES_WITHOUT_FIXTURE.includes(type))) {
         assert.ok(fixtures.some(({ name, message }) => name.startsWith('page-') && message.type === type), `page-${type}`);
     }
