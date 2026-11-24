@@ -262,6 +262,7 @@
     },
     "publishWarning": false,
     "pullRequest": null,
+    "pullRequests": [],
     "question": null,
     "repositoryQuestion": null,
     "request": {
