@@ -249,6 +249,14 @@ it('lists the awake sandboxes for a thread waiting for a sandbox', function () {
         ->and($waiting['ownSlotsCap'])->toBeNull();
 });
 
+it('reports the awake cap, the idle grace and why a thread waits for a sandbox', function () {
+    config(['yak.threads.awake_cap' => 1, 'yak.threads.person_awake_cap' => 5, 'yak.threads.eviction_grace_minutes' => 10]);
+    Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(3)]);
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => now()]);
+
+    expect(ThreadNoticeData::for($thread)['waiting'])->toMatchArray(['awakeCap' => 1, 'idleGraceMinutes' => 10, 'reason' => 'global_cap']);
+});
+
 it('offers the viewer a paused sandbox to stop when their own share is full', function () {
     config(['yak.threads.awake_cap' => 8, 'yak.threads.person_awake_cap' => 1]);
     $viewer = User::factory()->create();
