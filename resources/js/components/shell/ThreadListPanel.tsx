@@ -1,4 +1,4 @@
-import { usePage } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import { threadIdOfUrl } from "@/components/shell/threadUrl";
 import {
     Button,
@@ -7,7 +7,6 @@ import {
     Tooltip,
     cn,
 } from "@geocodio/console-ui";
-import { Link } from "@inertiajs/react";
 import { Fragment } from "react";
 import { edit as editProfile } from "@/routes/profile";
 import { PanelLeftClose, Plus, Search, X } from "lucide-react";

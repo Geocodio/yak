@@ -145,3 +145,17 @@ test('counts other approvals', function () {
 
     expect(ReviewQueue::summarize($thread, reviewViewer(), false, null)['otherApprovals'])->toBe(1);
 });
+
+test('ci is passing only when every open PR has passing CI', function () {
+    $thread = reviewThread(['ci_status' => 'passing']);
+    expect(ReviewQueue::summarize($thread, reviewViewer(), false, null)['isCiPassing'])->toBeTrue();
+
+    foreach (['running', 'failing', null] as $status) {
+        $thread = reviewThread(['ci_status' => $status]);
+        expect(ReviewQueue::summarize($thread, reviewViewer(), false, null)['isCiPassing'])->toBeFalse();
+    }
+
+    $thread = reviewThread(['ci_status' => 'passing']);
+    reviewThread(['ci_status' => 'running', 'repo' => 'acme/other'], $thread);
+    expect(ReviewQueue::summarize($thread->fresh(), reviewViewer(), false, null)['isCiPassing'])->toBeFalse();
+});

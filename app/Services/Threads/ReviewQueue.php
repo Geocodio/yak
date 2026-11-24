@@ -17,7 +17,7 @@ class ReviewQueue
      * Null when the thread, with its loaded sub-threads, has no open pull request.
      *
      * @param  CarbonInterface|null  $latestDrivenRunStartedAt  when the viewer last drove a turn on the thread or a sub-thread
-     * @return array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, hasNewCommitsSinceApproval: bool, otherApprovals: int}|null
+     * @return array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}|null
      */
     public static function summarize(Thread $thread, User $viewer, bool $isRunning, ?CarbonInterface $latestDrivenRunStartedAt): ?array
     {
@@ -65,6 +65,7 @@ class ReviewQueue
                 $pullRequests->contains(fn (ThreadRepository $repository): bool => $repository->ci_status === 'failing') => 'CI failing',
                 default => null,
             },
+            'isCiPassing' => $pullRequests->every(fn (ThreadRepository $repository): bool => $repository->ci_status === 'passing'),
             'hasNewCommitsSinceApproval' => $hasNewCommitsSinceApproval,
             'otherApprovals' => $pullRequests
                 ->flatMap(fn (ThreadRepository $repository): array => collect($repository->pull_request_reviews ?? [])

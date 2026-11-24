@@ -31,12 +31,14 @@ function ReviewLine({ review }: { review: ThreadReviewSummary }) {
             <Badge tone={isDraft ? 'neutral' : 'info'}>{isDraft ? 'Draft' : 'Ready'}</Badge>
             {review.blockedLabel ? (
                 <Badge tone="fail">{review.blockedLabel}</Badge>
-            ) : (
-                <Check size={12} className="text-ok" aria-label="No blockers" />
-            )}
+            ) : review.isCiPassing ? (
+                <Check size={12} className="text-ok" aria-label="CI passing" />
+            ) : null}
             {review.hasNewCommitsSinceApproval ? <Badge tone="warn">New commits since approval</Badge> : null}
             {review.otherApprovals > 0 ? (
-                <span className="text-ok">✓ {review.otherApprovals} {review.otherApprovals === 1 ? 'other' : 'others'}</span>
+                <span className="inline-flex items-center gap-0.5 text-ok">
+                    <Check size={11} aria-hidden /> {review.otherApprovals} {review.otherApprovals === 1 ? 'other' : 'others'}
+                </span>
             ) : null}
         </span>
     );
