@@ -113,7 +113,7 @@ class ThreadList
             'needsYou' => $needsYou,
             'threads' => $rest,
             'needsYouCount' => $needsYouCount,
-            'reviewCount' => $filter === ThreadListFilter::Review ? self::reviewCount($summaries) : self::reviewCountFor($user),
+            'reviewCount' => self::reviewCountFor($user),
             'hasAnyThreads' => $roots->isNotEmpty() || self::hasAnyThreads($user),
             'facets' => $facets,
         ];
@@ -173,12 +173,7 @@ class ThreadList
             return [];
         }
 
-        $drivenAt = TaskRun::query()
-            ->where('driver_user_id', $user->id)
-            ->whereIn('thread_id', $roots->pluck('id')->concat($roots->flatMap(fn (Thread $root) => $root->children->pluck('id')))->all())
-            ->groupBy('thread_id')
-            ->selectRaw('thread_id, max(started_at) as latest_started_at')
-            ->pluck('latest_started_at', 'thread_id');
+        $drivenAt = self::latestDrivenRunStarts($roots, $user);
         $summaries = [];
 
         foreach ($roots as $index => $root) {
@@ -197,15 +192,24 @@ class ThreadList
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $summaries
+     * When the viewer last started a turn on each root or sub-thread, by thread id.
+     *
+     * @param  Collection<int, Thread>  $roots
+     * @return Collection<int, mixed>
      */
-    private static function reviewCount(array $summaries): int
+    private static function latestDrivenRunStarts(Collection $roots, User $user): Collection
     {
-        return count(array_filter($summaries, fn (array $summary): bool => in_array($summary['state'], [ReviewState::BackToYou->value, ReviewState::NotReviewed->value], true)));
+        return TaskRun::query()
+            ->where('driver_user_id', $user->id)
+            ->whereIn('thread_id', $roots->pluck('id')->concat($roots->flatMap(fn (Thread $root) => $root->children->pluck('id')))->all())
+            ->groupBy('thread_id')
+            ->selectRaw('thread_id, max(started_at) as latest_started_at')
+            ->pluck('latest_started_at', 'thread_id');
     }
 
     /**
-     * Back to you plus Not reviewed for the viewer's Mine threads, from one query.
+     * Back to you plus Not reviewed for the viewer's Mine threads. It ignores search and the source and
+     * starter filters, and builds no rows: a few narrow queries over the threads that have an open PR.
      */
     private static function reviewCountFor(User $user): int
     {
@@ -213,12 +217,45 @@ class ThreadList
             return 0;
         }
 
-        $roots = self::rootsQuery($user, 'open')
+        $columns = 'id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status';
+        $roots = Thread::query()
+            ->withoutVisibilityScope()
+            ->visibleTo($user)
+            ->listed()
+            ->whereNull('parent_thread_id')
+            ->where('status', 'open')
             ->where(fn (Builder $query) => self::mine($query, $user))
             ->where(fn (Builder $query) => self::withOpenPullRequest($query))
+            ->select('threads.*')
+            ->addSelect(['latest_turn_state' => self::latestTurnState()])
+            ->with([
+                'children' => function (Relation $relation) use ($user): void {
+                    self::scopeChildren($relation, $user, 'open');
+                    $relation->getQuery()->addSelect(['latest_turn_state' => self::latestTurnState()]);
+                },
+                'repositories:' . $columns,
+                'children.repositories:' . $columns,
+            ])
             ->get();
 
-        return self::reviewCount(self::reviewSummaries($roots, self::rows($roots, $user), $user));
+        if ($roots->isEmpty()) {
+            return 0;
+        }
+
+        $all = $roots->concat($roots->flatMap(fn (Thread $root) => $root->children));
+        $withAgents = ! ThreadAgent::isEnabled() ? collect() : ThreadAgent::query()->running()->whereIn('thread_id', $all->pluck('id')->all())->distinct()->pluck('thread_id')->flip();
+        $drivenAt = self::latestDrivenRunStarts($roots, $user);
+        $count = 0;
+
+        foreach ($roots as $root) {
+            $isRunning = $root->children->prepend($root)->contains(fn (Thread $thread): bool => in_array($thread->getAttribute('latest_turn_state'), [TurnState::Running->value, TurnState::WaitingForAccount->value, TurnState::WaitingForSandbox->value], true)
+                || $withAgents->has($thread->id));
+            $latest = $root->children->pluck('id')->prepend($root->id)->map(fn (int $id): mixed => $drivenAt->get($id))->filter()->max();
+            $state = ReviewQueue::summarize($root, $user, $isRunning, $latest === null ? null : Carbon::parse($latest))['state'] ?? null;
+            $count += in_array($state, [ReviewState::BackToYou->value, ReviewState::NotReviewed->value], true) ? 1 : 0;
+        }
+
+        return $count;
     }
 
     /**
@@ -430,6 +467,18 @@ class ThreadList
             ->select('threads.*')
             ->addSelect(['latest_run_id' => self::latestRunId()])
             ->orderBy('id');
+    }
+
+    /**
+     * @return Builder<TaskRun>
+     */
+    private static function latestTurnState(): Builder
+    {
+        return TaskRun::query()
+            ->select('turn_state')
+            ->whereColumn('task_runs.thread_id', 'threads.id')
+            ->orderByDesc('id')
+            ->limit(1);
     }
 
     /**

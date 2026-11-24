@@ -5,6 +5,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\ThreadView;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 test('guests are redirected', function () {
     $this->get(route('threads.list'))->assertRedirect(route('login'));
@@ -153,4 +154,41 @@ test('the review filter asks a viewer without a github login to link it', functi
         ->assertJsonPath('review.needsGitHubLink', true)
         ->assertJsonCount(0, 'review.backToYou')
         ->assertJsonCount(0, 'review.notReviewed');
+});
+
+test('reviewCount ignores the search box on every filter', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    foreach (['Alpha work', 'Beta work'] as $title) {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'title' => $title]);
+        ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'open', 'pull_request_number' => 1]);
+    }
+
+    foreach (['mine', 'review'] as $filter) {
+        $this->actingAs($user)->getJson(route('threads.list', ['filter' => $filter, 'search' => 'Alpha']))
+            ->assertOk()
+            ->assertJsonPath('reviewCount', 2);
+    }
+});
+
+test('the review count adds only a few queries and builds no rows', function () {
+    $user = User::factory()->create(['github_login' => 'mathias']);
+    $countQueries = function () use ($user): int {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->actingAs($user)->getJson(route('threads.list'))->assertOk();
+        $count = count(DB::getQueryLog());
+        DB::flushQueryLog();
+
+        return $count;
+    };
+    foreach (range(1, 5) as $number) {
+        $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
+        ThreadRepository::factory()->create(['thread_id' => $thread->id, 'pull_request_state' => 'merged', 'pull_request_number' => $number]);
+    }
+    $baseline = $countQueries();
+
+    ThreadRepository::query()->update(['pull_request_state' => 'open']);
+    $withOpenPullRequests = $countQueries();
+
+    expect($withOpenPullRequests - $baseline)->toBeLessThanOrEqual(4);
 });
