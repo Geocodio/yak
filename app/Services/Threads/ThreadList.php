@@ -40,7 +40,7 @@ use Illuminate\Support\Str;
  * needsYouReason: ?string, needsYouLabel: ?string, needsYouDetail: ?string, isPrivate: bool, isShared: bool,
  * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
  * source: array{key: string, label: string, reference: ?string, url: ?string}, starter: array{key: string, name: string, avatarUrl: ?string}, lastActivityAt: ?string, group: 'today'|'this_week'|'older',
- * children: list<array<string, mixed>>, review?: array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}}` (`review` only on the Review tab).
+ * children: list<array<string, mixed>>, review?: array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool, mergeableState: string|null, ciStatus: string|null, approvedByViewer: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}}` (`review` only on the Review tab).
  *
  * The facets count the tab's rows; a picked source or starter without rows is appended with count 0.
  */
@@ -51,7 +51,7 @@ class ThreadList
     /** The label of a thread whose latest task failed; a new task in the thread clears it. */
     private const FAILED_LABEL = 'Failed';
 
-    private const REVIEW_COLUMNS = 'id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status';
+    private const REVIEW_COLUMNS = 'id,thread_id,repo,pull_request_state,pull_request_number,pull_request_url,pull_request_is_draft,pull_request_reviews,pull_request_mergeable_state,pull_request_opened_at,pull_request_head_sha,ci_status,merge_position';
 
     /**
      * @param  list<string>  $sources

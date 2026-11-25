@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\ThreadListFilter;
 use App\Models\Device;
 use App\Models\User;
 use App\Services\Push\Apns\ApnsConfig;
@@ -24,7 +25,8 @@ final class AppMeData
      *     attachments: array{maxFiles: int, maxFileBytes: int},
      *     push: array{apns: bool, bundleId: ?string, environment: string},
      *     features: array{liveActivities: bool, widgets: bool},
-     *     web: array{embed: int, pages: list<string>}
+     *     web: array{embed: int, pages: list<string>},
+     *     threadFilters: list<string>
      * }
      */
     public static function from(User $user, Device $device): array
@@ -65,6 +67,7 @@ final class AppMeData
             ],
             'features' => ['liveActivities' => $isApnsConfigured, 'widgets' => true],
             'web' => ['embed' => 1, 'pages' => ['deployments', 'pr-reviews']],
+            'threadFilters' => array_map(fn (ThreadListFilter $filter): string => $filter->value, ThreadListFilter::cases()),
         ];
     }
 

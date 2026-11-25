@@ -391,6 +391,9 @@ export type ThreadWaiting = {
     ownSlotsUsed: number | null;
     ownSlotsCap: number | null;
     stoppableThreadId: string | null;
+    awakeCap: number;
+    idleGraceMinutes: number;
+    reason: 'person_share' | 'global_cap' | 'memory_floor' | null;
 };
 
 export type ThreadCapacity = {

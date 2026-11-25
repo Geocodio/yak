@@ -9,7 +9,7 @@ export type ThreadListFacets = {
 
 export type ThreadReviewSummary = {
     state: 'back_to_you' | 'not_reviewed' | 'with_yak' | 'approved';
-    pullRequests: { repo: string; number: number; url: string; isDraft: boolean }[];
+    pullRequests: { repo: string; number: number; url: string; isDraft: boolean; mergeableState: string | null; ciStatus: string | null; approvedByViewer: boolean }[];
     blockedLabel: 'Conflicts' | 'CI failing' | null;
     isCiPassing: boolean;
     hasNewCommitsSinceApproval: boolean;

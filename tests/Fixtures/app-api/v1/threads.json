@@ -16,7 +16,9 @@
             }
         ]
     },
+    "gitHubLinkPath": "/settings/profile",
     "hasAnyThreads": true,
+    "needsGitHubLink": true,
     "needsYou": [
         {
             "isPrivate": false,
@@ -63,6 +65,7 @@
         }
     ],
     "needsYouCount": 2,
+    "reviewCount": 0,
     "starred": [],
     "threads": []
 }

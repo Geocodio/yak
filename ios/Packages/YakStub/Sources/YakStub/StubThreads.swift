@@ -378,6 +378,9 @@ extension Scenario {
                 return json(fixtures.scenario("scenario-broadcasting-auth-\(name)", baseURL: baseURL))
             case ("GET", 1, _, _):
                 let filter = request.query["filter"] ?? "mine"
+                if let tabs = drawerTabsList(filter: filter, query: request.query, fixtures, baseURL) {
+                    return json(tabs)
+                }
                 return json(narrowed(list(filter: filter, fixtures, baseURL), by: request.query["search"] ?? ""))
             case ("POST", 1, _, _):
                 if self == .newThreadRefused {

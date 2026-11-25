@@ -122,6 +122,20 @@ public actor Cache {
         store(list, at: listPath(filter), protection: .untilFirstUnlock)
     }
 
+    // MARK: Thread filters
+
+    private var threadFiltersPath: String { "\(root)/thread-filters.json" }
+
+    /// The filter words the server listed the last time it answered `me`; nil when it listed none.
+    public func threadFilters() -> [String]? {
+        load([String].self, at: threadFiltersPath)
+    }
+
+    public func saveThreadFilters(_ names: [String]?) {
+        guard let names else { return delete(threadFiltersPath) }
+        store(names, at: threadFiltersPath, protection: .untilFirstUnlock)
+    }
+
     // MARK: Threads
 
     public func thread(_ id: String) -> CachedThread? {

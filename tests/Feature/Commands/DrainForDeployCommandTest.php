@@ -3,11 +3,14 @@
 use App\Enums\NotificationType;
 use App\Enums\StopKind;
 use App\Enums\TaskStatus;
+use App\Enums\TurnState;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
@@ -256,4 +259,49 @@ test('derives the cache flag TTL from --max-wait so it outlasts the drain', func
 
     $this->travel(2)->seconds();
     expect(Cache::has(PausesDuringDrain::CACHE_KEY))->toBeFalse();
+});
+
+test('leaves a thread task alone while it waits for someone to continue a guard-stopped turn', function () {
+    Queue::fake();
+
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->running()->create([
+        'thread_id' => $thread->id,
+        'claimed_job_class' => RunYakJob::class,
+    ]);
+    TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'thread_id' => $thread->id,
+        'turn_state' => TurnState::StoppedByGuard,
+        'finished_at' => now()->subMinutes(20),
+    ]);
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--max-wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Running)
+        ->and($task->interrupted_by_deploy_at)->toBeNull()
+        ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'Task interrupted by deploy drain')->exists())->toBeFalse();
+    Queue::assertNothingPushed();
+});
+
+test('still drains a thread task whose turn is running', function () {
+    Queue::fake();
+
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->running()->create([
+        'thread_id' => $thread->id,
+        'claimed_job_class' => RunYakJob::class,
+    ]);
+    TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'thread_id' => $thread->id,
+        'turn_state' => TurnState::Running,
+    ]);
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--max-wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->interrupted_by_deploy_at)->not->toBeNull();
 });
