@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Channels\GitHub\AppService;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskJobResolver;
@@ -93,6 +94,29 @@ class EnqueuePrReview
         }
 
         return $task;
+    }
+
+    /**
+     * Reviews the commits since Yak's last review, or the whole PR when Yak
+     * has not reviewed it yet. Null when the PR must not be reviewed or a
+     * review of this head is already queued.
+     *
+     * @param  array<string, mixed>  $prPayload
+     */
+    public function dispatchReReview(Repository $repository, array $prPayload): ?YakTask
+    {
+        if ($this->skipReason($repository, $prPayload) !== null) {
+            return null;
+        }
+
+        $priorReview = PrReview::where('pr_url', (string) $prPayload['html_url'])
+            ->whereNull('dismissed_at')
+            ->orderByDesc('submitted_at')
+            ->first();
+
+        return $priorReview === null
+            ? $this->dispatch($repository, $prPayload, 'full')
+            : $this->dispatch($repository, $prPayload, 'incremental', $priorReview->commit_sha_reviewed);
     }
 
     /**

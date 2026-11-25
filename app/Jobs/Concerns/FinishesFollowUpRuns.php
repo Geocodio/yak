@@ -2,7 +2,9 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Actions\EnqueuePrReview;
 use App\Agents\ClaudeCodeOutputParser;
+use App\Channels\GitHub\AppService;
 use App\Channels\GitHub\PullRequestSummonReplier;
 use App\Contracts\SandboxShell;
 use App\DataTransferObjects\AgentRunResult;
@@ -145,7 +147,8 @@ trait FinishesFollowUpRuns
 
     /**
      * A person owns this branch: push onto it, answer in the summoning thread,
-     * and stop. No CI wait, no retry, and the PR description is theirs.
+     * and stop. No CI wait and no retry. The description is rewritten only
+     * when pushed commits made it out of date.
      */
     private function finishExternalPr(Repository $repository, ParsedFollowUpSummary $parsed, SandboxShell $sandbox, string $containerName, string $branchName, RunRecorder $recorder): void
     {
@@ -166,6 +169,14 @@ trait FinishesFollowUpRuns
 
             $headSha = trim($sandbox->run($containerName, 'cd ' . IncusSandboxManager::workspacePath() . ' && git rev-parse HEAD', timeout: 10)->output());
             $pushedSha = preg_match('/^[0-9a-f]{40}$/', $headSha) === 1 ? $headSha : null;
+
+            if ($parsed->description !== null) {
+                $this->updateExternalPrDescription($repository, $parsed->description);
+            }
+
+            if ($pushedSha !== null) {
+                $this->requestReReviewOfPush($repository, $pushedSha);
+            }
         }
 
         try {
@@ -185,6 +196,49 @@ trait FinishesFollowUpRuns
         }
 
         $this->task->update(['status' => TaskStatus::Success, 'completed_at' => now()]);
+    }
+
+    private function updateExternalPrDescription(Repository $repository, string $description): void
+    {
+        try {
+            app(AppService::class)->updatePullRequest(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) $this->task->pr_number,
+                ['body' => mb_convert_encoding($description, 'UTF-8', 'UTF-8')],
+            );
+            TaskLogger::info($this->task, 'Updated the PR description');
+        } catch (\Throwable $error) {
+            TaskLogger::warning($this->task, 'PR description could not be updated', ['error' => $error->getMessage()]);
+        }
+    }
+
+    /**
+     * Yak's own push does not start a review, so it asks for the same review
+     * GitHub's "Re-request review" button starts. The pushed SHA is the head
+     * to review, in case GitHub still reports the head from before the push.
+     */
+    private function requestReReviewOfPush(Repository $repository, string $pushedSha): void
+    {
+        try {
+            $pullRequest = app(AppService::class)->getPullRequest(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                (int) $this->task->pr_number,
+            );
+
+            if (! isset($pullRequest['html_url'], $pullRequest['head']['ref'], $pullRequest['base']['sha'])) {
+                return;
+            }
+
+            $pullRequest['head']['sha'] = $pushedSha;
+
+            if (app(EnqueuePrReview::class)->dispatchReReview($repository, $pullRequest) !== null) {
+                TaskLogger::info($this->task, 'Requested a review of the pushed changes');
+            }
+        } catch (\Throwable $error) {
+            TaskLogger::warning($this->task, 'Review of the pushed changes could not be requested', ['error' => $error->getMessage()]);
+        }
     }
 
     /**

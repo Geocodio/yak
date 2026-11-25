@@ -25,7 +25,6 @@ use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
-use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\ThreadRepository;
@@ -1151,29 +1150,16 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'repo not registered or inactive']);
         }
 
-        $skipReason = app(EnqueuePrReview::class)->skipReason($repo, $pr);
+        $enqueue = app(EnqueuePrReview::class);
+        $skipReason = $enqueue->skipReason($repo, $pr);
 
         if ($skipReason !== null) {
             return response()->json(['ok' => true, 'skipped' => $skipReason]);
         }
 
-        $scope = $action === 'review_requested' ? 'incremental' : 'full';
-        $incrementalBase = null;
-
-        if ($scope === 'incremental') {
-            $prior = PrReview::where('pr_url', (string) $pr['html_url'])
-                ->whereNull('dismissed_at')
-                ->orderByDesc('submitted_at')
-                ->first();
-
-            if ($prior === null) {
-                $scope = 'full';
-            } else {
-                $incrementalBase = $prior->commit_sha_reviewed;
-            }
-        }
-
-        $task = app(EnqueuePrReview::class)->dispatch($repo, $pr, $scope, $incrementalBase);
+        $task = $action === 'review_requested'
+            ? $enqueue->dispatchReReview($repo, $pr)
+            : $enqueue->dispatch($repo, $pr, 'full');
 
         if ($task === null) {
             return response()->json(['ok' => true, 'skipped' => 'duplicate']);
