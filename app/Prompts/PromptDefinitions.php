@@ -32,7 +32,7 @@ class PromptDefinitions
                 'description' => "Sent as the system prompt for every Yak task run. Sets scope and safety rules (minimal diffs, testing, commit format, visual capture) and appends channel-specific rules and the repo's own agent instructions.",
                 'category' => 'high_touch',
                 'type' => 'system',
-                'variables' => ['taskId', 'devEnvironmentInstructions', 'channelRules', 'repoInstructions'],
+                'variables' => ['taskId', 'devEnvironmentInstructions', 'channelRules', 'repoInstructions', 'canEditPullRequests'],
             ],
             'personality' => [
                 'view' => 'prompts.personality',

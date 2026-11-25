@@ -98,7 +98,7 @@ Real credentials never enter a sandbox.
 - **Credential socket.** The broker redeems placeholders over a Unix socket served by `yak:credential-socket` (`CredentialSocketServer`). The socket is `redeem.sock` in a root-owned setgid directory shared with the broker's group, and the server checks the peer's uid with kernel credentials. `YAK_THREADS_PLACEHOLDER_STORE` defaults to `database` so placeholders stay off Redis. No secret is written to Redis.
 - **Account secrets.** `claude_accounts.secret` is an encrypted column (a setup token or API key). See [Claude accounts](claude-accounts.md).
 - **Fail closed.** Before starting a runner the broker reads the mounted Claude credentials file. A login that is not an allowed shared account, or a file it cannot parse, refuses the start (`broker.start_refused`, reason `credential_exposure`).
-- **Inside the sandbox:** the placeholder, short-lived GitHub App tokens scoped to the thread's repositories (`ThreadGitHubCredentials`: contents write for git, read-only for the `gh` wrapper), the repo's own files, and variables you list in `agent_extra_env`.
+- **Inside the sandbox:** the placeholder, short-lived GitHub App tokens scoped to the thread's repositories (`ThreadGitHubCredentials`: contents write for git; for the `gh` wrapper, read access plus pull request write so the agent edits its own PR title and description), the repo's own files, and variables you list in `agent_extra_env`.
 - **Not inside the sandbox:** the Anthropic credential, the app's `.env`, the database, Redis, the GitHub App private key.
 
 ## Sandboxes
