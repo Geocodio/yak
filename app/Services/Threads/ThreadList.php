@@ -23,6 +23,7 @@ use App\Models\ThreadAgent;
 use App\Models\ThreadStar;
 use App\Models\ThreadView;
 use App\Models\User;
+use App\Services\Stacks\StackListing;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -314,12 +315,17 @@ class ThreadList
         $startOfDay = now()->startOfDay();
         $startOfWeek = now()->startOfWeek();
         $personReasons = ThreadCardsData::needsYouReasons($all, $user);
+        $stackStates = StackListing::states($roots->flatMap(fn (Thread $root) => $root->children));
         $rows = [];
 
         foreach ($roots as $root) {
             $isPrivate = $root->visibility === ThreadVisibility::Private;
             $isShared = $isPrivate && (bool) $root->getAttribute('is_shared');
-            $children = array_values($root->children->map(fn (Thread $child): array => self::row($child, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false, $personReasons))->all());
+            $children = array_values($root->children->map(fn (Thread $child): array => [
+                ...self::row($child, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, [], false, false, $personReasons),
+                'stackState' => $stackStates[$child->id],
+                'takenOver' => $child->taken_over_at !== null,
+            ])->all());
             $row = self::row($root, $runs, $seen, $user, $startOfDay, $startOfWeek, $isPrivate, $isShared, $children, in_array($root->id, $starredIds, true), ! $isPrivate || $root->owner_user_id === $user->id, $personReasons);
 
             $needyChildren = array_values(array_filter($children, fn (array $child): bool => $child['needsYouReason'] !== null));

@@ -5,8 +5,10 @@ namespace App\Services\Stacks;
 use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadKind;
 use App\Models\StackThreadMessage;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Collection;
 
 class StackListing
 {
@@ -66,5 +68,28 @@ class StackListing
         $hasRuns = $isOpen && $thread->runs()->exists();
 
         return self::resolveState($isOpen, $hasFailed, $thread->result_summary !== null, $thread->queued_for_slot_at !== null, $thread->kind === ThreadKind::Research, $hasRuns, $hasRuns && ThreadTurns::activeTurn($thread) !== null);
+    }
+
+    /**
+     * The state of every given thread, worked out in three queries however many there are.
+     *
+     * @param  Collection<int, Thread>  $threads
+     * @return array<int, 'closed'|'failed'|'done'|'queued'|'starting'|'working'|'waiting'> state by thread id
+     */
+    public static function states(Collection $threads): array
+    {
+        if ($threads->isEmpty()) {
+            return [];
+        }
+
+        $ids = $threads->pluck('id');
+        $failed = StackThreadMessage::query()->whereIn('from_thread_id', $ids)->where('kind', StackThreadMessageKind::Failure)->pluck('from_thread_id')->flip();
+        $hasRuns = TaskRun::query()->whereIn('thread_id', $ids)->distinct()->pluck('thread_id')->flip();
+        $active = TaskRun::query()->whereIn('thread_id', $ids)->whereIn('turn_state', ThreadTurns::ACTIVE_STATES)->distinct()->pluck('thread_id')->flip();
+
+        /** @var array<int, 'closed'|'failed'|'done'|'queued'|'starting'|'working'|'waiting'> $states */
+        $states = $threads->mapWithKeys(fn (Thread $thread): array => [$thread->id => self::resolveState($thread->isOpen(), $failed->has($thread->id), $thread->result_summary !== null, $thread->queued_for_slot_at !== null, $thread->kind === ThreadKind::Research, $hasRuns->has($thread->id), $active->has($thread->id))])->all();
+
+        return $states;
     }
 }
