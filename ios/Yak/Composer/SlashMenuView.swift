@@ -10,16 +10,16 @@ struct SlashMenuView: View {
     let pick: (SlashCommand) -> Void
 
     var body: some View {
-        ViewThatFits(in: .vertical) {
-            content.fixedSize(horizontal: false, vertical: true)
-            ScrollViewReader { proxy in
-                ScrollView { content }
-                    .onChange(of: menu.selected?.name) { _, name in
-                        if let name { proxy.scrollTo(name) }
-                    }
-            }
+        // The card is as tall as its rows up to the cap; past it the rows scroll inside.
+        ScrollViewReader { proxy in
+            ScrollView { content }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: Design.Size.slashMenuMaxHeight)
+                .fixedSize(horizontal: false, vertical: true)
+                .onChange(of: menu.selected?.name) { _, name in
+                    if let name { proxy.scrollTo(name) }
+                }
         }
-        .frame(maxHeight: Design.Size.slashMenuMaxHeight)
         .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.card))
         .overlay(
             RoundedRectangle(cornerRadius: Design.Radius.card)
