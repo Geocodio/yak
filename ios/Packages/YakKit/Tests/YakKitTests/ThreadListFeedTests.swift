@@ -208,6 +208,40 @@ struct ThreadListFeedTests {
         #expect(empty.list == nil)
     }
 
+    @Test func theOfflineLineKnowsWhenTheListWasAnswered() async throws {
+        let rig = try await makeRig()
+        let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)
+        await rig.transport.on("GET threads", .json(200, body))
+        let recorder = StreamRecorder(await rig.feed.states())
+        await rig.feed.refresh()
+        let answered = try await recorder.next { $0.load == .ready && !$0.isOffline }
+        let answeredAt = rig.clock.now()
+        #expect(answered.listAsOf == answeredAt)
+        await rig.clock.advance(by: .seconds(600))
+        await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
+        await rig.feed.refresh()
+        let offline = try await recorder.next { $0.isOffline }
+        #expect(offline.listAsOf == answeredAt)
+        #expect(await rig.cache.threadListSavedAt(.mine) == answeredAt)
+    }
+
+    @Test func aSavedCopyKeepsItsTimeAndAListSavedBeforeTheTimeWasKeptHasNone() async throws {
+        let rig = try await makeRig()
+        let closed = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads-review"))
+        let savedAt = Date(timeIntervalSince1970: 1_794_000_000)
+        await rig.cache.saveThreadList(closed, filter: .closed, savedAt: savedAt)
+        let older = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads-review"))
+        await rig.cache.saveThreadList(older, filter: .review)
+        await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
+        let recorder = StreamRecorder(await rig.feed.states())
+        await rig.feed.setFilter(.closed, search: nil)
+        let shown = try await recorder.next { $0.filter == .closed && $0.isOffline && $0.list == closed }
+        #expect(shown.listAsOf == savedAt)
+        await rig.feed.setFilter(.review, search: nil)
+        let noTime = try await recorder.next { $0.filter == .review && $0.list != nil && $0.isOffline }
+        #expect(noTime.listAsOf == nil)
+    }
+
     @Test func offlineKeepsTheList() async throws {
         let rig = try await makeRig()
         let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)

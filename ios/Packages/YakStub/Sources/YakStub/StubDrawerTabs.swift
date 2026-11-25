@@ -5,6 +5,18 @@ import Foundation
 extension Scenario {
     private var isDrawerTabs: Bool {
         self == .drawerTabs || self == .drawerTabsQuiet || self == .drawerTabsOlder || self == .drawerTabsLink
+            || reviewRowIDs != nil || self == .reviewLine || self == .reviewLineEmpty
+    }
+
+    /// The rows a trimmed review scenario keeps: three rows that fit the screen above the bar.
+    private var reviewRowIDs: [String]? {
+        switch self {
+        case .reviewLineFew: ["rv1c0001", "rv1c0004", "rv1c0008"]
+        case .reviewLineScreenA: ["rv1c0001", "rv1c0002", "rv1c0003"]
+        case .reviewLineScreenB: ["rv1c0004", "rv1c0005", "rv1c0011"]
+        case .reviewLineScreenC: ["rv1c0006", "rv1c0007", "rv1c0010"]
+        default: nil
+        }
     }
 
     func drawerTabsList(filter: String, query: [String: String], _ fixtures: StubFixtures, _ baseURL: String)
@@ -17,6 +29,24 @@ extension Scenario {
             list = fixtures.files["threads-review"].map { fixtures.object($0, baseURL: baseURL) } ?? [:]
             list["reviewGroups"] = reviewGroups(list["reviewGroups"] as? [[String: Any]] ?? [])
             list["reviewCount"] = self == .drawerTabsQuiet ? 0 : 2
+            if self == .reviewLine { list["reviewGroups"] = Self.reviewLineGroups }
+            if let keep = reviewRowIDs {
+                list["reviewGroups"] = Self.reviewLineGroups.map { group -> [String: Any] in
+                    var group = group
+                    group["rows"] = (group["rows"] as? [[String: Any]] ?? []).filter {
+                        keep.contains($0["id"] as? String ?? "")
+                    }
+                    return group
+                }
+            }
+            if self == .reviewLineEmpty {
+                list["reviewGroups"] = Self.reviewLineGroups.map { group -> [String: Any] in
+                    var group = group
+                    group["rows"] = [[String: Any]]()
+                    return group
+                }
+                list["reviewCount"] = 0
+            }
             if self == .drawerTabsLink {
                 list["reviewGroups"] = (list["reviewGroups"] as? [[String: Any]] ?? []).map { group -> [String: Any] in
                     var group = group
@@ -36,11 +66,20 @@ extension Scenario {
             list = emptyList(threads: Self.todayRows)
             list["needsYou"] = Self.needsYouRows
             list["needsYouCount"] = Self.needsYouRows.count
+            if self == .reviewLine {
+                // The failed row carries the server's 200 characters of error.
+                list["needsYou"] = Self.needsYouRows.map { row -> [String: Any] in
+                    guard row["needsYouLabel"] as? String == "Failed" else { return row }
+                    var row = row
+                    row["needsYouDetail"] = Self.longError
+                    return row
+                }
+            }
         }
         let counted = (list["needsYou"] as? [[String: Any]] ?? []) + (list["threads"] as? [[String: Any]] ?? [])
         if self != .drawerTabsOlder {
             list["facets"] = Self.facets(of: counted)
-            list["reviewCount"] = self == .drawerTabsQuiet ? 0 : 2
+            list["reviewCount"] = self == .drawerTabsQuiet || self == .reviewLineEmpty ? 0 : 2
             list["needsGitHubLink"] = self == .drawerTabsLink && filter == "review"
             list["gitHubLinkPath"] = "/settings/profile"
         } else {
@@ -106,6 +145,100 @@ extension Scenario {
     }
 
     // MARK: Rows
+
+    /// The error the server sends for a failed thread: its first 200 characters.
+    static let longError =
+        "CI failed twice on yak/null-spreadsheet: BatchJobTest, 3 tests failed. Expected 200 rows, got 0. The import stops at the first empty sheet."
+
+    private static func pullRequest(
+        _ number: Int, repository: String = "example/web", draft: Bool = false, mergeability: String = "no_conflicts",
+        checks: String? = nil
+    ) -> [String: Any] {
+        [
+            "number": number, "url": "https://github.com/\(repository)/pull/\(number)", "repository": repository,
+            "isDraft": draft, "mergeability": mergeability, "checks": checks ?? NSNull(), "approvedByYou": false,
+        ]
+    }
+
+    private static func reviewRow(
+        _ id: String, _ title: String, source: String, repo: String = "example/web", minutesAgo: Int,
+        pullRequests: [[String: Any]], newCommits: Bool = false, others: Int = 0, status: String = "stopped"
+    ) -> [String: Any] {
+        var result = row(id, title, source: source, repo: repo, status: status, minutesAgo: minutesAgo)
+        result["review"] = [
+            "pullRequests": pullRequests, "hasNewCommitsSinceApproval": newCommits, "otherApprovals": others,
+        ]
+        return result
+    }
+
+    /// Every state of board K2 across the four groups.
+    private static var reviewLineGroups: [[String: Any]] {
+        [
+            [
+                "key": "back_to_you", "label": "Back to you",
+                "rows": [
+                    reviewRow(
+                        "rv1c0001", "Approved, then Yak pushed a fix", source: "slack", minutesAgo: 12,
+                        pullRequests: [pullRequest(262, checks: "passing")], newCommits: true),
+                    reviewRow(
+                        "rv1c0002", "Pull sandbox files in chunks", source: "linear", minutesAgo: 60,
+                        pullRequests: [pullRequest(264, mergeability: "conflicts", checks: "failing")], others: 1),
+                ],
+            ],
+            [
+                "key": "not_reviewed", "label": "Not reviewed",
+                "rows": [
+                    reviewRow(
+                        "rv1c0003", "Queue size and archive answers", source: "dashboard", repo: "example/api",
+                        minutesAgo: 120,
+                        pullRequests: [pullRequest(267, repository: "example/api", draft: true, checks: "failing")]),
+                    reviewRow(
+                        "rv1c0004", "Search across two repositories", source: "slack", minutesAgo: 180,
+                        pullRequests: [
+                            pullRequest(271, checks: "passing"),
+                            pullRequest(88, repository: "example/api", checks: "passing"),
+                        ], others: 3),
+                    reviewRow(
+                        "rv1c0005", "Draft, no checks seen", source: "slack", minutesAgo: 200,
+                        pullRequests: [pullRequest(263, draft: true)]),
+                    reviewRow(
+                        "rv1c0006", "Approved before the push", source: "slack", minutesAgo: 210,
+                        pullRequests: [pullRequest(268, checks: "passing")], newCommits: true, others: 2),
+                    reviewRow(
+                        "rv1c0010", "Same number, two repos", source: "slack", minutesAgo: 220,
+                        pullRequests: [pullRequest(12), pullRequest(12, repository: "example/api")]),
+                    reviewRow(
+                        "rv1c0011", "Address the app refuses", source: "slack", minutesAgo: 230,
+                        pullRequests: [
+                            [
+                                "number": 13, "url": "http://github.com/example/web/pull/13",
+                                "repository": "example/web", "isDraft": false, "mergeability": "unknown",
+                                "checks": NSNull(), "approvedByYou": false,
+                            ]
+                        ]),
+                ],
+            ],
+            [
+                "key": "with_yak", "label": "With Yak",
+                "rows": [
+                    reviewRow(
+                        "rv1c0007", "Recover a runner after a restart", source: "sentry", minutesAgo: 0,
+                        pullRequests: [pullRequest(261)], status: "running")
+                ],
+            ],
+            [
+                "key": "approved", "label": "Approved by you",
+                "rows": [
+                    reviewRow(
+                        "rv1c0008", "Recover failures without a nudge", source: "dashboard", minutesAgo: 1440,
+                        pullRequests: [pullRequest(275, checks: "passing")], others: 2),
+                    reviewRow(
+                        "rv1c0009", "Typo on the pricing page", source: "dashboard", minutesAgo: 2880,
+                        pullRequests: [pullRequest(259, checks: "passing")]),
+                ],
+            ],
+        ]
+    }
 
     private static func row(
         _ id: String, _ title: String, source: String?, repo: String = "example/web", status: String = "stopped",

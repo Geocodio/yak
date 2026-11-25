@@ -253,7 +253,9 @@ struct DrawerView: View {
     @ViewBuilder private var content: some View {
         if let drawer, let state = drawer.state, state.list != nil, let shown = drawer.content {
             VStack(spacing: 0) {
-                if state.isOffline { notice(Text("drawer.offlineSaved"), systemImage: "wifi.slash") }
+                if state.isOffline {
+                    notice(offlineSentence(asOf: state.listAsOf), systemImage: "wifi.slash")
+                }
                 switch shown {
                 case .sections(let sections): list(sections, drawer: drawer)
                 case .empty(let othersHaveThreads): empty(othersHaveThreads: othersHaveThreads, drawer: drawer)
@@ -265,6 +267,18 @@ struct DrawerView: View {
         } else {
             DrawerLoading(isSlow: drawer?.state?.load == .slow, retry: retry)
         }
+    }
+
+    /// "Offline. Showing the list from 08:16", with the day when the list is from another day; a list saved before
+    /// the time was kept says "a saved copy".
+    private func offlineSentence(asOf: Date?) -> Text {
+        guard let asOf else { return Text("drawer.offlineSaved") }
+        let isToday = Calendar.current.isDateInToday(asOf)
+        let when =
+            isToday
+            ? asOf.formatted(date: .omitted, time: .shortened)
+            : asOf.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return Text("drawer.offlineSavedAt \(when)")
     }
 
     private func list(_ sections: [DrawerSection], drawer: DrawerModel) -> some View {
@@ -303,6 +317,7 @@ struct DrawerView: View {
             }
             .environment(\.defaultMinListHeaderHeight, 0)
             .listStyle(.plain)
+            .contentMargins(.bottom, Design.Space.large, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .motion(Motion.content, value: drawer.content)
@@ -316,16 +331,32 @@ struct DrawerView: View {
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
                 || row.id == openingTaskID.map { "task:\($0)" },
-            isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id)
+            isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id,
+            openPullRequest: { openPullRequest($0, drawer: drawer) })
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
         let menu = drawer.childMenu(row)
         plain
             .contextMenu {
                 if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
+                if row.depth == 0, row.reviewLine != nil || row.failureDetail != nil {
+                    Button {
+                        open(row)
+                    } label: {
+                        Text("overview.child.open")
+                    }
+                    ForEach(Array((row.reviewLine?.actionableLinks ?? []).enumerated()), id: \.offset) { _, link in
+                        Button {
+                            openPullRequest(link, drawer: drawer)
+                        } label: {
+                            Text("drawer.review.open \(link.text)")
+                        }
+                    }
+                }
             } preview: {
                 DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false, showsEverything: true)
-                    .frame(minWidth: 280)
+                    .frame(width: Design.Size.previewWidth)
+                    .fixedSize(horizontal: false, vertical: true)
                     .onAppear { if isSubThread { drawer.menuOpening(row) } }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -471,6 +502,16 @@ struct DrawerView: View {
         }
     }
 
+    /// A pull request number opens its page in the in-app browser. Offline, the row says so instead.
+    private func openPullRequest(_ link: ReviewLine.Link, drawer: DrawerModel) {
+        guard !drawer.isOffline else {
+            drawer.say(String(localized: "drawer.review.offline"))
+            return
+        }
+        guard let url = link.url else { return }
+        model.browserURL = url
+    }
+
     private func open(_ row: DrawerRow) {
         switch row.target {
         case .thread(let id):
@@ -539,7 +580,9 @@ struct DrawerView: View {
         if drawer.filter != .mine {
             return AnyView(
                 stateMessage(
-                    title: Text("drawer.empty.here"), detail: nil, systemImage: "bubble.left.and.text.bubble.right"
+                    title: Text("drawer.empty.here"),
+                    detail: drawer.filter == .review ? Text("drawer.empty.review") : nil,
+                    systemImage: "bubble.left.and.text.bubble.right"
                 ) {})
         }
         return AnyView(mineEmpty(othersHaveThreads: othersHaveThreads, drawer: drawer))

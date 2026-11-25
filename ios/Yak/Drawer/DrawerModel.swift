@@ -346,6 +346,9 @@ final class DrawerModel {
         }
     }
 
+    /// Shows a sentence in the action line for a few seconds.
+    func say(_ text: String) { setActionLine(text) }
+
     private func setActionLine(_ text: String?) {
         actionLine = text
         lineTask?.cancel()

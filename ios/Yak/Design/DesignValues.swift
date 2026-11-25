@@ -33,6 +33,10 @@ enum Design {
         static let terminalInset: CGFloat = 14
         /// Top and bottom padding of a status pill.
         static let pillVertical: CGFloat = 3
+        /// How far the first and the last pull request number reach sideways past their text.
+        static let numberReachHorizontal: CGFloat = 8
+        /// The padding under the last line of a Review row, which the number's tap area reaches down into.
+        static let reviewRowBottom: CGFloat = 14
     }
 
     /// Corner radii.
@@ -82,6 +86,12 @@ enum Design {
         /// The widest a drawer row's badge grows before its label is cut.
         static let badgeMaxWidth: CGFloat = 96
         static let option: CGFloat = 52
+        /// The long-press preview of a drawer row: wide enough for a title, narrow enough that a long error wraps.
+        static let previewWidth: CGFloat = 320
+        /// The most the error text of the long-press preview takes before it scrolls.
+        static let previewDetailMaxHeight: CGFloat = 200
+        /// The height of a pull request number's text at the default size.
+        static let numberLineHeight: CGFloat = 16
         static let statusDot: CGFloat = 9
         /// A status pill's smallest height.
         static let pill: CGFloat = 24

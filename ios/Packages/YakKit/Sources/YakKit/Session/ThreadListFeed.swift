@@ -18,6 +18,8 @@ public struct ThreadListState: Equatable, Sendable {
     public var isShowingCachedCopy: Bool
     /// The last request failed with `.offline`; the list on screen stays.
     public var isOffline: Bool
+    /// When the list on screen was answered by the server (a saved copy: when it was saved); nil when not known.
+    public var listAsOf: Date?
     public var filter: ThreadListFilter
     public var search: String?
     public var sources: [String]
@@ -25,13 +27,15 @@ public struct ThreadListState: Equatable, Sendable {
 
     public init(
         list: ThreadList? = nil, load: ThreadLoadState = .loading, isShowingCachedCopy: Bool = false,
-        isOffline: Bool = false, filter: ThreadListFilter = .mine, search: String? = nil, sources: [String] = [],
+        isOffline: Bool = false, listAsOf: Date? = nil, filter: ThreadListFilter = .mine, search: String? = nil,
+        sources: [String] = [],
         starters: [String] = []
     ) {
         self.list = list
         self.load = load
         self.isShowingCachedCopy = isShowingCachedCopy
         self.isOffline = isOffline
+        self.listAsOf = listAsOf
         self.filter = filter
         self.search = search
         self.sources = sources
@@ -113,6 +117,7 @@ public actor ThreadListFeed {
         state.sources = sources
         state.starters = starters
         state.list = nil
+        state.listAsOf = nil
         state.isShowingCachedCopy = false
         state.isOffline = false
         state.load = .loading
@@ -184,10 +189,13 @@ public actor ThreadListFeed {
         guard state.isWholeTab, state.list == nil else { return }
         let tab = state.filter
         guard let saved = await cache.threadList(tab) else { return }
+        // Read before the state changes, so no other request sees a half-set state while this waits.
+        let savedAt = await cache.threadListSavedAt(tab)
         guard state.list == nil, state.filter == tab, state.isWholeTab else { return }
         // An offline answer that came first still counts: the copy is shown with the offline line.
         if case .failed(.offline) = state.load { state.isOffline = true }
         state.list = saved
+        state.listAsOf = savedAt
         state.load = .ready
         state.isShowingCachedCopy = true
         slowTask?.cancel()
@@ -221,13 +229,15 @@ public actor ThreadListFeed {
         guard !Task.isCancelled, current == generation else { return }
         slowTask?.cancel()
         slowTask = nil
+        let answeredAt = clock.now()
         state.list = fetched
+        state.listAsOf = answeredAt
         state.load = .ready
         state.isShowingCachedCopy = false
         state.isOffline = false
         publish()
         guard search == nil, sources.isEmpty, starters.isEmpty else { return }
-        await cache.saveThreadList(fetched, filter: filter)
+        await cache.saveThreadList(fetched, filter: filter, savedAt: answeredAt)
         guard filter == .mine else { return }
         do {
             try await instances.setNeedsYouCount(instance.id, fetched.needsYouCount)

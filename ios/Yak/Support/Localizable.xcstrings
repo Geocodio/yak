@@ -2006,6 +2006,16 @@
         }
       }
     },
+    "drawer.offlineSavedAt %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing the list from %@"
+          }
+        }
+      }
+    },
     "drawer.older" : {
       "localizations" : {
         "en" : {
@@ -13340,6 +13350,206 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You are searching threads to review."
+          }
+        }
+      }
+    },
+    "drawer.review.ciFailing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CI failing"
+          }
+        }
+      }
+    },
+    "drawer.review.conflicts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conflicts"
+          }
+        }
+      }
+    },
+    "drawer.review.draft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draft"
+          }
+        }
+      }
+    },
+    "drawer.review.newCommits" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New commits since approval"
+          }
+        }
+      }
+    },
+    "drawer.review.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Try the pull request again when you are back online."
+          }
+        }
+      }
+    },
+    "drawer.review.open %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open pull request %@"
+          }
+        }
+      }
+    },
+    "drawer.review.other %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld other"
+          }
+        }
+      }
+    },
+    "drawer.review.others %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld others"
+          }
+        }
+      }
+    },
+    "drawer.review.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.checksPassing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "checks passing"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.ciFailing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "checks failing"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.conflicts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "has conflicts"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.draft" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "draft"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.newCommits" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "new commits since your approval"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.other %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld other approved"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.others %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld others approved"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.pullRequest %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request %lld"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.pullRequests %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull requests %@"
+          }
+        }
+      }
+    },
+    "drawer.review.spoken.ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ready"
+          }
+        }
+      }
+    },
+    "drawer.empty.review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing waits for your review. Threads with an open pull request show up here."
           }
         }
       }

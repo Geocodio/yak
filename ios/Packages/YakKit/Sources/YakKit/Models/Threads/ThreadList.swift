@@ -287,6 +287,9 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let status: ThreadRowStatus
     public let needsYouReason: NeedsYouReason?
     public let needsYouLabel: String?
+    /// The first 200 characters of the error of a failed thread's latest task; nil on any other row and from an older
+    /// server.
+    public let needsYouDetail: String?
     public let isPrivate: Bool
     public let isShared: Bool
     public let isUnattended: Bool
@@ -310,6 +313,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         status: ThreadRowStatus,
         needsYouReason: NeedsYouReason? = nil,
         needsYouLabel: String? = nil,
+        needsYouDetail: String? = nil,
         isPrivate: Bool,
         isShared: Bool,
         isUnattended: Bool,
@@ -329,6 +333,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.status = status
         self.needsYouReason = needsYouReason
         self.needsYouLabel = needsYouLabel
+        self.needsYouDetail = needsYouDetail
         self.isPrivate = isPrivate
         self.isShared = isShared
         self.isUnattended = isUnattended
@@ -344,8 +349,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, repo, status, needsYouReason, needsYouLabel, isPrivate, isShared, isUnattended, isStarred
-        case canDelete, ownerInitials, lastActivityAt, group, children, step, source, review
+        case id, title, repo, status, needsYouReason, needsYouLabel, needsYouDetail, isPrivate, isShared
+        case isUnattended, isStarred, canDelete, ownerInitials, lastActivityAt, group, children, step, source, review
     }
 
     public init(from decoder: any Decoder) throws {
@@ -356,6 +361,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         status = try container.decode(ThreadRowStatus.self, forKey: .status)
         needsYouReason = try container.decodeIfPresent(NeedsYouReason.self, forKey: .needsYouReason)
         needsYouLabel = try container.decodeIfPresent(String.self, forKey: .needsYouLabel)
+        needsYouDetail = (try? container.decodeIfPresent(String.self, forKey: .needsYouDetail)) ?? nil
         isPrivate = try container.decode(Bool.self, forKey: .isPrivate)
         isShared = try container.decode(Bool.self, forKey: .isShared)
         isUnattended = try container.decode(Bool.self, forKey: .isUnattended)
@@ -397,6 +403,7 @@ extension ThreadRow {
             id: id, title: title, repo: repo, status: status,
             needsYouReason: asksMore ? reason : needsYouReason,
             needsYouLabel: asksMore ? task.needsYouLabel : needsYouLabel,
+            needsYouDetail: asksMore ? nil : needsYouDetail,
             isPrivate: isPrivate, isShared: isShared, isUnattended: isUnattended, isStarred: isStarred,
             canDelete: canDelete, ownerInitials: ownerInitials, lastActivityAt: lastActivityAt, group: group,
             children: children.map {

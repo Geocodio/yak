@@ -178,4 +178,32 @@ import UIKit
             }
         }
     }
+
+    /// The pull request line of a Review row: the toned badges on their fills, the quiet badge, the other approvals on
+    /// the surfaces of a row (the drawer, the selected row, the pressed row), and the muted number and error text.
+    @Test(arguments: [
+        (UIUserInterfaceStyle.light, false), (.dark, false), (.light, true), (.dark, true),
+    ]) func theReviewLineKeepsItsContrast(style: UIUserInterfaceStyle, highContrast: Bool) {
+        let traits = trait(style, highContrast: highContrast)
+        let badges: [(String, Color, Color)] = [
+            ("conflicts", .yakPillBadText, .yakPillBad), ("new commits", .yakPillWarnText, .yakPillWarn),
+            ("ready", .yakText, .yakBubble),
+        ]
+        for (name, text, fill) in badges {
+            let value = ratio(text, on: surface(fill, traits), traits)
+            #expect(value >= 4.5, "\(name) in \(style.rawValue), high \(highContrast): \(value)")
+        }
+        let rowSurfaces = [
+            surface(.yakSidebar, traits), surface(.yakBackground, traits),
+            surface(.yakSelection, over: .yakSidebar, traits),
+            surface(.yakFillStrong, traits),
+        ]
+        for (index, luminance) in rowSurfaces.enumerated() {
+            for (name, text) in [("other approvals", Color.yakPillOKText), ("number", .yakMuted)] {
+                let value = ratio(text, on: luminance, traits)
+                #expect(
+                    value >= 4.5, "\(name) on surface \(index) in \(style.rawValue), high \(highContrast): \(value)")
+            }
+        }
+    }
 }

@@ -19,42 +19,13 @@ struct DrawerRowView: View {
     @ScaledMetric(relativeTo: .body) private var indicatorSize = 12.0
     @ScaledMetric(relativeTo: .body) private var indentation = 18.0
 
+    /// Opens a pull request of a Review row; the number is its own target.
+    var openPullRequest: (ReviewLine.Link) -> Void = { _ in }
+
     var body: some View {
         HStack(spacing: 0) {
             if row.depth > 0 { nesting }
-            Button(action: open) {
-                HStack(alignment: .top, spacing: Design.Space.snug) {
-                    if !isLarge {
-                        DrawerIndicator(indicator: row.indicator)
-                            .frame(width: indicatorSize, height: indicatorSize)
-                            .padding(.top, Design.Space.small)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        title
-                        detailLine
-                        if isLarge {
-                            // The indicator moves in front of the age so the title keeps the whole width.
-                            HStack(spacing: 8) {
-                                DrawerIndicator(indicator: row.indicator).frame(width: 22, height: 22)
-                                trailing(isInline: true)
-                            }
-                        }
-                    }
-                    Spacer(minLength: 4)
-                    if isRunning { ProgressView().frame(width: 22, height: 22) }
-                    if !isLarge { trailing(isInline: false) }
-                }
-                .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.snug : 8))
-                .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
-                .padding(.vertical, 8)
-                .frame(minHeight: isLarge ? 44 : Design.Size.row)
-                .contentShape(.rect)
-            }
-            .buttonStyle(RowButtonStyle(isSelected: isSelected))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .accessibilityIdentifier("drawer.row.\(row.id)")
+            rowButton
             if row.childCount > 0 {
                 Button(action: toggle) {
                     Image(systemName: "chevron.right").font(.yak(.footnote, .semibold))
@@ -67,6 +38,94 @@ struct DrawerRowView: View {
                 .accessibilityLabel(row.isExpanded ? "drawer.hideChildren" : "drawer.showChildren")
                 .accessibilityIdentifier("drawer.toggle.\(row.id)")
             }
+        }
+    }
+
+    @ViewBuilder private var rowButton: some View {
+        if let line = row.reviewLine { reviewRow(line) } else { plainRow }
+    }
+
+    /// A row with one target: the whole row opens the thread.
+    private var plainRow: some View {
+        Button(action: open) {
+            rowLayout(line: nil).contentShape(.rect)
+        }
+        .buttonStyle(RowButtonStyle(isSelected: isSelected))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("drawer.row.\(row.id)")
+    }
+
+    /// A row with two kinds of target. The row opens the thread through a button behind its content; the content
+    /// lets touches through except on the pull request numbers. VoiceOver reads one element with the whole line and
+    /// reaches each pull request through an action; the numbers are hidden from it and carry identifiers for tests.
+    private func reviewRow(_ line: ReviewLine) -> some View {
+        rowLayout(line: line)
+            .accessibilityHidden(true)
+            .background {
+                Button(action: open) { Color.clear.contentShape(.rect) }
+                    .buttonStyle(RowButtonStyle(isSelected: isSelected))
+                    .accessibilityLabel(accessibilityLabel)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("drawer.row.\(row.id)")
+                    .modifier(PullRequestActions(links: line.actionableLinks, open: openPullRequest))
+            }
+    }
+
+    private func rowLayout(line: ReviewLine?) -> some View {
+        let passesTouches = line != nil
+        return HStack(alignment: .top, spacing: Design.Space.snug) {
+            if !isLarge {
+                DrawerIndicator(indicator: row.indicator)
+                    .frame(width: indicatorSize, height: indicatorSize)
+                    .padding(.top, Design.Space.small)
+                    .allowsHitTesting(!passesTouches)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                title.allowsHitTesting(!passesTouches)
+                detailLine.allowsHitTesting(!passesTouches)
+                failureText.allowsHitTesting(!passesTouches)
+                if let line {
+                    ReviewLineView(line: line, rowID: row.id, openPullRequest: openPullRequest)
+                        .padding(.top, Design.Space.tight)
+                }
+                if isLarge {
+                    // The indicator moves in front of the age so the title keeps the whole width.
+                    HStack(spacing: 8) {
+                        DrawerIndicator(indicator: row.indicator).frame(width: 22, height: 22)
+                        trailing(isInline: true)
+                    }
+                    .allowsHitTesting(!passesTouches)
+                }
+            }
+            Spacer(minLength: 4)
+            if isRunning { ProgressView().frame(width: 22, height: 22) }
+            if !isLarge { trailing(isInline: false).allowsHitTesting(!passesTouches) }
+        }
+        .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.snug : 8))
+        .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
+        .padding(.top, Design.Space.compact)
+        .padding(.bottom, passesTouches ? Design.Space.reviewRowBottom : Design.Space.compact)
+        .frame(minHeight: isLarge ? 44 : Design.Size.row)
+    }
+
+    /// The error of a failed thread: muted, two lines (one at accessibility sizes), cut at the end. The long-press
+    /// preview shows all of it with its line breaks, in a scroll view that stops growing at a set height.
+    @ViewBuilder private var failureText: some View {
+        if showsEverything, let full = row.failureFullText {
+            ScrollView {
+                Text(full).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: Design.Size.previewDetailMaxHeight)
+            .fixedSize(horizontal: false, vertical: true)
+        } else if let detail = row.failureDetail {
+            Text(detail).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                .multilineTextAlignment(.leading)
+                .lineLimit(isLarge ? 1 : 2).truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -199,13 +258,41 @@ struct DrawerRowView: View {
         }
     }
 
+    /// "Pull request 271, ready, has conflicts, new commits since your approval, 1 other approved".
+    static func spokenSentence(of line: ReviewLine) -> String {
+        let head =
+            line.links.count == 1
+            ? String(localized: "drawer.review.spoken.pullRequest \(line.links[0].number)")
+            : String(
+                localized:
+                    "drawer.review.spoken.pullRequests \(line.links.map { "\($0.repository) \($0.number)" }.joined(separator: ", "))"
+            )
+        let facts = line.parts.map { part -> String in
+            switch part {
+            case .draft: String(localized: "drawer.review.spoken.draft")
+            case .ready: String(localized: "drawer.review.spoken.ready")
+            case .conflicts: String(localized: "drawer.review.spoken.conflicts")
+            case .ciFailing: String(localized: "drawer.review.spoken.ciFailing")
+            case .checksPassing: String(localized: "drawer.review.spoken.checksPassing")
+            case .newCommitsSinceApproval: String(localized: "drawer.review.spoken.newCommits")
+            case .otherApprovals(let count):
+                count == 1
+                    ? String(localized: "drawer.review.spoken.other \(count)")
+                    : String(localized: "drawer.review.spoken.others \(count)")
+            }
+        }
+        return ([head] + facts).joined(separator: ", ")
+    }
+
     private var accessibilityLabel: String {
         var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
+        if let detail = row.failureDetail { parts.append(detail) }
         if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
         if let repository = row.repositoryDetail { parts.append(repository) }
         if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
+        if let line = row.reviewLine { parts.append(DrawerRowView.spokenSentence(of: line)) }
         return parts.joined(separator: ". ")
     }
 }
@@ -281,5 +368,18 @@ private struct CappedWidth: Layout {
         subviews.first?.place(
             at: bounds.origin, anchor: .topLeading,
             proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    }
+}
+
+/// One action for each pull request of a row: "Open pull request 271".
+private struct PullRequestActions: ViewModifier {
+    let links: [ReviewLine.Link]
+    let open: (ReviewLine.Link) -> Void
+
+    func body(content: Content) -> some View {
+        links.reduce(AnyView(content)) { view, link in
+            AnyView(
+                view.accessibilityAction(named: Text("drawer.review.open \(link.text)")) { open(link) })
+        }
     }
 }
