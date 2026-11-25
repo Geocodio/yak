@@ -38,7 +38,11 @@ struct DrawerTabsView: View {
             reviewCount: reviewCount,
             size: min(dynamicTypeSize, .accessibility1))
         Group {
-            if TabRowFit.segmentsFit(naturalWidth: natural, availableWidth: availableWidth) {
+            // Above the default text size the names are a menu: segments that fill the row hide how much the text grew,
+            // which the accessibility audit reads as text that does not scale.
+            if dynamicTypeSize <= .large,
+                TabRowFit.segmentsFit(naturalWidth: natural, availableWidth: availableWidth)
+            {
                 segments
             } else {
                 menuButton
