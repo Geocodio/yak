@@ -32,6 +32,20 @@ test('system prompt contains all required rules', function () {
         ->toContain('NO SECRETS');
 });
 
+test('only a thread prompt lets Claude edit its own pull request', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    expect(YakPromptBuilder::systemPrompt($task))
+        ->toContain('Its token is read-only.')
+        ->not->toContain('gh pr edit');
+
+    expect(YakPromptBuilder::systemPrompt($task, canEditPullRequests: true))
+        ->toContain('gh pr edit')
+        ->toContain('<!-- yak:description -->')
+        ->toContain('Never edit, comment on, review, or close any other pull request.')
+        ->not->toContain('Its token is read-only.');
+});
+
 test('system prompt sends same-branch parallel work to the Agent tool and separate work to sub-threads', function () {
     $prompt = YakPromptBuilder::systemPrompt(YakTask::factory()->pending()->create());
 

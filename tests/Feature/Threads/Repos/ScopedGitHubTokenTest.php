@@ -104,7 +104,7 @@ it('puts both tokens on the sandbox through stdin, context repos included', func
         'api.github.com/app/installations/42/access_tokens' => Http::sequence()
             ->push(scopedBody(['token' => 'ghs_git']))
             ->push(scopedBody(['token' => 'ghs_gh', 'permissions' => ['contents' => 'read', 'metadata' => 'read']])),
-        'api.github.com/app/installations/42' => Http::response(['permissions' => ['contents' => 'write', 'metadata' => 'read']]),
+        'api.github.com/app/installations/42' => Http::response(['permissions' => ['contents' => 'write', 'metadata' => 'read', 'pull_requests' => 'write']]),
     ]);
 
     app(ThreadGitHubCredentials::class)->install($thread);
@@ -113,7 +113,8 @@ it('puts both tokens on the sandbox through stdin, context repos included', func
     expect($requests)->toHaveCount(2)
         ->and($requests[0]['repositories'])->toEqualCanonicalizing(['app', 'lib'])
         ->and($requests[0]['permissions'])->toBe(['contents' => 'write', 'metadata' => 'read'])
-        ->and($requests[1]['repositories'])->toEqualCanonicalizing(['app', 'lib']);
+        ->and($requests[1]['repositories'])->toEqualCanonicalizing(['app', 'lib'])
+        ->and($requests[1]['permissions'])->toBe(['contents' => 'read', 'metadata' => 'read', 'pull_requests' => 'write']);
 
     $execs = collect($sandbox->calls)->where('operation', 'exec');
     expect($execs->pluck('arguments.stdin')->filter()->values()->all())->toBe(['ghs_git', 'ghs_gh']);
