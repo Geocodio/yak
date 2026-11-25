@@ -324,8 +324,23 @@ export type ThreadReview = {
     comments: { author: string | null; bodyHtml: string; file: string | null; line: number | null; diff: string[]; url: string | null }[];
 };
 
+/** Where a message from Slack, Linear or email came from, shown as a card around it. */
+export type ThreadChannelCard = {
+    channel: 'slack' | 'linear' | 'email';
+    url: string | null;
+    /** `#channel` for Slack, the issue identifier for Linear, the sender's address for email. */
+    reference: string | null;
+    /** The Linear issue's title or the email's subject. */
+    title: string | null;
+    avatarUrl: string | null;
+    /** Names the message mentions, highlighted in `bodyHtml`. */
+    mentions: string[];
+};
+
 export type ThreadMessage = {
     id: string;
+    /** Set when the message came from Slack, Linear or email; shown as a card around its text. */
+    channelCard?: ThreadChannelCard | null;
     /** Set when the message is a GitHub review; shown in place of its text. */
     review?: ThreadReview | null;
     uuid: string | null;

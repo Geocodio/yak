@@ -22,13 +22,14 @@ use Illuminate\Support\Str;
  * @property string|null $send_key
  * @property string|null $effort
  * @property array<string, mixed>|null $review_feedback
+ * @property array<string, mixed>|null $channel_card
  */
 class PendingSteeringMessage extends Model
 {
     /** Sources whose text belongs to the channel it came from. */
     public const array CHANNEL_SOURCES = ['slack', 'linear', 'github_review'];
 
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key', 'review_feedback'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'author_user_id', 'uuid', 'model', 'effort', 'delivered_at', 'absorbed_at', 'send_key', 'review_feedback', 'channel_card'];
 
     /**
      * A waiting message shows in the thread page's list, so an open page reloads when one is queued, changed or removed.
@@ -57,6 +58,7 @@ class PendingSteeringMessage extends Model
             'delivered_at' => 'datetime',
             'absorbed_at' => 'datetime',
             'review_feedback' => 'array',
+            'channel_card' => 'array',
         ];
     }
 
@@ -77,6 +79,7 @@ class PendingSteeringMessage extends Model
      * `$reviewFeedback` is the review as structured data, which the thread shows.
      *
      * @param  array<string, mixed>|null  $reviewFeedback
+     * @param  array<string, mixed>|null  $channelCard  where a Slack or Linear message came from, which the thread shows as a card
      */
     public static function queueFor(
         YakTask $task,
@@ -87,6 +90,7 @@ class PendingSteeringMessage extends Model
         ?string $authorName = null,
         ?int $authorUserId = null,
         ?array $reviewFeedback = null,
+        ?array $channelCard = null,
     ): self {
         $root = $task->rootTask();
 
@@ -101,6 +105,7 @@ class PendingSteeringMessage extends Model
             'author_name' => $authorName,
             'author_user_id' => $authorUserId,
             'review_feedback' => $reviewFeedback,
+            'channel_card' => $channelCard,
         ]);
     }
 
@@ -276,7 +281,7 @@ class PendingSteeringMessage extends Model
             foreach ($messages->where('source', '!=', 'system') as $message) {
                 $row = ThreadTurnMessage::query()->updateOrCreate(
                     ['pending_steering_message_id' => $message->id],
-                    ['task_run_id' => $run->id, 'uuid' => $message->uuid ?? (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => $message->text, 'send_key' => $message->send_key, 'review_feedback' => $message->review_feedback, ...$message->conversationAuthor()],
+                    ['task_run_id' => $run->id, 'uuid' => $message->uuid ?? (string) Str::uuid(), 'kind' => TurnMessageKind::Steer, 'state' => TurnMessageState::Sent, 'text' => $message->text, 'send_key' => $message->send_key, 'review_feedback' => $message->review_feedback, 'channel_card' => $message->channel_card, ...$message->conversationAuthor()],
                 );
                 $row->forceFill(['created_at' => $message->created_at])->save();
 

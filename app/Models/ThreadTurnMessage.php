@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $intent
  * @property string|null $text What the person typed, when it differs from the prompt sent to the runner.
  * @property array<string, mixed>|null $review_feedback A GitHub review as structured data, shown in place of its text.
+ * @property array<string, mixed>|null $channel_card Where a Slack, Linear or email message came from, shown as a card around its text.
  */
 class ThreadTurnMessage extends Model
 {
@@ -42,6 +43,7 @@ class ThreadTurnMessage extends Model
             'kind' => TurnMessageKind::class,
             'state' => TurnMessageState::class,
             'review_feedback' => 'array',
+            'channel_card' => 'array',
         ];
     }
 

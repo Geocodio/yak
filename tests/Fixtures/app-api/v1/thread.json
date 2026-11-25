@@ -117,6 +117,7 @@
             "authorName": "Test person",
             "bodyHtml": "<p>Retry failed uploads with backoff</p>\n",
             "canEditText": false,
+            "channelCard": null,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,

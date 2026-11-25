@@ -117,6 +117,7 @@
             "authorName": "alice",
             "bodyHtml": "<p>@alice submitted a review (changes requested):</p>\n",
             "canEditText": false,
+            "channelCard": null,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,
