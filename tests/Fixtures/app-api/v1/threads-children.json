@@ -1,4 +1,28 @@
 {
+    "facets": {
+        "sources": [
+            {
+                "count": 1,
+                "key": "dashboard",
+                "label": "Dashboard"
+            }
+        ],
+        "starters": [
+            {
+                "avatarUrl": null,
+                "count": 1,
+                "key": "user:1",
+                "name": "Test person"
+            }
+        ]
+    },
+    "gitHubLinkPath": "/settings/profile",
+    "hasAnyThreads": true,
+    "needsGitHubLink": true,
+    "needsYou": [],
+    "needsYouCount": 0,
+    "reviewCount": 0,
+    "starred": [],
     "threads": [
         {
             "canDelete": true,

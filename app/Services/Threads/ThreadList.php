@@ -37,6 +37,9 @@ use Illuminate\Support\Str;
  * under the Closed filter), the viewer's starred ones pinned first, then those
  * that need the viewer, each with its sub-threads nested underneath.
  *
+ * A sub-thread row also has `stackState: 'closed'|'failed'|'done'|'queued'|'starting'|'working'|'waiting'` and
+ * `takenOver: bool`; a root row has neither.
+ *
  * A row is `array{id: string, title: string, repo: string, status: string,
  * needsYouReason: ?string, needsYouLabel: ?string, needsYouDetail: ?string, isPrivate: bool, isShared: bool,
  * isUnattended: bool, isStarred: bool, canDelete: bool, isUnread: bool, ownerInitials: ?string,
@@ -373,6 +376,8 @@ class ThreadList
             $row['isPrivate'] = $thread->isPrivate();
             $row['isShared'] = $row['isPrivate'] && $thread->rootThread()->shares()->exists();
             $row['canDelete'] = false;
+            $row['stackState'] = StackListing::states(collect([$thread]))[$thread->id];
+            $row['takenOver'] = $thread->taken_over_at !== null;
         }
 
         return $row;

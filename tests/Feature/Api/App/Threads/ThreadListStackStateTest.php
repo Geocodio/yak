@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\StackThreadMessageKind;
+use App\Enums\ThreadKind;
 use App\Enums\TurnState;
 use App\Http\Resources\StackData;
 use App\Models\StackThreadMessage;
@@ -57,8 +58,8 @@ it('gives each sub-thread the state the stack answer gives it, and no root row h
     $closedChildren = collect($this->getJson('/api/app/v1/threads?filter=closed', phoneHeadersFor($user))->json('threads'))->flatMap(fn (array $row) => $row['children'])->keyBy('id');
     expect($closedChildren[$closed->public_id]['stackState'])->toBe('closed');
 
-    ContractFixture::assertMatches('app', 'threads-children', collect($response->json())->only(['threads'])->all(), [
-        'threads.*.id', 'threads.*.children.*.id', 'threads.*.starter.key', 'threads.*.children.*.starter.key', 'threads.*.lastActivityAt', 'threads.*.children.*.lastActivityAt',
+    ContractFixture::assertMatches('app', 'threads-children', $response->json(), [
+        'needsYou.*.id', 'starred.*.id', 'threads.*.id', 'threads.*.children.*.id', 'threads.*.starter.key', 'threads.*.children.*.starter.key', 'threads.*.lastActivityAt', 'threads.*.children.*.lastActivityAt',
     ]);
 });
 
@@ -78,21 +79,76 @@ it('keeps the children of a hidden root out of the list', function () {
         ->not->toContain($underHiddenRoot->public_id);
 });
 
-it('does not run more queries as sub-threads are added', function () {
+it('runs the three state queries once per list, however many sub-threads there are, and none for closed ones', function () {
     $user = User::factory()->create();
-    $root = Thread::factory()->create(['created_by_user_id' => $user->id]);
-    Thread::factory()->child($root)->count(2)->create(['created_by_user_id' => $user->id]);
     $headers = phoneHeadersFor($user);
+    $stateQueries = function (string $query = '') use ($headers): array {
+        $this->getJson('/api/app/v1/threads' . $query, $headers)->assertOk();
+        DB::flushQueryLog();
+        $this->getJson('/api/app/v1/threads' . $query, $headers)->assertOk();
+        $log = collect(DB::getQueryLog())->pluck('query');
 
-    $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+        return [
+            'total' => $log->count(),
+            'state' => $log->filter(fn (string $sql): bool => str_contains($sql, 'from "stack_thread_messages"') || (str_contains($sql, 'distinct "thread_id" from "task_runs"')))->count(),
+        ];
+    };
     DB::enableQueryLog();
-    $this->getJson('/api/app/v1/threads', $headers)->assertOk();
-    $withTwoChildren = count(DB::getQueryLog());
+
+    $root = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $withoutChildren = $stateQueries();
+    Thread::factory()->child($root)->count(2)->create(['created_by_user_id' => $user->id]);
+    $withTwo = $stateQueries();
 
     $more = Thread::factory()->child($root)->count(4)->create(['created_by_user_id' => $user->id]);
     $more->each(fn (Thread $child) => startTurnFor($child, TurnState::Running));
-    DB::flushQueryLog();
-    $this->getJson('/api/app/v1/threads', $headers)->assertOk();
+    $withSix = $stateQueries();
 
-    expect(count(DB::getQueryLog()))->toBe($withTwoChildren);
+    expect($withoutChildren['state'])->toBe(0)
+        ->and($withTwo['state'])->toBe(3)
+        ->and($withSix)->toBe($withTwo);
+});
+
+it('runs no state queries for closed sub-threads', function () {
+    $user = User::factory()->create();
+    $root = Thread::factory()->closed()->create(['created_by_user_id' => $user->id]);
+    Thread::factory()->child($root)->closed()->count(3)->create(['created_by_user_id' => $user->id]);
+    DB::enableQueryLog();
+
+    $response = $this->getJson('/api/app/v1/threads?filter=closed', phoneHeadersFor($user))->assertOk();
+    $sql = collect(DB::getQueryLog())->pluck('query')->implode("\n");
+
+    expect($response->json('threads.0.children'))->toHaveCount(3)
+        ->and($response->json('threads.0.children.0.stackState'))->toBe('closed')
+        ->and($sql)->not->toContain('from "stack_thread_messages"')
+        ->and($sql)->not->toContain('distinct "thread_id" from "task_runs"');
+});
+
+it('reads a research sub-thread queued for a slot as starting', function () {
+    $user = User::factory()->create();
+    $root = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $research = Thread::factory()->child($root)->create(['kind' => ThreadKind::Research, 'queued_for_slot_at' => now(), 'created_by_user_id' => $user->id]);
+
+    $row = collect($this->getJson('/api/app/v1/threads', phoneHeadersFor($user))->json('threads.0.children'))->firstWhere('id', $research->public_id);
+
+    expect($row['stackState'])->toBe('starting');
+});
+
+it('gives a sub-thread the same keys in the star and close answers as in the list', function () {
+    $user = User::factory()->create();
+    $headers = phoneHeadersFor($user);
+    $root = Thread::factory()->create(['created_by_user_id' => $user->id]);
+    $child = Thread::factory()->child($root)->create(['taken_over_at' => now(), 'created_by_user_id' => $user->id]);
+    $inList = collect($this->getJson('/api/app/v1/threads', $headers)->json('threads.0.children'))->firstWhere('id', $child->public_id);
+
+    $starred = $this->postJson(appThreadPath($child, '/star'), ['starred' => true], $headers)->assertOk();
+
+    expect($starred->json('stackState'))->toBe($inList['stackState'])->toBe('starting')
+        ->and($starred->json('takenOver'))->toBeTrue();
+
+    $this->postJson(appThreadPath($child, '/close'), [], $headers)->assertOk()
+        ->assertJsonPath('stackState', 'closed')
+        ->assertJsonPath('takenOver', true);
+
+    $this->postJson(appThreadPath($root, '/star'), ['starred' => true], $headers)->assertOk()->assertJsonMissingPath('stackState');
 });

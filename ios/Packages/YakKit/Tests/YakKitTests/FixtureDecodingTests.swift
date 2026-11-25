@@ -73,7 +73,7 @@ func decodesEveryFixture(name: String) throws {
 }
 
 @Test(arguments: [
-    "threads", "thread", "thread-question", "thread-new", "thread-store",
+    "threads", "threads-children", "thread", "thread-question", "thread-new", "thread-store",
     "thread-message-sent", "thread-message-queued", "thread-message-clear",
 ])
 func decodesEveryThreadFixture(name: String) throws {
@@ -81,6 +81,7 @@ func decodesEveryThreadFixture(name: String) throws {
     let data = try Fixtures.data(name)
     switch name {
     case "threads": _ = try JSONDecoder().decode(ThreadList.self, from: data)
+    case "threads-children": #expect(try JSONDecoder().decode(ThreadList.self, from: data).threads.first?.children.isEmpty == false)
     case "thread": #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question == nil)
     case "thread-question":
         #expect(try JSONDecoder().decode(ThreadShow.self, from: data).question?.questions.isEmpty == false)
