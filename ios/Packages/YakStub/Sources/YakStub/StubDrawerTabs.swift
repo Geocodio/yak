@@ -5,7 +5,18 @@ import Foundation
 extension Scenario {
     private var isDrawerTabs: Bool {
         self == .drawerTabs || self == .drawerTabsQuiet || self == .drawerTabsOlder || self == .drawerTabsLink
-            || self == .reviewLine || self == .reviewLineFew || self == .reviewLineEmpty
+            || reviewRowIDs != nil || self == .reviewLine || self == .reviewLineEmpty
+    }
+
+    /// The rows a trimmed review scenario keeps: three rows that fit the screen above the bar.
+    private var reviewRowIDs: [String]? {
+        switch self {
+        case .reviewLineFew: ["rv1c0001", "rv1c0004", "rv1c0008"]
+        case .reviewLineScreenA: ["rv1c0001", "rv1c0002", "rv1c0003"]
+        case .reviewLineScreenB: ["rv1c0004", "rv1c0005", "rv1c0011"]
+        case .reviewLineScreenC: ["rv1c0006", "rv1c0007", "rv1c0010"]
+        default: nil
+        }
     }
 
     func drawerTabsList(filter: String, query: [String: String], _ fixtures: StubFixtures, _ baseURL: String)
@@ -19,8 +30,7 @@ extension Scenario {
             list["reviewGroups"] = reviewGroups(list["reviewGroups"] as? [[String: Any]] ?? [])
             list["reviewCount"] = self == .drawerTabsQuiet ? 0 : 2
             if self == .reviewLine { list["reviewGroups"] = Self.reviewLineGroups }
-            if self == .reviewLineFew {
-                let keep = ["rv1c0001", "rv1c0004", "rv1c0008"]
+            if let keep = reviewRowIDs {
                 list["reviewGroups"] = Self.reviewLineGroups.map { group -> [String: Any] in
                     var group = group
                     group["rows"] = (group["rows"] as? [[String: Any]] ?? []).filter {

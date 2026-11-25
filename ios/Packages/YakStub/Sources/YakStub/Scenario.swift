@@ -250,6 +250,10 @@ enum Scenario: String, CaseIterable, Sendable {
     case reviewLine = "review-line"
     /// The same with only three rows, so the whole list fits the screen and an audit sees no row cut at an edge.
     case reviewLineFew = "review-line-few"
+    /// The same list in three screenfuls (A, B, C) that each fit under the bar, so an audit sees no row cut.
+    case reviewLineScreenA = "review-line-screen-a"
+    case reviewLineScreenB = "review-line-screen-b"
+    case reviewLineScreenC = "review-line-screen-c"
     /// The Review tab with nothing in any group, the GitHub login linked.
     case reviewLineEmpty = "review-line-empty"
 

@@ -118,9 +118,20 @@ public actor Cache {
         load(ThreadList.self, at: listPath(filter))
     }
 
-    public func saveThreadList(_ list: ThreadList, filter: ThreadListFilter) {
+    /// `savedAt` is when the server answered; the offline line shows it.
+    public func saveThreadList(_ list: ThreadList, filter: ThreadListFilter, savedAt: Date? = nil) {
         store(list, at: listPath(filter), protection: .untilFirstUnlock)
+        if let savedAt { store(SavedAt(date: savedAt), at: savedAtPath(filter), protection: .untilFirstUnlock) }
     }
+
+    /// When the stored list of the tab was saved; nil for a list saved before the time was kept.
+    public func threadListSavedAt(_ filter: ThreadListFilter) -> Date? {
+        load(SavedAt.self, at: savedAtPath(filter))?.date
+    }
+
+    private struct SavedAt: Codable { let date: Date }
+
+    private func savedAtPath(_ filter: ThreadListFilter) -> String { "\(root)/lists/\(filter.rawValue)-saved-at.json" }
 
     // MARK: Thread filters
 

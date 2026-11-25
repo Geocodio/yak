@@ -2006,6 +2006,16 @@
         }
       }
     },
+    "drawer.offlineSavedAt %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline. Showing the list from %@"
+          }
+        }
+      }
+    },
     "drawer.older" : {
       "localizations" : {
         "en" : {

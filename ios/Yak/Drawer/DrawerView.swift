@@ -253,7 +253,9 @@ struct DrawerView: View {
     @ViewBuilder private var content: some View {
         if let drawer, let state = drawer.state, state.list != nil, let shown = drawer.content {
             VStack(spacing: 0) {
-                if state.isOffline { notice(Text("drawer.offlineSaved"), systemImage: "wifi.slash") }
+                if state.isOffline {
+                    notice(offlineSentence(asOf: state.listAsOf), systemImage: "wifi.slash")
+                }
                 switch shown {
                 case .sections(let sections): list(sections, drawer: drawer)
                 case .empty(let othersHaveThreads): empty(othersHaveThreads: othersHaveThreads, drawer: drawer)
@@ -265,6 +267,18 @@ struct DrawerView: View {
         } else {
             DrawerLoading(isSlow: drawer?.state?.load == .slow, retry: retry)
         }
+    }
+
+    /// "Offline. Showing the list from 08:16", with the day when the list is from another day; a list saved before
+    /// the time was kept says "a saved copy".
+    private func offlineSentence(asOf: Date?) -> Text {
+        guard let asOf else { return Text("drawer.offlineSaved") }
+        let isToday = Calendar.current.isDateInToday(asOf)
+        let when =
+            isToday
+            ? asOf.formatted(date: .omitted, time: .shortened)
+            : asOf.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return Text("drawer.offlineSavedAt \(when)")
     }
 
     private func list(_ sections: [DrawerSection], drawer: DrawerModel) -> some View {

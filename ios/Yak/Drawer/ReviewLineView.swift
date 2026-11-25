@@ -77,6 +77,7 @@ struct ReviewLineView: View {
                 .onTapGesture { openPullRequest(link) }
                 .padding(.leading, -reach.leading).padding(.trailing, -reach.trailing)
                 .padding(.bottom, -reach.bottom)
+                .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("drawer.review.pr.\(rowID).\(index)")
         } else {
             label.allowsHitTesting(false)

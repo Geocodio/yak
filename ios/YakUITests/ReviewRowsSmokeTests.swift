@@ -22,9 +22,9 @@ import XCTest
         XCTAssertTrue(element("drawer.tab.mine").waitForExistence(timeout: Wait.firstLoad))
     }
 
-    private func openReview() {
+    private func openReview(waitingFor rowID: String = "rv1c0001") {
         element("drawer.tab.review").tap()
-        XCTAssertTrue(element("drawer.row.thread:rv1c0001").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("drawer.row.thread:\(rowID)").waitForExistence(timeout: Wait.appear))
     }
 
     private func audit() throws {
@@ -85,15 +85,17 @@ import XCTest
             timeout: Wait.appear)
     }
 
-    /// The whole list passes the audit once no row is cut by the list's bottom edge, at the top and further down.
-    func testTheWholeReviewListPassesTheAudit() throws {
-        try launch("review-line")
-        openReview()
-        scrollUntilNoRowStraddlesAnEdge()
-        try audit()
-        app.swipeUp()
-        scrollUntilNoRowStraddlesAnEdge()
-        try audit()
+    /// Every row of the review list passes the audit, a screenful at a time. A list longer than the screen is cut by
+    /// the bar below it and keeps rows built above its top edge, and the audit measures those cut and scrolled-out
+    /// rows (the probe on a fresh simulator showed every finding on the one row under the bar), so each of the three
+    /// scenarios holds the rows of one screen.
+    func testEveryReviewRowPassesTheAuditScreenByScreen() throws {
+        for (screen, firstRow) in [("a", "rv1c0001"), ("b", "rv1c0004"), ("c", "rv1c0006")] {
+            try launch("review-line-screen-\(screen)")
+            openReview(waitingFor: firstRow)
+            try audit()
+            app.terminate()
+        }
     }
 
     /// Offline, the saved Review list stays, and a tap on a pull request number says so instead of opening a page.
@@ -108,6 +110,37 @@ import XCTest
         XCTAssertTrue(element("drawer.actionLine").label.contains("You are offline. Try the pull request again"))
         let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
         XCTAssertFalse(sheet.wait(for: .runningForeground, timeout: 3))
+    }
+
+    /// A tap on the repository line, which sits right above the numbers, opens the thread and never a pull request.
+    func testATapOnTheRepositoryLineOpensTheThread() throws {
+        try launch("review-line")
+        openReview()
+        let number = element("drawer.review.pr.thread:rv1c0001.0")
+        XCTAssertTrue(number.waitForExistence(timeout: Wait.appear))
+        let frame = number.frame
+        let above = app.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: frame.midX, dy: frame.minY - Self.repositoryLineAbove))
+        above.tap()
+        let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+        XCTAssertFalse(sheet.wait(for: .runningForeground, timeout: 3))
+        wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "isHittable == false"), object: element("drawer.tab.review"))
+            ], timeout: Wait.appear)
+    }
+
+    /// With two pull requests each number is its own target: both open a pull request.
+    func testEachOfTwoNumbersOpensAPullRequest() throws {
+        for index in 0...1 {
+            try launch("review-line")
+            openReview()
+            tapNumber(inRow: "thread:rv1c0004", index: index)
+            let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+            XCTAssertTrue(sheet.wait(for: .runningForeground, timeout: Wait.appear), "number \(index)")
+            app.terminate()
+        }
     }
 
     /// Every pull request that can open has an item in the row's menu, also two with the same number in two
@@ -154,37 +187,6 @@ import XCTest
         number.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    /// Scrolls the list in small steps until no row is cut by the list's bottom edge or hides under the section
-    /// heading at the top, as a careful tester does before judging contrast: a row cut by an edge is not what the
-    /// audit is meant to measure. It stops where the list ends.
-    private func scrollUntilNoRowStraddlesAnEdge() {
-        let list = element("drawer.list")
-        let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'drawer.row.'"))
-        func straddles() -> Bool {
-            let top = list.frame.minY + Self.headingAllowance
-            let bottom = list.frame.maxY
-            return rows.allElementsBoundByIndex.contains {
-                let frame = $0.frame
-                guard frame.height > 0 else { return false }
-                return (frame.minY < bottom && frame.maxY > bottom)
-                    || (frame.minY < top && frame.maxY > list.frame.minY)
-            }
-        }
-        var lastOffset = rows.firstMatch.frame.minY
-        for _ in 0..<30 where straddles() {
-            let x = list.frame.midX
-            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: x, dy: list.frame.midY))
-            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: x, dy: list.frame.midY - Self.scrollStep))
-            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
-            let offset = rows.firstMatch.frame.minY
-            if offset == lastOffset { return }
-            lastOffset = offset
-        }
-    }
-
-    /// The height of the section heading that rows slide under at the top of the list, and how far one step scrolls.
-    private static let headingAllowance: CGFloat = 44
-    private static let scrollStep: CGFloat = 30
+    /// How far above a number's top its row's repository line is.
+    private static let repositoryLineAbove: CGFloat = 24
 }
