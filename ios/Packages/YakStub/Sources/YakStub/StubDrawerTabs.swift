@@ -189,16 +189,16 @@ extension Scenario {
                             pullRequest(88, repository: "example/api", checks: "passing"),
                         ], others: 3),
                     reviewRow(
-                        "rv1c0005", "Draft with no checks seen yet", source: "slack", minutesAgo: 200,
+                        "rv1c0005", "Draft, no checks seen", source: "slack", minutesAgo: 200,
                         pullRequests: [pullRequest(263, draft: true)]),
                     reviewRow(
-                        "rv1c0006", "Approved before the last push, others approved", source: "slack", minutesAgo: 210,
+                        "rv1c0006", "Approved before the push", source: "slack", minutesAgo: 210,
                         pullRequests: [pullRequest(268, checks: "passing")], newCommits: true, others: 2),
                     reviewRow(
-                        "rv1c0010", "The same number in two repositories", source: "slack", minutesAgo: 220,
+                        "rv1c0010", "Same number, two repos", source: "slack", minutesAgo: 220,
                         pullRequests: [pullRequest(12), pullRequest(12, repository: "example/api")]),
                     reviewRow(
-                        "rv1c0011", "A pull request address the app refuses", source: "slack", minutesAgo: 230,
+                        "rv1c0011", "Address the app refuses", source: "slack", minutesAgo: 230,
                         pullRequests: [
                             [
                                 "number": 13, "url": "http://github.com/example/web/pull/13",
