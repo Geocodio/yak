@@ -39,9 +39,10 @@ it('replays stored reviews through the policy without writing or posting anythin
     $this->mock(AppService::class, function ($mock) {
         $mock->shouldReceive('appBotLogin')->andReturn('yak[bot]');
         $mock->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn ($installation, $repo, $number) => [
-            'title' => "PR {$number}", 'user' => ['login' => 'human'], 'base' => ['ref' => 'main'],
+            'title' => "PR {$number}", 'user' => ['login' => 'human'], 'base' => ['ref' => 'main'], 'commits' => 0,
             'state' => 'closed', 'draft' => true,
         ]);
+        $mock->shouldReceive('listPullRequestCommits')->andReturn([]);
         $mock->shouldReceive('compareFilesOrFail')->andReturn([['filename' => 'src/a.php', 'status' => 'modified', 'patch' => '@@ -1 +1 @@']]);
         $mock->shouldNotReceive('hasRequiredStatusChecks');
         $mock->shouldNotReceive('createPullRequestReview');
@@ -74,8 +75,9 @@ function replayMockGitHub(string $changeKind = 'no_runtime_change'): void
     test()->mock(AppService::class, function ($mock) {
         $mock->shouldReceive('appBotLogin')->andReturn('yak[bot]');
         $mock->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn ($installation, $repo, $number) => [
-            'title' => "PR {$number}", 'user' => ['login' => 'human'], 'base' => ['ref' => 'main'],
+            'title' => "PR {$number}", 'user' => ['login' => 'human'], 'base' => ['ref' => 'main'], 'commits' => 0,
         ]);
+        $mock->shouldReceive('listPullRequestCommits')->andReturn([]);
         $mock->shouldReceive('compareFilesOrFail')->andReturn([['filename' => 'src/a.php', 'status' => 'modified', 'patch' => '@@ -1 +1 @@']]);
     });
 }
