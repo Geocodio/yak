@@ -96,6 +96,15 @@
     --tw-prose-td-borders: var(--border);
 }
 
+/* A person a Slack message mentions, highlighted the way Slack does. */
+.prose mark[data-mention] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-text);
+    border-radius: 4px;
+    padding: 0 3px;
+    font-weight: 500;
+}
+
 /*
  * Long identifiers (commit hashes, class paths) break instead of running past
  * the card edge, in running text and in inline code alike.

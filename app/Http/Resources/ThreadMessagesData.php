@@ -17,6 +17,7 @@ use App\Models\YakTask;
 use App\Services\Threads\LegacyConversation;
 use App\Services\Threads\ThreadOrigin;
 use App\Support\AttachmentReferences;
+use App\Support\ChannelCard;
 use App\Support\Markdown;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -26,7 +27,10 @@ use Illuminate\Support\Str;
  * taken each one in. State follows `thread_turn_messages`.
  *
  * @phpstan-type ReviewRow array{reviewer: ?string, avatarUrl: ?string, state: string, summaryHtml: string, url: ?string, comments: list<array{author: ?string, bodyHtml: string, file: ?string, line: ?int, diff: list<string>, url: ?string}>}
- * @phpstan-type MessageRow array{review?: ?ReviewRow, id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
+ *
+ * @phpstan-import-type Card from ChannelCard
+ *
+ * @phpstan-type MessageRow array{review?: ?ReviewRow, channelCard?: ?Card, id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
  */
 final class ThreadMessagesData
 {
@@ -118,8 +122,16 @@ final class ThreadMessagesData
                 $author['isReply'] = true;
             }
 
+            $channelCard = $isRetry ? null : ($steer !== null ? $steer->channel_card : ($row->channel_card ?? ($firstRunIds->contains($run->id) ? $run->task?->channel_card : null)));
+
+            // A reply links its source to the message it came from.
+            if ($channelCard !== null && $author['isReply'] && $author['via'] !== null && $author['via']['url'] === null) {
+                $author['via']['url'] = is_string($channelCard['url'] ?? null) ? $channelCard['url'] : null;
+            }
+
             $messages[] = [
                 'id' => 'turn-message-' . $row->id,
+                'channelCard' => $channelCard === null ? null : self::channelCard($channelCard),
                 'review' => $reviewFeedback === null ? null : self::review($reviewFeedback),
                 'uuid' => $row->uuid,
                 // The assembled prompt on task_runs is never shown; it carries Yak's own notes.
@@ -141,7 +153,7 @@ final class ThreadMessagesData
                 // A steer row is made when Yak hands the message over; the person sent it when its pending row was made.
                 'sentAt' => ($steer->created_at ?? $row->created_at)?->toIso8601String() ?? '',
                 'readAfterSequence' => $readAt['messages'][$row->uuid] ?? $readAt['turns'][$run->id] ?? null,
-                'bodyHtml' => AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references),
+                'bodyHtml' => self::markMentions(AttachmentReferences::linkInHtml(Markdown::toHtml($text), $references), $channelCard),
                 'attachments' => $attachments,
                 'attachmentIds' => array_values($files->pluck('id')->map(fn ($id): int => (int) $id)->all()),
             ];
@@ -194,7 +206,7 @@ final class ThreadMessagesData
     }
 
     /**
-     * @return array{id: string, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
+     * @return array{id: string, channelCard: ?Card, uuid: ?string, text: string, authorName: ?string, authorInitials: string, via: ?array{key: string, label: string, reference: ?string, url: ?string}, isReply: bool, isRetry: bool, retryNumber: ?int, model: ?string, effort: ?string, state: 'pending'|'read'|'cancelled', canEditText: bool, intent: ?string, sendKey: ?string, mode: 'steer'|'queue'|null, sentAt: string, readAfterSequence: ?int, attachmentIds: list<int>, bodyHtml: string, attachments: list<array<string, mixed>>}
      */
     private static function initialMessage(YakTask $task): array
     {
@@ -203,6 +215,7 @@ final class ThreadMessagesData
 
         return [
             'id' => 'initial-message',
+            'channelCard' => $task->channel_card === null ? null : self::channelCard($task->channel_card),
             'uuid' => null,
             'text' => (string) $task->description,
             ...self::author($task, $task->author?->name, $task->author_name, $task->startedBy?->name),
@@ -252,6 +265,44 @@ final class ThreadMessagesData
                 'url' => is_string($comment['url'] ?? null) ? $comment['url'] : null,
             ], array_filter((array) ($feedback['comments'] ?? []), 'is_array'))),
         ];
+    }
+
+    /**
+     * A stored channel card in the shape the thread reads, with every field checked.
+     *
+     * @param  array<string, mixed>  $card
+     * @return Card
+     */
+    private static function channelCard(array $card): array
+    {
+        $text = fn (string $key): ?string => is_string($card[$key] ?? null) && $card[$key] !== '' ? $card[$key] : null;
+        $channel = $card['channel'] ?? null;
+
+        return [
+            'channel' => in_array($channel, ['slack', 'linear', 'email'], true) ? $channel : 'email',
+            'url' => $text('url'),
+            'reference' => $text('reference'),
+            'title' => $text('title'),
+            'avatarUrl' => $text('avatarUrl'),
+            'mentions' => array_values(array_filter((array) ($card['mentions'] ?? []), 'is_string')),
+        ];
+    }
+
+    /**
+     * Wraps each name a Slack message mentions in a `<mark data-mention>`, so the thread can highlight it.
+     *
+     * @param  array<string, mixed>|null  $card
+     */
+    private static function markMentions(string $html, ?array $card): string
+    {
+        foreach ((array) ($card['mentions'] ?? []) as $name) {
+            if (is_string($name) && $name !== '') {
+                $mention = '@' . e($name);
+                $html = str_replace($mention, "<mark data-mention>{$mention}</mark>", $html);
+            }
+        }
+
+        return $html;
     }
 
     /**

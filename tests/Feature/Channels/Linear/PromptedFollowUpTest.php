@@ -176,6 +176,8 @@ it('queues a steer instead of declining when prompted on a running task with no 
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'linear_agent_session_id' => 'sess-4',
+        'external_url' => 'https://linear.app/acme/issue/ENG-42',
+        'context' => json_encode(['title' => 'Fix the importer', 'linear_issue_identifier' => 'ENG-42']),
         'status' => TaskStatus::Running,
         'pr_url' => null,
     ]);
@@ -189,6 +191,7 @@ it('queues a steer instead of declining when prompted on a running task with no 
     ], $this->secret)->assertSuccessful()->assertJson(['handled' => 'steering']);
 
     expect(PendingSteeringMessage::where('root_task_id', $task->id)->where('source', 'linear')->value('text'))->toBe('use the existing helper');
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->sole()->channel_card)->toMatchArray(['channel' => 'linear', 'reference' => 'ENG-42', 'title' => 'Fix the importer', 'url' => 'https://linear.app/acme/issue/ENG-42']);
     Bus::assertNotDispatched(RunFollowUpJob::class);
     Http::assertNotSent(fn ($request) => str_contains((string) $request->body(), 'already merged or closed'));
 });

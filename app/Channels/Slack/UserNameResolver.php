@@ -7,19 +7,35 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Resolves Slack user IDs to human-readable names via `users.info`.
+ * Resolves Slack user IDs to human-readable names and avatars via `users.info`.
  *
  * Slack webhooks only carry the user ID; the dashboard shows author
- * names on task threads, so we resolve once at task creation and cache
- * the answer. Best-effort: any failure returns null (the UI falls back
- * to source-only attribution) and is not cached, so a transient API
- * error doesn't pin a missing name for a day.
+ * names and avatars on task threads, so we resolve once at task creation
+ * and cache the answer. Best-effort: any failure returns null (the UI
+ * falls back to source-only attribution) and is not cached, so a
+ * transient API error doesn't pin a missing name for a day.
  */
 class UserNameResolver
 {
     private const CACHE_TTL_SECONDS = 86400;
 
     public static function resolve(?string $userId): ?string
+    {
+        return self::profile($userId)['name'] ?? null;
+    }
+
+    /**
+     * The user's Slack profile picture, 72 pixels square.
+     */
+    public static function avatar(?string $userId): ?string
+    {
+        return self::profile($userId)['avatar'] ?? null;
+    }
+
+    /**
+     * @return array{name: string, avatar: ?string}|null
+     */
+    private static function profile(?string $userId): ?array
     {
         if ($userId === null || $userId === '') {
             return null;
@@ -31,9 +47,9 @@ class UserNameResolver
             return null;
         }
 
-        $cacheKey = "slack-user-name:{$userId}";
+        $cacheKey = "slack-user-profile:{$userId}";
 
-        /** @var string|null $cached */
+        /** @var array{name: string, avatar: ?string}|null $cached */
         $cached = Cache::get($cacheKey);
 
         if ($cached !== null) {
@@ -55,9 +71,12 @@ class UserNameResolver
                 return null;
             }
 
-            Cache::put($cacheKey, $name, self::CACHE_TTL_SECONDS);
+            $avatar = $response->json('user.profile.image_72');
+            $profile = ['name' => $name, 'avatar' => is_string($avatar) && str_starts_with($avatar, 'https://') ? $avatar : null];
 
-            return $name;
+            Cache::put($cacheKey, $profile, self::CACHE_TTL_SECONDS);
+
+            return $profile;
         } catch (\Throwable $e) {
             Log::channel('yak')->warning('Slack user name lookup failed', [
                 'user_id' => $userId,

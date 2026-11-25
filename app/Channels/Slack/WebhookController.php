@@ -26,6 +26,7 @@ use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StoppedTaskReplies;
+use App\Support\ChannelCard;
 use App\Support\Docs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -179,13 +180,14 @@ class WebhookController extends Controller
 
         // A task whose co-owner request lapsed is not retried by a mention; the mention starts a new run.
         if ($stoppedTask !== null && ! $stoppedTask->coOwnerRequests()->exists() && trim($description->body) !== '') {
-            return $this->replyToStoppedTask($stoppedTask, $description->body, $mentionChannel, $mentionTs, $description->metadata['slack_user_id'] ?? null);
+            return $this->replyToStoppedTask($stoppedTask, $description->body, $mentionChannel, $mentionTs, $description->metadata['slack_user_id'] ?? null, ChannelCard::slack($mentionChannel, $mentionTs, $mentionThreadTs, $description->metadata['slack_user_id'] ?? null));
         }
 
         $detector = new RepoDetector;
         $detection = $detector->detect($description);
         $authorName = UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null);
         $starterId = $this->slackUser($description->metadata['slack_user_id'] ?? null)?->id;
+        $channelCard = ChannelCard::slack($mentionChannel, $mentionTs, $mentionThreadTs, $description->metadata['slack_user_id'] ?? null);
 
         // Multi-repo: create one task per repo
         if ($detection->isMultiRepo()) {
@@ -204,6 +206,7 @@ class WebhookController extends Controller
                     'author_user_id' => $starterId,
                     'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repo->slug),
                     'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
+                    'channel_card' => $channelCard,
                 ]);
 
                 TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repo->slug]);
@@ -244,6 +247,7 @@ class WebhookController extends Controller
                 'author_user_id' => $starterId,
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, 'unknown'),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
+                'channel_card' => $channelCard,
                 'clarification_options' => $repoOptions,
                 ...YakTask::clarificationDeadlines(),
             ]);
@@ -275,6 +279,7 @@ class WebhookController extends Controller
             'author_user_id' => $starterId,
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repoSlug),
             'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
+            'channel_card' => $channelCard,
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
@@ -473,14 +478,14 @@ class WebhookController extends Controller
             ->first();
 
         if ($heldTask !== null) {
-            $text = (string) ($event['text'] ?? '');
-
-            if (trim($text) === '') {
+            if (trim((string) ($event['text'] ?? '')) === '') {
                 return response()->json(['ok' => true]);
             }
 
+            ['text' => $text, 'card' => $card] = $this->slackReply($event);
+
             TaskLogger::info($heldTask, 'Follow-up received via Slack thread while held for a co-owner');
-            app(FollowUpTaskFactory::class)->create($heldTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
+            app(FollowUpTaskFactory::class)->create($heldTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null), channelCard: $card);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -492,11 +497,11 @@ class WebhookController extends Controller
             ->first();
 
         if ($followUpTask !== null) {
-            $text = (string) ($event['text'] ?? '');
-
-            if (trim($text) === '') {
+            if (trim((string) ($event['text'] ?? '')) === '') {
                 return response()->json(['ok' => true]);
             }
+
+            ['text' => $text, 'card' => $card] = $this->slackReply($event);
 
             if (! $followUpTask->prIsOpen()) {
                 SendNotificationJob::dispatch($followUpTask, NotificationType::Error, "This PR is already merged or closed — start a new request and I'll pick it up.");
@@ -507,7 +512,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
+            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null), channelCard: $card);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -518,14 +523,14 @@ class WebhookController extends Controller
             ->first();
 
         if ($researchTask !== null && $researchTask->mode === TaskMode::Research && $researchTask->acceptsFollowUp()) {
-            $text = (string) ($event['text'] ?? '');
-
-            if (trim($text) === '') {
+            if (trim((string) ($event['text'] ?? '')) === '') {
                 return response()->json(['ok' => true]);
             }
 
+            ['text' => $text, 'card' => $card] = $this->slackReply($event);
+
             TaskLogger::info($researchTask, 'Research follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null));
+            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null, replier: $this->slackUser($event['user'] ?? null), channelCard: $card);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -537,13 +542,13 @@ class WebhookController extends Controller
             ->first();
 
         if ($activeTask !== null) {
-            $text = (string) ($event['text'] ?? '');
-
-            if (trim($text) === '') {
+            if (trim((string) ($event['text'] ?? '')) === '') {
                 return response()->json(['ok' => true]);
             }
 
-            PendingSteeringMessage::queueFor($activeTask, $text, 'slack');
+            ['text' => $text, 'card' => $card] = $this->slackReply($event);
+
+            PendingSteeringMessage::queueFor($activeTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), authorUserId: $this->slackUser($event['user'] ?? null)?->id, channelCard: $card);
             TaskLogger::info($activeTask, 'Steering reply queued (mid-run)');
             $this->reactToReply($channel, (string) ($event['ts'] ?? ''));
 
@@ -553,16 +558,34 @@ class WebhookController extends Controller
         $stoppedTask = $this->stoppedTaskInThread((string) $channel, (string) $threadTs);
 
         if ($stoppedTask !== null) {
-            $text = (string) ($event['text'] ?? '');
-
-            if (trim($text) === '') {
+            if (trim((string) ($event['text'] ?? '')) === '') {
                 return response()->json(['ok' => true]);
             }
 
-            return $this->replyToStoppedTask($stoppedTask, $text, (string) $channel, (string) ($event['ts'] ?? ''), $event['user'] ?? null);
+            ['text' => $text, 'card' => $card] = $this->slackReply($event);
+
+            return $this->replyToStoppedTask($stoppedTask, $text, (string) $channel, (string) ($event['ts'] ?? ''), $event['user'] ?? null, $card);
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * A thread reply's text as Markdown, and the card the thread shows around it.
+     *
+     * @param  array<string, mixed>  $event
+     * @return array{text: string, card: array<string, mixed>}
+     */
+    private function slackReply(array $event): array
+    {
+        $markup = SlackMarkup::toMarkdown((string) ($event['text'] ?? ''));
+        $threadTs = $event['thread_ts'] ?? null;
+        $userId = $event['user'] ?? null;
+
+        return [
+            'text' => $markup['text'],
+            'card' => ChannelCard::slack((string) ($event['channel'] ?? ''), (string) ($event['ts'] ?? ''), is_string($threadTs) ? $threadTs : null, is_string($userId) ? $userId : null, $markup['mentions']),
+        ];
     }
 
     /**
@@ -603,13 +626,16 @@ class WebhookController extends Controller
         return $messageTs !== '' && Cache::has("slack-stopped-reply:{$channel}:{$messageTs}");
     }
 
-    private function replyToStoppedTask(YakTask $task, string $text, string $channel, string $messageTs, ?string $userId): JsonResponse
+    /**
+     * @param  array<string, mixed>|null  $channelCard
+     */
+    private function replyToStoppedTask(YakTask $task, string $text, string $channel, string $messageTs, ?string $userId, ?array $channelCard = null): JsonResponse
     {
         if ($messageTs !== '' && ! Cache::add("slack-stopped-reply:{$channel}:{$messageTs}", true, 300)) {
             return response()->json(['ok' => true, 'skipped' => 'handled_as_stopped_reply']);
         }
 
-        $reply = app(StoppedTaskReplies::class)->handle($task, $text, 'slack', UserNameResolver::resolve((string) $userId), authorUserId: $this->slackUser($userId)?->id);
+        $reply = app(StoppedTaskReplies::class)->handle($task, $text, 'slack', UserNameResolver::resolve((string) $userId), authorUserId: $this->slackUser($userId)?->id, channelCard: $channelCard);
         SendNotificationJob::dispatch($task, NotificationType::Progress, $reply, personalize: false);
 
         return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);

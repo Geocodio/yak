@@ -160,6 +160,7 @@
             "authorName": "Test person",
             "bodyHtml": "<volatile:string>",
             "canEditText": false,
+            "channelCard": null,
             "effort": null,
             "id": "<volatile:string>",
             "intent": null,

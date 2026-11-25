@@ -49,6 +49,7 @@ use Illuminate\Support\Str;
  * @property int|null $summon_review_comment_id
  * @property string|null $summon_quote
  * @property array<string, mixed>|null $review_feedback
+ * @property array<string, mixed>|null $channel_card
  * @property array<int, string>|null $clarification_options
  * @property list<array{questions: list<array<string, mixed>>, summary: string, asked_at: string, answers: array<string, array{choices: list<string>, other: string|null}>|null, note: string|null, answered_by: string|null, answered_at: string|null, consumed_at: string|null, live?: bool, runner_question_id?: string, tool_use_id?: string|null, park_pending?: bool, declined_at?: string}>|null $clarification_rounds
  * @property array<int, mixed>|null $screenshots
@@ -128,6 +129,7 @@ class YakTask extends Model
             're_request_review_from' => 'array',
             'review_replies' => 'array',
             'review_feedback' => 'array',
+            'channel_card' => 'array',
             'clarification_expires_at' => 'datetime',
             'clarification_reminder_at' => 'datetime',
             'screenshots' => 'json',

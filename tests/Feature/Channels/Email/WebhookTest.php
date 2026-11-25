@@ -201,7 +201,12 @@ it('creates a task attributed to the sender with email context', function () {
             'message_id' => 'forward-1@hey.com',
             'original_sender' => 'Sentry <noreply@md.getsentry.com>',
         ])
-        ->and(EmailMessage::query()->where('message_id', 'forward-1@hey.com')->value('yak_task_id'))->toBe($task->id);
+        ->and(EmailMessage::query()->where('message_id', 'forward-1@hey.com')->value('yak_task_id'))->toBe($task->id)
+        ->and($task->channel_card)->toMatchArray([
+            'channel' => 'email',
+            'reference' => $context['email']['from'],
+            'title' => $context['email']['subject'],
+        ]);
 });
 
 it('dispatches the research job when the note asks for research', function () {
