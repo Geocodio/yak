@@ -110,20 +110,60 @@ struct ThreadListFeedTests {
         #expect(rig.clock.sleeperDeadlines.isEmpty)
     }
 
-    @Test func onlyTheUnsearchedMineListIsStored() async throws {
+    @Test func eachTabsWholeListIsStoredAndOnlyMineFeedsTheBadgeAndTheWidget() async throws {
         let rig = try await makeRig()
         let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)
         await rig.transport.on("GET threads", .json(200, body))
         await rig.feed.setFilter(.everyone, search: nil)
-        #expect(await rig.cache.threadList(.everyone) == nil)
+        #expect(await rig.cache.threadList(.everyone) != nil)
         #expect(await rig.cache.threadList(.mine) == nil)
         #expect(await rig.instances.all().first?.needsYouCount == 0)
         #expect(await rig.cache.widgetSnapshot() == nil)
+        await rig.feed.setFilter(.closed, search: nil)
+        #expect(await rig.cache.threadList(.closed) != nil)
+        #expect(await rig.instances.all().first?.needsYouCount == 0)
         await rig.feed.setFilter(.mine, search: nil)
         #expect(await rig.cache.threadList(.mine) != nil)
         #expect(await rig.instances.all().first?.needsYouCount == 2)
         #expect(await rig.cache.widgetSnapshot()?.needsYouCount == 2)
         #expect(await rig.instances.badgeCount() == 2)
+    }
+
+    @Test func aSearchedOrFilteredViewIsNeverStored() async throws {
+        let rig = try await makeRig()
+        let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)
+        await rig.transport.on("GET threads", .json(200, body))
+        await rig.feed.setFilter(.mine, search: "retry")
+        await rig.feed.setFilter(.mine, search: nil, sources: ["slack"])
+        await rig.feed.setFilter(.mine, search: nil, starters: ["yak"])
+        #expect(await rig.cache.threadList(.mine) == nil)
+        #expect(await rig.cache.widgetSnapshot() == nil)
+        #expect(await rig.instances.all().first?.needsYouCount == 0)
+        let sent = await rig.transport.requests(on: "GET threads").compactMap(\.url?.query)
+        #expect(sent.last?.contains("starters%5B%5D=yak") == true || sent.last?.contains("starters[]=yak") == true)
+    }
+
+    @Test func aTabShowsItsOwnSavedCopyAndNeverAnotherTabs() async throws {
+        let mine = try decoded(ThreadList.self, "scenario-thread-list")
+        let rig = try await makeRig(cachedMine: mine)
+        let closed = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads-review"))
+        await rig.cache.saveThreadList(closed, filter: .closed)
+        await rig.transport.hold("GET threads")
+        await rig.transport.on("GET threads", .json(200, emptyList))
+        let recorder = StreamRecorder(await rig.feed.states())
+        await rig.feed.setVisible(true)
+        _ = try await recorder.next { $0.isShowingCachedCopy && $0.list == mine }
+        let switching = Task { await rig.feed.setFilter(.closed, search: nil) }
+        let saved = try await recorder.next { $0.filter == .closed && $0.isShowingCachedCopy }
+        #expect(saved.list == closed)
+        // A tab that was never loaded shows no copy: its list stays empty until the server answers.
+        let other = Task { await rig.feed.setFilter(.everyone, search: nil) }
+        let unloaded = try await recorder.next { $0.filter == .everyone }
+        #expect(unloaded.list == nil && !unloaded.isShowingCachedCopy && unloaded.load == .loading)
+        await rig.transport.release("GET threads")
+        await switching.value
+        await other.value
+        await rig.feed.setVisible(false)
     }
 
     @Test func aSearchCancelsTheRequestInFlight() async throws {
@@ -152,6 +192,20 @@ struct ThreadListFeedTests {
         await rig.feed.refresh()
         let state = try await recorder.next { $0.load == .ready }
         #expect(state.isEmpty)
+    }
+
+    @Test func aTabOpenedOfflineShowsItsSavedCopyWithTheOfflineLine() async throws {
+        let rig = try await makeRig()
+        let closed = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads-review"))
+        await rig.cache.saveThreadList(closed, filter: .closed)
+        await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
+        let recorder = StreamRecorder(await rig.feed.states())
+        await rig.feed.setFilter(.closed, search: nil)
+        let shown = try await recorder.next { $0.filter == .closed && $0.isOffline && $0.list == closed }
+        #expect(shown.load == .ready)
+        await rig.feed.setFilter(.review, search: nil)
+        let empty = try await recorder.next { $0.filter == .review && $0.load == .failed(.offline) }
+        #expect(empty.list == nil)
     }
 
     @Test func offlineKeepsTheList() async throws {

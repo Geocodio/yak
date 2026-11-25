@@ -102,6 +102,8 @@ import XCTest
         menu.tap()
         let item = app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: Wait.appear))
+        // A tap while the menu is still opening is lost and leaves the menu open, so the menu settles first.
+        AuditRules.waitUntilStill(app)
         item.tap()
     }
 

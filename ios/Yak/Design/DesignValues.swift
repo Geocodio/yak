@@ -70,6 +70,9 @@ enum Design {
         static let chip: CGFloat = 36
         /// The drawer's filter chip when it shows its name.
         static let filterChip: CGFloat = 40
+        /// The drawer's tab row and its Filter button; the tabs inside are `tabSegment` tall and reach `control` to hit.
+        static let tabRow: CGFloat = 38
+        static let tabSegment: CGFloat = 34
         /// The status column of a step list.
         static let stepColumn: CGFloat = 24
         /// One item of the pane row on a wide screen.
@@ -147,6 +150,9 @@ extension Color {
     static let yakSelection = board(
         dark: 0x7F9CB4, light: 0x4A6580, darkAlpha: 0.16, lightAlpha: 0.12,
         highContrast: BoardContrast(darkAlpha: 0.3, lightAlpha: 0.22))
+    /// The selected tab of the drawer's tab row: white in light, one step above the row's fill in dark.
+    static let yakTabSelected = board(
+        dark: 0x303137, light: 0xFFFFFF, highContrast: BoardContrast(dark: 0x4A4B4E, light: 0xFFFFFF))
     /// The terminal's page: `--term`.
     static let yakTerminal = Color(red: 8 / 255, green: 9 / 255, blue: 10 / 255)
     /// Text on the page: `--tx`.

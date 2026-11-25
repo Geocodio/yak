@@ -33,6 +33,13 @@
     "terminal": {
         "wsUrl": "<volatile:string>"
     },
+    "threadFilters": [
+        "mine",
+        "yak",
+        "everyone",
+        "closed",
+        "review"
+    ],
     "user": {
         "email": "person@example.test",
         "id": "<volatile:int>",

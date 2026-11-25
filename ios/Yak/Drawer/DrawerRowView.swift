@@ -75,7 +75,8 @@ struct DrawerRowView: View {
         let isUnread = row.indicator == .unseen
         var name = AttributedString(row.title)
         name.font = isUnread ? .yak(.subheadline, .semibold) : .yakRowTitle
-        name.foregroundColor = .yakText
+        // A closed thread reads dimmed, in the quiet text color.
+        name.foregroundColor = row.indicator == .closed ? .yakMuted : .yakText
         if isUnread {
             var dot = AttributedString(" \u{25CF}")
             dot.font = .system(size: 6)
@@ -97,7 +98,7 @@ struct DrawerRowView: View {
             if row.source != nil || isTask {
                 HStack(spacing: Design.Space.small) {
                     if let source = row.source {
-                        DrawerBadge(text: source).accessibilityIdentifier("drawer.sourceLabel")
+                        DrawerBadge(text: source)
                     }
                     if isTask {
                         DrawerBadge(text: String(localized: "drawer.taskLabel"), systemImage: "checklist")

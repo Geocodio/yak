@@ -19,7 +19,7 @@ class ListThreadsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'filter' => ['nullable', Rule::enum(ThreadListFilter::class)->except([ThreadListFilter::Review])],
+            'filter' => ['nullable', Rule::enum(ThreadListFilter::class)],
             'search' => ['nullable', 'string', 'max:100'],
             'sources' => ['nullable', 'array', 'max:50'],
             'sources.*' => ['string', 'max:64'],

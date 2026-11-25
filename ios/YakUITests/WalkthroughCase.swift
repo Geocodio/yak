@@ -6,7 +6,11 @@ import XCTest
 @MainActor class WalkthroughCase: XCTestCase {
     /// Screens that show the scrolling thread list. A row cut by the bottom bar there is expected; on a message
     /// screen (empty, no results, error) nothing may be cut.
-    static let threadListScreens: Set<String> = ["drawer", "drawer-everyone", "drawer-offline", "drawer-sub-threads"]
+    static let threadListScreens: Set<String> = [
+        "drawer", "drawer-everyone", "drawer-offline", "drawer-sub-threads", "drawer-tabs-mine", "drawer-tabs-review",
+        "drawer-tabs-everyone", "drawer-tabs-closed", "drawer-tabs-quiet", "drawer-tabs-older", "drawer-tabs-filters",
+        "drawer-tabs-menu-open",
+    ]
 
     var stub: StubControl!
     let app = XCUIApplication()
@@ -75,6 +79,7 @@ import XCTest
     private func sheetFrame(named name: String) -> CGRect? {
         let identifiers = [
             "model-picker": "model.picker", "camera-denied": "composer.cameraDenied",
+            "drawer-tabs-filter-sheet": "drawer.filterSheet", "drawer-tabs-filter-sheet-large": "drawer.filterSheet",
         ]
         guard let identifier = identifiers[name] else { return nil }
         let frames = app.otherElements.matching(identifier: identifier).allElementsBoundByIndex.map(\.frame)

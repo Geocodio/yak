@@ -31,6 +31,7 @@ class VisibilityRoutes
         'threads.show' => ['GET', '/threads/{thread}'],
         'threads.seen' => ['POST', '/threads/{thread}/seen'],
         'threads.star' => ['POST', '/threads/{thread}/star', [], 302],
+        'threads.title.update' => ['PATCH', '/threads/{thread}/title', ['title' => 'Renamed'], 302],
         'threads.close' => ['POST', '/threads/{thread}/close', [], 302],
         'threads.destroy' => ['DELETE', '/threads/{thread}', [], 302],
         'threads.share.show' => ['GET', '/threads/{thread}/share'],

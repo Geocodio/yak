@@ -17,13 +17,14 @@ class ReviewQueue
      * Null when the thread, with its loaded sub-threads, has no open pull request.
      *
      * @param  CarbonInterface|null  $latestDrivenRunStartedAt  when the viewer last drove a turn on the thread or a sub-thread
-     * @return array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}|null
+     * @return array{state: string, pullRequests: list<array{repo: string, number: int, url: string, isDraft: bool, mergeableState: string|null, ciStatus: string|null, approvedByViewer: bool}>, blockedLabel: 'Conflicts'|'CI failing'|null, isCiPassing: bool, hasNewCommitsSinceApproval: bool, otherApprovals: int}|null
      */
     public static function summarize(Thread $thread, User $viewer, bool $isRunning, ?CarbonInterface $latestDrivenRunStartedAt): ?array
     {
         $pullRequests = $thread->repositories
             ->concat($thread->children->flatMap(fn (Thread $child) => $child->repositories))
             ->filter(fn (ThreadRepository $repository): bool => $repository->pull_request_state === 'open')
+            ->sortBy([fn (ThreadRepository $a, ThreadRepository $b): int => ($a->merge_position ?? PHP_INT_MAX) <=> ($b->merge_position ?? PHP_INT_MAX), fn (ThreadRepository $a, ThreadRepository $b): int => $a->id <=> $b->id])
             ->values();
 
         if ($pullRequests->isEmpty()) {
@@ -54,11 +55,14 @@ class ReviewQueue
 
         return [
             'state' => $state->value,
-            'pullRequests' => array_values($pullRequests->map(fn (ThreadRepository $repository): array => [
+            'pullRequests' => array_values($pullRequests->map(fn (ThreadRepository $repository, int $index): array => [
                 'repo' => $repository->repo,
                 'number' => (int) $repository->pull_request_number,
                 'url' => (string) $repository->pull_request_url,
                 'isDraft' => $repository->pull_request_is_draft,
+                'mergeableState' => $repository->pull_request_mergeable_state,
+                'ciStatus' => $repository->ci_status,
+                'approvedByViewer' => $isApprovedOnHead($repository, $viewerReviews[$index]),
             ])->all()),
             'blockedLabel' => match (true) {
                 $pullRequests->contains(fn (ThreadRepository $repository): bool => $repository->pull_request_mergeable_state === 'dirty') => 'Conflicts',

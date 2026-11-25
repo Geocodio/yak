@@ -5,7 +5,7 @@ import { useEmbed } from '@/embed/useEmbed';
 import { AgentLog } from '@/threads/panels/agents/AgentLog';
 import { AgentStatusDot } from '@/threads/panels/agents/AgentStatusDot';
 import { useAgents } from '@/threads/panels/agents/AgentsContext';
-import { agentTitle, cardSubtitle, continuedParts, isRunning, workflowPhases, type AgentRowData, type WorkflowPhase } from '@/threads/panels/agents/agentsState';
+import { agentCardId, agentTitle, cardSubtitle, continuedParts, isRunning, workflowPhases, type AgentRowData, type WorkflowPhase } from '@/threads/panels/agents/agentsState';
 import { StopAgentButton } from '@/threads/panels/agents/StopControls';
 
 const TILE: Record<WorkflowPhase['state'], string> = { done: 'bg-ok-soft text-body', running: 'bg-brand-soft text-brand', waiting: 'bg-panel-2 text-muted' };
@@ -35,7 +35,7 @@ function PhaseTiles({ agent }: { agent: AgentRowData }) {
  */
 export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: AgentRowData | undefined; fallbackTitle: string; isNested?: boolean }) {
     const agents = useAgents();
-    // The phone's web view cannot reach the agent log route, so the card shows its status and nothing to open.
+    // The phone's web view reads the agent's log like the web does; stopping an agent is the app's own control.
     const isEmbed = useEmbed() !== null;
     const [isExpanded, setIsExpanded] = useState(false);
     const bodyId = useId();
@@ -58,7 +58,7 @@ export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: A
     const toggleLabel = isExpanded ? 'Collapse agent log' : 'Expand agent log';
 
     return (
-        <div className={cn('overflow-hidden rounded-card border border-hair bg-panel', !isNested && 'ml-9')} data-testid="agent-card" data-agent-id={agent.id} data-status={agent.status} data-kind={agent.kind}>
+        <div id={isNested ? undefined : agentCardId(agent.id)} className={cn('overflow-hidden rounded-card border border-hair bg-panel', !isNested && 'ml-9')} data-testid="agent-card" data-agent-id={agent.id} data-status={agent.status} data-kind={agent.kind}>
             <div className="flex items-center gap-3 px-3.5 py-3">
                 <AgentStatusDot status={agent.status} className="size-2.5" />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -70,11 +70,9 @@ export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: A
                     </span>
                 </div>
                 {agents.canDrive && !isEmbed && <StopAgentButton threadId={agents.threadId} agent={agent} className="h-8 shrink-0" />}
-                {!isEmbed && (
-                    <IconButton label={toggleLabel} aria-expanded={isExpanded} aria-controls={bodyId} onClick={() => setIsExpanded((value) => !value)} data-testid="agent-card-toggle">
-                        {isExpanded ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
-                    </IconButton>
-                )}
+                <IconButton label={toggleLabel} aria-expanded={isExpanded} aria-controls={bodyId} onClick={() => setIsExpanded((value) => !value)} data-testid="agent-card-toggle">
+                    {isExpanded ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+                </IconButton>
             </div>
             {isWorkflow && <PhaseTiles agent={agent} />}
             {agent.stopError !== null && isRunning(agent) && (
@@ -82,7 +80,7 @@ export function AgentCard({ agent, fallbackTitle, isNested = false }: { agent: A
                     Claude could not stop this agent: {agent.stopError}
                 </p>
             )}
-            {isExpanded && !isEmbed && (
+            {isExpanded && (
                 <div id={bodyId} className="flex flex-col gap-2.5 border-t border-hair bg-panel-2 px-3.5 py-3 text-[13px] text-body" data-testid="agent-card-body">
                     {agent.summary !== null && agent.summary !== '' && (
                         <p className="text-muted" data-testid="agent-card-summary">

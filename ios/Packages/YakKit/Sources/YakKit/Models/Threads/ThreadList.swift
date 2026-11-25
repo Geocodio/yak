@@ -1,4 +1,180 @@
-public enum ThreadListFilter: String, Codable, Sendable, CaseIterable { case mine, yak, everyone }
+#if canImport(os)
+    import os
+#endif
+
+private func logDroppedEntry(_ typeName: String) {
+    #if canImport(os)
+        Logger(subsystem: "YakKit", category: "ThreadList").error(
+            "dropped an undecodable \(typeName, privacy: .public)")
+    #endif
+}
+
+/// The tabs of the thread list, by the word the server takes in `filter`. `yak` is the old chip's choice: it is
+/// still decoded (a saved window, an older server) but a current server is asked for `mine` with a starter instead.
+public enum ThreadListFilter: String, Codable, Sendable, CaseIterable { case mine, yak, everyone, closed, review }
+
+/// One source or starter the Filter sheet offers, with how many threads of the selected tab it covers.
+public struct ThreadFacetOption: Codable, Equatable, Sendable {
+    public let key: String
+    public let label: String
+    public let count: Int
+
+    public init(key: String, label: String, count: Int) {
+        self.key = key
+        self.label = label
+        self.count = count
+    }
+
+    private enum CodingKeys: String, CodingKey { case key, label, name, count }
+
+    /// A source has a `label`, a starter a `name`; an entry with no key is dropped by the caller.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        key = try container.decode(String.self, forKey: .key)
+        let text =
+            (try? container.decodeIfPresent(String.self, forKey: .label))
+            ?? (try? container.decodeIfPresent(String.self, forKey: .name))
+        label = text ?? key
+        count = (try? container.decodeIfPresent(Int.self, forKey: .count)) ?? 0
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(key, forKey: .key)
+        try container.encode(label, forKey: .label)
+        try container.encode(count, forKey: .count)
+    }
+}
+
+/// The sources and starters of the selected tab, before the person's own filters apply.
+public struct ThreadFacets: Codable, Equatable, Sendable {
+    public let sources: [ThreadFacetOption]
+    public let starters: [ThreadFacetOption]
+
+    public init(sources: [ThreadFacetOption], starters: [ThreadFacetOption]) {
+        self.sources = sources
+        self.starters = starters
+    }
+
+    private enum CodingKeys: String, CodingKey { case sources, starters }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sources =
+            ((try? container.decodeIfPresent([Lossy<ThreadFacetOption>].self, forKey: .sources)) ?? nil)?
+            .compactMap(\.value) ?? []
+        starters =
+            ((try? container.decodeIfPresent([Lossy<ThreadFacetOption>].self, forKey: .starters)) ?? nil)?
+            .compactMap(\.value) ?? []
+    }
+}
+
+/// A list entry that is dropped, not fatal, when it does not decode. A dropped entry is logged by its type only, so
+/// a broken required field never empties a list without a trace.
+struct Lossy<Value: Codable>: Codable {
+    let value: Value?
+    init(from decoder: any Decoder) throws {
+        do {
+            value = try Value(from: decoder)
+        } catch {
+            value = nil
+            logDroppedEntry("\(Value.self)")
+        }
+    }
+    func encode(to encoder: any Encoder) throws { try value?.encode(to: encoder) }
+}
+
+/// One group of the Review tab. An unknown `key` is one more group that keeps the server's `label`.
+public struct ReviewGroup: Codable, Equatable, Sendable {
+    public let key: String
+    public let label: String
+    public let rows: [ThreadRow]
+
+    public init(key: String, label: String, rows: [ThreadRow]) {
+        self.key = key
+        self.label = label
+        self.rows = rows
+    }
+
+    private enum CodingKeys: String, CodingKey { case key, label, rows }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        key = try container.decode(String.self, forKey: .key)
+        label = (try? container.decodeIfPresent(String.self, forKey: .label)) ?? key
+        rows =
+            ((try? container.decodeIfPresent([Lossy<ThreadRow>].self, forKey: .rows)) ?? nil)?
+            .compactMap(\.value) ?? []
+    }
+}
+
+/// An open pull request of a thread in the Review tab. `mergeability` and `checks` stay the server's words, so a
+/// value added later is shown or hidden by the view, never an error.
+public struct ReviewPullRequest: Codable, Equatable, Sendable {
+    public let number: Int
+    public let url: String
+    public let repository: String
+    public let isDraft: Bool
+    /// `conflicts`, `no_conflicts`, `unknown` or a word this build does not know.
+    public let mergeability: String
+    /// `passing`, `failing`, `pending`, nil or a word this build does not know.
+    public let checks: String?
+    public let approvedByYou: Bool
+
+    public init(
+        number: Int, url: String, repository: String, isDraft: Bool = false, mergeability: String = "unknown",
+        checks: String? = nil, approvedByYou: Bool = false
+    ) {
+        self.number = number
+        self.url = url
+        self.repository = repository
+        self.isDraft = isDraft
+        self.mergeability = mergeability
+        self.checks = checks
+        self.approvedByYou = approvedByYou
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case number, url, repository, isDraft, mergeability, checks, approvedByYou
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        number = try container.decode(Int.self, forKey: .number)
+        url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
+        repository = (try? container.decodeIfPresent(String.self, forKey: .repository)) ?? ""
+        isDraft = (try? container.decodeIfPresent(Bool.self, forKey: .isDraft)) ?? false
+        mergeability = (try? container.decodeIfPresent(String.self, forKey: .mergeability)) ?? "unknown"
+        checks = (try? container.decodeIfPresent(String.self, forKey: .checks)) ?? nil
+        approvedByYou = (try? container.decodeIfPresent(Bool.self, forKey: .approvedByYou)) ?? false
+    }
+}
+
+/// What the Review tab adds to a row.
+public struct ThreadReview: Codable, Equatable, Sendable {
+    /// In merge order.
+    public let pullRequests: [ReviewPullRequest]
+    public let hasNewCommitsSinceApproval: Bool
+    public let otherApprovals: Int
+
+    public init(pullRequests: [ReviewPullRequest], hasNewCommitsSinceApproval: Bool = false, otherApprovals: Int = 0) {
+        self.pullRequests = pullRequests
+        self.hasNewCommitsSinceApproval = hasNewCommitsSinceApproval
+        self.otherApprovals = otherApprovals
+    }
+
+    private enum CodingKeys: String, CodingKey { case pullRequests, hasNewCommitsSinceApproval, otherApprovals }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pullRequests =
+            ((try? container.decodeIfPresent([Lossy<ReviewPullRequest>].self, forKey: .pullRequests))
+            ?? nil)?.compactMap(\.value) ?? []
+        hasNewCommitsSinceApproval =
+            (try? container.decodeIfPresent(Bool.self, forKey: .hasNewCommitsSinceApproval)) ?? false
+        otherApprovals = (try? container.decodeIfPresent(Int.self, forKey: .otherApprovals)) ?? 0
+    }
+}
 
 public struct ThreadList: Codable, Equatable, Sendable {
     public let starred: [ThreadRow]
@@ -6,6 +182,16 @@ public struct ThreadList: Codable, Equatable, Sendable {
     public let threads: [ThreadRow]
     public let needsYouCount: Int
     public let hasAnyThreads: Bool
+    /// The Review tab's badge; 0 from an older server.
+    public let reviewCount: Int
+    /// The person's GitHub login is not linked, so the Review tab is empty.
+    public let needsGitHubLink: Bool
+    /// The web path where the login is linked.
+    public let gitHubLinkPath: String?
+    /// The Review tab's groups in the server's order; empty on every other tab and from an older server.
+    public let reviewGroups: [ReviewGroup]
+    /// Nil from an older server.
+    public let facets: ThreadFacets?
 
     /// Folds the task items of `needsYou` into their threads (see `folded`), so no caller can bypass the fold.
     public init(
@@ -13,7 +199,12 @@ public struct ThreadList: Codable, Equatable, Sendable {
         needsYou: [NeedsYouItem],
         threads: [ThreadRow],
         needsYouCount: Int,
-        hasAnyThreads: Bool
+        hasAnyThreads: Bool,
+        reviewCount: Int = 0,
+        needsGitHubLink: Bool = false,
+        gitHubLinkPath: String? = nil,
+        reviewGroups: [ReviewGroup] = [],
+        facets: ThreadFacets? = nil
     ) {
         let folded = Self.folded(starred: starred, needsYou: needsYou, threads: threads)
         self.starred = folded.starred
@@ -21,9 +212,17 @@ public struct ThreadList: Codable, Equatable, Sendable {
         self.threads = folded.threads
         self.needsYouCount = needsYouCount
         self.hasAnyThreads = hasAnyThreads
+        self.reviewCount = reviewCount
+        self.needsGitHubLink = needsGitHubLink
+        self.gitHubLinkPath = gitHubLinkPath
+        self.reviewGroups = reviewGroups
+        self.facets = facets
     }
 
-    private enum CodingKeys: String, CodingKey { case starred, needsYou, threads, needsYouCount, hasAnyThreads }
+    private enum CodingKeys: String, CodingKey {
+        case starred, needsYou, threads, needsYouCount, hasAnyThreads
+        case reviewCount, needsGitHubLink, gitHubLinkPath, reviewGroups, facets
+    }
 
     /// One item per thread, so nothing that needs the person is listed twice or missing.
     /// A task item names a thread. When that thread (or the root that holds it as a sub-thread) has a row in the
@@ -71,7 +270,13 @@ public struct ThreadList: Codable, Equatable, Sendable {
             needsYou: try container.decode([NeedsYouItem].self, forKey: .needsYou),
             threads: try container.decode([ThreadRow].self, forKey: .threads),
             needsYouCount: try container.decode(Int.self, forKey: .needsYouCount),
-            hasAnyThreads: try container.decode(Bool.self, forKey: .hasAnyThreads))
+            hasAnyThreads: try container.decode(Bool.self, forKey: .hasAnyThreads),
+            reviewCount: (try? container.decodeIfPresent(Int.self, forKey: .reviewCount)) ?? 0,
+            needsGitHubLink: (try? container.decodeIfPresent(Bool.self, forKey: .needsGitHubLink)) ?? false,
+            gitHubLinkPath: (try? container.decodeIfPresent(String.self, forKey: .gitHubLinkPath)) ?? nil,
+            reviewGroups: ((try? container.decodeIfPresent([Lossy<ReviewGroup>].self, forKey: .reviewGroups)) ?? nil)?
+                .compactMap(\.value) ?? [],
+            facets: (try? container.decodeIfPresent(ThreadFacets.self, forKey: .facets)) ?? nil)
     }
 }
 
@@ -95,6 +300,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     /// Where the thread started (Slack, Linear, the dashboard...); nil from an older server, when it sent none, and
     /// when it sent something that is not a source object. A bad `source` never fails the row.
     public let source: ThreadSource?
+    /// The Review tab's pull request facts; nil on every other tab and from an older server.
+    public let review: ThreadReview?
 
     public init(
         id: String,
@@ -113,7 +320,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         group: ThreadRowGroup,
         children: [ThreadRow],
         step: String? = nil,
-        source: ThreadSource? = nil
+        source: ThreadSource? = nil,
+        review: ThreadReview? = nil
     ) {
         self.id = id
         self.title = title
@@ -132,11 +340,12 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.children = children
         self.step = step
         self.source = source
+        self.review = review
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, title, repo, status, needsYouReason, needsYouLabel, isPrivate, isShared, isUnattended, isStarred
-        case canDelete, ownerInitials, lastActivityAt, group, children, step, source
+        case canDelete, ownerInitials, lastActivityAt, group, children, step, source, review
     }
 
     public init(from decoder: any Decoder) throws {
@@ -158,6 +367,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         children = try container.decode([ThreadRow].self, forKey: .children)
         step = try container.decodeIfPresent(String.self, forKey: .step)
         source = (try? container.decodeIfPresent(ThreadSource.self, forKey: .source)) ?? nil
+        review = (try? container.decodeIfPresent(ThreadReview.self, forKey: .review)) ?? nil
     }
 }
 
@@ -192,7 +402,7 @@ extension ThreadRow {
             children: children.map {
                 $0.idsIncludingDescendants.contains(threadID) ? $0.applying(task, to: threadID) : $0
             },
-            step: step, source: source)
+            step: step, source: source, review: review)
     }
 
     /// The row of a task item whose thread is not in the list.
@@ -274,5 +484,22 @@ public enum NeedsYouItem: Codable, Equatable, Sendable {
         case .unknown(let type):
             try container.encode(type, forKey: .type)
         }
+    }
+}
+
+extension ThreadList {
+    /// The title of a thread row anywhere in the list, the Review groups and sub-threads included.
+    public func title(ofThread id: String) -> String? {
+        func find(_ rows: [ThreadRow]) -> String? {
+            for row in rows {
+                if row.id == id { return row.title }
+                if let title = find(row.children) { return title }
+            }
+            return nil
+        }
+        let needy = needsYou.compactMap { item -> ThreadRow? in
+            if case .thread(let row) = item { row } else { nil }
+        }
+        return find(needy) ?? find(starred) ?? find(threads) ?? find(reviewGroups.flatMap(\.rows))
     }
 }

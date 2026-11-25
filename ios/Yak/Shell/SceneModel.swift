@@ -11,6 +11,9 @@ struct SceneState: Codable, Equatable {
     var isDrawerOpen = false
     var isNewThreadOpen = false
     var filter: ThreadListFilter = .mine
+    /// The source and starter keys chosen in the Filter sheet; they narrow whichever tab is selected.
+    var sources: [String] = []
+    var starters: [String] = []
     /// The Overview shows beside the conversation on a wide window; it stays open across threads.
     var isOverviewPanelOpen = false
     /// The pane beside the focused one in a two-slot layout. Nil until one is needed.
@@ -26,8 +29,11 @@ struct SceneState: Codable, Equatable {
 }
 
 extension SceneState {
+    var selection: ThreadListSelection { ThreadListSelection(filter: filter, sources: sources, starters: starters) }
+
     private enum CodingKeys: String, CodingKey {
-        case instanceID, threadID, focusedPane, isDrawerOpen, isNewThreadOpen, filter, isOverviewPanelOpen
+        case instanceID, threadID, focusedPane, isDrawerOpen, isNewThreadOpen, filter, sources, starters
+        case isOverviewPanelOpen
         case secondPane, secondPaneLeads, behindPane, stackedFraction, formatVersion
     }
 
@@ -51,7 +57,12 @@ extension SceneState {
         stackedFraction = try container.decodeIfPresent(Double.self, forKey: .stackedFraction) ?? 0.5
         isDrawerOpen = try container.decodeIfPresent(Bool.self, forKey: .isDrawerOpen) ?? false
         isNewThreadOpen = try container.decodeIfPresent(Bool.self, forKey: .isNewThreadOpen) ?? false
-        filter = try container.decodeIfPresent(ThreadListFilter.self, forKey: .filter) ?? .mine
+        // A saved "yak" is the old chip: it reads as Mine started by Yak. A word this build does not know reads as Mine.
+        let saved = ThreadListSelection.migrated(
+            ((try? container.decodeIfPresent(ThreadListFilter.self, forKey: .filter)) ?? nil) ?? .mine)
+        filter = saved.filter
+        sources = ((try? container.decodeIfPresent([String].self, forKey: .sources)) ?? nil) ?? []
+        starters = ((try? container.decodeIfPresent([String].self, forKey: .starters)) ?? nil) ?? saved.starters
         isOverviewPanelOpen = try container.decodeIfPresent(Bool.self, forKey: .isOverviewPanelOpen) ?? false
     }
 }
@@ -279,7 +290,8 @@ final class SceneModel {
             state.isNewThreadOpen = false
             state.isDrawerOpen = false
         case .drawer(let filter):
-            state.filter = filter
+            // Mine is what the window already shows or restores; only a fallback to another tab changes it.
+            if filter != .mine { state.filter = filter }
             state.isDrawerOpen = true
         case .newThread:
             state.isNewThreadOpen = true
@@ -365,6 +377,12 @@ final class SceneModel {
         return isComposerFocusPending
     }
     func setFilter(_ filter: ThreadListFilter) { state.filter = filter }
+
+    func setSelection(_ selection: ThreadListSelection) {
+        state.filter = selection.filter
+        state.sources = selection.sources
+        state.starters = selection.starters
+    }
 
     func handle(_ link: DeepLink, active: Instance, instances: [Instance], isCompactWidth: Bool) -> LinkOutcome {
         switch link {

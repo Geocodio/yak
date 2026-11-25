@@ -50,6 +50,8 @@ final class ThreadActionRefused extends RuntimeException
 
     public const CHILD_NOT_FAILED = 'child_not_failed';
 
+    public const NO_STEP_LIMIT = 'no_step_limit';
+
     public const NOTHING_TO_RETRY = 'nothing_to_retry';
 
     public const NOTHING_TO_PUBLISH = 'nothing_to_publish';
