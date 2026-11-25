@@ -41,7 +41,7 @@ struct SubThreadRowView: View {
                 .accessibilityIdentifier("overview.child.\(row.id)")
                 if hasMenu { menu }
             }
-            if let limit = row.startNowLimit { startNow(limit) }
+            if row.startNowLimit != nil, let limit = model.startNowLimit { startNow(limit) }
         }
         .padding(.trailing, hasMenu ? 0 : Design.Space.rowInset)
         .background(isWaiting ? Color.yakBubble : Color.clear)
@@ -81,7 +81,7 @@ struct SubThreadRowView: View {
     private func startNow(_ limit: Int) -> some View {
         HStack(spacing: 0) {
             Button {
-                Task { await model.startNow(limit) }
+                Task { await model.startNow() }
             } label: {
                 Text("subThread.startNow \(limit)").font(.yak(.subheadline, .medium))
                     .fixedSize(horizontal: false, vertical: true)

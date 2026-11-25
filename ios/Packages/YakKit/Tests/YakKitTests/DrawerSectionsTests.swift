@@ -17,13 +17,13 @@ private func rows(_ content: DrawerContent, _ kind: DrawerSection.Kind) -> [Draw
 
 private func row(
     _ id: String, status: String = "stopped", reason: String? = nil, group: String = "today",
-    children: [ThreadRow] = []
+    children: [ThreadRow] = [], stackState: String? = nil, step: String? = nil
 ) -> ThreadRow {
     ThreadRow(
         id: id, title: "Title \(id)", repo: "example/api", status: ThreadRowStatus(rawValue: status),
         needsYouReason: reason.map { NeedsYouReason(rawValue: $0) }, isPrivate: false, isShared: false,
         isUnattended: false, isStarred: false, canDelete: true, group: ThreadRowGroup(rawValue: group),
-        children: children)
+        children: children, step: step, stackState: stackState)
 }
 
 private func list(
@@ -62,6 +62,50 @@ private func list(
         // A thread that is not a sub-thread keeps its own word.
         let root = makeContent(list(threads: [row("r0000001", status: "closed")]))
         #expect(rows(root, .today).map(\.subtitle) == [.status(.closed)])
+    }
+
+    @Test(arguments: [
+        ("starting", SubThreadStateStyle.Word.starting), ("queued", .waiting), ("working", .working),
+        ("waiting", .needsYou), ("done", .done), ("failed", .failed), ("closed", .stopped),
+        ("hologram", .other),
+    ])
+    func aSubThreadRowWithTheStackStateReadsLikeTheOverview(state: String, word: SubThreadStateStyle.Word) {
+        let parent = row(
+            "p0000001", status: "running", children: [row("c0000001", status: "stopped", stackState: state)])
+        let content = makeContent(list(threads: [parent]), expanded: ["thread:p0000001": true])
+        #expect(rows(content, .today).map(\.subtitle).last == .subThread(word))
+    }
+
+    @Test func aWorkingSubThreadKeepsItsStepAndAnyOtherStateTheWord() {
+        let parent = row(
+            "p0000001", status: "running",
+            children: [
+                row("c0000001", stackState: "working", step: "Writing the migration"),
+                row("c0000002", stackState: "done", step: "Old step"),
+            ])
+        let content = makeContent(list(threads: [parent]), expanded: ["thread:p0000001": true])
+        #expect(rows(content, .today).map(\.subtitle).suffix(2) == [.step("Writing the migration"), .subThread(.done)])
+    }
+
+    @Test func withoutTheStackStateADrawerRowKeepsItsOldWords() {
+        let parent = row(
+            "p0000001", status: "running",
+            children: [row("c0000001", status: "paused"), row("c0000002", status: "stopped", step: "Step")])
+        let content = makeContent(list(threads: [parent]), expanded: ["thread:p0000001": true])
+        #expect(rows(content, .today).map(\.subtitle).suffix(2) == [.status(.paused), .step("Step")])
+    }
+
+    @Test func theStackStateDecodesAsAStringAndAnUnknownValueIsKept() throws {
+        func decode(_ extra: String) throws -> ThreadRow {
+            let json = """
+                {"id":"a1","title":"T","repo":"example/api","status":"stopped","isPrivate":false,"isShared":false,
+                 "isUnattended":false,"isStarred":false,"canDelete":true,"group":"today","children":[]\(extra)}
+                """
+            return try JSONDecoder().decode(ThreadRow.self, from: Data(json.utf8))
+        }
+        #expect(try decode(#","stackState":"hologram""#).stackState == "hologram")
+        #expect(try decode("").stackState == nil)
+        #expect(try decode(#","stackState":5"#).stackState == nil)
     }
 
     @Test func buildsTheSectionsInOrder() throws {

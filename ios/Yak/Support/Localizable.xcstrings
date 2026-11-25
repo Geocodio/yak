@@ -101,16 +101,6 @@
         }
       }
     },
-    "subThread.limit.note %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Each one keeps its own sandbox awake while it runs. Up to %lld."
-          }
-        }
-      }
-    },
     "subThread.menu" : {
       "localizations" : {
         "en" : {
@@ -6381,7 +6371,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Awake at once, %lld"
+            "value" : "Can run at the same time, %lld"
           }
         }
       }
@@ -7363,7 +7353,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every sub-thread stops its turn. Queued sub-threads do not start."
+            "value" : "Every running turn in this thread and its sub-threads stops, and waiting sub-threads are dropped. Nothing is deleted."
           }
         }
       }
@@ -13524,6 +13514,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Link GitHub on the web"
+          }
+        }
+      }
+    },
+    "subThread.limit.note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sub-threads with their own sandbox take turns. Allowing more finishes the work sooner but uses more of your Claude account at once. Research sub-threads don't count toward this."
           }
         }
       }

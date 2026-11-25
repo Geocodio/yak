@@ -305,6 +305,9 @@ public struct ThreadRow: Codable, Equatable, Sendable {
     public let source: ThreadSource?
     /// The Review tab's pull request facts; nil on every other tab and from an older server.
     public let review: ThreadReview?
+    /// The state of a sub-thread as the stack listing resolves it (`starting`, `queued`, `working`...), kept as the
+    /// server's string. Nil on a root row and from a server that does not send it.
+    public let stackState: String?
 
     public init(
         id: String,
@@ -325,7 +328,8 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         children: [ThreadRow],
         step: String? = nil,
         source: ThreadSource? = nil,
-        review: ThreadReview? = nil
+        review: ThreadReview? = nil,
+        stackState: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -346,11 +350,13 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         self.step = step
         self.source = source
         self.review = review
+        self.stackState = stackState
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, title, repo, status, needsYouReason, needsYouLabel, needsYouDetail, isPrivate, isShared
         case isUnattended, isStarred, canDelete, ownerInitials, lastActivityAt, group, children, step, source, review
+        case stackState
     }
 
     public init(from decoder: any Decoder) throws {
@@ -374,6 +380,7 @@ public struct ThreadRow: Codable, Equatable, Sendable {
         step = try container.decodeIfPresent(String.self, forKey: .step)
         source = (try? container.decodeIfPresent(ThreadSource.self, forKey: .source)) ?? nil
         review = (try? container.decodeIfPresent(ThreadReview.self, forKey: .review)) ?? nil
+        stackState = (try? container.decodeIfPresent(String.self, forKey: .stackState)) ?? nil
     }
 }
 
@@ -409,7 +416,7 @@ extension ThreadRow {
             children: children.map {
                 $0.idsIncludingDescendants.contains(threadID) ? $0.applying(task, to: threadID) : $0
             },
-            step: step, source: source, review: review)
+            step: step, source: source, review: review, stackState: stackState)
     }
 
     /// The row of a task item whose thread is not in the list.

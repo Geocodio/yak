@@ -136,7 +136,10 @@ import XCTest
         XCTAssertTrue(app.buttons["overview.child.q7adapt0.startNow"].label == "Start now and allow 4 at a time")
         app.buttons["overview.limit.change"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.awake"].waitForExistence(timeout: 60))
-        XCTAssertTrue(app.staticTexts["Each one keeps its own sandbox awake while it runs. Up to 4."].exists)
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label BEGINSWITH %@", "Sub-threads with their own sandbox take turns.")
+            ).firstMatch.exists)
         XCTAssertFalse(line.exists)
     }
 

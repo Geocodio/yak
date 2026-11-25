@@ -71,8 +71,9 @@ public enum SubThreadActions {
 public enum SubThreadRows {
     public static func make(_ stack: ThreadStack) -> [SubThreadRow] {
         let startNowLimit = canRaiseLimit(stack) ? stack.limit.current + 1 : nil
-        return stack.children.map { child in
-            SubThreadRow(
+        return stack.children.map { stored in
+            let child = stored.shown
+            return SubThreadRow(
                 id: child.id,
                 name: isBlank(child.name) ? child.title : child.name,
                 kind: child.kind,
@@ -109,5 +110,18 @@ public enum SubThreadRows {
     private static func secureURL(_ text: String?) -> URL? {
         guard let text, let url = URL(string: text), url.scheme?.lowercased() == "https" else { return nil }
         return url
+    }
+}
+
+extension StackChild {
+    /// The child as the web shows it: the server never reports a research sub-thread as waiting for a free spot (it
+    /// shares the thread's sandbox), so a stored `queued` research sub-thread reads as starting.
+    fileprivate var shown: StackChild {
+        guard state == .queued, kind == .research else { return self }
+        return StackChild(
+            id: id, name: name, title: title, kind: kind, model: model, state: .starting, step: step,
+            resultSummary: resultSummary, branch: branch, repo: repo, pullRequestUrl: pullRequestUrl,
+            ciStatus: ciStatus, filesChanged: filesChanged, queued: queued, messagesPaused: messagesPaused,
+            takenOver: takenOver, canOverride: canOverride)
     }
 }

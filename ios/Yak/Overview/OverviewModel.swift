@@ -222,9 +222,18 @@ final class OverviewModel {
         }
     }
 
-    /// "Start now and allow N at a time" on a waiting sub-thread: saves the raised limit at once.
-    func startNow(_ limit: Int) async {
-        guard runningAction == nil else { return }
+    /// The limit "Start now" saves: one above the stepper's value, which includes a change still waiting to be sent.
+    /// Nil when the limit cannot go higher or the person cannot change it.
+    var startNowLimit: Int? {
+        guard let stepper = content?.subThreads?.awake else { return nil }
+        let next = (pendingAwakeLimit ?? stepper.value) + 1
+        return next <= stepper.range.upperBound ? next : nil
+    }
+
+    /// "Start now and allow N at a time" on a waiting sub-thread: saves the raised limit at once, in place of a stepper
+    /// change that is still waiting.
+    func startNow() async {
+        guard runningAction == nil, let limit = startNowLimit else { return }
         limitTask?.cancel()
         pendingAwakeLimit = limit
         await sendAwakeLimit()

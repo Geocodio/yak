@@ -230,7 +230,7 @@ struct SubThreadsGroupView: View {
                     model.proposeAwakeLimit(value + 1)
                 }
             }
-            Text("subThread.limit.note \(awake.range.upperBound)").font(.yak(.footnote, .medium))
+            Text("subThread.limit.note").font(.yak(.footnote, .medium))
                 .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, Design.Space.medium)

@@ -190,6 +190,16 @@ public enum DrawerSections {
         let subtitle: DrawerSubtitle =
             if let label = row.needsYouLabel {
                 .serverLabel(label)
+            } else if depth > 0, let state = row.stackState {
+                // The state the stack listing resolves, in the same words as the Overview. The web's row shows a
+                // working sub-thread's step in the place of the state line, so only that state keeps its step.
+                if state == StackChildState.working.rawValue, let step = row.step,
+                    !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                {
+                    .step(step)
+                } else {
+                    .subThread(SubThreadStateStyle.of(StackChildState(rawValue: state)).word)
+                }
             } else if depth > 0, let step = row.step, !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 .step(step)
             } else if !row.children.isEmpty {

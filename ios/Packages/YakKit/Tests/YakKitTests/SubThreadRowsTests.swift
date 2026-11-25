@@ -46,7 +46,7 @@ import Testing
         takenOver: Bool = false, pullRequestUrl: String? = nil, repo: String? = nil
     ) -> StackChild {
         StackChild(
-            id: "c0000001", name: "the-name", title: title, kind: .research, state: state, step: step, repo: repo,
+            id: "c0000001", name: "the-name", title: title, kind: .implement, state: state, step: step, repo: repo,
             pullRequestUrl: pullRequestUrl, messagesPaused: paused, takenOver: takenOver)
     }
     #expect(row(child(paused: true, takenOver: true)).style.word == .takenOver)
@@ -59,6 +59,13 @@ import Testing
     #expect(
         row(child(pullRequestUrl: "https://github.example.com/example/api/pull/41")).pullRequestURL
             == URL(string: "https://github.example.com/example/api/pull/41"))
+    // A research sub-thread stored as queued reads as starting, with no reason and no Start now.
+    func researchChild(_ state: StackChildState) -> StackChild {
+        StackChild(id: "c0000002", name: "r", title: "R", kind: .research, state: state)
+    }
+    let research = row(researchChild(.queued))
+    #expect(research.style.word == .starting && research.detail == nil && research.startNowLimit == nil)
+    #expect(row(researchChild(.working)).style.word == .working)
     // "Start now" is for a waiting sub-thread, one limit step up, to a person who can drive the root below the maximum.
     #expect(row(child(state: .queued)).startNowLimit == 3)
     #expect(row(child(state: .working)).startNowLimit == nil)

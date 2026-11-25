@@ -283,12 +283,29 @@ private final class OverviewTransport: HTTPTransport, @unchecked Sendable {
     await fixture.model.setVisible(true)
     await fixture.model.start()
     #expect(await fixture.eventually { fixture.model.content?.subThreads?.awake != nil })
-    async let first: Void = fixture.model.startNow(3)
-    async let second: Void = fixture.model.startNow(3)
+    async let first: Void = fixture.model.startNow()
+    async let second: Void = fixture.model.startNow()
     _ = await (first, second)
     #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack/limit") == 1)
     #expect(fixture.transport.lastBody(for: "threads/s7ackr00/stack/limit")?.contains("3") == true)
     #expect(fixture.model.runningAction == nil && fixture.model.pendingAwakeLimit == nil)
+    await fixture.finish()
+}
+
+@MainActor @Test func startNowNeverLowersAPendingStepperChange() async throws {
+    let fixture = try await Fixture()
+    fixture.transport.stackName = "busy-stack"
+    await fixture.openThread()
+    await fixture.model.setVisible(true)
+    await fixture.model.start()
+    #expect(await fixture.eventually { fixture.model.content?.subThreads?.awake != nil })
+    fixture.model.proposeAwakeLimit(4)
+    #expect(fixture.model.startNowLimit == nil, "4 is the maximum, so there is nothing higher to start with")
+    fixture.model.proposeAwakeLimit(3)
+    #expect(fixture.model.startNowLimit == 4)
+    await fixture.model.startNow()
+    #expect(fixture.transport.requestCount(for: "threads/s7ackr00/stack/limit") == 1)
+    #expect(fixture.transport.lastBody(for: "threads/s7ackr00/stack/limit")?.contains("4") == true)
     await fixture.finish()
 }
 

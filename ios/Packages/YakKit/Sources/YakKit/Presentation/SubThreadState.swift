@@ -1,8 +1,9 @@
 import Foundation
 
-/// How one sub-thread's state reads: its word, its mark and its tone. Every place that shows a sub-thread's state
-/// (the Overview group, the drawer's sub-thread rows) takes it from here, so the same sub-thread never reads two
-/// ways. The words are the web's: the server's `queued` is "Waiting" and its `waiting` is "Needs you".
+/// How one sub-thread's state reads: its word, its mark and its tone. The Overview group takes it from here, and so
+/// does a drawer row that carries the stack state (`ThreadRow.stackState`); a drawer row from a server that does not
+/// send it falls back to `of(listStatus:)` and the drawer's own words. The words are the web's: the server's `queued`
+/// is "Waiting" and its `waiting` is "Needs you".
 public struct SubThreadStateStyle: Equatable, Sendable {
     public enum Word: Equatable, Sendable {
         case starting, waiting, working, needsYou, done, failed, stopped, takenOver
@@ -45,8 +46,9 @@ public struct SubThreadStateStyle: Equatable, Sendable {
         return takenOver ? SubThreadStateStyle(word: .takenOver, mark: base.mark, tone: base.tone) : base
     }
 
-    /// The style a thread list gives a sub-thread row, for the two list states that mean the same as a stack state.
-    /// Nil for every other list status, which the drawer words as it always did.
+    /// The style for a sub-thread row of a list that carries no stack state (an older server), for the two list
+    /// statuses that mean the same as a stack state. Nil for every other list status, which the drawer words as it
+    /// always did.
     public static func of(listStatus: ThreadRowStatus) -> SubThreadStateStyle? {
         switch listStatus {
         case .running: of(.working)
