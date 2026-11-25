@@ -1,0 +1,21 @@
+{
+    "agents": {
+        "running": [
+            {
+                "id": "aone",
+                "name": "Read the spec",
+                "startedAt": "2026-11-15T12:00:00+00:00",
+                "state": "stopping"
+            },
+            {
+                "id": "atwo",
+                "name": "Build mockups",
+                "startedAt": "2026-11-15T12:00:00+00:00",
+                "state": "stopping"
+            }
+        ],
+        "runningCount": 2
+    },
+    "status": "stopping",
+    "stopped": 2
+}

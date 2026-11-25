@@ -46,6 +46,7 @@ import { AddChildDialog } from '@/threads/panels/stack/AddChildDialog';
 import { useStack } from '@/threads/panels/stack/useStack';
 import { useThreadDiff } from '@/threads/panels/changes/useThreadDiff';
 import type { LinkState } from '@/threads/realtime/catchUpRunner';
+import { EmbedAgentsReporter } from '@/embed/EmbedAgentsReporter';
 import { useEmbed } from '@/embed/useEmbed';
 import { useFragmentScroll } from '@/components/threads/useFragmentScroll';
 import type { PageProps } from '@/types/shared';
@@ -275,6 +276,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, publis
     return (
         <AgentsProvider threadId={thread.id} canDrive={canDrive} loaded={agents} live={liveAgents} liveChildren={liveChildren} selectedId={selectedAgentId} onSelect={setSelectedAgentId} openPanel={openAgentsPanel} openFullLog={openAgentLog}>
             <Head title={thread.title} />
+            {isEmbed && <EmbedAgentsReporter />}
 
             {!isEmbed && <ThreadHeader
                 page={{ thread, canDrive, diffTotals, pullRequest, publishWarning, walkthrough, notice, composer, stackParent, request, actions, coOwner, stopped }}

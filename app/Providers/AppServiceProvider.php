@@ -208,6 +208,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($device instanceof Device ? 'web-session:' . $device->id : 'web-session-ip:' . $request->ip());
         });
 
+        // Its own bucket per device, so no unnamed throttle elsewhere (a polled web route) can lock a person out of stopping agents.
+        RateLimiter::for('app-composer', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(30)->by($device instanceof Device ? 'composer:' . $device->id : 'composer-ip:' . $request->ip());
+        });
+
         RateLimiter::for('app-search', function (Request $request): Limit {
             $device = $request->attributes->get('device');
 

@@ -69,7 +69,7 @@ final class ThreadComposerData
      *
      * @return array{steps: int, limit: ?int, canAddSteps: bool, stepsToAdd: int}|null
      */
-    private static function turn(Thread $thread): ?array
+    public static function turn(Thread $thread): ?array
     {
         $run = ThreadTurns::activeTurn($thread);
 

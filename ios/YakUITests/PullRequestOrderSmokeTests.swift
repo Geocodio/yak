@@ -44,10 +44,15 @@ import XCTest
         XCTAssertTrue(second.exists)
         XCTAssertLessThan(first.frame.minY, second.frame.minY)
         try saveScreenshot("edit-mode")
-        // The reorder handle is at the trailing edge of the row.
-        let start = first.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5))
-        let end = second.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 1.4))
-        start.press(forDuration: 0.6, thenDragTo: end)
+        // The reorder handle is at the trailing edge of the row. Both points are fixed screen positions read before the
+        // drag: a coordinate relative to a row would be resolved again while the rows move under the finger, and a
+        // slow machine resolves it after the lifted row has displaced the other one, which sends the drop back to the
+        // place it started from. The drop is held a moment so the list has moved the other row aside before release.
+        let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+        let handleX = first.frame.minX + first.frame.width * 0.93
+        let start = origin.withOffset(CGVector(dx: handleX, dy: first.frame.midY))
+        let end = origin.withOffset(CGVector(dx: handleX, dy: second.frame.midY + second.frame.height * 0.4))
+        start.press(forDuration: 0.3, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.6)
         let saved = NSPredicate { [stub] _, _ in
             ((try? stub?.lastPullRequestOrder()) ?? "").contains("[78,77]")
         }
