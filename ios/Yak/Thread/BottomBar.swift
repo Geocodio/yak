@@ -17,6 +17,7 @@ struct BottomBar: View {
     /// The pane in the other slot, which the menu marks "Shown beside".
     var beside: PaneID?
 
+    @Environment(SceneModel.self) private var scene
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTyping = false
@@ -34,6 +35,32 @@ struct BottomBar: View {
     /// The bar is docked: a strip on the page color with a rule above it, holding one card. The card holds the waiting
     /// messages (the web page leaves them out of its list), then the controls.
     private var bar: some View {
+        VStack(spacing: Design.Space.small) {
+            if let menu = slashMenu {
+                SlashMenuView(menu: menu) { command in
+                    thread.composer.pickSlashCommand(command)
+                    scene.requestComposerFocus()
+                }
+            }
+            card
+        }
+        .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.tight)
+        .padding(.bottom, Design.Space.barEdgeGap)
+        .frame(maxWidth: .infinity)
+        .background(.yakPage)
+        .overlay(alignment: .top) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
+        .onPreferenceChange(ComposerFocusKey.self) { isTyping = $0 }
+        .simultaneousGesture(swipe)
+        .accessibilityElement(children: .contain)
+        .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
+        .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
+    }
+
+    /// The menu is open while the field has the keyboard, so leaving the field closes it.
+    private var slashMenu: SlashMenu? { pane == .chat && isTyping ? thread.composer.slashMenu : nil }
+
+    /// The waiting messages and the upload chip above the controls, in one card.
+    private var card: some View {
         VStack(spacing: 0) {
             if pane == .chat {
                 UploadChipsView(thread: thread)
@@ -45,16 +72,6 @@ struct BottomBar: View {
         }
         .clipShape(.rect(cornerRadius: Design.Radius.card))
         .background { BarSurface(isFocused: isTyping) }
-        .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.tight)
-        .padding(.bottom, Design.Space.barEdgeGap)
-        .frame(maxWidth: .infinity)
-        .background(.yakPage)
-        .overlay(alignment: .top) { Rectangle().fill(Color.yakLine).frame(height: Design.Space.line) }
-        .onPreferenceChange(ComposerFocusKey.self) { isTyping = $0 }
-        .simultaneousGesture(swipe)
-        .accessibilityElement(children: .contain)
-        .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
-        .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
     }
 
     @ViewBuilder private var layout: some View {

@@ -32,6 +32,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     /// A thread made from an old task: closed, no sandbox.
     public let isLegacy: Bool
     public let legacyAnswers: [LegacyAnswer]
+    /// The composer's slash commands. Nil from an older server, which has no menu.
+    public let slashCommands: SlashCommands?
 
     public init(
         thread: ThreadDetail,
@@ -59,7 +61,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         stopped: ThreadStop? = nil,
         actions: ThreadActionFlags = .none,
         isLegacy: Bool = false,
-        legacyAnswers: [LegacyAnswer] = []
+        legacyAnswers: [LegacyAnswer] = [],
+        slashCommands: SlashCommands? = nil
     ) {
         self.thread = thread
         self.canDrive = canDrive
@@ -87,6 +90,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         self.actions = actions
         self.isLegacy = isLegacy
         self.legacyAnswers = legacyAnswers
+        self.slashCommands = slashCommands
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -95,7 +99,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         case canOpenPullRequest, diffTotals, pullRequest, publishWarning
         case liveActivityChannel
         case request, progress, milestones, card, repositoryQuestion, earlyWarning, coOwner, stopped
-        case actions, isLegacy, legacyAnswers
+        case actions, isLegacy, legacyAnswers, slashCommands
     }
 
     public init(from decoder: any Decoder) throws {
@@ -126,6 +130,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         actions = try container.decodeIfPresent(ThreadActionFlags.self, forKey: .actions) ?? .none
         isLegacy = try container.decodeIfPresent(Bool.self, forKey: .isLegacy) ?? false
         legacyAnswers = try container.decodeIfPresent([LegacyAnswer].self, forKey: .legacyAnswers) ?? []
+        slashCommands = (try? container.decodeIfPresent(SlashCommands.self, forKey: .slashCommands)) ?? nil
     }
 }
 

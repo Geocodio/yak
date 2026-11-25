@@ -7,6 +7,7 @@ struct ComposerBar: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
     @FocusState private var isFocused: Bool
+    @AccessibilityFocusState private var isFieldSpokenFocused: Bool
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -68,6 +69,7 @@ struct ComposerBar: View {
             isKeyboardUp = false
         }
         .onChange(of: scene.composerFocusRequest) { takeFocusIfOpen() }
+        .onChange(of: composer.slashPickCount) { isFieldSpokenFocused = true }
         .onChange(of: inputBlocked) { takeFocusIfOpen() }
         .task { takeFocusIfOpen() }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
@@ -98,11 +100,34 @@ struct ComposerBar: View {
         .font(.yakField)
         .lineLimit(isCollapsed ? 1...1 : 1...6)
         .focused($isFocused)
+        .accessibilityFocused($isFieldSpokenFocused)
+        .onKeyPress(phases: [.down, .repeat]) { handleKey($0) }
         .textInputAutocapitalization(.sentences)
         .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.snug)
         .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
         .accessibilityLabel("composer.field.label")
         .accessibilityIdentifier("composer.field")
+    }
+
+    /// With the commands menu open: the arrow keys move the highlight and Escape closes the menu (the shortcut below
+    /// is the same close for a keyboard that sends Escape as a command). Return picks the highlighted command in the
+    /// composer model, which sees the line break the field would add.
+    /// Any other key, and every key while the menu is closed, goes to the field.
+    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard composer.slashMenu != nil, press.modifiers.isEmpty else { return .ignored }
+        switch press.key {
+        case .downArrow:
+            composer.moveSlashSelection(.down)
+            return .handled
+        case .upArrow:
+            composer.moveSlashSelection(.up)
+            return .handled
+        case .escape:
+            composer.dismissSlashMenu()
+            return .handled
+        default:
+            return .ignored
+        }
     }
 
     /// A tap steers; a long press offers "Send after this turn" while a turn runs.
@@ -172,6 +197,9 @@ struct ComposerBar: View {
             Button("composer.shortcut.send") { send(.steer) }.yakShortcut(.send)
             Button("composer.shortcut.sendAfterTurn") { send(.afterTurn) }.yakShortcut(.sendAfterTurn)
             Button("composer.shortcut.stop") { Task { await composer.stop() } }.yakShortcut(.stop)
+            // Escape closes the commands menu; with no menu the button is off and Escape goes where it went before.
+            Button("composer.shortcut.dismissCommands") { composer.dismissSlashMenu() }.yakShortcut(.cancel)
+                .disabled(composer.slashMenu == nil)
         }
         .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
     }

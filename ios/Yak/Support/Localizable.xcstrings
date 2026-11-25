@@ -1243,6 +1243,118 @@
         }
       }
     },
+    "composer.slash.count %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg command"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg commands"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "composer.slash.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commands"
+          }
+        }
+      }
+    },
+    "composer.slash.noMatch %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No command named /%@. It will be sent to Claude as text."
+          }
+        }
+      }
+    },
+    "composer.slash.noMatch.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No match"
+          }
+        }
+      }
+    },
+    "composer.slash.section.commands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commands"
+          }
+        }
+      }
+    },
+    "composer.slash.section.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "composer.slash.section.skills" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skills"
+          }
+        }
+      }
+    },
+    "composer.slash.section.yak" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak"
+          }
+        }
+      }
+    },
+    "composer.shortcut.dismissCommands" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close commands"
+          }
+        }
+      }
+    },
     "composer.shortcut.send" : {
       "localizations" : {
         "en" : {

@@ -84,6 +84,11 @@ final class ComposerModel {
     private(set) var thumbnails: [String: Data] = [:]
 
     private var typedText = ""
+    /// The commands menu was closed with Escape or by a pick; the next edit opens it again.
+    private(set) var isSlashMenuDismissed = false
+    private var highlightedCommand: String?
+    /// Counts picks from the menu, so the view moves focus back to the field once per pick.
+    private(set) var slashPickCount = 0
     private var snapshot: ConversationSnapshot?
     private(set) var sendKey: UUID?
     /// The draft a send has taken out of the field and the outbox has not accepted yet.
@@ -122,13 +127,41 @@ final class ComposerModel {
         get { typedText }
         set {
             guard newValue != typedText else { return }
+            // Return in an open commands menu picks the highlighted command instead of adding a line.
+            if newValue == typedText + "\n", let selected = slashMenu?.selected {
+                pickSlashCommand(selected)
+                return
+            }
             typedText = newValue
             hasEdited = true
             problem = nil
+            isSlashMenuDismissed = false
+            highlightedCommand = nil
             refreshSendKey()
             scheduleSave()
         }
     }
+
+    /// The commands menu for the text in the field, from the commands the last thread data lists, which is also what
+    /// an offline thread has. Nil while the menu is closed, and always for a server that lists no commands.
+    var slashMenu: SlashMenu? {
+        SlashMenu.make(
+            commands: snapshot?.show?.slashCommands?.commands, text: typedText, isDismissed: isSlashMenuDismissed,
+            highlighted: highlightedCommand)
+    }
+
+    func moveSlashSelection(_ direction: SlashMenu.Direction) {
+        highlightedCommand = slashMenu?.moved(direction)
+    }
+
+    /// Fills the command into the field and waits for Send; the menu stays closed until the next edit.
+    func pickSlashCommand(_ command: SlashCommand) {
+        text = SlashMenu.pick(command).text
+        isSlashMenuDismissed = true
+        slashPickCount += 1
+    }
+
+    func dismissSlashMenu() { isSlashMenuDismissed = true }
 
     var bar: ComposerBarState {
         let show = snapshot?.show

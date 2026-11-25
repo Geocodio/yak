@@ -93,6 +93,11 @@ enum Design {
         /// The height of a pull request number's text at the default size.
         static let numberLineHeight: CGFloat = 16
         static let statusDot: CGFloat = 9
+        /// One command row of the slash menu at the default text size, and the heading above a group.
+        static let slashRow: CGFloat = 60
+        static let slashHeading: CGFloat = 24
+        /// The tallest the slash menu gets: five rows and one heading; more commands scroll inside the card.
+        static let slashMenuMaxHeight: CGFloat = slashRow * 5 + slashHeading
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
     }
