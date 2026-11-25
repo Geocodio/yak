@@ -127,6 +127,7 @@ use App\Http\Controllers\Threads\ThreadStarController;
 use App\Http\Controllers\Threads\ThreadStepLimitController;
 use App\Http\Controllers\Threads\ThreadTaskActionController;
 use App\Http\Controllers\Threads\ThreadTeleportRequestController;
+use App\Http\Controllers\Threads\ThreadTitleController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Http\Middleware\ClientProtocol;
 use App\Models\User;
@@ -394,6 +395,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('threads.seen');
     Route::post('threads/{thread}/star', ThreadStarController::class)
         ->name('threads.star');
+    Route::patch('threads/{thread}/title', ThreadTitleController::class)
+        ->name('threads.title.update');
     Route::post('threads/{thread}/close', ThreadCloseController::class)
         ->name('threads.close');
     Route::delete('threads/{thread}', ThreadDestroyController::class)

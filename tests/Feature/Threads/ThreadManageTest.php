@@ -169,3 +169,32 @@ test('a thread whose sandbox cannot be destroyed is kept', function () {
 
     expect(Thread::query()->withoutGlobalScopes()->count())->toBe(1);
 });
+
+test('a driver renames a thread and the title is trimmed', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['title' => 'Old title']);
+
+    $this->actingAs($user)->patch(route('threads.title.update', $thread), ['title' => '  Fresh title  '])->assertRedirect();
+
+    expect($thread->refresh()->title)->toBe('Fresh title');
+});
+
+test('a blank or overlong title is rejected', function (string $title) {
+    $thread = Thread::factory()->create(['title' => 'Old title']);
+
+    $this->actingAs(User::factory()->create())->patch(route('threads.title.update', $thread), ['title' => $title])->assertSessionHasErrors('title');
+
+    expect($thread->refresh()->title)->toBe('Old title');
+})->with(['empty' => '', 'whitespace' => '   ', 'too long' => str_repeat('a', 121)]);
+
+test('a viewer who cannot drive cannot rename, and a hidden thread answers 404', function () {
+    $owner = User::factory()->create();
+    $guest = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create(['title' => 'Old title']);
+    ThreadShare::factory()->create(['thread_id' => $thread->id, 'user_id' => $guest->id]);
+
+    $this->actingAs($guest)->patch(route('threads.title.update', $thread), ['title' => 'New'])->assertForbidden();
+    $this->actingAs(User::factory()->create())->patch(route('threads.title.update', $thread), ['title' => 'New'])->assertNotFound();
+
+    expect($thread->refresh()->title)->toBe('Old title');
+});
