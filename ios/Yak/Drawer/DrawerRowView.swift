@@ -242,19 +242,16 @@ struct DrawerIndicator: View {
     }
 }
 
-/// A small label on the quiet fill at the start of a row's second line: a task's mark and a thread's source.
+/// A small label on the quiet fill at the start of a row's second line: a task's mark and a thread's source. A short
+/// label hugs its text; a longer one from a newer server ends in an ellipsis at the cap, so it cannot push into the age
+/// column.
 struct DrawerBadge: View {
     let text: String
     var systemImage: String?
 
-    /// A longer label from a newer server ends in an ellipsis here, so it cannot push into the age column.
-    @ScaledMetric(relativeTo: .caption) private var maxWidth = Design.Size.badgeMaxWidth
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        CappedWidth(limit: maxWidth) { label }
-    }
-
-    private var label: some View {
         HStack(spacing: Design.Space.tight) {
             if let systemImage { Image(systemName: systemImage).imageScale(.small) }
             Text(text).lineLimit(1)
@@ -262,24 +259,15 @@ struct DrawerBadge: View {
         .font(.yakBadge).foregroundStyle(Color.yakText)
         .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
         .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
-        .layoutPriority(1)
+        .frame(maxWidth: maxWidth, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .combine)
     }
-}
 
-/// Offers its child at most `limit` points of width and takes the child's own size, so a short badge hugs its text and a
-/// long one is cut at the limit.
-private struct CappedWidth: Layout {
-    let limit: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard let child = subviews.first else { return .zero }
-        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews.first?.place(
-            at: bounds.origin, anchor: .topLeading,
-            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    /// The cap grows with the text size, as the caption text does.
+    private var maxWidth: CGFloat {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(dynamicTypeSize))
+        return UIFontMetrics(forTextStyle: .caption1)
+            .scaledValue(for: Design.Size.badgeMaxWidth, compatibleWith: traits)
     }
 }
