@@ -80,8 +80,12 @@ final class DrawerModel {
 
     var filter: ThreadListFilter { selection.filter }
 
-    /// What the Filter sheet offers for the selected tab: nil until a list has loaded.
-    var facets: ThreadFacets? { state?.list?.facets }
+    /// The sources and starters of each tab as its last answer counted them, so the sheet keeps its rows while a
+    /// narrower list loads.
+    private var facetsByTab: [ThreadListFilter: ThreadFacets] = [:]
+
+    /// What the Filter sheet offers for the selected tab: nil until a list of the tab has loaded.
+    var facets: ThreadFacets? { facetsByTab[selection.filter] ?? state?.list?.facets }
 
     func sourceChoices() -> [FilterChoice] {
         ThreadTabs.choices(from: facets?.sources ?? [], picked: selection.sources)
@@ -121,7 +125,10 @@ final class DrawerModel {
     private func followFeed() async {
         for await next in await feed.states() {
             state = next
-            if let list = next.list { reviewCount = list.reviewCount }
+            if let list = next.list {
+                reviewCount = list.reviewCount
+                if let facets = list.facets { facetsByTab[next.filter] = facets }
+            }
             recompute()
         }
     }

@@ -226,6 +226,8 @@ private let allFilters = ["mine", "yak", "everyone", "closed", "review"]
         #expect(await rig.eventually { rig.model.facets != nil })
         await rig.model.toggleSource("slack")
         await rig.model.toggleStarter("yak")
+        // The sheet keeps its rows while the narrower list loads.
+        #expect(rig.model.facets != nil)
         #expect(
             await rig.eventually {
                 rig.transport.requested.last == "filter=everyone&sources%5B%5D=slack&starters%5B%5D=yak"
