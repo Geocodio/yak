@@ -328,7 +328,14 @@ final class StubServer: Sendable {
     static func parseTarget(_ target: String) -> (path: String, query: [String: String]) {
         let path = String(target.prefix { $0 != "?" })
         var query: [String: String] = [:]
-        for item in URLComponents(string: target)?.queryItems ?? [] { query[item.name] = item.value ?? "" }
+        for item in URLComponents(string: target)?.queryItems ?? [] {
+            // A list parameter (`sources[]`) keeps every value, joined by commas.
+            if item.name.hasSuffix("[]"), let earlier = query[item.name] {
+                query[item.name] = earlier + "," + (item.value ?? "")
+            } else {
+                query[item.name] = item.value ?? ""
+            }
+        }
         return (path, query)
     }
 

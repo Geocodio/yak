@@ -1,3 +1,24 @@
+/// The list under `threadFilters`. A list keeps its string elements and drops the others; a value that is not a list
+/// reads as absent (`names` is nil), as from an older server, and never fails `me`.
+public struct ThreadFilterNames: Decodable, Sendable, Equatable {
+    public let names: [String]?
+
+    public init(names: [String]?) { self.names = names }
+
+    public init(from decoder: any Decoder) throws {
+        guard let entries = try? [LossyString](from: decoder) else {
+            names = nil
+            return
+        }
+        names = entries.compactMap(\.value)
+    }
+
+    private struct LossyString: Decodable {
+        let value: String?
+        init(from decoder: any Decoder) throws { value = try? String(from: decoder) }
+    }
+}
+
 /// The signed-in answer: who this phone is and what the instance offers it.
 public struct Me: Decodable, Sendable, Equatable {
     public struct UserInfo: Decodable, Sendable, Equatable {
@@ -71,6 +92,11 @@ public struct Me: Decodable, Sendable, Equatable {
     public let push: PushState
     public let features: [String: Bool]
     public let web: WebSupport?
+    /// The `filter` words `GET threads` accepts; the key is absent on an older server.
+    public let threadFilters: ThreadFilterNames?
+
+    /// Nil on an older server, which has no Review or Closed tab and takes `yak` as a filter.
+    public var threadFilterWords: [String]? { threadFilters?.names }
 
     /// True when the instance serves the embedded thread page.
     public var supportsEmbeddedThread: Bool { (web?.embed ?? 0) >= 1 }

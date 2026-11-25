@@ -120,7 +120,8 @@ final class AppParts {
             let cache = await model.sessions.session(for: active).instanceCache()
         else { return nil }
         var lists: [ThreadList] = []
-        for filter in ThreadListFilter.allCases {
+        // Only the whole Mine list is indexed; the other tabs hold what Spotlight already has or what is closed.
+        for filter in [ThreadListFilter.mine] {
             if let list = await cache.threadList(filter) { lists.append(list) }
         }
         return (SpotlightInstance(id: active.id, name: active.name), lists)

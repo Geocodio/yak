@@ -60,8 +60,13 @@ import XCTest
         try waitForDrawer()
         XCTAssertTrue(app.descendants(matching: .any)["drawer.row.thread:d0e515ef"].waitForExistence(timeout: 10))
         // The first landing is Everyone; Mine has nothing, and the empty state offers what is left.
-        app.buttons["drawer.filter"].tap()
-        app.buttons["Mine"].tap()
+        // The tab row is the menu button at the largest text size.
+        if app.buttons["drawer.tab.mine"].waitForExistence(timeout: 10) {
+            app.buttons["drawer.tab.mine"].tap()
+        } else {
+            app.buttons["drawer.tabs.menu"].tap()
+            app.buttons["Mine"].tap()
+        }
         XCTAssertTrue(app.buttons["drawer.empty.everyone"].waitForExistence(timeout: 10))
         try shoot("drawer-empty-others")
         try start("empty", paired: true)

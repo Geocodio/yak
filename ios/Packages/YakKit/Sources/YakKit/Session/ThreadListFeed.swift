@@ -20,10 +20,13 @@ public struct ThreadListState: Equatable, Sendable {
     public var isOffline: Bool
     public var filter: ThreadListFilter
     public var search: String?
+    public var sources: [String]
+    public var starters: [String]
 
     public init(
         list: ThreadList? = nil, load: ThreadLoadState = .loading, isShowingCachedCopy: Bool = false,
-        isOffline: Bool = false, filter: ThreadListFilter = .mine, search: String? = nil
+        isOffline: Bool = false, filter: ThreadListFilter = .mine, search: String? = nil, sources: [String] = [],
+        starters: [String] = []
     ) {
         self.list = list
         self.load = load
@@ -31,7 +34,15 @@ public struct ThreadListState: Equatable, Sendable {
         self.isOffline = isOffline
         self.filter = filter
         self.search = search
+        self.sources = sources
+        self.starters = starters
     }
+
+    /// No search, source or starter narrows the tab: the answer is the tab's whole list, the one that is stored.
+    public var isWholeTab: Bool { search == nil && sources.isEmpty && starters.isEmpty }
+
+    /// The whole Mine tab: the only list the badge count, the cold start and the widget read.
+    public var isWholeMine: Bool { filter == .mine && isWholeTab }
 
     /// Loaded, and nothing to show in any section.
     public var isEmpty: Bool {
@@ -40,8 +51,8 @@ public struct ThreadListState: Equatable, Sendable {
     }
 }
 
-/// Keeps the thread list of one instance fresh while the drawer is visible. Only the unsearched `mine`
-/// list is stored, so the stored copy, the badge count and the widget always mean the same thing.
+/// Keeps the thread list of one instance fresh while the drawer is visible. Each tab's whole list is stored on its
+/// own; a searched or filtered view is never stored. Only the whole `mine` list feeds the badge count and the widget.
 public actor ThreadListFeed {
     public static let pollInterval: Duration = .seconds(5)
     /// How long a first load may wait before it counts as slow.
@@ -88,12 +99,19 @@ public actor ThreadListFeed {
     }
 
     /// Cancels the request in flight and loads the new view at once.
-    public func setFilter(_ filter: ThreadListFilter, search: String?) async {
+    public func setFilter(
+        _ filter: ThreadListFilter, search: String?, sources: [String] = [], starters: [String] = []
+    ) async {
         let trimmed = search?.trimmingCharacters(in: .whitespacesAndNewlines)
         let search = trimmed?.isEmpty == false ? trimmed : nil
-        guard filter != state.filter || search != state.search else { return }
+        guard
+            filter != state.filter || search != state.search || sources != state.sources
+                || starters != state.starters
+        else { return }
         state.filter = filter
         state.search = search
+        state.sources = sources
+        state.starters = starters
         state.list = nil
         state.isShowingCachedCopy = false
         state.isOffline = false
@@ -161,11 +179,14 @@ public actor ThreadListFeed {
         }
     }
 
-    /// The saved list is shown only for the view that is stored, and only before a newer answer.
+    /// The saved list is shown only for a whole tab, and only before a newer answer.
     private func showSavedCopy() async {
-        guard state.filter == .mine, state.search == nil, state.list == nil else { return }
-        guard let saved = await cache.threadList(.mine) else { return }
-        guard state.list == nil, state.filter == .mine, state.search == nil else { return }
+        guard state.isWholeTab, state.list == nil else { return }
+        let tab = state.filter
+        guard let saved = await cache.threadList(tab) else { return }
+        guard state.list == nil, state.filter == tab, state.isWholeTab else { return }
+        // An offline answer that came first still counts: the copy is shown with the offline line.
+        if case .failed(.offline) = state.load { state.isOffline = true }
         state.list = saved
         state.load = .ready
         state.isShowingCachedCopy = true
@@ -177,9 +198,12 @@ public actor ThreadListFeed {
     private func fetch(generation current: Int) async {
         let filter = state.filter
         let search = state.search
+        let sources = state.sources
+        let starters = state.starters
         let fetched: ThreadList
         do {
-            fetched = try await client.send(.threads(filter: filter, search: search))
+            fetched = try await client.send(
+                .threads(filter: filter, search: search, sources: sources, starters: starters))
         } catch {
             guard !Task.isCancelled, current == generation else { return }
             let problem = ThreadProblem(error)
@@ -202,8 +226,9 @@ public actor ThreadListFeed {
         state.isShowingCachedCopy = false
         state.isOffline = false
         publish()
-        guard filter == .mine, search == nil else { return }
-        await cache.saveThreadList(fetched, filter: .mine)
+        guard search == nil, sources.isEmpty, starters.isEmpty else { return }
+        await cache.saveThreadList(fetched, filter: filter)
+        guard filter == .mine else { return }
         do {
             try await instances.setNeedsYouCount(instance.id, fetched.needsYouCount)
         } catch {

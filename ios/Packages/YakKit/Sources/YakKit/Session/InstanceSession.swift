@@ -127,6 +127,12 @@ public actor InstanceSession {
     public func statuses() -> AsyncStream<SessionStatus> { statusBroadcast.stream() }
     public func me() -> Me? { currentMe }
     public func threadList() -> ThreadListFeed? { feed }
+    /// The filter words the server accepts: this session's `me`, else the last answer kept on the disk. Nil on an
+    /// older server, and before any answer was ever stored.
+    public func threadFilters() async -> [String]? {
+        if let currentMe { return currentMe.threadFilterWords }
+        return await cache?.threadFilters()
+    }
     public func outbox() -> Outbox? { currentOutbox }
     public func connectionStates() -> AsyncStream<ConnectionState> { connectionBroadcast.stream() }
     /// The signed-in client for a feature's requests. Nil unless the session is active. Fetch it again for each
@@ -237,6 +243,7 @@ public actor InstanceSession {
     /// Stores what `me` says, then starts realtime and puts every open thread on it.
     private func connect(_ me: Me, run: Int) async {
         currentMe = me
+        await cache?.saveThreadFilters(me.threadFilterWords)
         do { try await instances.update(instance.id, from: me) } catch {
             logFailure("instance not updated: \(type(of: error))")
         }

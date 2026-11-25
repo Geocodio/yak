@@ -4,7 +4,7 @@ import Foundation
 struct StubRequest: Sendable {
     var method: String
     var path: String
-    /// The decoded query items; a key that repeats keeps its last value.
+    /// The decoded query items; a key that repeats keeps its last value, except a list key (`sources[]`), which joins all.
     var query: [String: String] = [:]
     var headers: [String: String] = [:]
     var body = Data()
@@ -77,6 +77,8 @@ struct StubFixtures: Sendable {
         for name in ["instance", "me", "device-code", "device-pair", "device-token"] {
             files[name] = try Data(contentsOf: directory.appendingPathComponent("\(name).json"))
         }
+        // The Review tab's answer is read only by the drawer scenarios.
+        files["threads-review"] = try? Data(contentsOf: directory.appendingPathComponent("threads-review.json"))
         for pair in Self.names {
             files[pair.server] = try? Data(contentsOf: directory.appendingPathComponent("\(pair.server).json"))
         }
@@ -115,7 +117,7 @@ struct StubFixtures: Sendable {
         return scenario(pair.scenario, baseURL: baseURL)
     }
 
-    private func object(_ data: Data?, baseURL: String) -> [String: Any] {
+    func object(_ data: Data?, baseURL: String) -> [String: Any] {
         guard let data, let parsed = try? JSONSerialization.jsonObject(with: data) else { return [:] }
         return fill(parsed, key: nil, baseURL: baseURL) as? [String: Any] ?? [:]
     }
@@ -235,6 +237,14 @@ enum Scenario: String, CaseIterable, Sendable {
     case brokenNewThread = "broken-new-thread"
     /// The thread routes answer with the server's own fixtures.
     case serverFixtures = "server-fixtures"
+    /// The drawer's tabs: every filter answers its own rows and `me` lists all five filters.
+    case drawerTabs = "drawer-tabs"
+    /// The same, with nothing waiting in Review (no badge count).
+    case drawerTabsQuiet = "drawer-tabs-quiet"
+    /// An older server: `me` has no `threadFilters`, and lists carry no review count and no facets.
+    case drawerTabsOlder = "drawer-tabs-older"
+    /// The Review tab is empty because the person's GitHub login is not linked.
+    case drawerTabsLink = "drawer-tabs-link"
 
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)
@@ -307,6 +317,7 @@ enum Scenario: String, CaseIterable, Sendable {
                     details: ["min_protocol": 99, "current_protocol": 99, "client_protocol": 1])
             default:
                 return json("me") {
+                    if self == .drawerTabsOlder { $0["threadFilters"] = nil }
                     if self == .oneAttachment {
                         var limits = $0["attachments"] as? [String: Any] ?? [:]
                         limits["maxFiles"] = 1
