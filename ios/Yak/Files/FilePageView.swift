@@ -88,7 +88,7 @@ struct FilePageView: View {
                 Label {
                     Text("files.page.edit")
                 } icon: {
-                    Image(systemName: "pencil").accessibilityHidden(true)
+                    if Bisect.value != "noIcons" { Image(systemName: "pencil").accessibilityHidden(true) }
                 }
                 .font(.yak(.footnote, .semibold)).frame(minHeight: 44)
             }
@@ -101,7 +101,9 @@ struct FilePageView: View {
             Label {
                 Text(isViewed ? "files.viewed.on" : "files.viewed.off")
             } icon: {
-                Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+                if Bisect.value != "noIcons" {
+                    Image(systemName: isViewed ? "checkmark.circle.fill" : "circle").accessibilityHidden(true)
+                }
             }
             .font(.yak(.footnote, .semibold)).frame(minHeight: 44)
         }

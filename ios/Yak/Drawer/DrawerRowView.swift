@@ -94,7 +94,7 @@ struct DrawerRowView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
             : AnyLayout(HStackLayout(spacing: Design.Space.small))
         return layout {
-            if row.source != nil || isTask {
+            if (row.source != nil || isTask) && Bisect.value != "noBadge" {
                 HStack(spacing: Design.Space.small) {
                     if let source = row.source {
                         DrawerBadge(text: source).accessibilityIdentifier("drawer.sourceLabel")

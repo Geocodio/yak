@@ -12,6 +12,7 @@ import XCTest
     }
 
     private var bisect = ""
+    private var bisectSwitchesPanes = false
 
     private func launch(scenario: String) throws {
         try stub.play(scenario)
@@ -169,11 +170,25 @@ import XCTest
 
     func testZBisectNoHiddenPanes() throws { try bisectRun("noHiddenPanes") }
 
+    func testZBisectNoIcons() throws { try bisectRun("noIcons") }
+
+    func testZBisectNoBadge() throws { try bisectRun("noBadge") }
+
+    func testZBisectSwitchedPanes() throws {
+        bisectSwitchesPanes = true
+        try bisectRun("")
+    }
+
     // DEBUG-BISECT: throwaway variants of the Edit file screen; they report findings and never fail.
     private func bisectRun(_ variant: String) throws {
         bisect = variant
         try openFiles(scenario: "changes-files")
         XCTAssertTrue(element("files.file.title").firstMatch.waitForExistence(timeout: Wait.appear))
+        if bisectSwitchesPanes {
+            showPane("Chat")
+            showPane("Files")
+            XCTAssertTrue(element("files.file.title").firstMatch.waitForExistence(timeout: Wait.appear))
+        }
         for attempt in 1...2 {
             AuditRules.waitUntilStill(app)
             let auditBars = AuditRules.Bars(app)
@@ -193,7 +208,7 @@ import XCTest
                 findings.append("\(issue.compactDescription) | \(issue.element?.label ?? "no element")")
                 return true
             }
-            print("BISECT variant=\(variant.isEmpty ? "baseline" : variant) attempt=\(attempt) findings=\(findings)")
+            print("BISECT variant=\(variant.isEmpty ? (bisectSwitchesPanes ? "switchedPanes" : "baseline") : variant) attempt=\(attempt) findings=\(findings)")
         }
     }
 
