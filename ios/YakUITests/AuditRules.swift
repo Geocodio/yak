@@ -145,6 +145,37 @@ extension XCTestCase {
             var findings: [String] = []
             do {
                 try app.performAccessibilityAudit(for: types) { issue in
+                    // DEBUG-AUDIT: throwaway instrumentation
+                    let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                    shot.lifetime = .keepAlways
+                    shot.name = "DEBUG-issue-\(attempt)-\(issue.auditType.rawValue)"
+                    self.add(shot)
+                    print("DEBUG-AUDIT attempt=\(attempt) type=\(issue.auditType.rawValue) compact=\(issue.compactDescription) detailed=\(issue.detailedDescription) element=\(issue.element?.debugDescription ?? "nil") excused=\(isExcused(issue))")
+                    var ivarText = ""
+                    var count: UInt32 = 0
+                    if let ivars = class_copyIvarList(type(of: issue as AnyObject), &count) {
+                        for index in 0..<Int(count) {
+                            let name = String(cString: ivar_getName(ivars[index])!)
+                            let encoding = String(cString: ivar_getTypeEncoding(ivars[index])!)
+                            if encoding.hasPrefix("@") {
+                                let value = object_getIvar(issue, ivars[index])
+                                ivarText += "\(name)=\(String(describing: value)); "
+                            } else {
+                                ivarText += "\(name):\(encoding); "
+                            }
+                        }
+                    }
+                    print("DEBUG-AUDIT-IVARS \(ivarText)")
+                    if let element = issue.element, element.exists {
+                        let crop = XCTAttachment(image: element.screenshot().image)
+                        crop.lifetime = .keepAlways
+                        crop.name = "DEBUG-element-\(attempt)-\(issue.auditType.rawValue)"
+                        self.add(crop)
+                    }
+                    let tree = XCTAttachment(string: app.debugDescription)
+                    tree.lifetime = .keepAlways
+                    tree.name = "DEBUG-tree-\(attempt)"
+                    self.add(tree)
                     if isExcused(issue) { return true }
                     findings.append(
                         "\(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"

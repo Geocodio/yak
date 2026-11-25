@@ -68,7 +68,7 @@ struct FilePageView: View {
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("files.notInPullRequest")
             }
             // Two actions that must not clip stack at accessibility text sizes, as the bar below does.
-            if dynamicTypeSize.isAccessibilitySize {
+            if dynamicTypeSize.isAccessibilitySize && Bisect.value != "hstack" {
                 VStack(alignment: .leading, spacing: 0) {
                     viewedButton
                     editButton
@@ -83,7 +83,7 @@ struct FilePageView: View {
     }
 
     @ViewBuilder private var editButton: some View {
-        if let edit {
+        if let edit, Bisect.value != "noEdit" {
             Button(action: edit) {
                 Label {
                     Text("files.page.edit")
@@ -125,7 +125,7 @@ struct FilePageView: View {
     @ViewBuilder private var content: some View {
         switch state {
         case .ready(let patch):
-            ForEach(patch.rows) { DiffRowView(row: $0) }
+            if Bisect.value != "noDiff" { ForEach(patch.rows) { DiffRowView(row: $0) } }
         case .loading, nil:
             RowSkeleton(rowCount: 12, identifier: "files.page.loading").frame(minHeight: 320)
         case .slow:
@@ -174,4 +174,9 @@ struct FilePageView: View {
         .fixedSize(horizontal: false, vertical: true)
         .padding(24).frame(maxWidth: .infinity).accessibilityIdentifier(identifier)
     }
+}
+
+/// DEBUG-BISECT: throwaway switch for the audit bisect.
+enum Bisect {
+    static var value: String { UserDefaults.standard.string(forKey: "yakDebugBisect") ?? "" }
 }

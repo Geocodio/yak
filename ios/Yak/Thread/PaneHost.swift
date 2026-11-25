@@ -30,7 +30,9 @@ struct PaneHost: View {
     var body: some View {
         ZStack(alignment: isSingle ? .center : .topLeading) {
             ForEach(slots.alive, id: \.self) { id in
-                if let descriptor = PaneCatalog.descriptor(for: id) {
+                if let descriptor = PaneCatalog.descriptor(for: id),
+                    Bisect.value != "noHiddenPanes" || Self.isShown(id, focused: focused, isSingle: isSingle, placed: slots.isShown(id))
+                {
                     let isShown = Self.isShown(id, focused: focused, isSingle: isSingle, placed: slots.isShown(id))
                     let frame = slots.frame(for: id)
                     // A pane that waits for its slot's frame is neither drawn nor reachable.

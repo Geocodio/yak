@@ -29,13 +29,13 @@ struct DrawerContainer<Drawer: View, Detail: View>: View {
             let progress = reduceMotion ? (isOpen ? 1 : 0) : openProgress(width: width)
             ZStack(alignment: .leading) {
                 Color.yakBackground.ignoresSafeArea()
-                drawer
+                if isOpen || Bisect.value != "noDrawer" { drawer
                     .frame(width: width)
                     .frame(maxHeight: .infinity)
                     .offset(x: -(1 - progress) * width)
                     .opacity(reduceMotion ? progress : 1)
                     .accessibilityHidden(!isOpen)
-                    .simultaneousGesture(dragGesture(width: width))
+                    .simultaneousGesture(dragGesture(width: width)) }
                 detail
                     .background {
                         Rectangle().fill(Color.yakBackground)

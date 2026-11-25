@@ -11,9 +11,11 @@ import XCTest
         XCUIDevice.shared.orientation = .portrait
     }
 
+    private var bisect = ""
+
     private func launch(scenario: String) throws {
         try stub.play(scenario)
-        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token", "-yakDebugBisect", bisect]
         app.launchRetryingOnce()
     }
 
@@ -153,6 +155,46 @@ import XCTest
         wait(for: [XCTNSPredicateExpectation(predicate: opened, object: button)], timeout: Wait.appear)
         XCTAssertEqual(button.label, "Pull request 41, open. Show details")
         try audit()
+    }
+
+    func testZBisectBaseline() throws { try bisectRun("") }
+
+    func testZBisectNoEdit() throws { try bisectRun("noEdit") }
+
+    func testZBisectHstack() throws { try bisectRun("hstack") }
+
+    func testZBisectNoDiff() throws { try bisectRun("noDiff") }
+
+    func testZBisectNoDrawer() throws { try bisectRun("noDrawer") }
+
+    func testZBisectNoHiddenPanes() throws { try bisectRun("noHiddenPanes") }
+
+    // DEBUG-BISECT: throwaway variants of the Edit file screen; they report findings and never fail.
+    private func bisectRun(_ variant: String) throws {
+        bisect = variant
+        try openFiles(scenario: "changes-files")
+        XCTAssertTrue(element("files.file.title").firstMatch.waitForExistence(timeout: Wait.appear))
+        for attempt in 1...2 {
+            AuditRules.waitUntilStill(app)
+            let auditBars = AuditRules.Bars(app)
+            var findings: [String] = []
+            try? app.performAccessibilityAudit(for: .all) { issue in
+                let centre = CGPoint(x: auditBars.window.midX, y: auditBars.window.midY)
+                let bars =
+                    self.app.navigationBars.allElementsBoundByIndex
+                    + self.app.toolbars.allElementsBoundByIndex.filter { !$0.frame.contains(centre) }
+                if let element = issue.element, bars.contains(where: { $0.frame.contains(element.frame) }),
+                    [.dynamicType, .textClipped].contains(issue.auditType)
+                {
+                    return true
+                }
+                if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
+                if AuditRules.isContrastOfTextBehindABar(issue, bars: auditBars) { return true }
+                findings.append("\(issue.compactDescription) | \(issue.element?.label ?? "no element")")
+                return true
+            }
+            print("BISECT variant=\(variant.isEmpty ? "baseline" : variant) attempt=\(attempt) findings=\(findings)")
+        }
     }
 
     private func audit() throws {
