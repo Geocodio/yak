@@ -13389,7 +13389,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Offline. The pull request opens when you are back online."
+            "value" : "You are offline. Try the pull request again when you are back online."
           }
         }
       }

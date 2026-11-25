@@ -25,7 +25,7 @@ struct DrawerRowView: View {
     var body: some View {
         HStack(spacing: 0) {
             if row.depth > 0 { nesting }
-            plainRow
+            rowButton
             if row.childCount > 0 {
                 Button(action: toggle) {
                     Image(systemName: "chevron.right").font(.yak(.footnote, .semibold))
@@ -41,39 +41,53 @@ struct DrawerRowView: View {
         }
     }
 
-    /// The whole row opens the thread, except a pull request number, which takes its own tap. VoiceOver reads one
-    /// element with the whole line and reaches each pull request through an action.
+    @ViewBuilder private var rowButton: some View {
+        if let line = row.reviewLine { reviewRow(line) } else { plainRow }
+    }
+
+    /// A row with one target: the whole row opens the thread.
     private var plainRow: some View {
         Button(action: open) {
-            rowLayout(line: row.reviewLine)
-                .contentShape(.rect)
+            rowLayout(line: nil).contentShape(.rect)
         }
         .buttonStyle(RowButtonStyle(isSelected: isSelected))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("drawer.row.\(row.id)")
-        .modifier(PullRequestActions(links: row.reviewLine?.links ?? [], open: openPullRequest))
+    }
+
+    /// A row with two kinds of target. The row opens the thread through a button behind its content; the content
+    /// lets touches through except on the pull request numbers. VoiceOver reads one element with the whole line and
+    /// reaches each pull request through an action; the numbers are hidden from it and carry identifiers for tests.
+    private func reviewRow(_ line: ReviewLine) -> some View {
+        rowLayout(line: line)
+            .accessibilityHidden(true)
+            .background {
+                Button(action: open) { Color.clear.contentShape(.rect) }
+                    .buttonStyle(RowButtonStyle(isSelected: isSelected))
+                    .accessibilityLabel(accessibilityLabel)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier("drawer.row.\(row.id)")
+                    .modifier(PullRequestActions(links: line.actionableLinks, open: openPullRequest))
+            }
     }
 
     private func rowLayout(line: ReviewLine?) -> some View {
+        let passesTouches = line != nil
         return HStack(alignment: .top, spacing: Design.Space.snug) {
             if !isLarge {
                 DrawerIndicator(indicator: row.indicator)
                     .frame(width: indicatorSize, height: indicatorSize)
                     .padding(.top, Design.Space.small)
+                    .allowsHitTesting(!passesTouches)
             }
             VStack(alignment: .leading, spacing: 2) {
-                title
-                detailLine
-                if let detail = row.failureDetail {
-                    Text(detail).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(showsEverything ? nil : (isLarge ? 1 : 2)).truncationMode(.tail)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                title.allowsHitTesting(!passesTouches)
+                detailLine.allowsHitTesting(!passesTouches)
+                failureText.allowsHitTesting(!passesTouches)
                 if let line {
-                    ReviewLineView(line: line, openPullRequest: openPullRequest)
+                    ReviewLineView(line: line, rowID: row.id, openPullRequest: openPullRequest)
                         .padding(.top, Design.Space.tight)
                 }
                 if isLarge {
@@ -82,17 +96,37 @@ struct DrawerRowView: View {
                         DrawerIndicator(indicator: row.indicator).frame(width: 22, height: 22)
                         trailing(isInline: true)
                     }
+                    .allowsHitTesting(!passesTouches)
                 }
             }
             Spacer(minLength: 4)
             if isRunning { ProgressView().frame(width: 22, height: 22) }
-            if !isLarge { trailing(isInline: false) }
+            if !isLarge { trailing(isInline: false).allowsHitTesting(!passesTouches) }
         }
         .padding(.leading, isLarge ? 12 : (row.depth == 0 ? Design.Space.snug : 8))
         .padding(.trailing, row.childCount > 0 ? 0 : Design.Space.medium)
-        .padding(.top, 8)
-        .padding(.bottom, line != nil ? Design.Space.numberReachVertical : 8)
+        .padding(.top, Design.Space.compact)
+        .padding(.bottom, passesTouches ? Design.Space.reviewRowBottom : Design.Space.compact)
         .frame(minHeight: isLarge ? 44 : Design.Size.row)
+    }
+
+    /// The error of a failed thread: muted, two lines (one at accessibility sizes), cut at the end. The long-press
+    /// preview shows all of it with its line breaks, in a scroll view that stops growing at a set height.
+    @ViewBuilder private var failureText: some View {
+        if showsEverything, let full = row.failureFullText {
+            ScrollView {
+                Text(full).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: Design.Size.previewDetailMaxHeight)
+            .fixedSize(horizontal: false, vertical: true)
+        } else if let detail = row.failureDetail {
+            Text(detail).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                .multilineTextAlignment(.leading)
+                .lineLimit(isLarge ? 1 : 2).truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     /// The title; an unread thread's is semibold, with a small dot after it.

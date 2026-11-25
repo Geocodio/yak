@@ -124,4 +124,61 @@ private func line(
         #expect(items.filter { $0 == .numbers }.count == 1)
         #expect(items.count == result.parts.count + 1)
     }
+
+    @Test func conflictsOnOnePullRequestAndFailingChecksOnAnotherShowConflicts() {
+        let result = line([pullRequest(1, checks: "failing"), pullRequest(2, mergeability: "conflicts")])
+        #expect(result.parts == [.ready, .conflicts])
+    }
+
+    @Test func theSameNumberInTwoRepositoriesKeepsBothLinksWithTheirOwnAddress() {
+        let result = line([pullRequest(12), pullRequest(12, repository: "example/api")])
+        #expect(result.links.map(\.text) == ["example/web#12", "example/api#12"])
+        #expect(
+            result.links.map { $0.url?.absoluteString } == [
+                "https://github.com/example/web/pull/12", "https://github.com/example/api/pull/12",
+            ])
+        #expect(result.actionableLinks.count == 2)
+    }
+
+    @Test func aNumberWithoutASafeAddressIsNotActionable() {
+        let unsafe = ReviewPullRequest(
+            number: 5, url: "http://github.com/example/web/pull/5", repository: "example/web")
+        let result = line([pullRequest(4), unsafe])
+        #expect(result.links.map(\.isActionable) == [true, false])
+        #expect(result.actionableLinks.map(\.number) == [4])
+    }
+}
+
+@Suite struct ReviewHitAreaTests {
+    private func reach(
+        first: Bool = true, last: Bool = true, onLastLine: Bool = true, padding: Double = 14, height: Double = 16
+    ) -> ReviewHitArea.Reach {
+        ReviewHitArea.reach(
+            isFirst: first, isLast: last, isOnLastLine: onLastLine, bottomPadding: padding, lineHeight: height,
+            outerReach: 8)
+    }
+
+    @Test func neverReachesUpIntoTheLineAbove() {
+        #expect(reach().top == 0)
+        #expect(reach(onLastLine: false).top == 0)
+    }
+
+    @Test func reachesDownOnlyOnTheLastLineAndOnlyThroughTheRowsPadding() {
+        #expect(reach().bottom == 14)
+        #expect(reach(padding: 40).bottom == 28)
+        #expect(reach(onLastLine: false).bottom == 0)
+        #expect(reach(padding: 0).bottom == 0)
+    }
+
+    @Test func twoNumbersNeverOverlapSideways() {
+        let first = reach(first: true, last: false)
+        let second = reach(first: false, last: true)
+        #expect(first.trailing == 0 && second.leading == 0)
+        let alone = reach()
+        #expect(alone.leading == 8 && alone.trailing == 8)
+    }
+
+    @Test func aTallLineNeedsNoReachDown() {
+        #expect(reach(height: 44).bottom == 0)
+    }
 }

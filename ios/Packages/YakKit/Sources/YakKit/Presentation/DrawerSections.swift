@@ -31,8 +31,11 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     public let repository: String?
     /// The pull request line of a Review row; nil on every other row.
     public let reviewLine: ReviewLine?
-    /// The error of a failed thread, shown under its label; nil when the server sent none.
+    /// The error of a failed thread for the row's two lines: every run of whitespace is one space. Nil unless the row
+    /// is a failure (the blocked reason with the "Failed" label) and the server sent some text.
     public let failureDetail: String?
+    /// The same error as the server sent it, line breaks kept, for the long-press preview.
+    public let failureFullText: String?
 
     /// The repository the second line shows in the mono face in place of the status word. Only a status whose mark
     /// differs without color (stopped, closed, paused, waiting for a repository) gives way; running, blocked, unseen
@@ -48,7 +51,8 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     init(
         id: String, target: Target, title: String, subtitle: DrawerSubtitle, indicator: Indicator, isPrivate: Bool,
         lastActivity: Date?, depth: Int, childCount: Int, isExpanded: Bool, source: String? = nil,
-        repository: String? = nil, reviewLine: ReviewLine? = nil, failureDetail: String? = nil
+        repository: String? = nil, reviewLine: ReviewLine? = nil, failureDetail: String? = nil,
+        failureFullText: String? = nil
     ) {
         self.id = id
         self.target = target
@@ -64,6 +68,7 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
         self.repository = repository
         self.reviewLine = reviewLine
         self.failureDetail = failureDetail
+        self.failureFullText = failureFullText
     }
 }
 
@@ -197,14 +202,17 @@ public enum DrawerSections {
             source: depth == 0 ? row.source?.displayName : nil,
             repository: depth == 0 && !row.repo.isEmpty ? row.repo : nil,
             reviewLine: depth == 0 ? ReviewLine.make(row.review) : nil,
-            failureDetail: row.needsYouLabel == nil ? nil : failureDetail(row.needsYouDetail))
+            failureDetail: failureText(of: row)?.collapsed, failureFullText: failureText(of: row)?.full)
         guard isExpanded else { return [line] }
         return [line] + row.children.flatMap { flatten($0, depth: depth + 1, expanded: expanded) }
     }
 
-    private static func failureDetail(_ text: String?) -> String? {
-        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+    /// The error text of a failed row: the original, and the same with every run of whitespace as one space.
+    private static func failureText(of row: ThreadRow) -> (full: String, collapsed: String)? {
+        guard row.needsYouReason == .blocked, row.needsYouLabel == "Failed" else { return nil }
+        let full = row.needsYouDetail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !full.isEmpty else { return nil }
+        return (full, full.split(whereSeparator: \.isWhitespace).joined(separator: " "))
     }
 
     private static func allDescendants(of row: ThreadRow) -> [ThreadRow] {

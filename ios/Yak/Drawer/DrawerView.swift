@@ -303,6 +303,7 @@ struct DrawerView: View {
             }
             .environment(\.defaultMinListHeaderHeight, 0)
             .listStyle(.plain)
+            .contentMargins(.bottom, Design.Space.large, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .motion(Motion.content, value: drawer.content)
@@ -330,7 +331,7 @@ struct DrawerView: View {
                     } label: {
                         Text("overview.child.open")
                     }
-                    ForEach(row.reviewLine?.links ?? [], id: \.number) { link in
+                    ForEach(Array((row.reviewLine?.actionableLinks ?? []).enumerated()), id: \.offset) { _, link in
                         Button {
                             openPullRequest(link, drawer: drawer)
                         } label: {

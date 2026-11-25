@@ -5,6 +5,7 @@ import YakKit
 /// them. A number takes its own tap; a tap on any other part reaches the row.
 struct ReviewLineView: View {
     let line: ReviewLine
+    let rowID: String
     let openPullRequest: (ReviewLine.Link) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -17,8 +18,9 @@ struct ReviewLineView: View {
     /// The items of a line sit side by side, and under each other at accessibility sizes. The same views change
     /// their layout, so the size never rebuilds the line.
     private func arranged() -> some View {
-        VStack(alignment: .leading, spacing: Design.Space.tight) {
-            ForEach(Array(line.lines.enumerated()), id: \.offset) { _, items in
+        let lines = line.lines
+        return VStack(alignment: .leading, spacing: Design.Space.tight) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { index, items in
                 let layout =
                     dynamicTypeSize.isAccessibilitySize
                     ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
@@ -26,8 +28,8 @@ struct ReviewLineView: View {
                 layout {
                     ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                         switch item {
-                        case .numbers: numbers
-                        case .part(let part): ReviewPartView(part: part)
+                        case .numbers: numbers(isOnLastLine: index == lines.count - 1)
+                        case .part(let part): ReviewPartView(part: part).allowsHitTesting(false)
                         }
                     }
                 }
@@ -35,27 +37,50 @@ struct ReviewLineView: View {
         }
     }
 
-    private var numbers: some View {
+    /// The numbers, each a target of its own. A target never reaches into another line or another target: the comma
+    /// and half the gap after a number belong to it, the other half to the next number, and the reach down is the
+    /// row's own padding, only when the numbers sit on the row's last line with nothing stacked under them.
+    private func numbers(isOnLastLine: Bool) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(line.links.enumerated()), id: \.offset) { index, link in
-                // A text with a tap, not a button: the reach past the text is for the finger, and the row's one
-                // element carries the actions for VoiceOver.
-                Text(link.text).font(.yakRowRepository).foregroundStyle(Color.yakMuted).underline()
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, Design.Space.numberReachHorizontal)
-                    .padding(.vertical, Design.Space.numberReachVertical)
-                    .contentShape(.rect)
-                    .onTapGesture { openPullRequest(link) }
-                    .padding(.horizontal, -Design.Space.numberReachHorizontal)
-                    .padding(.vertical, -Design.Space.numberReachVertical)
-                if index < line.links.count - 1 {
-                    Text(verbatim: ", ").font(.yakRowRepository).foregroundStyle(Color.yakMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .allowsHitTesting(false)
-                }
+                let isLast = index == line.links.count - 1
+                let reach = ReviewHitArea.reach(
+                    isFirst: index == 0, isLast: isLast,
+                    isOnLastLine: isOnLastLine && !dynamicTypeSize.isAccessibilitySize,
+                    bottomPadding: Design.Space.reviewRowBottom, lineHeight: Design.Size.numberLineHeight,
+                    outerReach: Design.Space.numberReachHorizontal)
+                target(link, index: index, isLast: isLast, reach: reach)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private func target(
+        _ link: ReviewLine.Link, index: Int, isLast: Bool, reach: ReviewHitArea.Reach
+    ) -> some View {
+        let label = HStack(spacing: 0) {
+            Text(link.text).font(.yakRowRepository).foregroundStyle(Color.yakMuted)
+                .underline(link.isActionable)
+                .fixedSize(horizontal: false, vertical: true)
+            if !isLast {
+                Text(verbatim: ",").font(.yakRowRepository).foregroundStyle(Color.yakMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.leading, index == 0 ? 0 : Design.Space.nudge)
+        .padding(.trailing, isLast ? 0 : Design.Space.nudge)
+        if link.isActionable {
+            // A text with a tap, not a button: the row's one element carries the actions for VoiceOver.
+            label
+                .padding(.leading, reach.leading).padding(.trailing, reach.trailing).padding(.bottom, reach.bottom)
+                .contentShape(.rect)
+                .onTapGesture { openPullRequest(link) }
+                .padding(.leading, -reach.leading).padding(.trailing, -reach.trailing)
+                .padding(.bottom, -reach.bottom)
+                .accessibilityIdentifier("drawer.review.pr.\(rowID).\(index)")
+        } else {
+            label.allowsHitTesting(false)
+        }
     }
 }
 

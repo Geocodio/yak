@@ -11,6 +11,10 @@ public struct ReviewLine: Equatable, Sendable {
         public let text: String
         /// The pull request on GitHub; nil when the server's address is not one the in-app browser may open.
         public let url: URL?
+
+        /// Only a number with an address the in-app browser may open is a target, an action and a menu item; any
+        /// other is plain text.
+        public var isActionable: Bool { url != nil }
     }
 
     /// A fact after the numbers. Anything the app does not know shows nothing.
@@ -28,6 +32,8 @@ public struct ReviewLine: Equatable, Sendable {
     }
 
     public let links: [Link]
+    /// The numbers that open a pull request, in order.
+    public var actionableLinks: [Link] { links.filter(\.isActionable) }
     /// The parts in the web's order: Draft or Ready, then Conflicts, CI failing or the check mark, then the new
     /// commits, then the other approvals.
     public let parts: [Part]

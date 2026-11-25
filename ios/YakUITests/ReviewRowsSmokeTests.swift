@@ -66,7 +66,7 @@ import XCTest
     func testTheNumberOpensTheBrowserSheet() throws {
         try launch("review-line")
         openReview()
-        tapNumber(inRow: "drawer.row.thread:rv1c0001")
+        tapNumber(inRow: "thread:rv1c0001")
         let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
         XCTAssertTrue(sheet.wait(for: .runningForeground, timeout: Wait.appear))
     }
@@ -85,6 +85,17 @@ import XCTest
             timeout: Wait.appear)
     }
 
+    /// The whole list passes the audit once no row is cut by the list's bottom edge, at the top and further down.
+    func testTheWholeReviewListPassesTheAudit() throws {
+        try launch("review-line")
+        openReview()
+        scrollUntilNoRowStraddlesTheBottom()
+        try audit()
+        app.swipeUp()
+        scrollUntilNoRowStraddlesTheBottom()
+        try audit()
+    }
+
     /// Offline, the saved Review list stays, and a tap on a pull request number says so instead of opening a page.
     func testOfflineANumberSaysSoInsteadOfOpeningThePage() throws {
         try launch("review-line")
@@ -92,10 +103,30 @@ import XCTest
         try stub.setOnline(false)
         XCTAssertTrue(element("drawer.offlineNotice").waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(element("drawer.row.thread:rv1c0001").exists)
-        tapNumber(inRow: "drawer.row.thread:rv1c0001")
+        tapNumber(inRow: "thread:rv1c0001")
         XCTAssertTrue(element("drawer.actionLine").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("drawer.actionLine").label.contains("You are offline. Try the pull request again"))
         let sheet = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
         XCTAssertFalse(sheet.wait(for: .runningForeground, timeout: 3))
+    }
+
+    /// Every pull request that can open has an item in the row's menu, also two with the same number in two
+    /// repositories; one whose address the app refuses has none.
+    func testEachPullRequestHasAnItemInTheMenu() throws {
+        try launch("review-line")
+        openReview()
+        func menuItems(of rowID: String) -> [String] {
+            let row = element("drawer.row.thread:\(rowID)")
+            XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
+            row.press(forDuration: 1.2)
+            let items = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Open pull request'"))
+            _ = items.firstMatch.waitForExistence(timeout: Wait.appear)
+            let labels = items.allElementsBoundByIndex.map(\.label)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.97)).tap()
+            return labels
+        }
+        XCTAssertEqual(
+            menuItems(of: "rv1c0004"), ["Open pull request example/web#271", "Open pull request example/api#88"])
     }
 
     /// A failed row in Needs you shows its error under "Failed".
@@ -116,14 +147,35 @@ import XCTest
         try audit()
     }
 
-    /// The number sits at the start of the row's last line; the row is its own element, so the tap is by position.
-    private func tapNumber(inRow identifier: String) {
-        let row = element(identifier)
-        XCTAssertTrue(row.waitForExistence(timeout: Wait.appear))
-        row.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: Self.numberOffset, dy: row.frame.height - Self.numberFromBottom)).tap()
+    /// A number is its own element for the test (hidden from VoiceOver, which has the row's actions instead).
+    private func tapNumber(inRow rowID: String, index: Int = 0) {
+        let number = element("drawer.review.pr.\(rowID).\(index)")
+        XCTAssertTrue(number.waitForExistence(timeout: Wait.appear))
+        number.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    private static let numberOffset: CGFloat = 45
-    private static let numberFromBottom: CGFloat = 22
+    /// Scrolls until no row straddles the list's bottom edge, as a careful tester does before judging contrast: a row
+    /// cut by the edge is not what the audit is meant to measure. A row is scrolled fully in, or fully out when that
+    /// takes less.
+    private func scrollUntilNoRowStraddlesTheBottom() {
+        let list = element("drawer.list")
+        let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'drawer.row.'"))
+        for _ in 0..<8 {
+            let edge = list.frame.maxY
+            guard
+                let straddler = rows.allElementsBoundByIndex.first(where: {
+                    $0.frame.minY < edge && $0.frame.maxY > edge
+                })
+            else { return }
+            let reveal = straddler.frame.maxY - edge + 2
+            let hide = edge - straddler.frame.minY + 2
+            let distance = reveal <= hide ? -reveal : hide
+            let middle = list.frame.midY
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: list.frame.midX, dy: middle))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: list.frame.midX, dy: middle + distance))
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
+        }
+    }
 }
