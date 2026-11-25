@@ -28,4 +28,24 @@ final class AuditRulesSmokeTests: XCTestCase {
         XCTAssertTrue(AuditRules.isOwn(title.offsetBy(dx: 0.5, dy: -1), ownFrames: [title]))
         XCTAssertFalse(AuditRules.isOwn(title.offsetBy(dx: 0, dy: 2), ownFrames: [title]))
     }
+
+    func testOnlyAContrastFindingWithoutAnElementIsExcusedWhileTheCompactDrawerIsClosed() {
+        let window = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let closed = CGRect(x: -330, y: 0, width: 330, height: 874)
+        func isExcused(
+            _ type: XCUIAccessibilityAuditType = .contrast, hasElement: Bool = false,
+            layout: AuditRules.Layout = .compact, drawer: CGRect? = closed
+        ) -> Bool {
+            AuditRules.isContrastWithoutAnElementInTheClosedDrawer(
+                type: type, hasElement: hasElement, layout: layout, drawer: drawer, window: window)
+        }
+        XCTAssertTrue(isExcused())
+        XCTAssertFalse(isExcused(hasElement: true), "a finding that names an element is judged")
+        XCTAssertFalse(isExcused(drawer: CGRect(x: 0, y: 0, width: 330, height: 874)), "an open drawer is judged")
+        XCTAssertFalse(
+            isExcused(drawer: CGRect(x: -200, y: 0, width: 330, height: 874)), "a drawer mid-slide is judged")
+        XCTAssertFalse(isExcused(drawer: nil), "without a drawer the rule does not apply")
+        XCTAssertFalse(isExcused(.dynamicType), "another audit type is judged")
+        XCTAssertFalse(isExcused(layout: .sidebar), "a sidebar is not judged by this rule")
+    }
 }
