@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import YakKit
 
 /// The thread list's tabs under the Observations tile, and the Filter button at the row's end. Where the four names
@@ -11,9 +12,10 @@ struct DrawerTabsView: View {
     let pick: (ThreadListFilter) -> Void
     let openFilter: () -> Void
 
-    /// What the names take, and the room for them; both are measured, so the row decides again whenever the text
-    /// size, the count or the drawer's width changes.
-    @State private var naturalWidth: Double = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The room for the names, measured; the width they need is worked out from the fonts, so the row decides
+    /// again whenever the text size, the count or the drawer's width changes, and nothing is drawn twice.
     @State private var availableWidth: Double = 0
 
     var body: some View {
@@ -25,31 +27,29 @@ struct DrawerTabsView: View {
             filterButton
         }
         .frame(minHeight: Design.Size.control)
-        .onPreferenceChange(NaturalWidthKey.self) { naturalWidth = $0 }
         .onPreferenceChange(AvailableWidthKey.self) { availableWidth = $0 }
     }
 
     /// The four names when they fit the width at the current text size and count, else the menu button, whatever
     /// the text size or the drawer's width.
     @ViewBuilder private var tabsOrMenu: some View {
+        let natural = TabRowMeasure.naturalWidth(
+            names: tabs.map { (tab: $0, text: plainName(of: $0), isSelected: $0 == selected) },
+            reviewCount: reviewCount,
+            size: min(dynamicTypeSize, .accessibility1))
         Group {
-            if TabRowFit.segmentsFit(naturalWidth: naturalWidth, availableWidth: availableWidth) {
+            if TabRowFit.segmentsFit(naturalWidth: natural, availableWidth: availableWidth) {
                 segments
             } else {
                 menuButton
             }
         }
         .frame(maxWidth: .infinity)
-        .background { widthReader(AvailableWidthKey.self) }
-        // The names at their own width, never shown or read out, measure what they need.
-        .background(alignment: .leading) {
-            segments.fixedSize(horizontal: true, vertical: false).hidden().accessibilityHidden(true)
-                .background { widthReader(NaturalWidthKey.self) }
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(key: AvailableWidthKey.self, value: Double(proxy.size.width))
+            }
         }
-    }
-
-    private func widthReader<Key: PreferenceKey>(_ key: Key.Type) -> some View where Key.Value == Double {
-        GeometryReader { proxy in Color.clear.preference(key: key, value: Double(proxy.size.width)) }
     }
 
     // MARK: Segments
@@ -180,6 +180,16 @@ struct DrawerTabsView: View {
         }
     }
 
+    /// The tab's name as the row draws it.
+    private func plainName(of tab: ThreadListFilter) -> String {
+        switch tab {
+        case .review: String(localized: "drawer.tab.review")
+        case .everyone: String(localized: "drawer.tab.everyone")
+        case .closed: String(localized: "drawer.tab.closed")
+        default: String(localized: "drawer.tab.mine")
+        }
+    }
+
     /// What VoiceOver says for a tab: the Review tab names its count, as a part of the tab.
     private func accessibilityName(of tab: ThreadListFilter) -> String {
         switch tab {
@@ -284,12 +294,57 @@ private struct EvenlySpread: Layout {
     }
 }
 
-private struct NaturalWidthKey: PreferenceKey {
+private struct AvailableWidthKey: PreferenceKey {
     static let defaultValue: Double = 0
     static func reduce(value: inout Double, nextValue: () -> Double) { value = nextValue() }
 }
 
-private struct AvailableWidthKey: PreferenceKey {
-    static let defaultValue: Double = 0
-    static func reduce(value: inout Double, nextValue: () -> Double) { value = nextValue() }
+/// What the four names take, from the fonts the row draws them in, at a text size.
+private enum TabRowMeasure {
+    static func naturalWidth(
+        names: [(tab: ThreadListFilter, text: String, isSelected: Bool)], reviewCount: Int, size: DynamicTypeSize
+    )
+        -> Double
+    {
+        let traits = UITraitCollection(preferredContentSizeCategory: category(of: size))
+        func width(_ text: String, style: UIFont.TextStyle, base: CGFloat, weight: Font.Weight) -> Double {
+            let face = Font.yakFaceName(weight: weight, isMonospaced: false, isBoldText: Font.yakIsBoldText)
+            let font = UIFont(name: face, size: base) ?? .systemFont(ofSize: base)
+            let scaled = UIFontMetrics(forTextStyle: style).scaledFont(for: font, compatibleWith: traits)
+            return Double((text as NSString).size(withAttributes: [.font: scaled]).width)
+        }
+        // The row's inset on both sides, and a point or two of slack for rounding.
+        var total = 2 * Double(Design.Space.tight) + 2
+        for item in names {
+            var itemWidth = width(
+                item.text, style: .footnote, base: Font.yakPointSize(of: .footnote),
+                weight: item.isSelected ? .semibold : .medium)
+            if item.tab == .review, reviewCount > 0 {
+                itemWidth += Double(Design.Space.tight) + 2 * Double(Design.Space.small)
+                itemWidth += width(
+                    ThreadTabs.badgeText(reviewCount), style: .caption1, base: Font.yakPointSize(of: .caption),
+                    weight: .semibold)
+            }
+            total += itemWidth + 2 * Double(Design.Space.small)
+        }
+        return total
+    }
+
+    private static func category(of size: DynamicTypeSize) -> UIContentSizeCategory {
+        switch size {
+        case .xSmall: .extraSmall
+        case .small: .small
+        case .medium: .medium
+        case .large: .large
+        case .xLarge: .extraLarge
+        case .xxLarge: .extraExtraLarge
+        case .xxxLarge: .extraExtraExtraLarge
+        case .accessibility1: .accessibilityMedium
+        case .accessibility2: .accessibilityLarge
+        case .accessibility3: .accessibilityExtraLarge
+        case .accessibility4: .accessibilityExtraExtraLarge
+        case .accessibility5: .accessibilityExtraExtraExtraLarge
+        @unknown default: .large
+        }
+    }
 }
