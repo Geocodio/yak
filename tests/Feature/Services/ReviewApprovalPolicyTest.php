@@ -52,7 +52,7 @@ beforeEach(function () {
     $this->github = mock(AppService::class);
     $this->github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
     $this->livePullRequest = [
-        'state' => 'open', 'draft' => false, 'auto_merge' => null, 'changed_files' => 1,
+        'state' => 'open', 'draft' => false, 'auto_merge' => null, 'changed_files' => 1, 'commits' => 1,
         'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']],
         'base' => ['ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice'],
     ];
@@ -80,6 +80,7 @@ it('holds a Yak-opened pull request', function () {
 
 it('holds a pull request with a commit Yak wrote or co-authored', function (array $commit) {
     config(['yak.git_user_email' => 'yak@noreply.github.com']);
+    $this->livePullRequest['commits'] = 2;
     $this->pullRequestCommits[] = array_replace_recursive(['author' => ['login' => 'alice'], 'commit' => ['author' => ['email' => 'alice@example.com'], 'committer' => ['email' => 'alice@example.com'], 'message' => 'Fix it']], $commit);
     fakePolicyClassifier();
 
@@ -91,12 +92,19 @@ it('holds a pull request with a commit Yak wrote or co-authored', function (arra
     'co-author trailer' => [['commit' => ['message' => "Fix it\n\nCo-authored-by: Yak <yak@noreply.github.com>"]]],
 ]);
 
-it('holds when the pull request commits cannot be read', function () {
-    $this->github->shouldReceive('listPullRequestCommits')->andThrow(new RuntimeException('GitHub down'));
+it('holds when not every pull request commit could be read', function (callable $change) {
+    $change($this);
     fakePolicyClassifier();
 
     expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Could not verify the pull request commits.']);
-});
+})->with([
+    'listing throws' => [fn ($test) => $test->github->shouldReceive('listPullRequestCommits')->andThrow(new RuntimeException('GitHub down'))],
+    'error returns an empty list' => [fn ($test) => $test->pullRequestCommits = []],
+    'listing stops at 250' => [fn ($test) => $test->livePullRequest['commits'] = 300],
+    'commit count missing' => [function ($test) {
+        unset($test->livePullRequest['commits']);
+    }],
+]);
 
 it('holds without a concerns file', function () {
     fakeYakFiles([]);

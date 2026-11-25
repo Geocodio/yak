@@ -658,7 +658,7 @@ it('records the level-based decision and approves a clean docs change at level 2
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'additions' => 1, 'deletions' => 0, 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
     $github->shouldReceive('listPullRequestCommits')->andReturn([]);
-    $github->shouldReceive('getPullRequestOrFail')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1,
+    $github->shouldReceive('getPullRequestOrFail')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1, 'commits' => 0,
         'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice']]);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
     $github->shouldReceive('hasRequiredStatusChecks')->andReturn(true);
@@ -729,7 +729,7 @@ function approvalHardeningSetup(): array
 
 function approvalLivePullRequest(string $headSha): array
 {
-    return ['state' => 'open', 'draft' => false, 'changed_files' => 1, 'user' => ['login' => 'alice'],
+    return ['state' => 'open', 'draft' => false, 'changed_files' => 1, 'commits' => 0, 'user' => ['login' => 'alice'],
         'head' => ['sha' => $headSha, 'repo' => ['full_name' => 'acme/api']], 'base' => ['ref' => 'main', 'repo' => ['full_name' => 'acme/api']]];
 }
 
