@@ -90,6 +90,27 @@ it('starts a task on the PR branch for an inline summon and replies in the threa
     expect(commentBodiesSent())->toHaveCount(1);
 });
 
+it('gives the agent the current PR description to keep up to date', function () {
+    Repository::factory()->create(['slug' => 'web', 'github_full_name' => 'acme/web', 'is_active' => true]);
+    fakeSummonGitHub(['body' => "Splits the warnings schema.\n\nCloses #12"], [inlineSummon()]);
+
+    runSummon(['reviewId' => 500]);
+
+    expect(YakTask::sole()->description)
+        ->toContain("<current-pr-description>\nSplits the warnings schema.\n\nCloses #12\n</current-pr-description>")
+        ->not->toContain('The PR has no description');
+});
+
+it('tells the agent to leave an empty PR description alone', function () {
+    Repository::factory()->create(['slug' => 'web', 'github_full_name' => 'acme/web', 'is_active' => true]);
+    fakeSummonGitHub(reviewComments: [inlineSummon()]);
+
+    runSummon(['reviewId' => 500]);
+
+    expect(YakTask::sole()->description)->toContain('The PR has no description')
+        ->not->toContain('<current-pr-description>');
+});
+
 it('does nothing for a review without a summon', function () {
     Repository::factory()->create(['slug' => 'web', 'github_full_name' => 'acme/web', 'is_active' => true]);
     fakeSummonGitHub(reviewComments: [inlineSummon(['body' => 'looks fine'])]);

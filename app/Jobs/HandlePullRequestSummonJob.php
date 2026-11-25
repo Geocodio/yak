@@ -33,7 +33,11 @@ class HandlePullRequestSummonJob implements ShouldQueue
 
     public int $tries = 1;
 
-    private const string PREAMBLE = 'This pull request was opened by a person, not by Yak, and you have no earlier session on it. Work on top of the current branch. Add new commits only: never amend, rebase, or force-push. Under the PR description heading in your summary, write `Unchanged.`; the author owns the description.';
+    private const string PREAMBLE = 'This pull request was opened by a person, not by Yak, and you have no earlier session on it. Work on top of the current branch. Add new commits only: never amend, rebase, or force-push.';
+
+    private const string DESCRIPTION_RULES = 'The author wrote the PR description below. Apply the PR description rules of your summary format to it, with one difference: when your commits make it out of date, return the whole description with only the out-of-date parts changed. Keep the author\'s structure, headings, voice, images, links, issue references such as `Closes #12`, and closing lines. Do not switch it to the Summary and Changes structure.';
+
+    private const string NO_DESCRIPTION_RULE = 'The PR has no description. Under the PR description heading in your summary, write `Unchanged.`';
 
     /** Branch names are used in sandbox shell commands: only safe characters, no leading dash (git option injection), no `..`, no trailing newline. `prepareExistingBranch`, `hasNewCommits`, and `GitOperations::changeStats` interpolate the branch into shell commands unescaped and rely on this pattern. */
     private const string SAFE_BRANCH_PATTERN = '#^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+\z#';
@@ -109,7 +113,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             return;
         }
 
-        $instructions = self::PREAMBLE . "\n\n" . app(ReviewFeedbackFormatter::class)->format('', '', array_map(
+        $instructions = self::PREAMBLE . "\n\n" . $this->descriptionRules((string) ($pullRequest['body'] ?? '')) . "\n\n" . app(ReviewFeedbackFormatter::class)->format('', '', array_map(
             fn (array $summon): array => [
                 'id' => $summon['tag_id'],
                 'body' => $summon['body'],
@@ -157,6 +161,22 @@ class HandlePullRequestSummonJob implements ShouldQueue
         }
 
         $replier->replyForTask($child, "On it. I'll reply here when I'm done and push any changes to `{$branch}`.");
+    }
+
+    /**
+     * The agent has no session on a person's PR, so it sees the current
+     * description here and rewrites it in place when its commits make it
+     * out of date.
+     */
+    private function descriptionRules(string $body): string
+    {
+        $body = trim($body);
+
+        if ($body === '') {
+            return self::NO_DESCRIPTION_RULE;
+        }
+
+        return self::DESCRIPTION_RULES . "\n\n<current-pr-description>\n{$body}\n</current-pr-description>";
     }
 
     /**
