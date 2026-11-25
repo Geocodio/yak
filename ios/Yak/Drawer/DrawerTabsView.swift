@@ -11,6 +11,11 @@ struct DrawerTabsView: View {
     let pick: (ThreadListFilter) -> Void
     let openFilter: () -> Void
 
+    /// What the names take, and the room for them; both are measured, so the row decides again whenever the text
+    /// size, the count or the drawer's width changes.
+    @State private var naturalWidth: Double = 0
+    @State private var availableWidth: Double = 0
+
     var body: some View {
         HStack(spacing: Design.Space.small) {
             tabsOrMenu
@@ -20,15 +25,31 @@ struct DrawerTabsView: View {
             filterButton
         }
         .frame(minHeight: Design.Size.control)
+        .onPreferenceChange(NaturalWidthKey.self) { naturalWidth = $0 }
+        .onPreferenceChange(AvailableWidthKey.self) { availableWidth = $0 }
     }
 
     /// The four names when they fit the width at the current text size and count, else the menu button, whatever
     /// the text size or the drawer's width.
     @ViewBuilder private var tabsOrMenu: some View {
-        ViewThatFits(in: .horizontal) {
-            segments
-            menuButton
+        Group {
+            if TabRowFit.segmentsFit(naturalWidth: naturalWidth, availableWidth: availableWidth) {
+                segments
+            } else {
+                menuButton
+            }
         }
+        .frame(maxWidth: .infinity)
+        .background { widthReader(AvailableWidthKey.self) }
+        // The names at their own width, never shown or read out, measure what they need.
+        .background(alignment: .leading) {
+            segments.fixedSize(horizontal: true, vertical: false).hidden().accessibilityHidden(true)
+                .background { widthReader(NaturalWidthKey.self) }
+        }
+    }
+
+    private func widthReader<Key: PreferenceKey>(_ key: Key.Type) -> some View where Key.Value == Double {
+        GeometryReader { proxy in Color.clear.preference(key: key, value: Double(proxy.size.width)) }
     }
 
     // MARK: Segments
@@ -261,4 +282,14 @@ private struct EvenlySpread: Layout {
             x += width
         }
     }
+}
+
+private struct NaturalWidthKey: PreferenceKey {
+    static let defaultValue: Double = 0
+    static func reduce(value: inout Double, nextValue: () -> Double) { value = nextValue() }
+}
+
+private struct AvailableWidthKey: PreferenceKey {
+    static let defaultValue: Double = 0
+    static func reduce(value: inout Double, nextValue: () -> Double) { value = nextValue() }
 }

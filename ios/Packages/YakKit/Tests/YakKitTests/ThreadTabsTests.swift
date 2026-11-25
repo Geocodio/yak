@@ -192,6 +192,22 @@ private let row =
         #expect(ThreadTabs(serverFilters: ["mine"]).normalized(carried) == carried)
     }
 
+    /// The drawer is min(330, screen width - 60) wide; the row has its margins (14 each side), the Filter button (38)
+    /// and a gap (6) outside the names. At the default text size the four names take about 250 points, 260 with a
+    /// three digit count, and 232 without a count.
+    @Test(arguments: [
+        (315.0, 232.0, true), (315.0, 250.0, false), (330.0, 250.0, true), (330.0, 260.0, false),
+        (360.0, 250.0, true), (360.0, 260.0, true), (360.0, 330.0, false),
+    ]) func theNamesFitOrTheMenuShows(drawerWidth: Double, names: Double, fits: Bool) {
+        let room = drawerWidth - 2 * 14 - 38 - 6
+        #expect(TabRowFit.segmentsFit(naturalWidth: names, availableWidth: room) == fits)
+    }
+
+    @Test func anUnmeasuredRowShowsTheNamesAtFirst() {
+        #expect(TabRowFit.segmentsFit(naturalWidth: 250, availableWidth: 0))
+        #expect(TabRowFit.segmentsFit(naturalWidth: 258, availableWidth: 258))
+    }
+
     @Test func aCountKeepsToThreeDigits() {
         #expect(ThreadTabs.badgeText(5) == "5" && ThreadTabs.badgeText(99) == "99")
         #expect(ThreadTabs.badgeText(100) == "99+" && ThreadTabs.badgeText(1234) == "99+")

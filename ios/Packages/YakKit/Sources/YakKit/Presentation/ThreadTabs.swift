@@ -132,3 +132,13 @@ public enum ReviewLink {
         return WebLinkRule.safeURL(components.url?.absoluteString)
     }
 }
+
+/// Whether the four tab names fit the room the row has, so the row shows them or the menu button.
+public enum TabRowFit {
+    /// `naturalWidth` is what the names take at the current text size, count and spacing; `availableWidth` is the
+    /// room between the row's margins and the Filter button. Unmeasured room (0) shows the names, which are measured
+    /// at once.
+    public static func segmentsFit(naturalWidth: Double, availableWidth: Double) -> Bool {
+        availableWidth <= 0 || naturalWidth <= availableWidth + 0.5
+    }
+}
