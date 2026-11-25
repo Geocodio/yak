@@ -9,10 +9,9 @@ struct DiffRowView: View {
     var body: some View {
         switch row.kind {
         case .hunk(let header):
-            // A rule marks the hunk. A fill behind this text makes the accessibility audit report contrast without an element.
             Text(verbatim: header).font(.yak(.footnote, .medium, isMonospaced: true)).foregroundStyle(Color.yakMuted)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 6)
-                .overlay(alignment: .top) { Rectangle().fill(Color.yakBorderStrong).frame(height: 1) }
+                .background(Color.yakFill)
                 .accessibilityLabel(Text("files.row.hunk \(header)"))
         case .noNewlineAtEnd:
             Text("files.row.noNewline").font(.yak(.caption, .medium)).foregroundStyle(Color.yakMuted)
