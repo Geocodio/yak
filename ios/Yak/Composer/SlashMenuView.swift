@@ -7,6 +7,8 @@ import YakKit
 /// field and nothing is sent.
 struct SlashMenuView: View {
     let menu: SlashMenu
+    /// The tallest the card may be: the room above the field, five rows at most.
+    let maxHeight: CGFloat
     let pick: (SlashCommand) -> Void
 
     var body: some View {
@@ -14,7 +16,7 @@ struct SlashMenuView: View {
         ScrollViewReader { proxy in
             ScrollView { content }
                 .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: Design.Size.slashMenuMaxHeight)
+                .frame(maxHeight: maxHeight)
                 .fixedSize(horizontal: false, vertical: true)
                 .onChange(of: menu.selected?.name) { _, name in
                     if let name { proxy.scrollTo(name) }
@@ -33,7 +35,7 @@ struct SlashMenuView: View {
         )
         .accessibilityIdentifier("composer.slash")
         .onAppear { announce() }
-        .onChange(of: menu.rows.count) { announce() }
+        .onChange(of: menu.hasNoMatch) { announce() }
     }
 
     private func announce() {

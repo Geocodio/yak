@@ -1345,16 +1345,6 @@
         }
       }
     },
-    "composer.shortcut.dismissCommands" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close commands"
-          }
-        }
-      }
-    },
     "composer.shortcut.send" : {
       "localizations" : {
         "en" : {

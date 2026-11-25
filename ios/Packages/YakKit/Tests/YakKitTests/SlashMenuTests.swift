@@ -55,11 +55,46 @@ private let commands = [
     #expect(filtered.selected?.name == "review-pr")
 }
 
-@Test func aPickWritesTheNameWithASpaceOnlyWhenTheCommandTakesAnArgument() {
+@Test func aPickAlwaysWritesTheNameAndASpace() {
     #expect(SlashMenu.pick(commands[1]) == SlashMenu.Pick(text: "/review-pr ", caret: 11))
-    #expect(SlashMenu.pick(commands[4]) == SlashMenu.Pick(text: "/clear", caret: 6))
-    // After the pick the field is a command and a space, so the menu is closed by its own rule.
-    #expect(SlashMenu.make(commands: commands, text: "/review-pr ", isDismissed: false) == nil)
+    #expect(SlashMenu.pick(commands[4]) == SlashMenu.Pick(text: "/clear ", caret: 7))
+    // The space ends the name, so the menu is closed by its own rule.
+    #expect(SlashMenu.make(commands: commands, text: "/clear ", isDismissed: false) == nil)
+}
+
+@Test func keysGoToTheMenuOnlyWhenItCanUseThem() throws {
+    let menu = SlashMenu.make(commands: commands, text: "/re", isDismissed: false)
+    let none = SlashMenu.make(commands: commands, text: "/zzz", isDismissed: false)
+    let review = try #require(menu?.selected)
+    #expect(SlashKeyRouting.action(for: .down, menu: menu, isComposing: false) == .move(.down))
+    #expect(SlashKeyRouting.action(for: .up, menu: menu, isComposing: false) == .move(.up))
+    #expect(SlashKeyRouting.action(for: .returnKey, menu: menu, isComposing: false) == .pick(review))
+    #expect(SlashKeyRouting.action(for: .escape, menu: menu, isComposing: false) == .dismiss)
+    // An input method that is composing gets every key.
+    for key in [SlashKey.up, .down, .returnKey, .escape] {
+        #expect(SlashKeyRouting.action(for: key, menu: menu, isComposing: true) == nil)
+        #expect(SlashKeyRouting.action(for: key, menu: nil, isComposing: false) == nil)
+    }
+    // No match: arrows and Return stay with the field, Escape closes.
+    #expect(SlashKeyRouting.action(for: .down, menu: none, isComposing: false) == nil)
+    #expect(SlashKeyRouting.action(for: .returnKey, menu: none, isComposing: false) == nil)
+    #expect(SlashKeyRouting.action(for: .escape, menu: none, isComposing: false) == .dismiss)
+    #expect(SlashKeyRouting.keys(menu: menu, isComposing: false) == [.up, .down, .returnKey, .escape])
+    #expect(SlashKeyRouting.keys(menu: none, isComposing: false) == [.escape])
+    #expect(
+        SlashKeyRouting.keys(menu: menu, isComposing: true).isEmpty
+            && SlashKeyRouting.keys(menu: nil, isComposing: false).isEmpty)
+}
+
+@Test func theMenuHeightFollowsTheRoomAboveTheField() {
+    func cap(bottom: Double) -> Double {
+        SlashMenuHeight.cap(
+            barBottom: bottom, cardHeight: 60, spacing: 6, topReserve: 60, oneRow: 60, fiveRows: 324)
+    }
+    #expect(cap(bottom: 800) == 324, "a tall phone gets five rows")
+    #expect(cap(bottom: 400) == 274, "less room, less menu")
+    // A small phone in landscape: 375 points high, about 200 under the keyboard.
+    #expect(cap(bottom: 175) == 60, "a short window still shows one row to scroll")
 }
 
 @Test func slashCommandsDecodeTolerantly() throws {

@@ -72,10 +72,10 @@ public struct SlashMenu: Equatable, Sendable {
         return rows[next].name
     }
 
-    /// `/name`, with a space after it when the command takes an argument, and the caret at the end. A command
-    /// without an argument hint is not followed by a space, so the next key is Send.
+    /// `/name ` with a space after it, as on the web, and the caret at the end. The space also ends the name, so the
+    /// menu closes.
     public static func pick(_ command: SlashCommand) -> Pick {
-        let text = "/" + command.name + (command.argumentHint == nil ? "" : " ")
+        let text = "/" + command.name + " "
         return Pick(text: text, caret: text.utf16.count)
     }
 
@@ -90,5 +90,50 @@ public struct SlashMenu: Equatable, Sendable {
             }
             return commands.isEmpty ? nil : Group(section: section, commands: commands)
         }
+    }
+}
+
+/// A key the commands menu may take from the field.
+public enum SlashKey: Sendable { case up, down, returnKey, escape }
+
+/// What a key does while the menu is open.
+public enum SlashKeyAction: Equatable, Sendable {
+    case move(SlashMenu.Direction)
+    case pick(SlashCommand)
+    case dismiss
+}
+
+public enum SlashKeyRouting {
+    /// The action for a key, or nil when the field keeps the key: no menu, an input method composing text (it needs
+    /// every key), arrows and Return with nothing listed, Return with no highlighted row.
+    public static func action(for key: SlashKey, menu: SlashMenu?, isComposing: Bool) -> SlashKeyAction? {
+        guard let menu, !isComposing else { return nil }
+        switch key {
+        case .escape: return .dismiss
+        case .up: return menu.rows.isEmpty ? nil : .move(.up)
+        case .down: return menu.rows.isEmpty ? nil : .move(.down)
+        case .returnKey: return menu.selected.map { .pick($0) }
+        }
+    }
+
+    /// The keys the menu registers for the hardware keyboard: all four while rows are listed, Escape alone in the
+    /// no-match state, none while closed or composing. A registered key is taken from the field, so a key the menu
+    /// cannot use is not registered.
+    public static func keys(menu: SlashMenu?, isComposing: Bool) -> Set<SlashKey> {
+        guard let menu, !isComposing else { return [] }
+        return menu.rows.isEmpty ? [.escape] : [.up, .down, .returnKey, .escape]
+    }
+}
+
+/// How tall the menu card may be.
+public enum SlashMenuHeight {
+    /// The room between the top of the screen's content and the field, never more than `fiveRows` and never less than
+    /// `oneRow`, so a short window still shows one row to scroll. `barBottom` is the bottom edge of the composer bar
+    /// (already above the keyboard), `cardHeight` the height of the composer card under the menu, `topReserve` what
+    /// the header and a line of conversation keep.
+    public static func cap(
+        barBottom: Double, cardHeight: Double, spacing: Double, topReserve: Double, oneRow: Double, fiveRows: Double
+    ) -> Double {
+        min(fiveRows, max(oneRow, barBottom - cardHeight - spacing - topReserve))
     }
 }

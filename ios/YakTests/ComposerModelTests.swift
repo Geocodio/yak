@@ -396,9 +396,7 @@ private func snapshot(
         #expect(backend.sentDrafts.isEmpty)
         composer.text = "/c"
         composer.pickSlashCommand(try #require(composer.slashMenu?.selected))
-        #expect(
-            composer.text == "/clear" && composer.slashMenu == nil, "no argument: no space, and the menu stays closed")
-        composer.text = "/clea"
+        #expect(composer.text == "/clear " && composer.slashMenu == nil)
         composer.text = "/clear"
         #expect(composer.slashMenu != nil, "the next edit opens the menu again")
         await composer.send(delivery: .steer)
@@ -406,22 +404,32 @@ private func snapshot(
         #expect(composer.text == "" && composer.slashMenu == nil)
     }
 
-    @Test func returnInAnOpenMenuPicksTheHighlightedCommandInsteadOfAddingALine() async throws {
+    @Test func returnPicksTheHighlightedCommandAndNeverTouchesTheText() async throws {
         let backend = FakeComposerBackend()
         let composer = makeModel(backend: backend, clock: StepClock())
         composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
         composer.text = "/"
-        composer.moveSlashSelection(.down)
-        composer.text = "/\n"
-        #expect(composer.text == "/clear" && composer.slashMenu == nil && composer.slashPickCount == 1)
+        #expect(composer.slashKeys(isComposing: false) == [.up, .down, .returnKey, .escape])
+        #expect(composer.handleSlashKey(.down, isComposing: false))
+        #expect(composer.handleSlashKey(.returnKey, isComposing: false))
+        #expect(composer.text == "/clear " && composer.slashMenu == nil && composer.slashPickCount == 1)
         #expect(backend.sentDrafts.isEmpty)
-        // With the menu closed, or no command listed, Return is an ordinary line break.
-        composer.text = "plain"
+        // With the menu closed Return is the field's: a line break.
+        #expect(!composer.handleSlashKey(.returnKey, isComposing: false))
         composer.text = "plain\n"
         #expect(composer.text == "plain\n")
+    }
+
+    @Test func anInputMethodThatIsComposingKeepsEveryKey() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        #expect(composer.slashKeys(isComposing: true).isEmpty)
+        #expect(!composer.handleSlashKey(.escape, isComposing: true) && composer.slashMenu != nil)
         composer.text = "/zzz"
-        composer.text = "/zzz\n"
-        #expect(composer.text == "/zzz\n")
+        #expect(composer.slashKeys(isComposing: false) == [.escape], "no match: arrows and Return stay with the field")
+        #expect(!composer.handleSlashKey(.down, isComposing: false))
+        #expect(composer.handleSlashKey(.escape, isComposing: false) && composer.slashMenu == nil)
     }
 
     @Test func escapeClosesTheMenuUntilTheNextEdit() async throws {

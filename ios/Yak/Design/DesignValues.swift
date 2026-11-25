@@ -97,6 +97,8 @@ enum Design {
         static let slashRow: CGFloat = 60
         static let slashHeading: CGFloat = 24
         /// The tallest the slash menu gets: five rows and one heading; more commands scroll inside the card.
+        /// What the thread's header and a line of the conversation keep above the slash menu.
+        static let slashTopReserve: CGFloat = 130
         static let slashMenuMaxHeight: CGFloat = slashRow * 5 + slashHeading
         /// A status pill's smallest height.
         static let pill: CGFloat = 24

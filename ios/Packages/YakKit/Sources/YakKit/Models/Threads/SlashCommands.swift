@@ -11,7 +11,7 @@ public struct SlashCommandKind: OpenValue {
 }
 
 /// One command the thread's composer menu lists. A row without a name, description or kind does not decode and is
-/// dropped with its list; `argumentHint` can be null.
+/// dropped from its list, and the rest of the list stays; `argumentHint` can be null.
 public struct SlashCommand: Codable, Equatable, Sendable, Identifiable {
     public let name: String
     public let description: String

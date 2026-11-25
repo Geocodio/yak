@@ -21,6 +21,9 @@ struct BottomBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTyping = false
+    /// The bottom edge of the bar, already above the keyboard, and the height of the composer card under the menu.
+    @State private var barBottom: CGFloat = 0
+    @State private var cardHeight: CGFloat = 0
     private let swipeDistance: CGFloat = 60
 
     /// The pane's controls are in the trailing strip, so the bar has nothing of its own to show.
@@ -37,12 +40,21 @@ struct BottomBar: View {
     private var bar: some View {
         VStack(spacing: Design.Space.small) {
             if let menu = slashMenu {
-                SlashMenuView(menu: menu) { command in
+                SlashMenuView(menu: menu, maxHeight: slashMenuHeight) { command in
                     thread.composer.pickSlashCommand(command)
                     scene.requestComposerFocus()
                 }
             }
-            card
+            card.onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                cardHeight = $0
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.frame(in: .global).maxY
+        } action: {
+            barBottom = $0
         }
         .padding(.horizontal, Design.Space.medium).padding(.top, Design.Space.tight)
         .padding(.bottom, Design.Space.barEdgeGap)
@@ -54,6 +66,15 @@ struct BottomBar: View {
         .accessibilityElement(children: .contain)
         .modifier(SlotBarLabel(isInSlot: slot != nil, pane: pane))
         .accessibilityIdentifier(slot.map { "bar.\($0.rawValue)" } ?? "thread.bar")
+    }
+
+    /// The menu fills the room above the field, five rows at most, so it never pushes the field off the screen.
+    private var slashMenuHeight: CGFloat {
+        CGFloat(
+            SlashMenuHeight.cap(
+                barBottom: barBottom, cardHeight: cardHeight, spacing: Design.Space.small,
+                topReserve: Design.Size.slashTopReserve, oneRow: Design.Size.slashRow,
+                fiveRows: Design.Size.slashMenuMaxHeight))
     }
 
     /// The menu is open while the field has the keyboard, so leaving the field closes it.

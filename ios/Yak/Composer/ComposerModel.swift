@@ -127,11 +127,6 @@ final class ComposerModel {
         get { typedText }
         set {
             guard newValue != typedText else { return }
-            // Return in an open commands menu picks the highlighted command instead of adding a line.
-            if newValue == typedText + "\n", let selected = slashMenu?.selected {
-                pickSlashCommand(selected)
-                return
-            }
             typedText = newValue
             hasEdited = true
             problem = nil
@@ -162,6 +157,23 @@ final class ComposerModel {
     }
 
     func dismissSlashMenu() { isSlashMenuDismissed = true }
+
+    /// The keys the menu takes from the field right now.
+    func slashKeys(isComposing: Bool) -> Set<SlashKey> {
+        SlashKeyRouting.keys(menu: slashMenu, isComposing: isComposing)
+    }
+
+    /// Applies a key the menu takes; false when the field keeps it.
+    @discardableResult
+    func handleSlashKey(_ key: SlashKey, isComposing: Bool) -> Bool {
+        switch SlashKeyRouting.action(for: key, menu: slashMenu, isComposing: isComposing) {
+        case .move(let direction): moveSlashSelection(direction)
+        case .pick(let command): pickSlashCommand(command)
+        case .dismiss: dismissSlashMenu()
+        case nil: return false
+        }
+        return true
+    }
 
     var bar: ComposerBarState {
         let show = snapshot?.show

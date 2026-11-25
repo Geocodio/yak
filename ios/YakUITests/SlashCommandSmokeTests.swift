@@ -107,4 +107,45 @@ import XCTest
         app.typeKey(.upArrow, modifierFlags: [])
         wait(for: [XCTNSPredicateExpectation(predicate: moved, object: row("write-tests"))], timeout: 15)
     }
+
+    /// Return from the hardware keyboard picks the highlighted command: the field holds the command and a space and
+    /// nothing else (no line break), and nothing is sent.
+    func testReturnPicksTheHighlightedCommandWithoutALineBreak() throws {
+        let field = try openField(scenario: "slash-commands")
+        field.typeText("/")
+        XCTAssertTrue(menu.waitForExistence(timeout: Wait.appear))
+        app.typeKey(.downArrow, modifierFlags: [])
+        wait(
+            for: [
+                XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: row("review-pr"))
+            ],
+            timeout: 15)
+        app.typeKey(.return, modifierFlags: [])
+        let filled = NSPredicate(format: "value == %@", "/review-pr ")
+        wait(for: [XCTNSPredicateExpectation(predicate: filled, object: field)], timeout: 15)
+        XCTAssertEqual(field.value as? String, "/review-pr ")
+        XCTAssertEqual(postedMessages(), "")
+    }
+
+    /// Escape closes the menu and keeps the text.
+    func testEscapeClosesTheMenuAndKeepsTheText() throws {
+        let field = try openField(scenario: "slash-commands")
+        field.typeText("/re")
+        XCTAssertTrue(menu.waitForExistence(timeout: Wait.appear))
+        app.typeKey(.escape, modifierFlags: [])
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: menu)], timeout: 15)
+        XCTAssertEqual(field.value as? String, "/re")
+    }
+
+    /// With no menu open Return is a line break.
+    func testReturnWithNoMenuIsALineBreak() throws {
+        let field = try openField(scenario: "slash-commands")
+        field.typeText("hello")
+        XCTAssertFalse(menu.exists)
+        field.typeText("\n")
+        let broken = NSPredicate(format: "value == %@", "hello\n")
+        wait(for: [XCTNSPredicateExpectation(predicate: broken, object: field)], timeout: 15)
+        XCTAssertEqual(postedMessages(), "")
+    }
 }
