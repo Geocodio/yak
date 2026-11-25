@@ -316,16 +316,32 @@ struct DrawerView: View {
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
                 || row.id == openingTaskID.map { "task:\($0)" },
-            isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id)
+            isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id,
+            openPullRequest: { openPullRequest($0, drawer: drawer) })
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
         let menu = drawer.childMenu(row)
         plain
             .contextMenu {
                 if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
+                if row.depth == 0, row.reviewLine != nil || row.failureDetail != nil {
+                    Button {
+                        open(row)
+                    } label: {
+                        Text("overview.child.open")
+                    }
+                    ForEach(row.reviewLine?.links ?? [], id: \.number) { link in
+                        Button {
+                            openPullRequest(link, drawer: drawer)
+                        } label: {
+                            Text("drawer.review.open \(link.text)")
+                        }
+                    }
+                }
             } preview: {
                 DrawerRowView(row: row, now: now, open: {}, toggle: {}, isRunning: false, showsEverything: true)
-                    .frame(minWidth: 280)
+                    .frame(width: Design.Size.previewWidth)
+                    .fixedSize(horizontal: false, vertical: true)
                     .onAppear { if isSubThread { drawer.menuOpening(row) } }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -471,6 +487,16 @@ struct DrawerView: View {
         }
     }
 
+    /// A pull request number opens its page in the in-app browser. Offline, the row says so instead.
+    private func openPullRequest(_ link: ReviewLine.Link, drawer: DrawerModel) {
+        guard !drawer.isOffline else {
+            drawer.say(String(localized: "drawer.review.offline"))
+            return
+        }
+        guard let url = link.url else { return }
+        model.browserURL = url
+    }
+
     private func open(_ row: DrawerRow) {
         switch row.target {
         case .thread(let id):
@@ -539,7 +565,9 @@ struct DrawerView: View {
         if drawer.filter != .mine {
             return AnyView(
                 stateMessage(
-                    title: Text("drawer.empty.here"), detail: nil, systemImage: "bubble.left.and.text.bubble.right"
+                    title: Text("drawer.empty.here"),
+                    detail: drawer.filter == .review ? Text("drawer.empty.review") : nil,
+                    systemImage: "bubble.left.and.text.bubble.right"
                 ) {})
         }
         return AnyView(mineEmpty(othersHaveThreads: othersHaveThreads, drawer: drawer))

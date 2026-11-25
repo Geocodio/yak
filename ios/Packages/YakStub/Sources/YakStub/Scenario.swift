@@ -245,6 +245,13 @@ enum Scenario: String, CaseIterable, Sendable {
     case drawerTabsOlder = "drawer-tabs-older"
     /// The Review tab is empty because the person's GitHub login is not linked.
     case drawerTabsLink = "drawer-tabs-link"
+    /// The Review tab with every state of the pull request line, a thread with two pull requests, and a failed row
+    /// with a long error in Mine.
+    case reviewLine = "review-line"
+    /// The same with only three rows, so the whole list fits the screen and an audit sees no row cut at an edge.
+    case reviewLineFew = "review-line-few"
+    /// The Review tab with nothing in any group, the GitHub login linked.
+    case reviewLineEmpty = "review-line-empty"
 
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)

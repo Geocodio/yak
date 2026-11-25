@@ -65,4 +65,24 @@ private func titles(_ list: [String: Any], _ key: String = "threads") -> [String
         #expect((try object(.drawerTabs, "me")["threadFilters"] as? [String])?.contains("review") == true)
         #expect(try object(.drawerTabsOlder, "me")["threadFilters"] == nil)
     }
+
+    @Test func theReviewLineScenarioHasEveryStateAndAFailedRowWithAnError() throws {
+        let groups = try #require(try object(.reviewLine, "threads?filter=review")["reviewGroups"] as? [[String: Any]])
+        #expect(groups.compactMap { $0["key"] as? String } == ["back_to_you", "not_reviewed", "with_yak", "approved"])
+        let rows = groups.flatMap { $0["rows"] as? [[String: Any]] ?? [] }
+        let counts = rows.compactMap { (($0["review"] as? [String: Any])?["pullRequests"] as? [Any])?.count }
+        #expect(counts.contains(2))
+        let failed = try #require(
+            (try object(.reviewLine, "threads?filter=mine")["needsYou"] as? [[String: Any]])?.first {
+                $0["needsYouLabel"] as? String == "Failed"
+            })
+        #expect((failed["needsYouDetail"] as? String)?.count ?? 0 > 100)
+    }
+
+    @Test func theEmptyReviewScenarioHasFourEmptyGroupsAndNoLinkRequest() throws {
+        let review = try object(.reviewLineEmpty, "threads?filter=review")
+        let groups = try #require(review["reviewGroups"] as? [[String: Any]])
+        #expect(groups.count == 4 && groups.allSatisfy { ($0["rows"] as? [[String: Any]])?.isEmpty == true })
+        #expect(review["needsGitHubLink"] as? Bool == false && review["reviewCount"] as? Int == 0)
+    }
 }
