@@ -7,6 +7,7 @@ import clarificationAnswers from './clarification-answers'
 import coOwner from './co-owner'
 import queuedMessages from './queued-messages'
 import restore from './restore'
+import title from './title'
 import sharedFiles from './shared-files'
 import diff from './diff'
 import runs from './runs'
@@ -1132,6 +1133,7 @@ const threads = {
     list: Object.assign(list, list),
     seen: Object.assign(seen, seen),
     star: Object.assign(star, star),
+    title: Object.assign(title, title),
     close: Object.assign(close, close),
     destroy: Object.assign(destroy, destroy),
     sharedFiles: Object.assign(sharedFiles, sharedFiles),
