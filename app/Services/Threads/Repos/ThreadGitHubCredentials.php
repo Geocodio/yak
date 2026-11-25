@@ -17,7 +17,9 @@ use Throwable;
 /**
  * Gives a thread sandbox GitHub tokens limited to the repositories of the
  * thread; the read-only one also covers the repositories its open research sub-threads look at. The git credential helper holds a token with contents write (the
- * sandbox pushes work in progress), the agent's `gh` wrapper a read-only one.
+ * sandbox pushes work in progress), the agent's `gh` wrapper a read-only one
+ * that can also edit pull requests, so the agent updates its own PR's title
+ * and description.
  * Token values travel on stdin only and never appear in a command line.
  */
 class ThreadGitHubCredentials
@@ -44,7 +46,7 @@ class ThreadGitHubCredentials
         $names = $this->repositoryNames($thread);
 
         $gitToken = $this->github->getScopedInstallationToken($installationId, $names, ['contents' => 'write', 'metadata' => 'read']);
-        $ghToken = $this->github->getReadOnlyInstallationToken($installationId, [...$names, ...$this->researchRepositoryNames($thread, $names)]);
+        $ghToken = $this->github->getReadOnlyInstallationToken($installationId, [...$names, ...$this->researchRepositoryNames($thread, $names)], ['pull_requests']);
 
         $this->writeTokenFile($thread, self::GIT_TOKEN_FILE, $gitToken);
         $this->writeTokenFile($thread, self::GH_TOKEN_FILE, $ghToken);

@@ -174,3 +174,20 @@ it('mints a read-only token limited to the read permissions the installation hol
 
     Http::assertSentCount(4);
 });
+
+it('mints the requested write permissions only when the installation grants them', function () {
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '999');
+    config()->set('yak.channels.github.private_key', $privateKey);
+
+    Http::fake([
+        'api.github.com/app/installations/42/access_tokens' => Http::response(['token' => 'ghs_pr'], 201),
+        'api.github.com/app/installations/42' => Http::response(['permissions' => ['contents' => 'write', 'pull_requests' => 'write', 'metadata' => 'read']]),
+    ]);
+
+    app(GitHubAppService::class)->getReadOnlyInstallationToken(42, null, ['pull_requests', 'issues']);
+
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/access_tokens')
+        && $request['permissions'] === ['contents' => 'read', 'metadata' => 'read', 'pull_requests' => 'write']);
+});

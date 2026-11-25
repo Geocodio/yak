@@ -220,7 +220,7 @@ class ChildSpawner
         }
 
         $task = $child->tasks()->firstOrFail();
-        $child->forceFill(['append_system_prompt' => YakPromptBuilder::systemPrompt($task)])->save();
+        $child->forceFill(['append_system_prompt' => YakPromptBuilder::systemPrompt($task, canEditPullRequests: true)])->save();
         $driver = $task->started_by_user_id === null ? null : User::query()->find($task->started_by_user_id);
 
         $this->turns->start($task, $this->wrapBrief($child), $driver, null);

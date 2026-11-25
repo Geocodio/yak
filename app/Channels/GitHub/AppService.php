@@ -1884,11 +1884,13 @@ GRAPHQL;
      * `gh` CLI. Without `$repositories` it covers every repository the
      * installation sees; with it (short names, no owner) the token is limited
      * to those repositories. Each call mints a new token, so every agent run
-     * gets the full hour.
+     * gets the full hour. Permissions named in `$writePermissions` are
+     * minted at write level instead, when the installation grants them.
      *
      * @param  list<string>|null  $repositories
+     * @param  list<string>  $writePermissions
      */
-    public function getReadOnlyInstallationToken(int $installationId, ?array $repositories = null): string
+    public function getReadOnlyInstallationToken(int $installationId, ?array $repositories = null, array $writePermissions = []): string
     {
         $client = Http::withToken($this->generateJwt())
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
@@ -1896,6 +1898,10 @@ GRAPHQL;
 
         $granted = array_keys((array) $client->get("https://api.github.com/app/installations/{$installationId}")->json('permissions', []));
         $permissions = array_fill_keys(array_values(array_intersect(self::READ_ONLY_PERMISSIONS, $granted)), 'read');
+
+        foreach (array_intersect($writePermissions, array_keys($permissions)) as $permission) {
+            $permissions[$permission] = 'write';
+        }
 
         // An empty permissions object would mint a token with every permission the app holds.
         if ($permissions === []) {

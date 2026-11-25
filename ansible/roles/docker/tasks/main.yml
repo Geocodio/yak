@@ -65,4 +65,4 @@
     name: "Prune untagged Docker images"
     minute: "0"
     hour: "4"
-    job: "docker image prune -f --filter until=24h > /dev/null 2>&1"
+    job: "docker image prune -a -f --filter until=24h > /dev/null 2>&1"

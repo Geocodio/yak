@@ -18,7 +18,7 @@ class YakPromptBuilder
     /**
      * Build the system prompt with channel-conditional sections.
      */
-    public static function systemPrompt(YakTask $task, string $devEnvironmentInstructions = 'No specific dev environment instructions.'): string
+    public static function systemPrompt(YakTask $task, string $devEnvironmentInstructions = 'No specific dev environment instructions.', bool $canEditPullRequests = false): string
     {
         $channelRules = self::buildChannelRules();
         $repoInstructions = self::resolveRepoInstructions($task);
@@ -29,6 +29,7 @@ class YakPromptBuilder
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
             'testCommand' => self::resolveTestCommand($task),
+            'canEditPullRequests' => $canEditPullRequests,
         ]);
     }
 
@@ -47,7 +48,7 @@ class YakPromptBuilder
     /** The standing instructions of a thread's runner: the system prompt plus the thread's repository section. */
     public static function threadSystemPrompt(YakTask $task, Thread $thread): string
     {
-        return trim(self::systemPrompt($task) . "\n\n" . ThreadRepositoryPrompt::section($thread));
+        return trim(self::systemPrompt($task, canEditPullRequests: true) . "\n\n" . ThreadRepositoryPrompt::section($thread));
     }
 
     /**
