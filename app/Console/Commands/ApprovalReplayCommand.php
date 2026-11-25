@@ -31,7 +31,7 @@ use Throwable;
  * checks from the stored review: the pull request is open, not a draft, has
  * no auto-merge, comes from the same repository, sits at the reviewed commit
  * and has as many changed files as were replayed. Required status checks count
- * as present. The bot login, the diff and the classifier stay real.
+ * as present. The bot login, the commits, the diff and the classifier stay real.
  */
 #[Signature('yak:approval-replay {slug : Repository slug} {--limit=100 : Latest distinct pull requests to replay} {--level= : DEFCON level for this run only} {--concerns= : Path to a local risk-profile.yml to use instead of the default branch}')]
 #[Description('Replay recent stored reviews through the approval policy (read-only; live pull request state and required status checks are assumed to pass)')]
@@ -164,6 +164,7 @@ class ApprovalReplayCommand extends Command
             'head' => ['sha' => $headSha, 'repo' => ['full_name' => $repository->github_full_name]],
             'base' => ['ref' => $baseRef, 'repo' => ['full_name' => $repository->github_full_name]],
             'changed_files' => count($files),
+            'commits' => $pullRequest['commits'] ?? null,
         ];
         $this->app()->instance(AppService::class, $this->replayGitHub($github, $syntheticPullRequest));
 
@@ -229,6 +230,11 @@ class ApprovalReplayCommand extends Command
             public function getPullRequestOrFail(int $installationId, string $repoSlug, int $prNumber): array
             {
                 return $this->pullRequest;
+            }
+
+            public function listPullRequestCommits(int $installationId, string $repoSlug, int $prNumber): array
+            {
+                return $this->inner->listPullRequestCommits($installationId, $repoSlug, $prNumber);
             }
 
             public function hasRequiredStatusChecks(int $installationId, string $repoSlug, string $branch): bool
