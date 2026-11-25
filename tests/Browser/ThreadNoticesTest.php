@@ -180,6 +180,7 @@ it('shows the sandbox waiting card with a slot strip, a legend and when a sandbo
     $page->assertSeeIn('[data-testid="thread-notice"]', 'All 2 sandboxes are awake. Yak can stop a paused sandbox once it has been idle for 10 minutes')
         ->assertDontSee('usually within a few minutes')
         ->assertCount('[data-testid="waiting-slots"] li', 2)
+        ->assertMissing('[data-testid="waiting-slot-details"]')
         ->assertSeeIn('[data-testid="waiting-legend"]', 'Running a turn')
         ->assertSeeIn('[data-testid="waiting-estimate"]', 'Next one frees in about 7 minutes.')
         ->assertNoJavaScriptErrors();

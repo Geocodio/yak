@@ -1,3 +1,4 @@
+import { usePoll } from '@inertiajs/react';
 import { Hourglass, Users } from 'lucide-react';
 import { cn } from '@geocodio/console-ui';
 import type { ThreadNotice, ThreadWaiting } from '@/types/threads';
@@ -66,47 +67,47 @@ function SlotStrip({ waiting, freeCount }: { waiting: ThreadWaiting; freeCount: 
 
     return (
         <>
-        <ul className="mt-2 flex flex-wrap gap-1.5" data-testid="waiting-slots">
-            {waiting.slots.map((slot, index) => {
-                const stoppable = isStoppable(slot, grace);
-                const progress = slot.idleMinutes === null ? 100 : Math.min(100, (slot.idleMinutes / Math.max(grace, 1)) * 100);
+            <ul className="mt-2 flex flex-wrap gap-1.5" data-testid="waiting-slots">
+                {waiting.slots.map((slot, index) => {
+                    const stoppable = isStoppable(slot, grace);
+                    const progress = slot.idleMinutes === null ? 100 : Math.min(100, (slot.idleMinutes / Math.max(grace, 1)) * 100);
 
-                return (
-                    <li
-                        key={index}
-                        data-state={slot.state}
-                        data-stoppable={stoppable || undefined}
-                        title={slotTitle(slot, grace)}
-                        className={cn(
-                            'relative flex h-7 min-w-7 items-center justify-center overflow-hidden rounded-md px-1.5 text-[11px] tabular-nums',
-                            slot.state === 'running' && 'bg-ok text-white',
-                            slot.state === 'paused' && !stoppable && 'border border-hair bg-panel-2 text-muted',
-                            stoppable && 'bg-warn-soft font-medium text-warn',
-                            slot.isMine && 'ring-1 ring-accent',
-                        )}
-                    >
-                        {slot.state === 'running' ? (
-                            <span className="size-2 rounded-pill bg-white/85" aria-hidden />
-                        ) : (
-                            <>
-                                {slot.idleMinutes !== null ? `${slot.idleMinutes}m` : '–'}
-                                <span className={cn('absolute bottom-0 left-0 h-[3px]', stoppable ? 'bg-warn' : 'bg-muted/45')} style={{ width: `${progress}%` }} aria-hidden />
-                            </>
-                        )}
-                    </li>
-                );
-            })}
-            {Array.from({ length: freeCount }, (_, index) => (
-                <li key={`free-${index}`} data-state="free" title="Free slot" className="h-7 min-w-7 rounded-md border border-dashed border-hair" />
-            ))}
-        </ul>
-        {hasNoHover && (
-            <ul className="mt-2 flex flex-col gap-0.5 text-[12px] text-muted" data-testid="waiting-slot-details">
-                {waiting.slots.map((slot, index) => (
-                    <li key={index}>{slotTitle(slot, grace)}</li>
+                    return (
+                        <li
+                            key={index}
+                            data-state={slot.state}
+                            data-stoppable={stoppable || undefined}
+                            title={hasNoHover ? undefined : slotTitle(slot, grace)}
+                            className={cn(
+                                'relative flex h-7 min-w-7 items-center justify-center overflow-hidden rounded-md px-1.5 text-[11px] tabular-nums',
+                                slot.state === 'running' && 'bg-ok text-white',
+                                slot.state === 'paused' && !stoppable && 'border border-hair bg-panel-2 text-muted',
+                                stoppable && 'bg-warn-soft font-medium text-warn',
+                                slot.isMine && 'ring-1 ring-accent',
+                            )}
+                        >
+                            {slot.state === 'running' ? (
+                                <span className="size-2 rounded-pill bg-white/85" aria-hidden />
+                            ) : (
+                                <>
+                                    {slot.idleMinutes !== null ? `${slot.idleMinutes}m` : '–'}
+                                    <span className={cn('absolute bottom-0 left-0 h-[3px]', stoppable ? 'bg-warn' : 'bg-muted/45')} style={{ width: `${progress}%` }} aria-hidden />
+                                </>
+                            )}
+                        </li>
+                    );
+                })}
+                {Array.from({ length: freeCount }, (_, index) => (
+                    <li key={`free-${index}`} data-state="free" title={hasNoHover ? undefined : 'Free slot'} className="h-7 min-w-7 rounded-md border border-dashed border-hair" />
                 ))}
             </ul>
-        )}
+            {hasNoHover && (
+                <ul className="mt-2 flex flex-col gap-0.5 text-[12px] text-muted" data-testid="waiting-slot-details">
+                    {waiting.slots.map((slot, index) => (
+                        <li key={index}>{slot.isMine ? 'Yours: ' : ''}{slotTitle(slot, grace)}</li>
+                    ))}
+                </ul>
+            )}
         </>
     );
 }
@@ -242,6 +243,8 @@ function ShareBody({ waiting }: { waiting: ThreadWaiting }) {
 export function WaitingCard({ notice }: { notice: ThreadNotice; threadId: string; readonly?: boolean }) {
     const waiting = notice.waiting;
     const isAccount = notice.kind === 'waiting_for_account';
+    // The idle minutes in the card text change while the thread waits, so the notice reloads once a minute.
+    usePoll(60_000, { only: ['notice'] }, { autoStart: notice.kind === 'waiting_for_sandbox' });
     const isShare = !isAccount && waiting?.ownSlotsCap != null;
     const Icon = isAccount ? Users : Hourglass;
 
