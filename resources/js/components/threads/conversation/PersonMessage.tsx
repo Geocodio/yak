@@ -4,6 +4,8 @@ import { Clock, Laptop, RotateCw } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
 import { effortLabel } from '@/components/accounts/accountAppearance';
+import { ChannelCard } from '@/components/threads/conversation/ChannelCard';
+import { ReviewFeedback, ReviewStateBadge } from '@/components/threads/conversation/ReviewFeedback';
 import { SourceLink } from '@/components/threads/header/SourceLink';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage } from '@/types/threads';
@@ -20,8 +22,15 @@ const INTENT_CAPTIONS: Record<NonNullable<ThreadMessage['intent']>, string> = {
 
 export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabels = {}, isRequest = false }: { isRequest?: boolean; origin?: 'local'; modelLabels?: Record<string, string>; message: ThreadMessage; pending: boolean; onOpenMedia: (media: MediaItem[], index: number) => void }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const isLong = message.bodyHtml.replace(/<[^>]*>/g, '').length > LONG_MESSAGE_CHARACTERS;
+    const isLong = !message.review && message.bodyHtml.replace(/<[^>]*>/g, '').length > LONG_MESSAGE_CHARACTERS;
     const time = new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+    const avatarUrl = message.review?.avatarUrl ?? message.channelCard?.avatarUrl ?? null;
+    const body = (
+        <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
+            {message.review ? <ReviewFeedback review={message.review} /> : <Prose html={message.bodyHtml} className={cn(!message.channelCard && 'mt-1', isLong && !isExpanded && 'max-sm:line-clamp-5')} />}
+        </MessageWithAttachments>
+    );
 
     if (message.isRetry) {
         return (
@@ -40,16 +49,21 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
             data-testid={pending ? 'thread-message-pending' : 'thread-message'}
             title={pending ? 'Claude reads this as soon as it can.' : undefined}
         >
-            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-panel-2 text-[11px] font-medium">{message.authorInitials}</div>
+            {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="mt-0.5 h-6 w-6 shrink-0 rounded-pill bg-panel-2" />
+            ) : (
+                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-panel-2 text-[11px] font-medium">{message.authorInitials}</div>
+            )}
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
                     <span className="font-medium text-body">{message.authorName}</span>
                     {message.via && (
                         <span className="inline-flex items-center gap-1 text-faint" data-testid="thread-message-via">
-                            {message.isReply ? 'replied in' : message.authorName === 'Yak' ? 'from' : 'via'}
+                            {message.review?.state ? 'reviewed in' : message.isReply && message.channelCard?.channel === 'linear' ? 'commented in' : message.isReply ? 'replied in' : message.authorName === 'Yak' ? 'from' : 'via'}
                             <SourceLink source={message.via} />
                         </span>
                     )}
+                    {message.review && <ReviewStateBadge state={message.review.state} />}
                     <span className="text-faint">{time}</span>
                     {origin === 'local' && (
                         <span className="inline-flex items-center gap-1 rounded-pill bg-panel-2 py-px pr-2 pl-1.5 text-[11px] text-muted" title="This turn ran on your computer" data-testid="thread-message-origin-local">
@@ -65,9 +79,11 @@ export function PersonMessage({ message, pending, onOpenMedia, origin, modelLabe
                     )}
                     {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{modelLabels[message.model] ?? message.model}{message.effort ? ` · ${effortLabel(message.effort)}` : ''}</span>}
                 </div>
-                <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
-                    <Prose html={message.bodyHtml} className={cn('mt-1', isLong && !isExpanded && 'max-sm:line-clamp-5')} />
-                </MessageWithAttachments>
+                {message.channelCard && !message.review ? (
+                    <ChannelCard card={message.channelCard}>{body}</ChannelCard>
+                ) : (
+                    body
+                )}
                 {isLong && !isExpanded && (
                     <button type="button" onClick={() => setIsExpanded(true)} className="-my-1.5 inline-flex h-11 cursor-pointer items-center text-[12.5px] text-accent-text hover:underline sm:hidden" data-testid="thread-message-expand">
                         {isRequest ? 'Show the full request' : 'Show the full message'}

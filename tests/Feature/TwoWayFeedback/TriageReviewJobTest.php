@@ -87,6 +87,33 @@ it('creates a follow-up without asking the agent when changes were requested', f
     Queue::assertPushed(RunFollowUpJob::class);
 });
 
+it('stores the review as structured data with links back to the pull request', function () {
+    Queue::fake();
+    ReviewFeedbackTriage::fake(['none']);
+    fakeReviewApi([
+        ['id' => 4683388661, 'body' => 'Please fix this', 'path' => 'app/Billing.php', 'line' => 205, 'diff_hunk' => "@@ -1 +1 @@\n-old\n+new", 'user' => ['login' => 'alice']],
+    ]);
+
+    $task = yakReviewTask();
+    runTriage($task, 'changes_requested', 'Two things.');
+
+    expect(YakTask::where('parent_task_id', $task->id)->first()->review_feedback)->toBe([
+        'reviewer' => 'alice',
+        'state' => 'changes_requested',
+        'summary' => 'Two things.',
+        'url' => 'https://github.com/acme/web/pull/9#pullrequestreview-500',
+        'comments' => [[
+            'id' => 4683388661,
+            'author' => 'alice',
+            'body' => 'Please fix this',
+            'file' => 'app/Billing.php',
+            'line' => 205,
+            'diff_hunk' => "@@ -1 +1 @@\n-old\n+new",
+            'url' => 'https://github.com/acme/web/pull/9#discussion_r4683388661',
+        ]],
+    ]);
+});
+
 it('forces act when an inline comment carries the yak prefix', function () {
     Queue::fake();
     ReviewFeedbackTriage::fake(['none']);
@@ -158,7 +185,9 @@ it('queues a steering message instead when the PR is busy', function () {
         ->and($message->root_task_id)->toBe($root->id)
         ->and($message->source)->toBe('github_review')
         ->and($message->reviewer_login)->toBe('alice')
-        ->and($message->text)->toContain('Also handle the empty state.');
+        ->and($message->text)->toContain('Also handle the empty state.')
+        ->and($message->author_name)->toBe('alice')
+        ->and($message->review_feedback['summary'])->toBe('Also handle the empty state.');
     Queue::assertNotPushed(RunFollowUpJob::class);
 });
 

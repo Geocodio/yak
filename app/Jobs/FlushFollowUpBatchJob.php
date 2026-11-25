@@ -62,23 +62,20 @@ class FlushFollowUpBatchJob implements ShouldQueue
             return;
         }
 
-        $instructions = app(ReviewFeedbackFormatter::class)->format(
-            '',
-            '',
-            $comments->map(fn (FollowUpPendingComment $comment): array => [
-                'id' => $comment->file !== null && $comment->github_comment_id !== null ? (int) $comment->github_comment_id : null,
-                'body' => (string) $comment->body,
-                'author' => $comment->author,
-                'file' => $comment->file,
-                'line' => $comment->line !== null ? (int) $comment->line : null,
-                'diff_hunk' => $comment->diff_hunk,
-            ])->all(),
-            '',
-        );
+        $feedbackComments = $comments->map(fn (FollowUpPendingComment $comment): array => [
+            'id' => $comment->file !== null && $comment->github_comment_id !== null ? (int) $comment->github_comment_id : null,
+            'body' => (string) $comment->body,
+            'author' => $comment->author,
+            'file' => $comment->file,
+            'line' => $comment->line !== null ? (int) $comment->line : null,
+            'diff_hunk' => $comment->diff_hunk,
+        ])->all();
+        $formatter = app(ReviewFeedbackFormatter::class);
+        $instructions = $formatter->format('', '', $feedbackComments, '');
 
         $authorName = $comments->pluck('author')->filter()->unique()->implode(', ') ?: null;
 
-        $child = $factory->create($parent, $instructions, 'github', authorName: $authorName);
+        $child = $factory->create($parent, $instructions, 'github', authorName: $authorName, reviewFeedback: $formatter->toReviewFeedback('', '', $feedbackComments, '', $parent->pr_url));
 
         if ($child === null) {
             // PR merged/closed — decline politely.

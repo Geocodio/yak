@@ -1,0 +1,324 @@
+{
+    "actions": {
+        "canCancel": false,
+        "canMove": false,
+        "canRequestReview": false,
+        "canRetry": false,
+        "canRetryRender": false,
+        "canStop": false,
+        "moveTargets": []
+    },
+    "agents": {
+        "running": [],
+        "runningCount": 0
+    },
+    "brief": null,
+    "canDrive": true,
+    "canOpenPullRequest": false,
+    "capacity": null,
+    "card": null,
+    "coOwner": null,
+    "composer": {
+        "accountName": null,
+        "context": null,
+        "contextWindows": {
+            "claude-fable-5-2": 1000000,
+            "claude-haiku-5-5": 1000000,
+            "claude-opus-5-5": 1000000,
+            "claude-sonnet-5-5": 1000000,
+            "default": 200000,
+            "fable": 1000000,
+            "haiku": 1000000,
+            "opus": 1000000,
+            "sonnet": 1000000
+        },
+        "effort": null,
+        "model": "sonnet",
+        "models": [
+            {
+                "family": "opus",
+                "latest": {
+                    "description": "For complex work and everyday tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Opus 5.5",
+                    "value": "opus"
+                },
+                "older": []
+            },
+            {
+                "family": "fable",
+                "latest": {
+                    "description": "For your toughest challenges",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Fable 5.2",
+                    "value": "fable"
+                },
+                "older": []
+            },
+            {
+                "family": "sonnet",
+                "latest": {
+                    "description": "Most efficient for simpler tasks",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Sonnet 5.5",
+                    "value": "sonnet"
+                },
+                "older": []
+            },
+            {
+                "family": "haiku",
+                "latest": {
+                    "description": "Fastest for quick answers",
+                    "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                    ],
+                    "label": "Haiku 5.5",
+                    "value": "haiku"
+                },
+                "older": []
+            }
+        ],
+        "nextAttachmentNumber": 1,
+        "state": "idle",
+        "turn": null
+    },
+    "diffTotals": null,
+    "earlierWalkthroughs": [],
+    "earlyWarning": null,
+    "isLegacy": false,
+    "latestSequence": 12,
+    "legacyAnswers": [],
+    "liveActivityChannel": "dGVzdC1jaGFubmVs",
+    "localTurnStints": [],
+    "localTurns": null,
+    "messages": [
+        {
+            "attachmentIds": [],
+            "attachments": [],
+            "authorInitials": "A",
+            "authorName": "alice",
+            "bodyHtml": "<p>@alice submitted a review (changes requested):</p>\n",
+            "canEditText": false,
+            "channelCard": null,
+            "effort": null,
+            "id": "<volatile:string>",
+            "intent": null,
+            "isReply": true,
+            "isRetry": false,
+            "mode": null,
+            "model": "opus",
+            "readAfterSequence": null,
+            "retryNumber": null,
+            "review": {
+                "avatarUrl": "https://github.com/alice.png?size=48",
+                "comments": [
+                    {
+                        "author": "alice",
+                        "bodyHtml": "<p>Please fix this</p>\n",
+                        "diff": [
+                            " context",
+                            "-old",
+                            "+new"
+                        ],
+                        "file": "app/Billing.php",
+                        "line": 205,
+                        "url": "https://github.com/example/api/pull/9#discussion_r4683388661"
+                    },
+                    {
+                        "author": "alice",
+                        "bodyHtml": "<p>Also update the docs.</p>\n",
+                        "diff": [],
+                        "file": null,
+                        "line": null,
+                        "url": null
+                    }
+                ],
+                "reviewer": "alice",
+                "state": "changes_requested",
+                "summaryHtml": "<p>Two things.</p>\n",
+                "url": "https://github.com/example/api/pull/9#pullrequestreview-500"
+            },
+            "sendKey": null,
+            "sentAt": "2026-11-15T12:00:00+00:00",
+            "state": "read",
+            "text": "@alice submitted a review (changes requested):",
+            "uuid": "<volatile:string>",
+            "via": {
+                "key": "github",
+                "label": "GitHub",
+                "reference": "#9",
+                "url": "https://github.com/example/api/pull/9#pullrequestreview-500"
+            }
+        }
+    ],
+    "milestones": [],
+    "modelLabels": {
+        "claude-fable-5-2": "Fable 5.2",
+        "claude-haiku-5-5": "Haiku 5.5",
+        "claude-opus-5-5": "Opus 5.5",
+        "claude-sonnet-5-5": "Sonnet 5.5",
+        "fable": "Fable 5.2",
+        "haiku": "Haiku 5.5",
+        "opus": "Opus 5.5",
+        "sonnet": "Sonnet 5.5"
+    },
+    "notice": null,
+    "panes": {
+        "changes": true,
+        "chat": true,
+        "files": false,
+        "preview": true,
+        "terminal": false
+    },
+    "progress": null,
+    "publishWarning": false,
+    "pullRequest": null,
+    "pullRequests": [],
+    "question": null,
+    "repositoryQuestion": null,
+    "request": {
+        "responsibleName": null,
+        "source": {
+            "key": "dashboard",
+            "label": "Dashboard",
+            "reference": null,
+            "url": null
+        },
+        "starter": {
+            "avatarUrl": null,
+            "key": "user:1",
+            "name": "Test person"
+        },
+        "status": {
+            "key": "done",
+            "label": "Done",
+            "tone": "ok"
+        }
+    },
+    "runDetails": {
+        "apiSpendUsd": 0,
+        "attempts": null,
+        "completedAt": "2026-11-15T11:00:00+00:00",
+        "costUsd": 1.25,
+        "durationSeconds": 60,
+        "errorLog": null,
+        "errorLogTruncated": false,
+        "runCount": 1,
+        "sessionId": null,
+        "startedAt": "2026-11-15T11:40:00+00:00",
+        "stepCount": 10
+    },
+    "sharedFiles": [],
+    "slashCommands": {
+        "capturedAt": null,
+        "commands": [
+            {
+                "argumentHint": null,
+                "description": "Start a fresh conversation on a new thread, linked back to this one",
+                "kind": "yak",
+                "name": "clear"
+            }
+        ]
+    },
+    "stackParent": null,
+    "stopped": null,
+    "teleport": {
+        "accountName": null,
+        "canTeleport": true,
+        "command": "<volatile:string>",
+        "continuedFromThreadId": null,
+        "continuedFromTitle": null,
+        "environmentNote": null,
+        "environmentSwitch": null,
+        "environmentSwitches": [],
+        "failure": null,
+        "hasDevices": true,
+        "heldEvents": [],
+        "link": "<volatile:string>",
+        "openTeleportState": null,
+        "ownerDevice": null,
+        "ownerName": null,
+        "requestedRunningTurn": null,
+        "runningTurn": false,
+        "since": null,
+        "state": "none",
+        "viewerIsOwner": false
+    },
+    "thread": {
+        "blockedReason": null,
+        "branch": null,
+        "canShare": true,
+        "hasRepository": true,
+        "id": "<volatile:string>",
+        "isOwner": true,
+        "isStarred": false,
+        "kind": "general",
+        "lastActivityAt": null,
+        "name": "clamp-billable-lookups",
+        "ownerSide": "yak",
+        "parentThreadId": null,
+        "preview": {
+            "awakeCap": 8,
+            "canRestore": true,
+            "coldStartCommand": null,
+            "host": null,
+            "personAwakeCap": 4,
+            "port": null,
+            "repoLabel": "example/api",
+            "safariFallback": true,
+            "setup": {
+                "endedWithoutManifest": false,
+                "intent": null,
+                "isRunning": false
+            },
+            "state": "destroyed",
+            "targets": [
+                {
+                    "canRestore": true,
+                    "kind": "general",
+                    "state": "destroyed",
+                    "threadId": "<volatile:string>",
+                    "title": "Clamp billable lookups",
+                    "url": null
+                }
+            ],
+            "teleportCommand": null,
+            "url": null
+        },
+        "pullRequestCount": 0,
+        "pullRequestOpening": null,
+        "repo": "example/api",
+        "repositories": [],
+        "rootThreadId": "<volatile:null>",
+        "runnerState": "none",
+        "sandboxState": "none",
+        "sharedWithCount": 0,
+        "startedOnDevice": false,
+        "status": "open",
+        "title": "Clamp billable lookups",
+        "visibility": "team"
+    },
+    "walkthrough": null
+}

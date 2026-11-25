@@ -39,9 +39,10 @@ class StoppedTaskReplies
     /**
      * @param  Closure(PendingSteeringMessage): mixed|null  $afterNoteQueued  runs once the reply is queued as a note, so a caller can attach files to it
      * @param  int|null  $authorUserId  the Yak user who wrote the reply, stored on the note
+     * @param  array<string, mixed>|null  $channelCard  where the reply came from, which the thread shows as a card
      * @return string the reply to post back to the starter
      */
-    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null, ?Closure $afterNoteQueued = null, ?int $authorUserId = null): string
+    public function handle(YakTask $task, string $message, string $source, ?string $authorName = null, ?Closure $afterNoteQueued = null, ?int $authorUserId = null, ?array $channelCard = null): string
     {
         if ($task->status === TaskStatus::Cancelled) {
             return $source === 'slack'
@@ -58,7 +59,7 @@ class StoppedTaskReplies
 
         $isAlreadyActive = in_array($task->status, [TaskStatus::Pending, TaskStatus::Running, TaskStatus::Retrying, TaskStatus::AwaitingCi], true);
 
-        $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName, authorUserId: $authorUserId);
+        $note = PendingSteeringMessage::queueFor($task, $message, $source, authorName: $authorName, authorUserId: $authorUserId, channelCard: $channelCard);
 
         if ($afterNoteQueued !== null) {
             $afterNoteQueued($note);

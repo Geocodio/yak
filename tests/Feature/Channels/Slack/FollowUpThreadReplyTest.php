@@ -142,6 +142,40 @@ it('queues a steering message when a thread reply arrives while the task is stil
     expect(PendingSteeringMessage::where('root_task_id', $task->id)->where('text', 'Please also add a test')->exists())->toBeTrue();
 });
 
+it('queues a thread reply as Markdown with its author and a card that links back to it', function () {
+    Queue::fake();
+    config()->set('yak.channels.slack.workspace_url', 'https://acme.slack.com');
+    Http::fake([
+        'slack.com/api/users.info*' => Http::response(['ok' => true, 'user' => ['profile' => ['display_name' => 'Sarah Chen', 'image_72' => 'https://avatars.slack-edge.com/sarah_72.png']]]),
+        'slack.com/api/conversations.info*' => Http::response(['ok' => true, 'channel' => ['name' => 'eng-support']]),
+        'slack.com/*' => Http::response(['ok' => true]),
+    ]);
+
+    $task = YakTask::factory()->running()->create(['source' => 'slack', 'slack_channel' => 'C123', 'slack_thread_ts' => '111.222']);
+
+    $body = slackThreadReplyPayload('<@U_REPLY_USER> see <https://example.com/logs|the logs> &amp; retry', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $message = PendingSteeringMessage::where('root_task_id', $task->id)->sole();
+
+    expect($message->text)->toBe('@Sarah Chen see [the logs](https://example.com/logs) & retry')
+        ->and($message->author_name)->toBe('Sarah Chen')
+        ->and($message->channel_card)->toBe([
+            'channel' => 'slack',
+            'url' => 'https://acme.slack.com/archives/C123/p1234567899999999?thread_ts=111.222&cid=C123',
+            'reference' => '#eng-support',
+            'title' => null,
+            'avatarUrl' => 'https://avatars.slack-edge.com/sarah_72.png',
+            'mentions' => ['Sarah Chen'],
+        ]);
+});
+
 it('reacts with eyes to a thread reply it queues as a steering message', function () {
     Queue::fake();
     Http::fake(['slack.com/*' => Http::response(['ok' => true])]);
