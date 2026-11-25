@@ -58,6 +58,8 @@ beforeEach(function () {
     ];
     $this->github->shouldReceive('getPullRequestOrFail')->andReturnUsing(fn () => $this->livePullRequest)->byDefault();
     $this->github->shouldReceive('hasRequiredStatusChecks')->andReturn(true)->byDefault();
+    $this->pullRequestCommits = [['author' => ['login' => 'alice'], 'commit' => ['author' => ['email' => 'alice@example.com'], 'committer' => ['email' => 'noreply@github.com'], 'message' => 'Split warnings']]];
+    $this->github->shouldReceive('listPullRequestCommits')->andReturnUsing(fn () => $this->pullRequestCommits)->byDefault();
     app()->instance(AppService::class, $this->github);
 });
 
@@ -74,6 +76,26 @@ it('stays off at level 1 and for inactive repositories', function () {
 it('holds a Yak-opened pull request', function () {
     $decision = policyEvaluate(policyFiles(), policyReview(), ['author' => 'Yak[bot]']);
     expect($decision['reasons'])->toBe(['Yak opened this pull request.']);
+});
+
+it('holds a pull request with a commit Yak wrote or co-authored', function (array $commit) {
+    config(['yak.git_user_email' => 'yak@noreply.github.com']);
+    $this->pullRequestCommits[] = array_replace_recursive(['author' => ['login' => 'alice'], 'commit' => ['author' => ['email' => 'alice@example.com'], 'committer' => ['email' => 'alice@example.com'], 'message' => 'Fix it']], $commit);
+    fakePolicyClassifier();
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Yak wrote commits on this pull request.']);
+})->with([
+    'bot account' => [['author' => ['login' => 'Yak[bot]']]],
+    'author email' => [['commit' => ['author' => ['email' => 'Yak@noreply.github.com']]]],
+    'committer email' => [['commit' => ['committer' => ['email' => 'yak@noreply.github.com']]]],
+    'co-author trailer' => [['commit' => ['message' => "Fix it\n\nCo-authored-by: Yak <yak@noreply.github.com>"]]],
+]);
+
+it('holds when the pull request commits cannot be read', function () {
+    $this->github->shouldReceive('listPullRequestCommits')->andThrow(new RuntimeException('GitHub down'));
+    fakePolicyClassifier();
+
+    expect(policyEvaluate(policyFiles(), policyReview())['reasons'])->toBe(['Could not verify the pull request commits.']);
 });
 
 it('holds without a concerns file', function () {

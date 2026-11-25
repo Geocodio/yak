@@ -87,7 +87,9 @@ class ReviewApprovalPolicy
         }
 
         $liveAuthor = (string) ($live['user']['login'] ?? '');
-        $hold = $this->authorHold($github, $liveAuthor, (string) ($metadata['author'] ?? '')) ?? $this->pullRequestStateHold($live);
+        $hold = $this->authorHold($github, $liveAuthor, (string) ($metadata['author'] ?? ''))
+            ?? $this->pullRequestStateHold($live)
+            ?? $this->yakCommitHold($github, $repository, (int) ($metadata['pr_number'] ?? 0));
         if ($hold !== null) {
             return [$hold];
         }
@@ -241,6 +243,36 @@ class ReviewApprovalPolicy
         Cache::put($key, $holds, 60);
 
         return $holds;
+    }
+
+    /**
+     * Yak never approves its own code: a commit Yak wrote or co-authored
+     * needs a person's approval, the same as a pull request Yak opened.
+     * Fails closed when the commits cannot be read.
+     */
+    private function yakCommitHold(AppService $github, Repository $repository, int $prNumber): ?string
+    {
+        try {
+            $commits = $github->listPullRequestCommits((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $prNumber);
+        } catch (\Throwable) {
+            return 'Could not verify the pull request commits.';
+        }
+
+        $botLogin = $github->appBotLogin();
+        $yakEmail = strtolower((string) config('yak.git_user_email'));
+
+        foreach ($commits as $commit) {
+            $isYakCommit = strcasecmp((string) ($commit['author']['login'] ?? ''), $botLogin) === 0
+                || strtolower((string) ($commit['commit']['author']['email'] ?? '')) === $yakEmail
+                || strtolower((string) ($commit['commit']['committer']['email'] ?? '')) === $yakEmail
+                || str_contains(strtolower((string) ($commit['commit']['message'] ?? '')), "co-authored-by: yak <{$yakEmail}>");
+
+            if ($isYakCommit) {
+                return 'Yak wrote commits on this pull request.';
+            }
+        }
+
+        return null;
     }
 
     private function authorHold(AppService $github, string $author, string $reviewedAuthor): ?string

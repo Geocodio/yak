@@ -657,6 +657,7 @@ it('records the level-based decision and approves a clean docs change at level 2
     app()->instance(ReviewOutputParser::class, $parser);
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'additions' => 1, 'deletions' => 0, 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(['state' => 'open', 'draft' => false, 'changed_files' => 1,
         'head' => ['sha' => 'head', 'repo' => ['full_name' => 'acme/api']], 'base' => ['sha' => 'base', 'ref' => 'main', 'repo' => ['full_name' => 'acme/api']], 'user' => ['login' => 'alice']]);
     $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
@@ -735,6 +736,7 @@ function approvalLivePullRequest(string $headSha): array
 it('dismisses an approval when new commits arrive while it is being submitted', function () {
     [$task, $agent, $github] = approvalHardeningSetup();
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
     $github->shouldReceive('dismissPullRequestReviewOrFail')->once()
@@ -750,6 +752,7 @@ it('leaves dismissed_at null and queues a retry when the stale approval cannot b
     Queue::fake();
     [$task, $agent, $github] = approvalHardeningSetup();
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'), approvalLivePullRequest('newer'));
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'APPROVE')->andReturn(['id' => 123]);
     $github->shouldReceive('dismissPullRequestReviewOrFail')->once()->andThrow(new RuntimeException('422'));
@@ -765,6 +768,7 @@ it('leaves dismissed_at null and queues a retry when the stale approval cannot b
 it('never approves when the pull request file list cannot be loaded completely', function () {
     [$task, $agent, $github] = approvalHardeningSetup();
     $github->shouldReceive('listPullRequestFilesOrFail')->andThrow(new RuntimeException('502'));
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(fn ($i, $r, $n, $b, $event) => $event === 'COMMENT')->andReturn(['id' => 123]);
     $github->shouldNotReceive('dismissPullRequestReview');
@@ -792,6 +796,7 @@ function runLevelTwoReviewWithPriorFinding(string $status): array
     $github->shouldReceive('listReviewThreads')->andReturn([['is_resolved' => $status === ParsedPriorFinding::STATUS_FIXED, 'comment_database_ids' => [777]]]);
     $github->shouldReceive('replyToReviewComment')->andReturn(['id' => 5]);
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
     $event = null;
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
@@ -827,6 +832,7 @@ it('adds the second round hint only at level 2 and up', function () {
     app()->instance(ReviewOutputParser::class, $parser);
     $github->shouldReceive('listReviewThreads')->andReturn([]);
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
     $body = null;
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b) use (&$body) {
@@ -851,6 +857,7 @@ it('holds a level 2 review when hydrating prior findings fails', function () {
     PrReviewComment::factory()->create(['pr_review_id' => $previous->id, 'github_comment_id' => 777]);
     $github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('502'));
     $github->shouldReceive('listPullRequestFilesOrFail')->andReturn([['filename' => 'docs/guide.md', 'status' => 'added', 'patch' => "@@ -0,0 +1 @@\n+Docs"]]);
+    $github->shouldReceive('listPullRequestCommits')->andReturn([]);
     $github->shouldReceive('getPullRequestOrFail')->andReturn(approvalLivePullRequest('head'));
     $event = null;
     $github->shouldReceive('createPullRequestReview')->once()->withArgs(function ($i, $r, $n, $b, $e) use (&$event) {
