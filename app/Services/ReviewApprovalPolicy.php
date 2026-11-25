@@ -121,7 +121,7 @@ class ReviewApprovalPolicy
             return $reasons;
         }
 
-        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
+        $result = app(ConcernCheck::class)->check($concerns, array_values($this->withMissingPatches($repository, $live, $files)));
         $decision['classification'] = $this->classificationFrom($result);
         $reasons = $this->concernHolds($concerns, $decision['classification'], $decision['observed']['has_test_change']);
         if ($reasons !== []) {
@@ -198,7 +198,7 @@ class ReviewApprovalPolicy
         }
 
         if ($classification === null) {
-            $classification = $this->classificationFrom(app(ConcernCheck::class)->check($concerns, array_values($files)));
+            $classification = $this->classificationFrom(app(ConcernCheck::class)->check($concerns, array_values($this->withMissingPatches($repository, $pullRequest, $files))));
         }
         $outcome['classification'] = $classification;
         if ($classification['is_uncertain'] || $classification['failure'] !== null || $classification['change_kind'] === null) {
@@ -321,6 +321,57 @@ class ReviewApprovalPolicy
         $observed = $hasChecks;
 
         return $hasChecks ? null : "Branch protection on {$baseRef} has no required status checks.";
+    }
+
+    /**
+     * GitHub's file list leaves out the patch of a file whose diff is too large.
+     * Fill those patches from the compare diff of the pull request's base and
+     * head commits. A file with no text hunks there (a binary file) keeps no
+     * patch, so the concern check still holds it.
+     *
+     * @param  array<string, mixed>  $pullRequest
+     * @param  array<int, array<string, mixed>>  $files
+     * @return array<int, array<string, mixed>>
+     */
+    private function withMissingPatches(Repository $repository, array $pullRequest, array $files): array
+    {
+        $isMissingPatch = fn (array $file): bool => ! is_string($file['patch'] ?? null);
+        $baseSha = (string) ($pullRequest['base']['sha'] ?? '');
+        $headSha = (string) ($pullRequest['head']['sha'] ?? '');
+        if ($baseSha === '' || $headSha === '' || array_filter($files, $isMissingPatch) === []) {
+            return $files;
+        }
+
+        try {
+            $diff = app(AppService::class)->getCompareDiff((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseSha, $headSha);
+        } catch (\Throwable) {
+            return $files;
+        }
+        if ($diff === null) {
+            return $files;
+        }
+
+        $sections = [];
+        foreach (preg_split('/^(?=diff --git )/m', $diff) ?: [] as $section) {
+            $header = strtok($section, "\n");
+            $hunkStart = strpos($section, "\n@@");
+            if ($header !== false && $hunkStart !== false) {
+                $sections[$header] = rtrim(substr($section, $hunkStart + 1), "\n");
+            }
+        }
+
+        foreach ($files as $index => $file) {
+            if ($isMissingPatch($file)) {
+                $filename = (string) ($file['filename'] ?? '');
+                $previous = (string) ($file['previous_filename'] ?? $filename);
+                $patch = $sections["diff --git a/{$previous} b/{$filename}"] ?? null;
+                if ($patch !== null) {
+                    $files[$index]['patch'] = $patch;
+                }
+            }
+        }
+
+        return $files;
     }
 
     /**

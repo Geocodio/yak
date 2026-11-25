@@ -198,6 +198,31 @@ it('holds when the concern check is uncertain or failed', function () {
     expect(policyEvaluate($files, policyReview())['reasons'])->toBe(['Diff for a.php is not available.']);
 });
 
+it('fills a patch GitHub left out from the compare diff, and holds a file with no text hunks', function () {
+    $this->livePullRequest['base']['sha'] = 'base';
+    $this->livePullRequest['changed_files'] = 2;
+    $this->github->shouldReceive('getCompareDiff')->with(Mockery::any(), 'acme/api', 'base', 'head')->andReturn(implode("\n", [
+        'diff --git a/tests/.pest/shards.json b/tests/.pest/shards.json',
+        'index 1111111..2222222 100644',
+        '--- a/tests/.pest/shards.json',
+        '+++ b/tests/.pest/shards.json',
+        '@@ -1 +1 @@',
+        '-{"a": 1}',
+        '+{"a": 2}',
+        'diff --git a/logo.png b/logo.png',
+        'Binary files a/logo.png and b/logo.png differ',
+        '',
+    ]));
+    $files = [['filename' => 'tests/.pest/shards.json', 'status' => 'modified'], ['filename' => 'app/Thing.php', 'status' => 'modified', 'patch' => '+x']];
+
+    fakePolicyClassifier('no_runtime_change');
+    expect(policyEvaluate($files, policyReview())['candidate'])->toBe('APPROVE');
+    ConcernClassifier::assertPrompted(fn ($prompt) => $prompt->contains("@@ -1 +1 @@\n-{\"a\": 1}\n+{\"a\": 2}"));
+
+    $files[1] = ['filename' => 'logo.png', 'status' => 'modified'];
+    expect(policyEvaluate($files, policyReview())['reasons'])->toBe(['Diff for logo.png is not available.']);
+});
+
 it('approves a clean behavior change at level 5, only as a comment in shadow', function () {
     fakePolicyClassifier('behavior_change');
     $decision = policyEvaluate(policyFiles(), policyReview());
