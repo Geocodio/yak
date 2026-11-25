@@ -92,7 +92,7 @@ struct InstanceShell: View {
         }
         .onChange(of: scene.isSettingsOpen) { Task { await refreshStoredInstance() } }
         .task(id: drawerModel.map(ObjectIdentifier.init)) { await drawerModel?.run() }
-        .onChange(of: scene.state.filter) { Task { await drawerModel?.syncFilter() } }
+        .onChange(of: scene.state.selection) { Task { await drawerModel?.syncFilter() } }
         .onChange(of: isListVisible) { Task { await drawerModel?.setVisible(isListVisible) } }
         .onChange(of: model.taskToOpen, initial: true) {
             if let id = model.takeTaskToOpen(for: scene) { taskOpener.open(taskID: id) }
@@ -359,11 +359,16 @@ struct InstanceShell: View {
             feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock(),
             overview: await session.overviewActions())
         drawerModel = drawer
+        await drawer.configure(
+            serverFilters: await session.threadFilters(), viewerID: await session.me()?.user.id.value)
         await drawer.setVisible(isListVisible)
         for await state in await feed.states() {
+            // The answer to `me` may come after the list started; the tabs follow it.
+            await drawer.configure(
+                serverFilters: await session.threadFilters(), viewerID: await session.me()?.user.id.value)
             listState = state
             await model.push?.refreshBadge()
-            if state.filter == .mine, state.search == nil, let list = state.list {
+            if state.isWholeMine, let list = state.list {
                 model.widgets?.listLoaded(instance: instance, list: list)
                 QuickActions.update(
                     instance: instance,
@@ -376,7 +381,7 @@ struct InstanceShell: View {
 
     private func applyColdStartIfNeeded(_ state: ThreadListState) async {
         if !scene.hasAppliedColdStart {
-            guard state.filter == .mine, state.search == nil, let list = state.list else { return }
+            guard state.isWholeMine, let list = state.list else { return }
             let link = model.takeLaunchLink()
             let own: DeepLink? =
                 switch link {

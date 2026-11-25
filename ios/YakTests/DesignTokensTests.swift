@@ -146,6 +146,23 @@ import UIKit
         #expect(ratio(.yakAccentInk, on: accent, traits) >= 4.5)
     }
 
+    /// The drawer's tab row: the count on the selected Review tab, the count on a quiet tab, a quiet tab's name on the
+    /// row's fill, the selected tab's name on its card, and the Filter count on the accent.
+    @Test(arguments: [
+        (UIUserInterfaceStyle.light, false), (.dark, false), (.light, true), (.dark, true),
+    ]) func theTabRowKeepsItsContrast(style: UIUserInterfaceStyle, highContrast: Bool) {
+        let traits = trait(style, highContrast: highContrast)
+        let pairs: [(String, Color, Color)] = [
+            ("selected count", .yakAccentInk, .yakSlate), ("quiet count", .yakText, .yakFillStrong),
+            ("quiet tab", .yakMuted, .yakBubble), ("selected tab", .yakText, .yakTabSelected),
+            ("filter count", .yakAccentInk, .yakAccent),
+        ]
+        for (name, text, fill) in pairs {
+            let value = ratio(text, on: surface(fill, traits), traits)
+            #expect(value >= 4.5, "\(name) in \(style.rawValue), high \(highContrast): \(value)")
+        }
+    }
+
     /// Under Increase Contrast the quiet fill and the pressed fill are a step apart from the page, so selected and
     /// pressed controls show.
     @Test(arguments: [UIUserInterfaceStyle.light, .dark]) func theQuietFillsDifferFromThePage(

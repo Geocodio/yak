@@ -60,7 +60,56 @@ final class DrawerModel {
     /// How many items wait for the person, for the threads button's badge.
     var needsYouCount: Int { state?.list?.needsYouCount ?? 0 }
 
-    var filter: ThreadListFilter { scene.state.filter }
+    /// The tabs the server accepts; an older server's until `configure` says otherwise.
+    private(set) var tabs = ThreadTabs(serverFilters: nil)
+    /// The Review badge: every answer carries it, so it stays while another tab is on screen.
+    private(set) var reviewCount = 0
+    /// The person's own starter key, so the sheet can say "You".
+    private(set) var viewerStarterKey: String?
+    /// The Review groups the person unfolded; a group starts folded or open by its key.
+    @ObservationIgnored private var openedGroups: Set<String> = []
+    @ObservationIgnored private var hasConfigured = false
+
+    /// The tab and filters the list shows: what the feed loads, so the row never says one thing over another list.
+    /// An older server's `yak` filter reads as Mine started by Yak.
+    var selection: ThreadListSelection {
+        guard let state else { return scene.state.selection }
+        if state.filter == .yak { return ThreadListSelection.migrated(.yak) }
+        return ThreadListSelection(filter: state.filter, sources: state.sources, starters: state.starters)
+    }
+
+    var filter: ThreadListFilter { selection.filter }
+
+    /// What the Filter sheet offers for the selected tab: nil until a list has loaded.
+    var facets: ThreadFacets? { state?.list?.facets }
+
+    func sourceChoices() -> [FilterChoice] {
+        ThreadTabs.choices(from: facets?.sources ?? [], picked: selection.sources)
+    }
+
+    func starterChoices() -> [FilterChoice] {
+        // An older server lists no facets and knows one starter filter, Yak.
+        guard tabs.supportsFacets else {
+            return [
+                FilterChoice(
+                    key: "yak", label: "yak", count: 0, isPicked: selection.starters.contains("yak"), role: .yak)
+            ]
+        }
+        return ThreadTabs.choices(from: facets?.starters ?? [], picked: selection.starters, viewerKey: viewerStarterKey)
+    }
+
+    /// The server's tabs and the person's id arrive after the list may have started; a change re-reads the tab.
+    func configure(serverFilters: [String]?, viewerID: String?) async {
+        let next = ThreadTabs(serverFilters: serverFilters)
+        let viewer = viewerID.map { "user:\($0)" }
+        guard !hasConfigured || next != tabs || viewer != viewerStarterKey else { return }
+        hasConfigured = true
+        let tabsChanged = next != tabs
+        tabs = next
+        viewerStarterKey = viewer
+        // Before the cold start the feed stays on Mine, which the cold start reads; the window's tab is applied after it.
+        if tabsChanged, scene.hasAppliedColdStart { await syncFilter() }
+    }
 
     /// Follows the feed and the outbox until the calling task is cancelled.
     func run() async {
@@ -72,6 +121,7 @@ final class DrawerModel {
     private func followFeed() async {
         for await next in await feed.states() {
             state = next
+            if let list = next.list { reviewCount = list.reviewCount }
             recompute()
         }
     }
@@ -91,15 +141,59 @@ final class DrawerModel {
         await feed.setVisible(visible)
     }
 
+    /// Picks a tab; the filters in the sheet stay on.
     func setFilter(_ filter: ThreadListFilter) async {
-        scene.setFilter(filter)
+        var next = selection
+        next.filter = filter
+        scene.setSelection(next)
         await syncFilter()
     }
 
-    /// Points the feed at the filter the scene shows and the text in the search field.
+    func toggleSource(_ key: String) async { await toggle(key, in: \.sources) }
+    func toggleStarter(_ key: String) async { await toggle(key, in: \.starters) }
+
+    func clearFilters() async {
+        var next = selection
+        next.sources = []
+        next.starters = []
+        scene.setSelection(next)
+        await syncFilter()
+    }
+
+    private func toggle(_ key: String, in field: WritableKeyPath<ThreadListSelection, [String]>) async {
+        var next = selection
+        if let index = next[keyPath: field].firstIndex(of: key) {
+            next[keyPath: field].remove(at: index)
+        } else {
+            next[keyPath: field].append(key)
+        }
+        scene.setSelection(next)
+        await syncFilter()
+    }
+
+    /// Points the feed at the tab and filters the scene holds and the text in the search field. A tab the server does
+    /// not list reads as Mine.
     func syncFilter() async {
         searchTask?.cancel()
-        await feed.setFilter(scene.state.filter, search: search)
+        let held = scene.state.selection
+        if tabs.resolved(held.filter) != held.filter {
+            var next = held
+            next.filter = tabs.resolved(held.filter)
+            scene.setSelection(next)
+        }
+        await sendToFeed()
+    }
+
+    private func sendToFeed() async {
+        let held = scene.state.selection
+        let asked = tabs.request(filter: held.filter, starters: held.starters)
+        await feed.setFilter(asked.filter, search: search, sources: held.sources, starters: asked.starters)
+    }
+
+    /// A Review group folds open or shut.
+    func toggleGroup(_ key: String) {
+        if !openedGroups.insert(key).inserted { openedGroups.remove(key) }
+        recompute()
     }
 
     func toggle(_ rowID: String) {
@@ -125,7 +219,7 @@ final class DrawerModel {
         searchTask?.cancel()
         searchTask = Task { [clock] in
             do { try await clock.sleep(for: Self.searchDelay) } catch { return }
-            await self.feed.setFilter(self.scene.state.filter, search: self.search)
+            await self.sendToFeed()
         }
     }
 
@@ -135,13 +229,16 @@ final class DrawerModel {
             return
         }
         let next = DrawerSections.make(
-            list: list, filter: state.filter, search: state.search, expanded: expanded, unsentNewThreads: unsent)
+            list: list, filter: state.filter, search: state.search, expanded: expanded, unsentNewThreads: unsent,
+            openedGroups: openedGroups)
         if next != content { content = next }
         rootOfChild = [:]
         let needing = list.needsYou.compactMap { item -> ThreadRow? in
             if case .thread(let row) = item { row } else { nil }
         }
-        for root in list.threads + list.starred + needing { noteDescendants(of: root, root: root.id) }
+        for root in list.threads + list.starred + needing + list.reviewGroups.flatMap(\.rows) {
+            noteDescendants(of: root, root: root.id)
+        }
         prefetchStacks()
     }
 

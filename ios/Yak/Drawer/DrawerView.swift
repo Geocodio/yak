@@ -22,6 +22,7 @@ struct DrawerView: View {
     let openingTaskID: String?
 
     @FocusState private var isSearchFocused: Bool
+    @State private var isFilterOpen = false
     @State private var dropTarget: DrawerRow?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -34,7 +35,10 @@ struct DrawerView: View {
                 header
             }
             if let name = scene.justPairedUserName { banner(name) }
-            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) { tiles }
+            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) {
+                tiles
+                tabRow
+            }
             content.frame(maxHeight: .infinity, alignment: .top)
         }
         // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
@@ -57,6 +61,11 @@ struct DrawerView: View {
             Button("overview.cancel", role: .cancel) {}
         } message: {
             Text("overview.drop.message")
+        }
+        .sheet(isPresented: $isFilterOpen) {
+            if let drawer {
+                DrawerFilterSheet(drawer: drawer) { isFilterOpen = false }.shortSheetDetents()
+            }
         }
         .background(Color.yakSidebar)
         .overlay(alignment: .trailing) { Rectangle().fill(Color.yakLine).frame(width: Design.Space.line) }
@@ -186,6 +195,57 @@ struct DrawerView: View {
         .buttonStyle(.pressable)
         .accessibilityIdentifier("drawer.tile.observations")
         .padding(.horizontal, 16).padding(.vertical, 6)
+    }
+
+    // MARK: Tabs
+
+    private var selection: ThreadListSelection { drawer?.selection ?? scene.state.selection }
+
+    /// The tabs stay in place while a list loads, so the row never jumps.
+    private var tabRow: some View {
+        VStack(spacing: 0) {
+            DrawerTabsView(
+                tabs: drawer?.tabs.tabs ?? ThreadTabs(serverFilters: nil).tabs, selected: selection.filter,
+                reviewCount: drawer?.reviewCount ?? 0, filterCount: selection.activeCount,
+                pick: { tab in
+                    if let drawer {
+                        Task { await drawer.setFilter(tab) }
+                    } else {
+                        scene.setFilter(tab)
+                    }
+                },
+                openFilter: { isFilterOpen = true }
+            )
+            if selection.activeCount > 0, let drawer {
+                DrawerFilterChips(
+                    chips: chips(drawer),
+                    remove: { key in
+                        Task {
+                            if selection.sources.contains(key) {
+                                await drawer.toggleSource(key)
+                            } else {
+                                await drawer.toggleStarter(key)
+                            }
+                        }
+                    },
+                    clear: { Task { await drawer.clearFilters() } })
+            }
+        }
+        .padding(.horizontal, Design.Space.groupInset)
+    }
+
+    private func chips(_ drawer: DrawerModel) -> [(key: String, label: String)] {
+        let sources = drawer.sourceChoices().filter(\.isPicked).map { (key: $0.key, label: $0.label) }
+        let starters = drawer.starterChoices().filter(\.isPicked).map { choice in
+            let label =
+                switch choice.role {
+                case .viewer: String(localized: "drawer.filterSheet.you")
+                case .yak: String(localized: "drawer.filterSheet.yak")
+                case .person: choice.label
+                }
+            return (key: choice.key, label: label)
+        }
+        return sources + starters
     }
 
     // MARK: Content
@@ -365,18 +425,38 @@ struct DrawerView: View {
     }
 
     /// A section's name in the quiet color, with a count in a pill for the threads that need the person.
-    private func sectionHeading(_ section: DrawerSection) -> some View {
-        HStack(spacing: Design.Space.compact) {
+    @ViewBuilder private func sectionHeading(_ section: DrawerSection) -> some View {
+        let heading = HStack(spacing: Design.Space.compact) {
             Text(title(of: section.kind)).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
-            if section.kind == .needsYou {
-                Text(section.rows.count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(
+            if section.kind == .needsYou || isReview(section.kind) {
+                Text(section.count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(
                     Color.yakMuted
                 )
                 .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
                 .background(Color.yakBubble, in: .capsule)
             }
+            if section.isCollapsible {
+                Image(systemName: "chevron.right").font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
+                    .rotationEffect(.degrees(section.isCollapsed ? 0 : 90)).accessibilityHidden(true)
+            }
         }
-        .accessibilityElement(children: .combine)
+        if section.isCollapsible, case .review(let key, _) = section.kind {
+            Button {
+                drawer?.toggleGroup(key)
+            } label: {
+                heading.frame(minHeight: Design.Size.control, alignment: .leading).contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(section.isCollapsed ? "drawer.group.collapsed" : "drawer.group.expanded")
+            .accessibilityIdentifier("drawer.group.\(key)")
+        } else {
+            heading.accessibilityElement(children: .combine)
+        }
+    }
+
+    private func isReview(_ kind: DrawerSection.Kind) -> Bool {
+        if case .review = kind { true } else { false }
     }
 
     private func title(of kind: DrawerSection.Kind) -> LocalizedStringKey {
@@ -387,6 +467,7 @@ struct DrawerView: View {
         case .today: "drawer.today"
         case .thisWeek: "drawer.thisWeek"
         case .older: "drawer.older"
+        case .review(_, let label): LocalizedStringKey(label)
         }
     }
 
@@ -423,6 +504,37 @@ struct DrawerView: View {
     }
 
     private func empty(othersHaveThreads: Bool, drawer: DrawerModel) -> some View {
+        if drawer.selection.activeCount > 0 {
+            return AnyView(
+                stateMessage(
+                    title: Text("drawer.empty.noMatch"), detail: nil, systemImage: "line.3.horizontal.decrease"
+                ) {
+                    Button {
+                        Task { await drawer.clearFilters() }
+                    } label: {
+                        Text("drawer.filterSheet.clear")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("drawer.empty.clearFilters")
+                })
+        }
+        if drawer.filter == .review, drawer.state?.list?.needsGitHubLink == true {
+            return AnyView(
+                stateMessage(
+                    title: Text("drawer.review.link.title"), detail: Text("drawer.review.link.detail"),
+                    systemImage: "link"
+                ) {})
+        }
+        if drawer.filter != .mine {
+            return AnyView(
+                stateMessage(
+                    title: Text("drawer.empty.here"), detail: nil, systemImage: "bubble.left.and.text.bubble.right"
+                ) {})
+        }
+        return AnyView(mineEmpty(othersHaveThreads: othersHaveThreads, drawer: drawer))
+    }
+
+    private func mineEmpty(othersHaveThreads: Bool, drawer: DrawerModel) -> some View {
         stateMessage(
             title: Text("drawer.empty.title"), detail: Text("drawer.empty.detail"),
             systemImage: "bubble.left.and.text.bubble.right"
@@ -452,6 +564,8 @@ struct DrawerView: View {
             case .mine: "drawer.noResults.mine"
             case .yak: "drawer.noResults.yak"
             case .everyone: "drawer.noResults.everyone"
+            case .closed: "drawer.noResults.closed"
+            case .review: "drawer.noResults.review"
             }
         return stateMessage(
             title: Text("drawer.noResults.title \(search)"), detail: Text(scope), systemImage: "magnifyingglass"
@@ -542,8 +656,6 @@ struct DrawerView: View {
     // MARK: Bottom bar
 
     private var bottomBar: some View {
-        // With the keyboard up at a large text size the filter shows as an icon, so the bar stays short.
-        let isOneRow = dynamicTypeSize.isAccessibilitySize
         let layout =
             dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
@@ -570,16 +682,14 @@ struct DrawerView: View {
                     .accessibilityLabel("drawer.clearSearch")
                     .accessibilityIdentifier("drawer.clearSearch")
                 }
-                if !isOneRow { filterMenu(showsName: true) }
             }
-            .padding(.leading, Design.Space.medium).padding(.trailing, Design.Space.tight)
+            .padding(.horizontal, Design.Space.medium)
             .frame(minHeight: Design.Size.bar)
             .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
             .overlay(
                 RoundedRectangle(cornerRadius: Design.Radius.control)
                     .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line))
             HStack(spacing: 8) {
-                if isOneRow { filterMenu(showsName: false) }
                 Button {
                     scene.openNewThread(repo: nil, text: nil)
                 } label: {
@@ -600,71 +710,6 @@ struct DrawerView: View {
 
     private var searchBinding: Binding<String> {
         Binding(get: { drawer?.search ?? "" }, set: { drawer?.search = $0 })
-    }
-
-    private func filterMenu(showsName: Bool) -> some View {
-        let filter = drawer?.filter ?? scene.state.filter
-        return Menu {
-            Picker("drawer.filter.title", selection: filterBinding) {
-                Label("drawer.filter.mine", systemImage: "person").tag(ThreadListFilter.mine)
-                Label("drawer.filter.yak", systemImage: "sparkles").tag(ThreadListFilter.yak)
-                Label("drawer.filter.everyone", systemImage: "person.2").tag(ThreadListFilter.everyone)
-            }
-        } label: {
-            HStack(spacing: 4) {
-                if showsName {
-                    Text(name(of: filter)).font(.yak(.footnote, .medium))
-                } else {
-                    Image(systemName: icon(of: filter)).font(.yak(.body, .semibold))
-                }
-                Image(systemName: "chevron.down").font(.yak(.caption2, .bold)).accessibilityHidden(true)
-            }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, Design.Space.medium).frame(
-                minHeight: showsName ? Design.Size.filterChip : Design.Size.control
-            )
-            .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.control))
-            .contentShape(.rect(cornerRadius: Design.Radius.control))
-        }
-        .tint(.primary)
-        .accessibilityLabel(label(of: filter))
-        .accessibilityIdentifier("drawer.filter")
-    }
-
-    private var filterBinding: Binding<ThreadListFilter> {
-        Binding(
-            get: { scene.state.filter },
-            set: { next in
-                if let drawer {
-                    Task { await drawer.setFilter(next) }
-                } else {
-                    scene.setFilter(next)
-                }
-            })
-    }
-
-    private func name(of filter: ThreadListFilter) -> LocalizedStringKey {
-        switch filter {
-        case .mine: "drawer.filter.mine"
-        case .yak: "drawer.filter.yak"
-        case .everyone: "drawer.filter.everyone"
-        }
-    }
-
-    private func icon(of filter: ThreadListFilter) -> String {
-        switch filter {
-        case .mine: "person"
-        case .yak: "sparkles"
-        case .everyone: "person.2"
-        }
-    }
-
-    private func label(of filter: ThreadListFilter) -> LocalizedStringKey {
-        switch filter {
-        case .mine: "drawer.filter.label.mine"
-        case .yak: "drawer.filter.label.yak"
-        case .everyone: "drawer.filter.label.everyone"
-        }
     }
 }
 

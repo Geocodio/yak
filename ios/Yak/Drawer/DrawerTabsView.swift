@@ -1,0 +1,270 @@
+import SwiftUI
+import YakKit
+
+/// The thread list's tabs under the Observations tile, and the Filter button at the row's end. Where the four names
+/// do not fit (the largest text sizes, a narrow drawer) one menu button names the selected tab and its count.
+struct DrawerTabsView: View {
+    let tabs: [ThreadListFilter]
+    let selected: ThreadListFilter
+    let reviewCount: Int
+    let filterCount: Int
+    let pick: (ThreadListFilter) -> Void
+    let openFilter: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        HStack(spacing: Design.Space.small) {
+            tabsOrMenu
+                // The tab row stops growing at accessibility1, as the account button does, so the menu and the
+                // Filter button share the width; the names themselves never shorten.
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            filterButton
+        }
+        .frame(minHeight: Design.Size.control)
+    }
+
+    /// Up to the default text size the four names always fit; above it the row gives way to the menu when they do
+    /// not.
+    @ViewBuilder private var tabsOrMenu: some View {
+        if dynamicTypeSize <= .large {
+            segments
+        } else {
+            ViewThatFits(in: .horizontal) {
+                segments
+                menuButton
+            }
+        }
+    }
+
+    // MARK: Segments
+
+    private var segments: some View {
+        EvenlySpread {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                segment(tab, index: index)
+            }
+        }
+        .padding(.horizontal, Design.Space.tight)
+        .frame(height: Design.Size.tabRow)
+        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.control))
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isTabBar)
+        .accessibilityIdentifier("drawer.tabs")
+    }
+
+    private func segment(_ tab: ThreadListFilter, index: Int) -> some View {
+        let isSelected = tab == selected
+        return Button {
+            pick(tab)
+        } label: {
+            HStack(spacing: Design.Space.tight) {
+                Text(name(of: tab)).font(.yak(.footnote, isSelected ? .semibold : .medium)).lineLimit(1)
+                if tab == .review, reviewCount > 0 { CountPill(count: reviewCount, isOn: isSelected) }
+            }
+            // The names never shorten: where they do not fit, the row gives way to the menu.
+            .fixedSize(horizontal: true, vertical: false)
+            .foregroundStyle(isSelected ? Color.yakText : Color.yakMuted)
+            .padding(.horizontal, Design.Space.small)
+            .frame(minHeight: Design.Size.tabSegment)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: Design.Radius.control).fill(Color.yakTabSelected)
+                        .shadow(color: Color.yakShadow, radius: Design.Space.nudge, y: Design.Space.line)
+                }
+            }
+            // The hit area reaches the row's full height, past the control's edge.
+            .frame(minHeight: Design.Size.control)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, -(Design.Size.control - Design.Size.tabRow) / 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityName(of: tab))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("drawer.tab.\(tab.rawValue)")
+    }
+
+    // MARK: Menu
+
+    private var menuButton: some View {
+        Menu {
+            Picker(
+                "drawer.filter.title",
+                selection: Binding(get: { selected }, set: { pick($0) })
+            ) {
+                ForEach(tabs, id: \.self) { tab in
+                    Text(menuName(of: tab)).tag(tab)
+                }
+            }
+        } label: {
+            HStack(spacing: Design.Space.compact) {
+                Text(name(of: selected)).font(.yak(.body, .medium)).lineLimit(1)
+                if selected == .review, reviewCount > 0 { CountPill(count: reviewCount, isOn: true) }
+                Spacer(minLength: Design.Space.tight)
+                Image(systemName: "chevron.down").font(.yak(.footnote, .semibold)).accessibilityHidden(true)
+            }
+            .foregroundStyle(Color.yakText)
+            .padding(.horizontal, Design.Space.medium)
+            .frame(maxWidth: .infinity, minHeight: Design.Size.control)
+            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.control)
+                    .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line)
+            )
+            .contentShape(.rect(cornerRadius: Design.Radius.control))
+        }
+        .accessibilityLabel(String(localized: "drawer.tabs.menuLabel \(accessibilityName(of: selected))"))
+        .accessibilityIdentifier("drawer.tabs.menu")
+    }
+
+    // MARK: Filter button
+
+    private var filterButton: some View {
+        Button(action: openFilter) {
+            Image(systemName: "line.3.horizontal.decrease").font(.yak(.body, .medium))
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .foregroundStyle(Color.yakText)
+                .frame(width: Design.Size.tabRow, height: Design.Size.tabRow)
+                .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Design.Radius.control)
+                        .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line)
+                )
+                .overlay(alignment: .topTrailing) {
+                    if filterCount > 0 {
+                        Text(filterCount, format: .number).font(.yak(.caption, .semibold))
+                            .foregroundStyle(Color.yakAccentInk)
+                            .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
+                            .background(Color.yakAccent, in: .capsule)
+                            .offset(x: Design.Space.tight, y: -Design.Space.tight)
+                            .accessibilityHidden(true)
+                    }
+                }
+                // The hit area reaches 44 points, past the control's edge into the margin.
+                .padding(Design.Space.small)
+                .contentShape(.rect)
+                .padding(-Design.Space.small)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            filterCount > 0
+                ? Text("drawer.filterButton.count \(filterCount)") : Text("drawer.filterButton.label")
+        )
+        .accessibilityIdentifier("drawer.filter")
+    }
+
+    // MARK: Words
+
+    private func name(of tab: ThreadListFilter) -> LocalizedStringKey {
+        switch tab {
+        case .review: "drawer.tab.review"
+        case .everyone: "drawer.tab.everyone"
+        case .closed: "drawer.tab.closed"
+        default: "drawer.tab.mine"
+        }
+    }
+
+    /// What VoiceOver says for a tab: the Review tab names its count, as a part of the tab.
+    private func accessibilityName(of tab: ThreadListFilter) -> String {
+        switch tab {
+        case .review:
+            reviewCount > 0
+                ? String(localized: "drawer.tab.reviewCount \(reviewCount)") : String(localized: "drawer.tab.review")
+        case .everyone: String(localized: "drawer.tab.everyone")
+        case .closed: String(localized: "drawer.tab.closed")
+        default: String(localized: "drawer.tab.mine")
+        }
+    }
+
+    private func menuName(of tab: ThreadListFilter) -> String {
+        tab == .review && reviewCount > 0
+            ? String(localized: "drawer.tab.reviewMenu \(reviewCount)") : accessibilityName(of: tab)
+    }
+}
+
+/// The count after a tab's name: the brand color on the selected tab, the quiet pressed fill otherwise.
+private struct CountPill: View {
+    let count: Int
+    let isOn: Bool
+
+    var body: some View {
+        Text(count, format: .number).font(.yak(.caption, .semibold))
+            .foregroundStyle(isOn ? Color.yakAccentInk : Color.yakText)
+            .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
+            .background(isOn ? Color.yakSlate : Color.yakFillStrong, in: .capsule)
+    }
+}
+
+/// The chips of the filters that are on, under the tabs, and Clear.
+struct DrawerFilterChips: View {
+    let chips: [(key: String, label: String)]
+    let remove: (String) -> Void
+    let clear: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
+            : AnyLayout(HStackLayout(spacing: Design.Space.compact))
+        ScrollView(.horizontal, showsIndicators: false) {
+            layout {
+                ForEach(chips, id: \.key) { chip in
+                    Button {
+                        remove(chip.key)
+                    } label: {
+                        HStack(spacing: Design.Space.tight) {
+                            Text(chip.label).lineLimit(1)
+                            Image(systemName: "xmark").imageScale(.small).accessibilityHidden(true)
+                        }
+                        .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakText)
+                        .padding(.horizontal, Design.Space.compact)
+                        .frame(minHeight: Design.Size.tabSegment)
+                        .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.control))
+                        .frame(minHeight: Design.Size.control)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("drawer.filterSheet.chipRemove \(chip.label)"))
+                    .accessibilityIdentifier("drawer.chip.\(chip.key)")
+                }
+                Button(action: clear) {
+                    Text("drawer.filterSheet.chipClear").font(.yak(.footnote, .medium))
+                        .foregroundStyle(Color.yakAction)
+                        .padding(.horizontal, Design.Space.compact)
+                        .frame(minHeight: Design.Size.control)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("drawer.chip.clear")
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+}
+
+/// Lays its children in a row, each at its own natural width plus an equal share of the room left over, so the
+/// segments fill the control and no name is ever cut. Its natural width is the sum of the names.
+private struct EvenlySpread: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let natural = sizes.reduce(0) { $0 + $1.width }
+        return CGSize(width: max(natural, proposal.width ?? natural), height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let spare = max(0, bounds.width - sizes.reduce(0) { $0 + $1.width })
+        let extra = subviews.isEmpty ? 0 : spare / CGFloat(subviews.count)
+        var x = bounds.minX
+        for (subview, size) in zip(subviews, sizes) {
+            let width = size.width + extra
+            subview.place(
+                at: CGPoint(x: x, y: bounds.midY), anchor: .leading,
+                proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width
+        }
+    }
+}

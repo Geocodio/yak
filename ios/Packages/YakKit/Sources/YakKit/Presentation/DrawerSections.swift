@@ -75,10 +75,28 @@ public enum DrawerSubtitle: Equatable, Sendable {
 }
 
 public struct DrawerSection: Equatable, Sendable, Identifiable {
-    public enum Kind: Equatable, Sendable { case notSentYet, needsYou, starred, today, thisWeek, older }
+    public enum Kind: Equatable, Hashable, Sendable {
+        case notSentYet, needsYou, starred, today, thisWeek, older
+        /// A group of the Review tab; the heading is the server's own `label`.
+        case review(key: String, label: String)
+    }
     public let kind: Kind
+    /// Empty while the section is collapsed.
     public let rows: [DrawerRow]
+    /// How many threads the section holds, also while it is collapsed.
+    public let count: Int
+    /// True for a section whose heading folds it open and closed (the Review tab's "Approved by you").
+    public let isCollapsible: Bool
+    public let isCollapsed: Bool
     public var id: Kind { kind }
+
+    init(kind: Kind, rows: [DrawerRow], count: Int? = nil, isCollapsible: Bool = false, isCollapsed: Bool = false) {
+        self.kind = kind
+        self.rows = rows
+        self.count = count ?? rows.count
+        self.isCollapsible = isCollapsible
+        self.isCollapsed = isCollapsed
+    }
 }
 
 public enum DrawerContent: Equatable, Sendable {
@@ -88,16 +106,20 @@ public enum DrawerContent: Equatable, Sendable {
 }
 
 public enum DrawerSections {
+    /// The Review group whose heading folds.
+    public static let approvedGroupKey = "approved"
+
     public static func make(
         list: ThreadList, filter: ThreadListFilter, search: String?, expanded: [String: Bool],
-        unsentNewThreads: [OutboxItem]
+        unsentNewThreads: [OutboxItem], openedGroups: Set<String> = []
     ) -> DrawerContent {
         func threadRows(_ rows: [ThreadRow]) -> [DrawerRow] {
             rows.flatMap { flatten($0, depth: 0, expanded: expanded) }
         }
 
+        // A closed or review view is not where a new thread would land.
         let unsent =
-            unsentNewThreads
+            (filter == .closed || filter == .review ? [] : unsentNewThreads)
             .filter { if case .newThread = $0.target { true } else { false } }
             .sorted { $0.createdAt < $1.createdAt }
             .map(unsentRow)
@@ -118,19 +140,29 @@ public enum DrawerSections {
                 }
             byKind[kind, default: []] += flatten(row, depth: 0, expanded: expanded)
         }
-        let sections = [
-            DrawerSection(kind: .notSentYet, rows: unsent),
-            DrawerSection(kind: .needsYou, rows: needsYou),
-            DrawerSection(kind: .starred, rows: threadRows(list.starred)),
-            DrawerSection(kind: .today, rows: byKind[.today] ?? []),
-            DrawerSection(kind: .thisWeek, rows: byKind[.thisWeek] ?? []),
-            DrawerSection(kind: .older, rows: byKind[.older] ?? []),
-        ].filter { !$0.rows.isEmpty }
+        let groups = list.reviewGroups.map { group -> DrawerSection in
+            let rows = threadRows(group.rows)
+            // "Approved by you" starts folded: the person has nothing left to do there.
+            let isCollapsible = group.key == Self.approvedGroupKey && !rows.isEmpty
+            let isCollapsed = isCollapsible && !openedGroups.contains(group.key)
+            return DrawerSection(
+                kind: .review(key: group.key, label: group.label), rows: isCollapsed ? [] : rows,
+                count: group.rows.count, isCollapsible: isCollapsible, isCollapsed: isCollapsed)
+        }
+        let sections =
+            (groups + [
+                DrawerSection(kind: .notSentYet, rows: unsent),
+                DrawerSection(kind: .needsYou, rows: needsYou),
+                DrawerSection(kind: .starred, rows: threadRows(list.starred)),
+                DrawerSection(kind: .today, rows: byKind[.today] ?? []),
+                DrawerSection(kind: .thisWeek, rows: byKind[.thisWeek] ?? []),
+                DrawerSection(kind: .older, rows: byKind[.older] ?? []),
+            ]).filter { $0.count > 0 }
 
         if !sections.isEmpty { return .sections(sections) }
         let trimmed = search?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty { return .noResults(search: trimmed, canWiden: filter != .everyone) }
-        return .empty(othersHaveThreads: filter != .everyone && list.hasAnyThreads)
+        if !trimmed.isEmpty { return .noResults(search: trimmed, canWiden: filter == .mine || filter == .yak) }
+        return .empty(othersHaveThreads: (filter == .mine || filter == .yak) && list.hasAnyThreads)
     }
 
     /// True when any descendant needs the person or is running.
