@@ -109,7 +109,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             return;
         }
 
-        $instructions = self::PREAMBLE . "\n\n" . app(ReviewFeedbackFormatter::class)->format('', '', array_map(
+        $feedbackComments = array_map(
             fn (array $summon): array => [
                 'id' => $summon['tag_id'],
                 'body' => $summon['body'],
@@ -119,7 +119,10 @@ class HandlePullRequestSummonJob implements ShouldQueue
                 'diff_hunk' => $summon['diff_hunk'],
             ],
             $summons,
-        ), '');
+        );
+        $formatter = app(ReviewFeedbackFormatter::class);
+        $instructions = self::PREAMBLE . "\n\n" . $formatter->format('', '', $feedbackComments, '');
+        $reviewFeedback = $formatter->toReviewFeedback('', '', $feedbackComments, $this->summonerLogin, $prUrl);
 
         // A conversation-tab comment has no thread to reply in, so the answer
         // quotes it instead.
@@ -132,7 +135,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
         }
 
         if ($root === null) {
-            $task = $this->createRootTask($repository, $prUrl, $branch, $instructions, $threadId, $quote);
+            $task = $this->createRootTask($repository, $prUrl, $branch, $instructions, $threadId, $quote, $reviewFeedback);
             $replier->replyForTask($task, "On it. I'll reply here when I'm done and push any changes to `{$branch}`.");
 
             return;
@@ -142,13 +145,13 @@ class HandlePullRequestSummonJob implements ShouldQueue
             ->first(fn (YakTask $member): bool => in_array($member->status, TriageReviewJob::BUSY_STATUSES, true));
 
         if ($busy !== null) {
-            PendingSteeringMessage::queueFor($busy, $instructions, 'github_review');
+            PendingSteeringMessage::queueFor($busy, $instructions, 'github_review', authorName: $this->summonerLogin, reviewFeedback: $reviewFeedback);
             $refuse("I'm still working on an earlier request on this PR. I've queued this one and will pick it up next.\n\n" . PullRequestSummonReplier::taskLink($busy));
 
             return;
         }
 
-        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, replier: User::query()->where('github_login', $this->summonerLogin)->first(), summonReviewCommentId: $threadId, summonQuote: $quote);
+        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, replier: User::query()->where('github_login', $this->summonerLogin)->first(), summonReviewCommentId: $threadId, summonQuote: $quote, reviewFeedback: $reviewFeedback);
 
         if ($child === null) {
             $refuse("This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.");
@@ -258,7 +261,10 @@ class HandlePullRequestSummonJob implements ShouldQueue
         return null;
     }
 
-    private function createRootTask(Repository $repository, string $prUrl, string $branch, string $instructions, ?int $threadId, ?string $quote): YakTask
+    /**
+     * @param  array<string, mixed>  $reviewFeedback
+     */
+    private function createRootTask(Repository $repository, string $prUrl, string $branch, string $instructions, ?int $threadId, ?string $quote, array $reviewFeedback): YakTask
     {
         $task = YakTask::create([
             'source' => 'github',
@@ -275,6 +281,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             'targets_external_pr' => true,
             'summon_review_comment_id' => $threadId,
             'summon_quote' => $quote,
+            'review_feedback' => $reviewFeedback,
             'status' => TaskStatus::Pending,
         ]);
 

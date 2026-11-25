@@ -88,6 +88,15 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
             $this->reviewerLogin,
         );
 
+        $reviewFeedback = app(ReviewFeedbackFormatter::class)->toReviewFeedback(
+            $this->reviewState,
+            $this->reviewBody,
+            $comments,
+            $this->reviewerLogin,
+            $task->pr_url,
+            $this->reviewId,
+        );
+
         $decision = $this->decide($task, $comments, $instructions);
 
         TaskLogger::info($task, "Review triaged: {$decision}", [
@@ -107,7 +116,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
             ->first(fn (YakTask $member): bool => in_array($member->status, self::BUSY_STATUSES, true));
 
         if ($active !== null) {
-            PendingSteeringMessage::queueFor($active, $instructions, 'github_review', reviewerLogin: $this->reviewerLogin);
+            PendingSteeringMessage::queueFor($active, $instructions, 'github_review', reviewerLogin: $this->reviewerLogin, authorName: $this->reviewerLogin, reviewFeedback: $reviewFeedback);
             TaskLogger::info($task, 'Review queued behind an active run', ['active_task_id' => $active->id]);
 
             return;
@@ -120,6 +129,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
             authorName: $this->reviewerLogin,
             replier: User::query()->where('github_login', $this->reviewerLogin)->first(),
             reRequestReviewFrom: [$this->reviewerLogin],
+            reviewFeedback: $reviewFeedback,
         );
     }
 

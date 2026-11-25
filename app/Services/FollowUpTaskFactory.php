@@ -31,8 +31,9 @@ class FollowUpTaskFactory
      * @param  string|null  $slackFollowUpUserId  Slack user who replied in the thread, mentioned alongside the original requester
      * @param  Collection<int, TaskAttachment>|null  $attachments  Files sent with the instructions; they move onto the new run
      * @param  User|null  $replier  The Yak user who wrote the message; stored as the task's author. The requester of the conversation stays the head's starter
+     * @param  array<string, mixed>|null  $reviewFeedback  A GitHub review as structured data, which the thread shows in place of the instructions
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null, ?User $replier = null): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null, ?User $replier = null, ?array $reviewFeedback = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -54,7 +55,7 @@ class FollowUpTaskFactory
 
         $isResearch = $head->mode === TaskMode::Research;
 
-        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments, $replier): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments, $replier, $reviewFeedback): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -82,6 +83,7 @@ class FollowUpTaskFactory
                 'targets_external_pr' => ! $isResearch && $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,
                 'summon_quote' => $summonQuote,
+                'review_feedback' => $reviewFeedback,
                 'status' => TaskStatus::Pending,
             ]);
 

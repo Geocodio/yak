@@ -313,8 +313,21 @@ export type ThreadQueuedMessage = {
     attachments: AttachmentData[];
 };
 
+/** A GitHub review shown the way GitHub shows it. */
+export type ThreadReview = {
+    reviewer: string | null;
+    avatarUrl: string | null;
+    /** `approved`, `changes_requested`, `commented`, or empty for loose PR comments. */
+    state: string;
+    summaryHtml: string;
+    url: string | null;
+    comments: { author: string | null; bodyHtml: string; file: string | null; line: number | null; diff: string[]; url: string | null }[];
+};
+
 export type ThreadMessage = {
     id: string;
+    /** Set when the message is a GitHub review; shown in place of its text. */
+    review?: ThreadReview | null;
     uuid: string | null;
     text: string;
     authorName: string;
