@@ -89,10 +89,10 @@ import XCTest
     func testTheWholeReviewListPassesTheAudit() throws {
         try launch("review-line")
         openReview()
-        scrollUntilNoRowStraddlesTheBottom()
+        scrollUntilNoRowStraddlesAnEdge()
         try audit()
         app.swipeUp()
-        scrollUntilNoRowStraddlesTheBottom()
+        scrollUntilNoRowStraddlesAnEdge()
         try audit()
     }
 
@@ -154,28 +154,37 @@ import XCTest
         number.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
-    /// Scrolls until no row straddles the list's bottom edge, as a careful tester does before judging contrast: a row
-    /// cut by the edge is not what the audit is meant to measure. A row is scrolled fully in, or fully out when that
-    /// takes less.
-    private func scrollUntilNoRowStraddlesTheBottom() {
+    /// Scrolls the list in small steps until no row is cut by the list's bottom edge or hides under the section
+    /// heading at the top, as a careful tester does before judging contrast: a row cut by an edge is not what the
+    /// audit is meant to measure. It stops where the list ends.
+    private func scrollUntilNoRowStraddlesAnEdge() {
         let list = element("drawer.list")
         let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'drawer.row.'"))
-        for _ in 0..<8 {
-            let edge = list.frame.maxY
-            guard
-                let straddler = rows.allElementsBoundByIndex.first(where: {
-                    $0.frame.minY < edge && $0.frame.maxY > edge
-                })
-            else { return }
-            let reveal = straddler.frame.maxY - edge + 2
-            let hide = edge - straddler.frame.minY + 2
-            let distance = reveal <= hide ? -reveal : hide
-            let middle = list.frame.midY
+        func straddles() -> Bool {
+            let top = list.frame.minY + Self.headingAllowance
+            let bottom = list.frame.maxY
+            return rows.allElementsBoundByIndex.contains {
+                let frame = $0.frame
+                guard frame.height > 0 else { return false }
+                return (frame.minY < bottom && frame.maxY > bottom)
+                    || (frame.minY < top && frame.maxY > list.frame.minY)
+            }
+        }
+        var lastOffset = rows.firstMatch.frame.minY
+        for _ in 0..<30 where straddles() {
+            let x = list.frame.midX
             let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: list.frame.midX, dy: middle))
+                CGVector(dx: x, dy: list.frame.midY))
             let end = app.coordinate(withNormalizedOffset: .zero).withOffset(
-                CGVector(dx: list.frame.midX, dy: middle + distance))
+                CGVector(dx: x, dy: list.frame.midY - Self.scrollStep))
             start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
+            let offset = rows.firstMatch.frame.minY
+            if offset == lastOffset { return }
+            lastOffset = offset
         }
     }
+
+    /// The height of the section heading that rows slide under at the top of the list, and how far one step scrolls.
+    private static let headingAllowance: CGFloat = 44
+    private static let scrollStep: CGFloat = 30
 }
