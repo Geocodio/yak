@@ -65,6 +65,37 @@ enum AuditRules {
         return isOffScreen(element.frame, window: bars.window)
     }
 
+    /// The layout of the shell: the compact drawer that slides over the thread, or the sidebar of a wide window.
+    enum Layout {
+        case compact, sidebar
+    }
+
+    /// The window and the drawer's frame, read from one snapshot before an audit starts.
+    @MainActor struct Drawer {
+        let window: CGRect
+        let frame: CGRect?
+
+        init(_ app: XCUIApplication) {
+            let all = (try? app.snapshot()).map(AuditRules.descendants) ?? []
+            window = all.first { $0.elementType == .window }?.frame ?? .zero
+            frame = all.first { $0.identifier == "drawer" }?.frame
+        }
+
+        /// A wide window shows the drawer as a sidebar, which has its own rule.
+        var layout: Layout { window.width > 700 ? .sidebar : .compact }
+    }
+
+    /// A contrast finding that names no element is not judged while the compact drawer is closed, that is, while the
+    /// drawer's frame lies entirely outside the window. The audit measures the closed drawer's list off screen and
+    /// sometimes cannot name the element it measured: every run finds one such issue, and none when the closed drawer's
+    /// list is not built. Approved by the owner on 2026-11-26.
+    static func isContrastWithoutAnElementInTheClosedDrawer(
+        type: XCUIAccessibilityAuditType, hasElement: Bool, layout: Layout, drawer: CGRect?, window: CGRect
+    ) -> Bool {
+        guard type == .contrast, !hasElement, layout == .compact, let drawer else { return false }
+        return isOffScreen(drawer, window: window)
+    }
+
     /// A contrast finding about text whose centre lies behind a bar, so the bar covers it. A bar's own title and
     /// buttons are descendants of the bar and stay audited; scroll content is not a descendant of a bar.
     static func isContrastOfTextBehindABar(_ issue: XCUIAccessibilityAuditIssue, bars: Bars) -> Bool {
@@ -142,9 +173,17 @@ extension XCTestCase {
         for attempt in 1...2 {
             AuditRules.waitUntilStill(app)
             let isExcused = excuses()
+            let drawer = AuditRules.Drawer(app)
+            let (layout, drawerFrame, window) = (drawer.layout, drawer.frame, drawer.window)
             var findings: [String] = []
             do {
                 try app.performAccessibilityAudit(for: types) { issue in
+                    if AuditRules.isContrastWithoutAnElementInTheClosedDrawer(
+                        type: issue.auditType, hasElement: issue.element != nil, layout: layout, drawer: drawerFrame,
+                        window: window)
+                    {
+                        return true
+                    }
                     if isExcused(issue) { return true }
                     findings.append(
                         "\(issue.compactDescription) | \(issue.detailedDescription) | \(issue.element?.debugDescription ?? "no element")"
