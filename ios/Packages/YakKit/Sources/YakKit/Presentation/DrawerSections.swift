@@ -80,6 +80,8 @@ public enum DrawerSubtitle: Equatable, Sendable {
     case children(total: Int, working: Int)
     /// What a sub-thread is doing, as the server words it.
     case step(String)
+    /// The state of a sub-thread row, in the one set of words every sub-thread state uses.
+    case subThread(SubThreadStateStyle.Word)
     /// A task item without a label.
     case taskWaiting
     case unsent(OutboxState)
@@ -192,6 +194,8 @@ public enum DrawerSections {
                 .step(step)
             } else if !row.children.isEmpty {
                 .children(total: descendants.count, working: descendants.filter { $0.status == .running }.count)
+            } else if depth > 0, let style = SubThreadStateStyle.of(listStatus: row.status) {
+                .subThread(style.word)
             } else {
                 .status(row.status)
             }

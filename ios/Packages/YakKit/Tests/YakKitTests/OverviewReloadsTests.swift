@@ -61,3 +61,17 @@ private func snapshot(
         OverviewReloads.after(previous: running, current: snapshot(turn: ("42", .running)), hasSubThreads: true)
             == [.stack])
 }
+
+@Test func aChildCardThatChangesStateReloadsTheStack() {
+    func snapshot(state: String) -> ConversationSnapshot {
+        var item = ConversationItem(kind: .child, key: "child:q7adapt0", sequence: 1)
+        item.child = ChildCard(
+            childThreadId: LenientID("q7adapt0"), name: "query-adapter", kind: "implement", state: state,
+            messagesPaused: false)
+        return ConversationSnapshot(load: .ready, entries: [.event(item)])
+    }
+    let queued = snapshot(state: "queued")
+    #expect(
+        OverviewReloads.after(previous: queued, current: snapshot(state: "starting"), hasSubThreads: true) == [.stack])
+    #expect(OverviewReloads.after(previous: queued, current: snapshot(state: "queued"), hasSubThreads: true).isEmpty)
+}

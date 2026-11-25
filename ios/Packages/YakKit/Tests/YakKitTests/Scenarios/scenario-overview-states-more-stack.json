@@ -1,0 +1,103 @@
+{
+  "rootId": "s7ackr00",
+  "isRoot": true,
+  "parent": null,
+  "children": [
+    {
+      "id": "n33dsyou",
+      "name": "needs-answer",
+      "title": "Needs answer",
+      "kind": "implement",
+      "model": "sonnet",
+      "state": "waiting",
+      "step": null,
+      "resultSummary": null,
+      "branch": null,
+      "repo": "example/web",
+      "pullRequestUrl": null,
+      "ciStatus": null,
+      "filesChanged": null,
+      "queued": false,
+      "messagesPaused": false,
+      "takenOver": false,
+      "canOverride": true
+    },
+    {
+      "id": "f41led00",
+      "name": "swap-client",
+      "title": "Swap client",
+      "kind": "implement",
+      "model": "sonnet",
+      "state": "failed",
+      "step": null,
+      "resultSummary": null,
+      "branch": null,
+      "repo": "example/web",
+      "pullRequestUrl": null,
+      "ciStatus": null,
+      "filesChanged": null,
+      "queued": false,
+      "messagesPaused": false,
+      "takenOver": false,
+      "canOverride": true
+    },
+    {
+      "id": "st0pped0",
+      "name": "drop-cache",
+      "title": "Drop cache",
+      "kind": "implement",
+      "model": "sonnet",
+      "state": "closed",
+      "step": null,
+      "resultSummary": null,
+      "branch": null,
+      "repo": "example/web",
+      "pullRequestUrl": null,
+      "ciStatus": null,
+      "filesChanged": null,
+      "queued": false,
+      "messagesPaused": false,
+      "takenOver": false,
+      "canOverride": false
+    }
+  ],
+  "limit": {
+    "current": 2,
+    "max": 4,
+    "awake": 1,
+    "waiting": 0
+  },
+  "maxChildren": 12,
+  "models": [
+    {
+      "family": "sonnet",
+      "latest": {
+        "value": "sonnet",
+        "label": "Sonnet 5.5",
+        "description": "Fast and capable"
+      },
+      "older": [
+        {
+          "value": "claude-sonnet-5-0",
+          "label": "Sonnet 5"
+        }
+      ]
+    }
+  ],
+  "parentAccountName": "Shared account",
+  "usage": {
+    "turnCount": 7,
+    "costUsd": 1.25,
+    "activeHours": 1.5,
+    "note": "Estimate for the scenario."
+  },
+  "messages": [],
+  "canDrive": true,
+  "canStop": true,
+  "stoppedAt": null,
+  "addChild": {
+    "allowed": true,
+    "error": null,
+    "message": null
+  }
+}

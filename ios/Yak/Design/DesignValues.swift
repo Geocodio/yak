@@ -6,6 +6,8 @@ import UIKit
 enum Design {
     /// How faded a disabled control looks.
     static let disabledOpacity: Double = 0.4
+    /// How faded a control looks while its change is on its way to the server.
+    static let busyOpacity: Double = 0.7
 
     /// Gaps and insets, in points.
     enum Space {
@@ -93,6 +95,10 @@ enum Design {
         /// The height of a pull request number's text at the default size.
         static let numberLineHeight: CGFloat = 16
         static let statusDot: CGFloat = 9
+        /// The narrowest the number between a stepper's buttons gets.
+        static let stepValue: CGFloat = 28
+        /// The line of a hollow state mark.
+        static let markRing: CGFloat = 1.5
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
     }

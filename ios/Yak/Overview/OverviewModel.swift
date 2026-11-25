@@ -222,6 +222,14 @@ final class OverviewModel {
         }
     }
 
+    /// "Start now and allow N at a time" on a waiting sub-thread: saves the raised limit at once.
+    func startNow(_ limit: Int) async {
+        guard runningAction == nil else { return }
+        limitTask?.cancel()
+        pendingAwakeLimit = limit
+        await sendAwakeLimit()
+    }
+
     private func sendAwakeLimit() async {
         guard let actions, let value = pendingAwakeLimit else { return }
         runningAction = .limit

@@ -1,8 +1,8 @@
 import SwiftUI
 import YakKit
 
-/// The Sub-threads group: the parent, the summary, one row per sub-thread, the awake stepper, the messages and
-/// "Stop all sub-threads".
+/// The Sub-threads group in the web's words: the heading with the count, Add and a menu with "Stop all sub-threads",
+/// the definition line, one row per sub-thread, and the limit line with the stepper behind "Change".
 struct SubThreadsGroupView: View {
     let group: SubThreadsGroup?
     let load: GroupLoad
@@ -14,19 +14,33 @@ struct SubThreadsGroupView: View {
 
     @State private var dropTarget: SubThreadRow?
     @State private var isStopAskOpen = false
-    @State private var areMessagesOpen = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isChangingLimit = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let rows = makeRows()
-        OverviewGroupCard(kind: .subThreads, title: "overview.group.subThreads") {
-            ForEach(rows.indices, id: \.self) { index in
-                if index > 0 { RowDivider() }
-                rows[index]
+        VStack(alignment: .leading, spacing: Design.Space.small) {
+            header
+            Text("subThread.definition").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, Design.Space.medium).padding(.bottom, Design.Space.tight)
+                .accessibilityIdentifier("overview.definition")
+            let items = makeItems()
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { RowDivider() }
+                        item.view
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.group))
             }
+            if let group, let line = group.limitLine { limitLine(line, awake: group.awake) }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("overview.group.\(OverviewGroupKind.subThreads.rawValue)")
         .confirmationDialog(
-            Text("overview.drop.title \(dropTarget?.title ?? "")"), isPresented: dropBinding, titleVisibility: .visible
+            Text("overview.drop.title \(dropTarget?.name ?? "")"), isPresented: dropBinding, titleVisibility: .visible
         ) {
             Button("overview.child.drop", role: .destructive) {
                 if let target = dropTarget { Task { await model.perform(.drop, on: target.id) } }
@@ -52,28 +66,95 @@ struct SubThreadsGroupView: View {
         Binding(get: { dropTarget != nil }, set: { if !$0 { dropTarget = nil } })
     }
 
-    private func makeRows() -> [AnyView] {
-        var rows: [AnyView] = []
+    // MARK: Heading
+
+    private var header: some View {
+        // At the largest text sizes the buttons go under the heading, so it keeps the whole width.
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
+            : AnyLayout(HStackLayout(spacing: Design.Space.small))
+        return layout {
+            HStack(spacing: Design.Space.small) {
+                Image(systemName: "square.3.layers.3d").font(.yak(.footnote, .semibold)).accessibilityHidden(true)
+                Text("overview.group.subThreads").font(.yakGroupHeading).accessibilityAddTraits(.isHeader)
+                if let group {
+                    Text("subThread.count \(group.total) \(group.maxChildren)").font(.yak(.footnote, .medium))
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(Color.yakMuted)
+            .accessibilityElement(children: .combine)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            HStack(spacing: 0) {
+                if let onAdd { addButton(onAdd) }
+                if let group, group.canStop, group.total > 0 { sectionMenu }
+            }
+        }
+        .padding(.leading, Design.Space.medium)
+    }
+
+    private func addButton(_ action: @escaping () -> Void) -> some View {
+        let isRefused = if case .refused = group?.add { true } else { false }
+        return Button(action: action) {
+            Image(systemName: "plus").font(.yak(.body, .medium))
+                .frame(minWidth: Design.Size.control, minHeight: Design.Size.control).contentShape(.rect)
+        }
+        .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(isRefused)
+        .accessibilityLabel(Text("overview.add")).accessibilityIdentifier("overview.addSubThread")
+    }
+
+    private var sectionMenu: some View {
+        let isStopping = model.runningAction == .stop
+        return Menu {
+            Button(role: .destructive) {
+                isStopAskOpen = true
+            } label: {
+                Label("overview.stopAll", systemImage: "stop.circle")
+            }
+        } label: {
+            Group {
+                if isStopping { ProgressView() } else { Image(systemName: "ellipsis").font(.yak(.body, .medium)) }
+            }
+            .frame(minWidth: Design.Size.control, minHeight: Design.Size.control).contentShape(.rect)
+        }
+        .tint(.primary)
+        .disabled(isStopping || model.isOffline)
+        .accessibilityLabel(Text("subThread.menu"))
+        .accessibilityHint(model.isOffline ? Text("overview.notOffline") : Text(""))
+        .accessibilityIdentifier("overview.menu")
+    }
+
+    // MARK: Rows
+
+    private struct Item: Identifiable {
+        let id: String
+        let view: AnyView
+    }
+
+    private func makeItems() -> [Item] {
+        var items: [Item] = []
         if let group {
-            if let parent = group.parent {
-                rows.append(AnyView(parentRow(parent)))
+            if let parent = group.parent { items.append(Item(id: "parent", view: AnyView(parentRow(parent)))) }
+            if case .refused(_, let message) = group.add {
+                items.append(Item(id: "refusal", view: AnyView(refusal(message))))
             }
-            if group.total > 0 || group.parent == nil || onAdd != nil { rows.append(AnyView(summary(group))) }
-            if case .refused(_, let message) = group.add { rows.append(AnyView(refusal(message))) }
             for row in group.rows {
-                rows.append(AnyView(SubThreadRowView(row: row, model: model) { dropTarget = $0 }))
+                items.append(
+                    Item(
+                        id: "row:\(row.id)", view: AnyView(SubThreadRowView(row: row, model: model) { dropTarget = $0 })
+                    ))
             }
-            if let awake = group.awake { rows.append(AnyView(stepper(awake))) }
-            if !group.messages.isEmpty { rows.append(AnyView(messages(group.messages))) }
-            if group.canStop { rows.append(AnyView(stopAll)) }
         }
         if load != .ready {
-            rows.append(
-                AnyView(
-                    GroupNotice(
-                        load: load, showsSkeleton: model.showsSkeleton, retry: retry, openThreads: openThreads)))
+            items.append(
+                Item(
+                    id: "notice",
+                    view: AnyView(
+                        GroupNotice(
+                            load: load, showsSkeleton: model.showsSkeleton, retry: retry, openThreads: openThreads))))
         }
-        return rows
+        return items
     }
 
     private func parentRow(_ parent: StackParent) -> some View {
@@ -91,55 +172,69 @@ struct SubThreadsGroupView: View {
         .buttonStyle(.plain).accessibilityElement(children: .combine).accessibilityIdentifier("overview.parent")
     }
 
-    /// The count, the awake limit of a root under it, and "Add" on the trailing side. Add stays on screen and is
-    /// disabled while the server refuses it.
-    private func summary(_ group: SubThreadsGroup) -> some View {
-        let isRefused = if case .refused = group.add { true } else { false }
-        return OverviewRow(title: Text("drawer.children \(group.total) \(group.working)")) {
-            if let awake = group.awake { Text("overview.awake.line \(model.pendingAwakeLimit ?? awake.value)") }
-        } trailing: {
-            if let onAdd {
-                Button(action: onAdd) {
-                    Label("overview.addSubThread", systemImage: "plus").font(.yak(.body, .medium))
-                        .frame(minHeight: 44).contentShape(.rect)
-                }
-                .buttonStyle(MutedWhenDisabledButtonStyle(color: .primary)).disabled(isRefused)
-                .accessibilityLabel(Text("overview.add")).accessibilityIdentifier("overview.addSubThread")
-            }
-        }
-        .accessibilityIdentifier("overview.summary")
-    }
-
     private func refusal(_ message: String) -> some View {
         Text(message).font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Design.Space.rowInset).padding(.vertical, Design.Space.snug)
             .accessibilityIdentifier("overview.addRefusal")
+    }
+
+    // MARK: Limit
+
+    /// "2 can run at the same time" with "Change", which swaps the line for the stepper.
+    @ViewBuilder private func limitLine(_ line: SubThreadsGroup.LimitLine, awake: AwakeStepperValue?) -> some View {
+        if isChangingLimit, let awake {
+            stepper(awake)
+        } else {
+            let layout =
+                dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.nudge))
+                : AnyLayout(HStackLayout(spacing: Design.Space.compact))
+            layout {
+                Text("subThread.limit.line \(model.pendingAwakeLimit ?? line.current)")
+                    .font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if line.canChange, awake != nil {
+                    Button {
+                        isChangingLimit = true
+                    } label: {
+                        Text("subThread.limit.change").font(.yak(.footnote, .semibold))
+                            .frame(minHeight: Design.Size.control).contentShape(.rect)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Color.yakSlate)
+                    .accessibilityIdentifier("overview.limit.change")
+                }
+            }
+            .padding(.horizontal, Design.Space.medium)
+        }
     }
 
     private func stepper(_ awake: AwakeStepperValue) -> some View {
         let value = model.pendingAwakeLimit ?? awake.value
         let isBusy = model.runningAction == .limit || model.isOffline
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text("overview.awake.title").frame(maxWidth: .infinity, alignment: .leading)
+        return VStack(alignment: .leading, spacing: Design.Space.tight) {
+            HStack(spacing: Design.Space.tight) {
+                Text("overview.awake.title").font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                 stepButton(
-                    "minus", label: "overview.awake.less", isEnabled: value > awake.range.lowerBound && !model.isOffline
+                    "minus", isEnabled: value > awake.range.lowerBound && !model.isOffline
                 ) {
                     model.proposeAwakeLimit(value - 1)
                 }
-                Text(value, format: .number).font(.yak(.body)).frame(minWidth: 28)
+                Text(value, format: .number).font(.yak(.body)).frame(minWidth: Design.Size.stepValue)
                 stepButton(
-                    "plus", label: "overview.awake.more", isEnabled: value < awake.range.upperBound && !model.isOffline
+                    "plus", isEnabled: value < awake.range.upperBound && !model.isOffline
                 ) {
                     model.proposeAwakeLimit(value + 1)
                 }
             }
-            Text("overview.awake.counts \(awake.awake) \(awake.waiting)").font(.yak(.footnote, .medium))
-                .foregroundStyle(Color.yakMuted)
+            Text("subThread.limit.note \(awake.range.upperBound)").font(.yak(.footnote, .medium))
+                .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 16).padding(.vertical, 8).opacity(isBusy && model.runningAction == .limit ? 0.7 : 1)
+        .padding(.horizontal, Design.Space.medium)
+        .opacity(isBusy && model.runningAction == .limit ? Design.busyOpacity : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("overview.awake.label \(value)"))
         .accessibilityValue(Text("overview.awake.counts \(awake.awake) \(awake.waiting)"))
@@ -150,93 +245,13 @@ struct SubThreadsGroupView: View {
         .accessibilityIdentifier("overview.awake")
     }
 
-    private func stepButton(_ symbol: String, label: LocalizedStringKey, isEnabled: Bool, action: @escaping () -> Void)
-        -> some View
-    {
+    private func stepButton(_ symbol: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).frame(width: 44, height: 44).contentShape(.rect)
+            Image(systemName: symbol).frame(width: Design.Size.control, height: Design.Size.control)
+                .background(Color.yakFill, in: .rect(cornerRadius: Design.Radius.control))
+                .contentShape(.rect)
         }
         .buttonStyle(.plain).disabled(!isEnabled).accessibilityHidden(true)
-    }
-
-    private func messages(_ items: [StackMessage]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withMotion(Motion.content, reduceMotion: reduceMotion) { areMessagesOpen.toggle() }
-            } label: {
-                OverviewRow(title: Text("overview.messages.folded \(items.count)")) {
-                    EmptyView()
-                } trailing: {
-                    Image(systemName: areMessagesOpen ? "chevron.up" : "chevron.down").font(.yak(.footnote, .semibold))
-                        .foregroundStyle(Color.yakMuted).accessibilityHidden(true)
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain).accessibilityAddTraits(.isButton)
-            .accessibilityValue(areMessagesOpen ? Text("overview.expanded") : Text("overview.collapsed"))
-            .accessibilityIdentifier("overview.messages")
-            if areMessagesOpen {
-                ForEach(items) { item in
-                    RowDivider()
-                    messageRow(item)
-                }
-            }
-        }
-    }
-
-    private func messageRow(_ item: StackMessage) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text("overview.message.fromTo \(item.fromName) \(item.toName)").font(.yak(.footnote, .semibold))
-                if let kind = kindLabel(item.kind) {
-                    kind.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted)
-                }
-            }
-            Text(item.text).font(.yak(.callout)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            if let age = age(of: item) { age.font(.yak(.footnote, .medium)).foregroundStyle(Color.yakMuted) }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
-        .accessibilityElement(children: .combine).accessibilityIdentifier("overview.message.\(item.id.value)")
-    }
-
-    private func kindLabel(_ kind: StackMessageKind) -> Text? {
-        switch kind {
-        case .result: Text("overview.message.kind.result")
-        case .question: Text("overview.message.kind.question")
-        case .answer: Text("overview.message.kind.answer")
-        case .failure: Text("overview.message.kind.failure")
-        default: nil
-        }
-    }
-
-    private func age(of item: StackMessage) -> Text? {
-        guard let date = RelativeAge.parse(item.createdAt) else { return nil }
-        switch RelativeAge.value(from: date, now: Date()) {
-        case .now: return Text("overview.age.now")
-        case .minutes(let value): return Text("overview.age.minutes \(value)")
-        case .hours(let value): return Text("overview.age.hours \(value)")
-        case .days(let value): return Text("overview.age.days \(value)")
-        case .date(let value): return Text(value.formatted(date: .abbreviated, time: .omitted))
-        }
-    }
-
-    private var stopAll: some View {
-        let isStopping = model.runningAction == .stop
-        return Button(role: .destructive) {
-            isStopAskOpen = true
-        } label: {
-            HStack(spacing: 8) {
-                if isStopping { ProgressView() }
-                Text(isStopping ? "overview.stopAll.stopping" : "overview.stopAll")
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            .frame(minHeight: 44).contentShape(.rect)
-        }
-        .buttonStyle(MutedWhenDisabledButtonStyle(color: .yakWarning)).disabled(isStopping || model.isOffline)
-        .accessibilityHint(model.isOffline ? Text("overview.notOffline") : Text(""))
-        .accessibilityIdentifier("overview.stopAll")
     }
 }
 

@@ -21,6 +21,246 @@
         }
       }
     },
+    "subThread.count %lld %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "subThread.definition" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A separate thread with its own branch and PR. Open one to talk to it directly."
+          }
+        }
+      }
+    },
+    "subThread.kind.general" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
+    },
+    "subThread.kind.implement" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Implement"
+          }
+        }
+      }
+    },
+    "subThread.kind.mockup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mockup"
+          }
+        }
+      }
+    },
+    "subThread.kind.research" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Research"
+          }
+        }
+      }
+    },
+    "subThread.limit.change" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        }
+      }
+    },
+    "subThread.limit.line %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld can run at the same time"
+          }
+        }
+      }
+    },
+    "subThread.limit.note %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each one keeps its own sandbox awake while it runs. Up to %lld."
+          }
+        }
+      }
+    },
+    "subThread.menu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sub-threads menu"
+          }
+        }
+      }
+    },
+    "subThread.messagesPaused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "messages paused"
+          }
+        }
+      }
+    },
+    "subThread.startNow %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start now and allow %lld at a time"
+          }
+        }
+      }
+    },
+    "subThread.state.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "subThread.state.failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        }
+      }
+    },
+    "subThread.state.needsYou" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs you"
+          }
+        }
+      }
+    },
+    "subThread.state.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "subThread.state.starting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starting"
+          }
+        }
+      }
+    },
+    "subThread.state.stopped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped"
+          }
+        }
+      }
+    },
+    "subThread.state.takenOver" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taken over"
+          }
+        }
+      }
+    },
+    "subThread.state.waiting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "subThread.state.working" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
+    "subThread.waiting.many %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free spot. %lld sub-threads are already running, so this one starts when one of them finishes."
+          }
+        }
+      }
+    },
+    "subThread.waiting.moment" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free spot. This one starts in a moment."
+          }
+        }
+      }
+    },
+    "subThread.waiting.one" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for a free spot. 1 sub-thread is already running, so this one starts when it finishes."
+          }
+        }
+      }
+    },
     "Yak" : {
       "localizations" : {
         "en" : {
@@ -6126,112 +6366,6 @@
         }
       }
     },
-    "overview.age.days %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@n@"
-          },
-          "substitutions" : {
-            "n" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg day ago"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg days ago"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "overview.age.hours %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@n@"
-          },
-          "substitutions" : {
-            "n" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg hour ago"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg hours ago"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "overview.age.minutes %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@n@"
-          },
-          "substitutions" : {
-            "n" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg minute ago"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg minutes ago"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "overview.age.now" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "just now"
-          }
-        }
-      }
-    },
     "overview.awake.counts %lld %lld" : {
       "localizations" : {
         "en" : {
@@ -6252,42 +6386,12 @@
         }
       }
     },
-    "overview.awake.less" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fewer"
-          }
-        }
-      }
-    },
-    "overview.awake.line %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Awake at once: %lld"
-          }
-        }
-      }
-    },
-    "overview.awake.more" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More"
-          }
-        }
-      }
-    },
     "overview.awake.title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Awake at once"
+            "value" : "Can run at the same time"
           }
         }
       }
@@ -6302,84 +6406,12 @@
         }
       }
     },
-    "overview.child.closed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Closed"
-          }
-        }
-      }
-    },
-    "overview.child.detailWithFiles %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
-    },
-    "overview.child.done" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
-          }
-        }
-      }
-    },
     "overview.child.drop" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Drop it"
-          }
-        }
-      }
-    },
-    "overview.child.failed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed"
-          }
-        }
-      }
-    },
-    "overview.child.files %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@n@"
-          },
-          "substitutions" : {
-            "n" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg file"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg files"
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -6400,46 +6432,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open"
-          }
-        }
-      }
-    },
-    "overview.child.other %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@"
-          }
-        }
-      }
-    },
-    "overview.child.paused" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Its messages are paused"
-          }
-        }
-      }
-    },
-    "overview.child.queued" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Queued"
-          }
-        }
-      }
-    },
-    "overview.child.research" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Research"
           }
         }
       }
@@ -6470,56 +6462,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You drive it"
-          }
-        }
-      }
-    },
-    "overview.child.takenOver" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You drive it now"
-          }
-        }
-      }
-    },
-    "overview.child.waiting" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting"
-          }
-        }
-      }
-    },
-    "overview.child.waitingSlot" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waiting for a free slot"
-          }
-        }
-      }
-    },
-    "overview.child.working" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Working"
-          }
-        }
-      }
-    },
-    "overview.collapsed" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Collapsed"
           }
         }
       }
@@ -6600,16 +6542,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Drop %@?"
-          }
-        }
-      }
-    },
-    "overview.expanded" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Expanded"
           }
         }
       }
@@ -6730,66 +6662,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "#%1$lld %2$@"
-          }
-        }
-      }
-    },
-    "overview.message.fromTo %@ %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ to %2$@"
-          }
-        }
-      }
-    },
-    "overview.message.kind.answer" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Answer"
-          }
-        }
-      }
-    },
-    "overview.message.kind.failure" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed"
-          }
-        }
-      }
-    },
-    "overview.message.kind.question" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Question"
-          }
-        }
-      }
-    },
-    "overview.message.kind.result" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Result"
-          }
-        }
-      }
-    },
-    "overview.messages.folded %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Messages between sub-threads (%lld)"
           }
         }
       }
@@ -7492,16 +7364,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Every sub-thread stops its turn. Queued sub-threads do not start."
-          }
-        }
-      }
-    },
-    "overview.stopAll.stopping" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stopping all sub-threads"
           }
         }
       }

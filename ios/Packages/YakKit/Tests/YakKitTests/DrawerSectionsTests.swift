@@ -45,6 +45,25 @@ private func list(
         #expect(stopped.subtitle == .status(.stopped))
     }
 
+    @Test func aSubThreadRowUsesTheSharedWordsForItsState() throws {
+        let parent = row(
+            "p0000001", status: "running",
+            children: [
+                row("c0000001", status: "running"), row("c0000002", status: "closed"),
+                row("c0000003", status: "paused"),
+            ])
+        let content = makeContent(list(threads: [parent]), expanded: ["thread:p0000001": true])
+        let all = rows(content, .today)
+        #expect(
+            all.map(\.subtitle) == [
+                .children(total: 3, working: 1), .subThread(.working), .subThread(.stopped), .status(.paused),
+            ])
+        #expect(all[1].subtitle != .status(.running))
+        // A thread that is not a sub-thread keeps its own word.
+        let root = makeContent(list(threads: [row("r0000001", status: "closed")]))
+        #expect(rows(root, .today).map(\.subtitle) == [.status(.closed)])
+    }
+
     @Test func buildsTheSectionsInOrder() throws {
         let list = try decoded(ThreadList.self, "scenario-thread-list")
         guard case .sections(let sections) = makeContent(list) else {
