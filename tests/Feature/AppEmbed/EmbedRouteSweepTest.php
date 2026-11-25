@@ -143,6 +143,7 @@ it('answers 404 on the routes that must never be reachable', function (string $n
     'threads.destroy',
     'threads.close',
     'threads.star',
+    'threads.title.update',
     'threads.share.update',
     'threads.terminal-sessions.store',
     'threads.show',

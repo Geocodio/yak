@@ -19,6 +19,7 @@ use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskIntentClassification;
 use App\Services\TaskLogger;
+use App\Support\ChannelCard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -170,6 +171,7 @@ class WebhookController extends Controller
             'context' => $context,
             'author_name' => $user->name,
             'started_by_user_id' => $user->id,
+            'channel_card' => ChannelCard::email($email->fromEmail, $email->subject),
             'author_user_id' => $user->id,
         ];
 

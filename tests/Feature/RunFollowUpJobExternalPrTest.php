@@ -5,6 +5,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\AfterTurn\FinishFollowUpTurnJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Models\GitHubInstallationToken;
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -19,7 +20,15 @@ require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
 beforeEach(function () {
     Queue::fake();
     Process::fake(['*' => Process::result('')]);
-    Http::fake(['api.github.com/*' => Http::response(['id' => 1], 201)]);
+    Http::fake([
+        'api.github.com/repos/acme/web/pulls/9' => Http::response([
+            'html_url' => 'https://github.com/acme/web/pull/9', 'number' => 9, 'state' => 'open', 'draft' => false, 'title' => 'Split warnings',
+            'head' => ['ref' => 'feature/warnings', 'sha' => str_repeat('0', 40)],
+            'base' => ['ref' => 'main', 'sha' => str_repeat('b', 40)],
+            'user' => ['login' => 'michael'],
+        ]),
+        'api.github.com/*' => Http::response(['id' => 1], 201),
+    ]);
     config()->set('yak.channels.github.installation_id', 99);
     GitHubInstallationToken::create(['installation_id' => 99, 'token' => 't', 'expires_at' => now()->addHour()]);
     Repository::factory()->create(['slug' => 'web', 'github_full_name' => 'acme/web', 'ci_system' => 'github_actions', 'default_branch' => 'main']);
@@ -64,6 +73,24 @@ it('pushes without force or rebase when the branch has not moved, and links the 
     Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls/9/comments/4107/replies')
         && str_contains($request['body'], 'Scoped `_warnings`')
         && str_contains($request['body'], 'Pushed a1a1a1a: https://github.com/acme/web/commit/' . str_repeat('a1', 20)));
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PATCH'
+        && str_ends_with($request->url(), '/repos/acme/web/pulls/9')
+        && $request['body'] === 'Rewritten description.');
+});
+
+it('leaves the description alone when the agent reports it unchanged', function () {
+    $task = externalTask();
+
+    runExternal($task, new FakeSandboxManager, "## What changed in this run\n\nDid it.\n\n## PR description\n\nUnchanged.");
+
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PATCH');
+});
+
+it('leaves the description alone when the agent made no commits', function () {
+    $task = externalTask();
+
+    runExternal($task, (new FakeSandboxManager)->setCommitCount(0), "## What changed in this run\n\nAnswered.\n\n## PR description\n\nRewritten description.");
+
     Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PATCH');
 });
 
@@ -189,4 +216,32 @@ it('parks instead of replying when the agent asks a question', function () {
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($sandbox->commandsMatching('git push'))->toBe([]);
     Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/replies'));
+});
+
+it('requests an incremental review of the pushed changes when Yak reviewed the PR before', function () {
+    Repository::where('slug', 'web')->update(['pr_review_enabled' => true]);
+    PrReview::factory()->create(['repo' => 'acme/web', 'pr_number' => 9, 'commit_sha_reviewed' => str_repeat('c', 40)]);
+    $sandbox = (new FakeSandboxManager)->setHeadSha(str_repeat('a1', 20));
+
+    runExternal(externalTask(), $sandbox, "## What changed in this run\n\nDid it.");
+
+    $review = YakTask::where('mode', TaskMode::Review)->sole();
+    $context = json_decode((string) $review->context, true);
+    expect($context['head_sha'])->toBe(str_repeat('a1', 20))
+        ->and($context['review_scope'])->toBe('incremental')
+        ->and($context['incremental_base_sha'])->toBe(str_repeat('c', 40));
+});
+
+it('requests no review when the agent made no commits', function () {
+    Repository::where('slug', 'web')->update(['pr_review_enabled' => true]);
+
+    runExternal(externalTask(), (new FakeSandboxManager)->setCommitCount(0), "## What changed in this run\n\nAnswered.");
+
+    expect(YakTask::where('mode', TaskMode::Review)->exists())->toBeFalse();
+});
+
+it('requests no review when review is off for the repository', function () {
+    runExternal(externalTask(), (new FakeSandboxManager)->setHeadSha(str_repeat('a1', 20)), "## What changed in this run\n\nDid it.");
+
+    expect(YakTask::where('mode', TaskMode::Review)->exists())->toBeFalse();
 });

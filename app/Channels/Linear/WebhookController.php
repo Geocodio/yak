@@ -31,6 +31,7 @@ use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StoppedTaskReplies;
 use App\Services\YakPersonality;
+use App\Support\ChannelCard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -229,6 +230,11 @@ class WebhookController extends Controller
             'repo' => $repoSlug,
             'external_id' => $description->externalId,
             'external_url' => $description->metadata['linear_issue_url'] ?? null,
+            'channel_card' => ChannelCard::linearIssue(
+                (string) ($description->metadata['linear_issue_identifier'] ?? ''),
+                (string) ($description->metadata['title'] ?? ''),
+                (string) ($description->metadata['linear_issue_url'] ?? ''),
+            ),
             'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
             'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? null,
@@ -511,7 +517,7 @@ class WebhookController extends Controller
 
         if ($task->acceptsFollowUp()) {
             $stored = $images->store($message, $parsedMessage['images'], budgetSeconds: self::REPLY_IMAGE_BUDGET_SECONDS);
-            app(FollowUpTaskFactory::class)->create($task, $stored['text'], 'linear', authorName: $request->input('actor.name'), attachments: $stored['attachments'], replier: User::findByEmail($request->input('actor.email')));
+            app(FollowUpTaskFactory::class)->create($task, $stored['text'], 'linear', authorName: $request->input('actor.name'), attachments: $stored['attachments'], replier: User::findByEmail($request->input('actor.email')), channelCard: ChannelCard::linear($task, $request->input('actor.avatarUrl')));
             TaskAttachment::discard($stored['attachments']);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
@@ -519,7 +525,7 @@ class WebhookController extends Controller
 
         if (in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], strict: true)) {
             $stored = $images->store($message, $parsedMessage['images'], budgetSeconds: self::REPLY_IMAGE_BUDGET_SECONDS);
-            $steering = PendingSteeringMessage::queueFor($task, $stored['text'], 'linear', authorName: $request->input('actor.name'));
+            $steering = PendingSteeringMessage::queueFor($task, $stored['text'], 'linear', authorName: $request->input('actor.name'), channelCard: ChannelCard::linear($task, $request->input('actor.avatarUrl')));
             $stored['attachments']->each(fn (TaskAttachment $attachment) => $attachment->update(['pending_steering_message_id' => $steering->id]));
             TaskLogger::info($task, 'Steering reply queued (mid-run)');
 
@@ -530,7 +536,7 @@ class WebhookController extends Controller
             app(NotificationDriver::class)->postAgentActivity(
                 $sessionId,
                 type: 'response',
-                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name'), authorUserId: User::findByEmail($request->input('actor.email'))?->id),
+                body: app(StoppedTaskReplies::class)->handle($task, $message, 'linear', authorName: $request->input('actor.name'), authorUserId: User::findByEmail($request->input('actor.email'))?->id, channelCard: ChannelCard::linear($task, $request->input('actor.avatarUrl'))),
             );
 
             return response()->json(['ok' => true, 'handled' => 'stopped_task_reply']);

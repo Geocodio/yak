@@ -1337,6 +1337,19 @@ GRAPHQL;
     }
 
     /**
+     * The unified diff between two commits, measured from their merge base like
+     * a pull request's diff. Null when GitHub cannot serve it (too large, gone).
+     */
+    public function getCompareDiff(int $installationId, string $repoSlug, string $baseSha, string $headSha): ?string
+    {
+        $response = $this->installationClient($installationId)
+            ->withHeaders(['Accept' => 'application/vnd.github.diff'])
+            ->get("https://api.github.com/repos/{$repoSlug}/compare/{$baseSha}...{$headSha}");
+
+        return $response->successful() ? $response->body() : null;
+    }
+
+    /**
      * One workflow run. Any non-2xx response throws.
      *
      * @return array{path: string, name: string, event: string, head_repository_full_name: ?string, head_branch: ?string, head_sha: string}

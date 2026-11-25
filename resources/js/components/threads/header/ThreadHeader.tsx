@@ -1,7 +1,7 @@
 import { ConfirmDialog, Menu, cn, toast } from '@geocodio/console-ui';
 import { Link, router } from '@inertiajs/react';
-import { Ban, Copy, GitPullRequest, Link2, MessageSquareCode, MoreHorizontal, MoveRight, PanelRight, Share2, Star, Trash2, XCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Ban, Copy, GitPullRequest, Link2, MessageSquareCode, MoreHorizontal, MoveRight, PanelRight, Pencil, Share2, Star, Trash2, XCircle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { THREAD_GROUP, headerActions } from '@/commandPalette/threadPageActions';
 import { useCommandPaletteActions } from '@/commandPalette/useCommandPaletteActions';
 import { useMediaQuery } from '@/lib/useMediaQuery';
@@ -14,9 +14,10 @@ import { ShareButton } from '@/components/threads/share/ShareButton';
 import { ShareThreadDialog } from '@/components/threads/share/ShareThreadDialog';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
 import { breadcrumbParent } from '@/components/threads/header/breadcrumbParent';
-import { toggleStar } from '@/lib/threadStar';
+import { refreshThreadList, toggleStar } from '@/lib/threadStar';
 import { DELETE_THREAD_CONFIRM, closeThread, closeThreadConfirm, deleteThread } from '@/lib/threadLifecycle';
 import { cancel, requestReview, show } from '@/routes/threads';
+import { update as updateTitle } from '@/routes/threads/title';
 import { ThreadDockToggles } from '@/threads/dock/ThreadDock';
 import { HeldPullRequestButton, OpenPullRequestButton, ViewPullRequestButton } from '@/threads/panels/changes/OpenPullRequestButton';
 import type { Panel, PanelProps } from '@/threads/panels';
@@ -70,6 +71,11 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const [isSharing, setIsSharing] = useState(false);
     const [confirming, setConfirming] = useState<'close' | 'delete' | 'cancel' | 'requestReview' | null>(null);
     const [isBusy, setIsBusy] = useState(false);
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [draftTitle, setDraftTitle] = useState('');
+    const [titleError, setTitleError] = useState<string | null>(null);
+    const titleInput = useRef<HTMLInputElement>(null);
+    const isRenameSettled = useRef(false);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const isOpen = thread.status === 'open';
     const canStar = thread.parentThreadId === null;
@@ -111,8 +117,51 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
     const phoneRepo = thread.repo === 'unknown' ? null : thread.repo;
     useCommandPaletteActions(THREAD_GROUP, actions);
 
+    const startRenaming = () => {
+        isRenameSettled.current = false;
+        setDraftTitle(thread.title);
+        setTitleError(null);
+        setIsRenaming(true);
+    };
+    const stopRenaming = () => {
+        isRenameSettled.current = true;
+        setIsRenaming(false);
+        setTitleError(null);
+    };
+    const saveTitle = () => {
+        if (isRenameSettled.current) {
+            return;
+        }
+        const title = draftTitle.trim();
+        if (title === '') {
+            setTitleError("Title can't be empty");
+            return;
+        }
+        if (title === thread.title) {
+            stopRenaming();
+            return;
+        }
+        // Settled while the request runs, so a blur after Enter does not send a second save.
+        isRenameSettled.current = true;
+        router.patch(updateTitle.url(thread.id), { title }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => { stopRenaming(); refreshThreadList(); },
+            onError: (errors) => { isRenameSettled.current = false; setTitleError(errors.title ?? 'Could not rename the thread.'); },
+        });
+    };
+    // The overflow menu hands focus back to its trigger as it closes, so the input claims focus after that.
+    useEffect(() => {
+        if (!isRenaming) {
+            return;
+        }
+        const timer = window.setTimeout(() => { titleInput.current?.focus(); titleInput.current?.select(); }, 50);
+        return () => window.clearTimeout(timer);
+    }, [isRenaming]);
+
     const closeConfirm = closeThreadConfirm(subThreadCount);
     const menuItems = [
+        ...(canDrive ? [{ key: 'rename', label: 'Rename', icon: <Pencil size={14} />, onSelect: startRenaming, testId: 'thread-menu-rename' }] : []),
         { key: 'copy-link', label: 'Copy thread link', icon: <Link2 size={14} />, onSelect: () => copyThreadLink(thread.id), testId: 'thread-menu-copy-link' },
         ...(thread.branch !== null ? [{ key: 'copy-branch', label: 'Copy branch name', icon: <Copy size={14} />, onSelect: () => copyBranchName(thread.branch as string), testId: 'thread-menu-copy-branch' }] : []),
         ...(thread.canShare && !isDesktop ? [{ key: 'share', label: 'Share', icon: <Share2 size={14} />, onSelect: () => setIsSharing(true), testId: 'thread-menu-share' }] : []),
@@ -141,14 +190,47 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                        <h1 className="text-[15px] font-semibold max-sm:min-w-0 max-sm:truncate sm:line-clamp-2 lg:line-clamp-1 text-body" data-testid="thread-title">
+                        <h1 className={cn('text-[15px] font-semibold max-sm:min-w-0 max-sm:truncate sm:line-clamp-2 lg:line-clamp-1 text-body', isRenaming && 'flex min-w-0 flex-1 items-center')} data-testid="thread-title">
                             {parent !== null ? (
                                 <>
                                     <Link href={show.url(parent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{parent.title}</Link>
                                     <span className="text-muted"> / </span>
                                 </>
                             ) : null}
-                            {thread.title}
+                            {isRenaming ? (
+                                <input
+                                    ref={titleInput}
+                                    value={draftTitle}
+                                    maxLength={120}
+                                    aria-label="Thread title"
+                                    aria-invalid={titleError !== null}
+                                    data-testid="thread-title-input"
+                                    onChange={(event) => { setDraftTitle(event.target.value); setTitleError(null); }}
+                                    onBlur={saveTitle}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            saveTitle();
+                                        } else if (event.key === 'Escape') {
+                                            stopRenaming();
+                                        }
+                                    }}
+                                    className="w-full rounded-control border border-hair bg-panel px-1.5 py-0.5 text-[15px] font-semibold text-body outline-none focus:border-brand aria-invalid:border-fail"
+                                />
+                            ) : canDrive ? (
+                                <button
+                                    type="button"
+                                    title="Rename thread"
+                                    data-testid="thread-title-edit"
+                                    onClick={startRenaming}
+                                    className="group inline-flex max-w-full cursor-text items-center gap-1.5 rounded-control text-left font-semibold hover:bg-panel-2"
+                                >
+                                    <span className="truncate">{thread.title}</span>
+                                    <Pencil size={14} className="shrink-0 text-faint opacity-0 group-hover:opacity-100" aria-hidden />
+                                </button>
+                            ) : (
+                                thread.title
+                            )}
                         </h1>
                         {canStar && (
                             <button
@@ -168,6 +250,7 @@ export function ThreadHeader({ page, dockPanels, activeDock, diff, subThreadCoun
                             <StatusPill notice={notice} composerState={composer.state} />
                         </span>
                     </div>
+                    {titleError !== null && <p className="mt-0.5 text-[12px] text-fail" role="alert" data-testid="thread-title-error">{titleError}</p>}
                     <div className="mt-0.5 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[12px] text-muted sm:hidden" data-testid="thread-header-phone-meta">
                         {hasChannelSource && request.source !== undefined ? (
                             <span className="min-w-0 truncate" data-testid="thread-phone-source"><SourceLink source={request.source} testId="thread-phone-source-link" /></span>

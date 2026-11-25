@@ -87,7 +87,9 @@ class ReviewApprovalPolicy
         }
 
         $liveAuthor = (string) ($live['user']['login'] ?? '');
-        $hold = $this->authorHold($github, $liveAuthor, (string) ($metadata['author'] ?? '')) ?? $this->pullRequestStateHold($live);
+        $hold = $this->authorHold($github, $liveAuthor, (string) ($metadata['author'] ?? ''))
+            ?? $this->pullRequestStateHold($live)
+            ?? $this->yakCommitHold($github, $repository, (int) ($metadata['pr_number'] ?? 0), $live['commits'] ?? null);
         if ($hold !== null) {
             return [$hold];
         }
@@ -119,7 +121,7 @@ class ReviewApprovalPolicy
             return $reasons;
         }
 
-        $result = app(ConcernCheck::class)->check($concerns, array_values($files));
+        $result = app(ConcernCheck::class)->check($concerns, array_values($this->withMissingPatches($repository, $live, $files)));
         $decision['classification'] = $this->classificationFrom($result);
         $reasons = $this->concernHolds($concerns, $decision['classification'], $decision['observed']['has_test_change']);
         if ($reasons !== []) {
@@ -196,7 +198,7 @@ class ReviewApprovalPolicy
         }
 
         if ($classification === null) {
-            $classification = $this->classificationFrom(app(ConcernCheck::class)->check($concerns, array_values($files)));
+            $classification = $this->classificationFrom(app(ConcernCheck::class)->check($concerns, array_values($this->withMissingPatches($repository, $pullRequest, $files))));
         }
         $outcome['classification'] = $classification;
         if ($classification['is_uncertain'] || $classification['failure'] !== null || $classification['change_kind'] === null) {
@@ -243,6 +245,42 @@ class ReviewApprovalPolicy
         return $holds;
     }
 
+    /**
+     * Yak never approves its own code: a commit Yak wrote or co-authored
+     * needs a person's approval, the same as a pull request Yak opened.
+     * Fails closed unless every commit was read: the listing returns an
+     * empty list on a GitHub error and stops at 250 commits, so its count
+     * must match the live pull request's commit count.
+     */
+    private function yakCommitHold(AppService $github, Repository $repository, int $prNumber, mixed $liveCommitCount): ?string
+    {
+        try {
+            $commits = $github->listPullRequestCommits((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $prNumber);
+        } catch (\Throwable) {
+            $commits = null;
+        }
+
+        if (! is_int($liveCommitCount) || ! is_array($commits) || count($commits) !== $liveCommitCount) {
+            return 'Could not verify the pull request commits.';
+        }
+
+        $botLogin = $github->appBotLogin();
+        $yakEmail = strtolower((string) config('yak.git_user_email'));
+
+        foreach ($commits as $commit) {
+            $isYakCommit = strcasecmp((string) ($commit['author']['login'] ?? ''), $botLogin) === 0
+                || strtolower((string) ($commit['commit']['author']['email'] ?? '')) === $yakEmail
+                || strtolower((string) ($commit['commit']['committer']['email'] ?? '')) === $yakEmail
+                || str_contains(strtolower((string) ($commit['commit']['message'] ?? '')), "co-authored-by: yak <{$yakEmail}>");
+
+            if ($isYakCommit) {
+                return 'Yak wrote commits on this pull request.';
+            }
+        }
+
+        return null;
+    }
+
     private function authorHold(AppService $github, string $author, string $reviewedAuthor): ?string
     {
         if (strcasecmp($author, $github->appBotLogin()) === 0) {
@@ -283,6 +321,57 @@ class ReviewApprovalPolicy
         $observed = $hasChecks;
 
         return $hasChecks ? null : "Branch protection on {$baseRef} has no required status checks.";
+    }
+
+    /**
+     * GitHub's file list leaves out the patch of a file whose diff is too large.
+     * Fill those patches from the compare diff of the pull request's base and
+     * head commits. A file with no text hunks there (a binary file) keeps no
+     * patch, so the concern check still holds it.
+     *
+     * @param  array<string, mixed>  $pullRequest
+     * @param  array<int, array<string, mixed>>  $files
+     * @return array<int, array<string, mixed>>
+     */
+    private function withMissingPatches(Repository $repository, array $pullRequest, array $files): array
+    {
+        $isMissingPatch = fn (array $file): bool => ! is_string($file['patch'] ?? null);
+        $baseSha = (string) ($pullRequest['base']['sha'] ?? '');
+        $headSha = (string) ($pullRequest['head']['sha'] ?? '');
+        if ($baseSha === '' || $headSha === '' || array_filter($files, $isMissingPatch) === []) {
+            return $files;
+        }
+
+        try {
+            $diff = app(AppService::class)->getCompareDiff((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $baseSha, $headSha);
+        } catch (\Throwable) {
+            return $files;
+        }
+        if ($diff === null) {
+            return $files;
+        }
+
+        $sections = [];
+        foreach (preg_split('/^(?=diff --git )/m', $diff) ?: [] as $section) {
+            $header = strtok($section, "\n");
+            $hunkStart = strpos($section, "\n@@");
+            if ($header !== false && $hunkStart !== false) {
+                $sections[$header] = rtrim(substr($section, $hunkStart + 1), "\n");
+            }
+        }
+
+        foreach ($files as $index => $file) {
+            if ($isMissingPatch($file)) {
+                $filename = (string) ($file['filename'] ?? '');
+                $previous = (string) ($file['previous_filename'] ?? $filename);
+                $patch = $sections["diff --git a/{$previous} b/{$filename}"] ?? null;
+                if ($patch !== null) {
+                    $files[$index]['patch'] = $patch;
+                }
+            }
+        }
+
+        return $files;
     }
 
     /**
