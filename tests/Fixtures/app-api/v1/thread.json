@@ -126,6 +126,7 @@
             "model": "opus",
             "readAfterSequence": null,
             "retryNumber": null,
+            "review": null,
             "sendKey": null,
             "sentAt": "2026-11-15T12:00:00+00:00",
             "state": "read",

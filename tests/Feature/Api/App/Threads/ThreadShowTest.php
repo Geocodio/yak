@@ -15,6 +15,7 @@ use App\Models\ThreadView;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\GitHubWriteAccess;
+use App\Services\ReviewFeedbackFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Tests\Support\ContractFixture;
@@ -186,4 +187,22 @@ it('bounds the GitHub permission check of the co-owner panel on the app route on
     $this->getJson(route('app.threads.show', $thread), phoneHeadersFor($user))->assertOk()->assertJsonPath('coOwner.viewer.access', 'write');
 
     expect($bounds)->toContain(true)->not->toContain(false);
+});
+
+it('shows a GitHub review on a thread message', function () {
+    fakeApns();
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 12:00:00'));
+    $user = User::factory()->create(['name' => 'Test person']);
+    $thread = Thread::factory()->create(['title' => 'Clamp billable lookups', 'name' => 'clamp-billable-lookups', 'repo' => 'example/api', 'created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'event_sequence' => 12, 'sandbox_state' => ThreadSandboxState::None, 'live_activity_channel' => 'dGVzdC1jaGFubmVs']);
+    $task = YakTask::factory()->create(['source' => 'github', 'thread_id' => $thread->id, 'status' => TaskStatus::Success, 'started_by_user_id' => $user->id, 'pr_url' => 'https://github.com/example/api/pull/9', 'pr_number' => 9]);
+    $run = TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'driver_user_id' => $user->id, 'turn_state' => TurnState::Completed, 'finished_at' => now()->subHour(), 'cost_usd' => 1.25, 'num_turns' => 10, 'total_ms' => 60_000]);
+    ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'state' => TurnMessageState::Completed, 'text' => '@alice submitted a review (changes requested):', 'source' => 'github_review', 'author_name' => 'alice', 'kind' => 'steer', 'review_feedback' => app(ReviewFeedbackFormatter::class)->toReviewFeedback('changes_requested', 'Two things.', [
+        ['id' => 4683388661, 'body' => 'Please fix this', 'author' => 'alice', 'file' => 'app/Billing.php', 'line' => 205, 'diff_hunk' => "@@ -1,2 +1,2 @@\n context\n-old\n+new"],
+        ['id' => null, 'body' => 'Also update the docs.', 'author' => 'alice', 'file' => null, 'line' => null, 'diff_hunk' => null],
+    ], 'alice', 'https://github.com/example/api/pull/9', 500)]);
+
+    $response = $this->getJson(appThreadPath($thread), phoneHeadersFor($user))->assertOk()
+        ->assertJsonPath('messages.0.review.state', 'changes_requested')
+        ->assertJsonPath('messages.0.review.comments.0.url', 'https://github.com/example/api/pull/9#discussion_r4683388661');
+    ContractFixture::assertMatches('app', 'thread-review', $response->json(), SHOW_VOLATILE);
 });

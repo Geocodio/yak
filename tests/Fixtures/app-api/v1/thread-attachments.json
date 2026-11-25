@@ -165,6 +165,7 @@
             "model": "opus",
             "readAfterSequence": null,
             "retryNumber": null,
+            "review": null,
             "sendKey": null,
             "sentAt": "<volatile:string>",
             "state": "read",
