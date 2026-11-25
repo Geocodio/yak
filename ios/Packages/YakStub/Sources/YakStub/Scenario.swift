@@ -243,6 +243,8 @@ enum Scenario: String, CaseIterable, Sendable {
     case drawerTabsQuiet = "drawer-tabs-quiet"
     /// An older server: `me` has no `threadFilters`, and lists carry no review count and no facets.
     case drawerTabsOlder = "drawer-tabs-older"
+    /// The Review tab is empty because the person's GitHub login is not linked.
+    case drawerTabsLink = "drawer-tabs-link"
 
     static let apiPrefix = "/api/app/v1/"
     static let slowDelay = Duration.seconds(10)

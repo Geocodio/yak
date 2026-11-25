@@ -1866,72 +1866,12 @@
         }
       }
     },
-    "drawer.filter.everyone" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Everyone"
-          }
-        }
-      }
-    },
-    "drawer.filter.label.everyone" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show: everyone's threads. Change"
-          }
-        }
-      }
-    },
-    "drawer.filter.label.mine" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show: my threads. Change"
-          }
-        }
-      }
-    },
-    "drawer.filter.label.yak" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show: threads Yak started. Change"
-          }
-        }
-      }
-    },
-    "drawer.filter.mine" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mine"
-          }
-        }
-      }
-    },
     "drawer.filter.title" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show"
-          }
-        }
-      }
-    },
-    "drawer.filter.yak" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Yak"
           }
         }
       }
@@ -13502,6 +13442,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Thread list: %@. Change"
+          }
+        }
+      }
+    },
+    "drawer.review.link.button" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link GitHub on the web"
           }
         }
       }

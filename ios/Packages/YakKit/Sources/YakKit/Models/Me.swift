@@ -1,11 +1,21 @@
-/// The list under `threadFilters`; a list that is not strings reads as empty, and never fails `me`.
+/// The list under `threadFilters`. A list keeps its string elements and drops the others; a value that is not a list
+/// reads as absent (`names` is nil), as from an older server, and never fails `me`.
 public struct ThreadFilterNames: Decodable, Sendable, Equatable {
-    public let names: [String]
+    public let names: [String]?
 
-    public init(names: [String]) { self.names = names }
+    public init(names: [String]?) { self.names = names }
 
     public init(from decoder: any Decoder) throws {
-        names = (try? [String](from: decoder)) ?? []
+        guard let entries = try? [LossyString](from: decoder) else {
+            names = nil
+            return
+        }
+        names = entries.compactMap(\.value)
+    }
+
+    private struct LossyString: Decodable {
+        let value: String?
+        init(from decoder: any Decoder) throws { value = try? String(from: decoder) }
     }
 }
 

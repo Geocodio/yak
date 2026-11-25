@@ -32,6 +32,40 @@ private let row =
         #expect(facets.starters.first == ThreadFacetOption(key: "user:1", label: "Test person", count: 4))
     }
 
+    @Test func everyReviewGroupOfTheFixtureKeepsItsRowsAndPullRequests() throws {
+        let list = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads-review"))
+        #expect(list.reviewGroups.map(\.key) == ["back_to_you", "not_reviewed", "with_yak", "approved"])
+        #expect(list.reviewGroups.map(\.label) == ["Back to you", "Not reviewed", "With Yak", "Approved by you"])
+        #expect(
+            list.reviewGroups.map { $0.rows.map(\.title) } == [
+                ["Retry failed uploads"], ["Tidy the README"], ["Add a health check"], ["Speed up the importer"],
+            ])
+        let withYak = try #require(list.reviewGroups[2].rows.first?.review)
+        #expect(withYak.pullRequests.map(\.number) == [1] && withYak.pullRequests[0].checks == nil)
+        #expect(withYak.pullRequests[0].mergeability == "unknown" && !withYak.pullRequests[0].approvedByYou)
+        let approved = try #require(list.reviewGroups[3].rows.first?.review)
+        #expect(approved.pullRequests[0].approvedByYou && approved.pullRequests[0].checks == "pending")
+        #expect(approved.otherApprovals == 1 && !approved.hasNewCommitsSinceApproval)
+        #expect(list.reviewGroups.allSatisfy { $0.rows.allSatisfy { $0.review != nil } })
+    }
+
+    @Test func aReviewRowIsFoundByIdForTheOpenedThreadsTitle() {
+        func row(_ id: String, _ title: String) -> ThreadRow {
+            ThreadRow(
+                id: id, title: title, repo: "example/web", status: .stopped, isPrivate: false, isShared: false,
+                isUnattended: false, isStarred: false, canDelete: true, group: .today, children: [])
+        }
+        let list = ThreadList(
+            starred: [], needsYou: [], threads: [row("t1", "Mine")], needsYouCount: 0, hasAnyThreads: true,
+            reviewGroups: [
+                ReviewGroup(key: "back_to_you", label: "Back to you", rows: [row("r1", "Retry failed uploads")]),
+                ReviewGroup(key: "approved", label: "Approved by you", rows: [row("r2", "Speed up the importer")]),
+            ])
+        #expect(list.title(ofThread: "r2") == "Speed up the importer")
+        #expect(list.title(ofThread: "r1") == "Retry failed uploads" && list.title(ofThread: "t1") == "Mine")
+        #expect(list.title(ofThread: "nobody") == nil)
+    }
+
     @Test func theThreadsFixtureCarriesTheNewKeys() throws {
         let list = try JSONDecoder().decode(ThreadList.self, from: Fixtures.data("threads"))
         #expect(list.reviewCount == 0 && list.needsGitHubLink && list.gitHubLinkPath == "/settings/profile")
@@ -116,7 +150,11 @@ private let row =
         #expect(me.threadFilterWords == nil)
         object["threadFilters"] = "nonsense"
         let odd = try JSONDecoder().decode(Me.self, from: JSONSerialization.data(withJSONObject: object))
-        #expect(odd.threadFilterWords == [])
+        #expect(odd.threadFilterWords == nil)
+        object["threadFilters"] = ["mine", 7, "review", NSNull()]
+        let mixed = try JSONDecoder().decode(Me.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(mixed.threadFilterWords == ["mine", "review"])
+        #expect(ThreadTabs(serverFilters: odd.threadFilterWords).tabs == [.mine, .everyone])
     }
 
     @Test func aListedServerOffersTheTabsInTheWebsOrder() {
@@ -141,6 +179,35 @@ private let row =
         let current = ThreadTabs(serverFilters: ["mine", "everyone"])
         #expect(current.request(filter: .closed, starters: ["yak"]).filter == .mine)
         #expect(current.request(filter: .mine, starters: ["yak"]).starters == ["yak"])
+    }
+
+    @Test func anOlderServerOffersStartedByYakOnlyOnMine() {
+        let older = ThreadTabs(serverFilters: nil)
+        #expect(older.offersStartedByYak(on: .mine) && !older.offersStartedByYak(on: .everyone))
+        #expect(ThreadTabs(serverFilters: ["mine", "everyone"]).offersStartedByYak(on: .everyone))
+        let carried = ThreadListSelection(filter: .everyone, sources: ["slack"], starters: ["yak"])
+        #expect(older.normalized(carried) == ThreadListSelection(filter: .everyone))
+        let onMine = ThreadListSelection(filter: .mine, starters: ["yak"])
+        #expect(older.normalized(onMine) == onMine)
+        #expect(ThreadTabs(serverFilters: ["mine"]).normalized(carried) == carried)
+    }
+
+    @Test func aCountKeepsToThreeDigits() {
+        #expect(ThreadTabs.badgeText(5) == "5" && ThreadTabs.badgeText(99) == "99")
+        #expect(ThreadTabs.badgeText(100) == "99+" && ThreadTabs.badgeText(1234) == "99+")
+    }
+
+    @Test func theGitHubLinkOpensOnTheInstanceOnly() {
+        let instance = URL(string: "https://yak.example.com")!
+        #expect(
+            ReviewLink.url(path: "/settings/profile", instance: instance)?.absoluteString
+                == "https://yak.example.com/settings/profile")
+        #expect(ReviewLink.url(path: "/settings/profile?tab=github", instance: instance)?.query == "tab=github")
+        #expect(ReviewLink.url(path: "settings/profile", instance: instance) == nil)
+        #expect(ReviewLink.url(path: "//evil.example.net/x", instance: instance) == nil)
+        #expect(ReviewLink.url(path: "https://evil.example.net/x", instance: instance) == nil)
+        #expect(ReviewLink.url(path: nil, instance: instance) == nil)
+        #expect(ReviewLink.url(path: "/settings/profile", instance: URL(string: "http://127.0.0.1:1")!) == nil)
     }
 
     @Test func theOldChipsSavedChoiceMigratesToMineWithTheYakStarter() {

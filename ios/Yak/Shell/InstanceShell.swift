@@ -406,20 +406,3 @@ struct InstanceShell: View {
         }
     }
 }
-
-extension ThreadList {
-    /// The title of a thread row anywhere in the list, sub-threads included.
-    func title(ofThread id: String) -> String? {
-        func find(_ rows: [ThreadRow]) -> String? {
-            for row in rows {
-                if row.id == id { return row.title }
-                if let title = find(row.children) { return title }
-            }
-            return nil
-        }
-        let needy = needsYou.compactMap { item -> ThreadRow? in
-            if case .thread(let row) = item { row } else { nil }
-        }
-        return find(needy) ?? find(starred) ?? find(threads)
-    }
-}

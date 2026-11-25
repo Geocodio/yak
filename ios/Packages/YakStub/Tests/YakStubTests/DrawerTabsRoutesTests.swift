@@ -52,6 +52,15 @@ private func titles(_ list: [String: Any], _ key: String = "threads") -> [String
         #expect(older["reviewCount"] == nil && older["facets"] == nil)
     }
 
+    @Test func theLinkScenarioAsksToLinkGitHubOnReviewOnly() throws {
+        let review = try object(.drawerTabsLink, "threads?filter=review")
+        #expect(
+            review["needsGitHubLink"] as? Bool == true && review["gitHubLinkPath"] as? String == "/settings/profile")
+        let groups = try #require(review["reviewGroups"] as? [[String: Any]])
+        #expect(groups.allSatisfy { ($0["rows"] as? [[String: Any]])?.isEmpty == true })
+        #expect(try object(.drawerTabsLink, "threads?filter=mine")["needsGitHubLink"] as? Bool == false)
+    }
+
     @Test func meListsTheFiltersExceptOnAnOlderServer() throws {
         #expect((try object(.drawerTabs, "me")["threadFilters"] as? [String])?.contains("review") == true)
         #expect(try object(.drawerTabsOlder, "me")["threadFilters"] == nil)

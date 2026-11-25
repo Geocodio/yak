@@ -98,7 +98,7 @@ struct DrawerRowView: View {
             if row.source != nil || isTask {
                 HStack(spacing: Design.Space.small) {
                     if let source = row.source {
-                        DrawerBadge(text: source).accessibilityIdentifier("drawer.sourceLabel")
+                        DrawerBadge(text: source)
                     }
                     if isTask {
                         DrawerBadge(text: String(localized: "drawer.taskLabel"), systemImage: "checklist")

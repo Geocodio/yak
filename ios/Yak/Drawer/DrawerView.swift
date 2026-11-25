@@ -427,7 +427,7 @@ struct DrawerView: View {
     /// A section's name in the quiet color, with a count in a pill for the threads that need the person.
     @ViewBuilder private func sectionHeading(_ section: DrawerSection) -> some View {
         let heading = HStack(spacing: Design.Space.compact) {
-            Text(title(of: section.kind)).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
+            title(of: section.kind).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
             if section.kind == .needsYou || isReview(section.kind) {
                 Text(section.count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(
                     Color.yakMuted
@@ -459,15 +459,15 @@ struct DrawerView: View {
         if case .review = kind { true } else { false }
     }
 
-    private func title(of kind: DrawerSection.Kind) -> LocalizedStringKey {
+    private func title(of kind: DrawerSection.Kind) -> Text {
         switch kind {
-        case .notSentYet: "drawer.notSentYet"
-        case .needsYou: "drawer.needsYou"
-        case .starred: "drawer.starred"
-        case .today: "drawer.today"
-        case .thisWeek: "drawer.thisWeek"
-        case .older: "drawer.older"
-        case .review(_, let label): LocalizedStringKey(label)
+        case .notSentYet: Text("drawer.notSentYet")
+        case .needsYou: Text("drawer.needsYou")
+        case .starred: Text("drawer.starred")
+        case .today: Text("drawer.today")
+        case .thisWeek: Text("drawer.thisWeek")
+        case .older: Text("drawer.older")
+        case .review(_, let label): Text(verbatim: label)
         }
     }
 
@@ -504,6 +504,24 @@ struct DrawerView: View {
     }
 
     private func empty(othersHaveThreads: Bool, drawer: DrawerModel) -> some View {
+        // The web asks for the GitHub link before it says that nothing matches.
+        if drawer.filter == .review, drawer.state?.list?.needsGitHubLink == true {
+            return AnyView(
+                stateMessage(
+                    title: Text("drawer.review.link.title"), detail: Text("drawer.review.link.detail"),
+                    systemImage: "link"
+                ) {
+                    if let path = drawer.state?.list?.gitHubLinkPath, path.hasPrefix("/") {
+                        Button {
+                            model.browserURL = ReviewLink.url(path: path, instance: instance.url)
+                        } label: {
+                            Text("drawer.review.link.button")
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("drawer.review.link")
+                    }
+                })
+        }
         if drawer.selection.activeCount > 0 {
             return AnyView(
                 stateMessage(
@@ -517,13 +535,6 @@ struct DrawerView: View {
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("drawer.empty.clearFilters")
                 })
-        }
-        if drawer.filter == .review, drawer.state?.list?.needsGitHubLink == true {
-            return AnyView(
-                stateMessage(
-                    title: Text("drawer.review.link.title"), detail: Text("drawer.review.link.detail"),
-                    systemImage: "link"
-                ) {})
         }
         if drawer.filter != .mine {
             return AnyView(

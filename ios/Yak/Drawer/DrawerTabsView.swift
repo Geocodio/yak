@@ -11,8 +11,6 @@ struct DrawerTabsView: View {
     let pick: (ThreadListFilter) -> Void
     let openFilter: () -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     var body: some View {
         HStack(spacing: Design.Space.small) {
             tabsOrMenu
@@ -24,16 +22,12 @@ struct DrawerTabsView: View {
         .frame(minHeight: Design.Size.control)
     }
 
-    /// Up to the default text size the four names always fit; above it the row gives way to the menu when they do
-    /// not.
+    /// The four names when they fit the width at the current text size and count, else the menu button, whatever
+    /// the text size or the drawer's width.
     @ViewBuilder private var tabsOrMenu: some View {
-        if dynamicTypeSize <= .large {
+        ViewThatFits(in: .horizontal) {
             segments
-        } else {
-            ViewThatFits(in: .horizontal) {
-                segments
-                menuButton
-            }
+            menuButton
         }
     }
 
@@ -189,7 +183,7 @@ private struct CountPill: View {
     let isOn: Bool
 
     var body: some View {
-        Text(count, format: .number).font(.yak(.caption, .semibold))
+        Text(ThreadTabs.badgeText(count)).font(.yak(.caption, .semibold))
             .foregroundStyle(isOn ? Color.yakAccentInk : Color.yakText)
             .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
             .background(isOn ? Color.yakSlate : Color.yakFillStrong, in: .capsule)

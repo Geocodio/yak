@@ -1,3 +1,14 @@
+#if canImport(os)
+    import os
+#endif
+
+private func logDroppedEntry(_ typeName: String) {
+    #if canImport(os)
+        Logger(subsystem: "YakKit", category: "ThreadList").error(
+            "dropped an undecodable \(typeName, privacy: .public)")
+    #endif
+}
+
 /// The tabs of the thread list, by the word the server takes in `filter`. `yak` is the old chip's choice: it is
 /// still decoded (a saved window, an older server) but a current server is asked for `mine` with a starter instead.
 public enum ThreadListFilter: String, Codable, Sendable, CaseIterable { case mine, yak, everyone, closed, review }
@@ -58,10 +69,18 @@ public struct ThreadFacets: Codable, Equatable, Sendable {
     }
 }
 
-/// A list entry that is dropped, not fatal, when it does not decode.
+/// A list entry that is dropped, not fatal, when it does not decode. A dropped entry is logged by its type only, so
+/// a broken required field never empties a list without a trace.
 struct Lossy<Value: Codable>: Codable {
     let value: Value?
-    init(from decoder: any Decoder) throws { value = try? Value(from: decoder) }
+    init(from decoder: any Decoder) throws {
+        do {
+            value = try Value(from: decoder)
+        } catch {
+            value = nil
+            logDroppedEntry("\(Value.self)")
+        }
+    }
     func encode(to encoder: any Encoder) throws { try value?.encode(to: encoder) }
 }
 
@@ -465,5 +484,22 @@ public enum NeedsYouItem: Codable, Equatable, Sendable {
         case .unknown(let type):
             try container.encode(type, forKey: .type)
         }
+    }
+}
+
+extension ThreadList {
+    /// The title of a thread row anywhere in the list, the Review groups and sub-threads included.
+    public func title(ofThread id: String) -> String? {
+        func find(_ rows: [ThreadRow]) -> String? {
+            for row in rows {
+                if row.id == id { return row.title }
+                if let title = find(row.children) { return title }
+            }
+            return nil
+        }
+        let needy = needsYou.compactMap { item -> ThreadRow? in
+            if case .thread(let row) = item { row } else { nil }
+        }
+        return find(needy) ?? find(starred) ?? find(threads) ?? find(reviewGroups.flatMap(\.rows))
     }
 }

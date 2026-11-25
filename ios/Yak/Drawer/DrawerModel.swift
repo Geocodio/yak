@@ -92,8 +92,9 @@ final class DrawerModel {
     }
 
     func starterChoices() -> [FilterChoice] {
-        // An older server lists no facets and knows one starter filter, Yak.
+        // An older server lists no facets and knows one starter filter, Yak, on Mine only (the old chip's choice).
         guard tabs.supportsFacets else {
+            guard tabs.offersStartedByYak(on: selection.filter) else { return [] }
             return [
                 FilterChoice(
                     key: "yak", label: "yak", count: 0, isPicked: selection.starters.contains("yak"), role: .yak)
@@ -152,7 +153,7 @@ final class DrawerModel {
     func setFilter(_ filter: ThreadListFilter) async {
         var next = selection
         next.filter = filter
-        scene.setSelection(next)
+        scene.setSelection(tabs.normalized(next))
         await syncFilter()
     }
 
@@ -182,11 +183,13 @@ final class DrawerModel {
     /// not list reads as Mine.
     func syncFilter() async {
         searchTask?.cancel()
-        let held = scene.state.selection
-        if tabs.resolved(held.filter) != held.filter {
-            var next = held
-            next.filter = tabs.resolved(held.filter)
-            scene.setSelection(next)
+        var held = scene.state.selection
+        var settled = held
+        settled.filter = tabs.resolved(held.filter)
+        settled = tabs.normalized(settled)
+        if settled != held {
+            scene.setSelection(settled)
+            held = settled
         }
         await sendToFeed()
     }

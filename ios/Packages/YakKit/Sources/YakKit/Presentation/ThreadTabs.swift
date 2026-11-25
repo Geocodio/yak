@@ -1,3 +1,5 @@
+import Foundation
+
 /// Which tabs and filters the drawer offers for what the server accepts.
 public struct ThreadTabs: Equatable, Sendable {
     /// The tabs in the web's order.
@@ -18,6 +20,26 @@ public struct ThreadTabs: Equatable, Sendable {
         let offered = order.filter { $0 == .mine || serverFilters.contains($0.rawValue) }
         tabs = offered
         supportsFacets = true
+    }
+
+    /// Whether the sheet offers "Started by Yak" on `tab`. An older server knows it only as the old chip's Mine filter.
+    public func offersStartedByYak(on tab: ThreadListFilter) -> Bool {
+        supportsFacets || tab == .mine
+    }
+
+    /// `selection` as this server can show it: an older server keeps its Yak starter only on Mine, and knows no
+    /// sources.
+    public func normalized(_ selection: ThreadListSelection) -> ThreadListSelection {
+        guard !supportsFacets else { return selection }
+        var next = selection
+        next.sources = []
+        if selection.filter != .mine { next.starters = [] }
+        return next
+    }
+
+    /// The number on a tab: three digits at most, so the row keeps room for the four names.
+    public static func badgeText(_ count: Int) -> String {
+        count > 99 ? "99+" : String(max(count, 0))
     }
 
     /// The tab to show when `filter` is not offered (a saved Review on a server that dropped it).
@@ -92,5 +114,21 @@ extension ThreadTabs {
         let missing = picked.filter { key in !options.contains { $0.key == key } }
             .map { FilterChoice(key: $0, label: $0, count: 0, isPicked: true, role: role($0)) }
         return counted + missing
+    }
+}
+
+/// Where the "Link GitHub on the web" button of the Review tab goes.
+public enum ReviewLink {
+    /// `path` against the instance's address, or nil: the path must start with one `/` (never `//`), the answer
+    /// stays on the instance's host, and it passes `WebLinkRule`.
+    public static func url(path: String?, instance: URL) -> URL? {
+        guard let path, path.hasPrefix("/"), !path.hasPrefix("//"),
+            var components = URLComponents(url: instance, resolvingAgainstBaseURL: false)
+        else { return nil }
+        let target = URLComponents(string: path)
+        components.path = target?.path ?? path
+        components.query = target?.query
+        components.fragment = nil
+        return WebLinkRule.safeURL(components.url?.absoluteString)
     }
 }

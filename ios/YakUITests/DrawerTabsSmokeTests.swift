@@ -89,6 +89,18 @@ import XCTest
         try audit()
     }
 
+    /// An empty Review tab with no linked GitHub login says so and offers the link; the web's wording comes first,
+    /// before any "no match" text.
+    func testReviewAsksToLinkGitHub() throws {
+        try launch("drawer-tabs-link")
+        pick("review")
+        XCTAssertTrue(
+            app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Link your GitHub account"))
+                .firstMatch.waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("drawer.review.link").exists)
+        try audit()
+    }
+
     /// An older server lists no filters: only Mine and Everyone, no Review and no Closed.
     func testAnOlderServerHidesReviewAndClosed() throws {
         try launch("drawer-tabs-older")

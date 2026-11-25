@@ -217,6 +217,20 @@ private let allFilters = ["mine", "yak", "everyone", "closed", "review"]
         #expect(rig.model.starterChoices().map(\.key) == ["yak"])
     }
 
+    @Test func onAnOlderServerStartedByYakIsOfferedOnMineOnlyAndLeavesWithTheTab() async throws {
+        let rig = try await TabsRig()
+        await rig.model.configure(serverFilters: nil, viewerID: nil)
+        let running = Task { await rig.model.run() }
+        defer { running.cancel() }
+        await rig.model.toggleStarter("yak")
+        #expect(rig.model.starterChoices().map(\.key) == ["yak"])
+        await rig.model.setFilter(.everyone)
+        #expect(await rig.eventually { rig.titles() == ["everyone"] })
+        #expect(rig.model.starterChoices().isEmpty)
+        #expect(rig.model.selection == ThreadListSelection(filter: .everyone))
+        #expect(rig.transport.requested.last == "filter=everyone")
+    }
+
     @Test func theFilterSheetNarrowsTheTabAndTheSelectionIsKept() async throws {
         let rig = try await TabsRig()
         await rig.model.configure(serverFilters: allFilters, viewerID: "1")

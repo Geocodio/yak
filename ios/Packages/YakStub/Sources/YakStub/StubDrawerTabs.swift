@@ -3,7 +3,9 @@ import Foundation
 /// The thread list of the `drawer-tabs` scenarios: rows that read like the boards, one list per tab, narrowed by the
 /// sources, starters and search the app sends.
 extension Scenario {
-    private var isDrawerTabs: Bool { self == .drawerTabs || self == .drawerTabsQuiet || self == .drawerTabsOlder }
+    private var isDrawerTabs: Bool {
+        self == .drawerTabs || self == .drawerTabsQuiet || self == .drawerTabsOlder || self == .drawerTabsLink
+    }
 
     func drawerTabsList(filter: String, query: [String: String], _ fixtures: StubFixtures, _ baseURL: String)
         -> [String: Any]?
@@ -15,6 +17,14 @@ extension Scenario {
             list = fixtures.files["threads-review"].map { fixtures.object($0, baseURL: baseURL) } ?? [:]
             list["reviewGroups"] = reviewGroups(list["reviewGroups"] as? [[String: Any]] ?? [])
             list["reviewCount"] = self == .drawerTabsQuiet ? 0 : 2
+            if self == .drawerTabsLink {
+                list["reviewGroups"] = (list["reviewGroups"] as? [[String: Any]] ?? []).map { group -> [String: Any] in
+                    var group = group
+                    group["rows"] = [[String: Any]]()
+                    return group
+                }
+                list["reviewCount"] = 0
+            }
         case "closed":
             list = emptyList(threads: Self.closedRows)
         case "everyone":
@@ -31,7 +41,7 @@ extension Scenario {
         if self != .drawerTabsOlder {
             list["facets"] = Self.facets(of: counted)
             list["reviewCount"] = self == .drawerTabsQuiet ? 0 : 2
-            list["needsGitHubLink"] = false
+            list["needsGitHubLink"] = self == .drawerTabsLink && filter == "review"
             list["gitHubLinkPath"] = "/settings/profile"
         } else {
             list["reviewGroups"] = nil
