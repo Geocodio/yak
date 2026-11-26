@@ -193,6 +193,13 @@ extension Endpoint where Response == StatusResponse {
     }
 }
 
+extension Endpoint where Response == AgentsStopAnswer {
+    /// Asks the runner to stop every agent of the thread. Needs the right to drive the thread.
+    public static func stopAgents(_ id: String) -> Endpoint<AgentsStopAnswer> {
+        Endpoint(method: .post, path: "threads/\(segment(id))/agents/stop", retriesTransientFailures: false)
+    }
+}
+
 extension Endpoint where Response == ChannelAuthorization {
     public static func authorizeChannel(socketID: String, channelName: String) -> Endpoint<ChannelAuthorization> {
         Endpoint(
