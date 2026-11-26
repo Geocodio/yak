@@ -28,6 +28,14 @@ private func snapshot(children: [String] = []) -> ConversationSnapshot {
         })
 }
 
+private func snapshot(child state: String) -> ConversationSnapshot {
+    var item = ConversationItem(kind: .child, key: "child:q7adapt0", sequence: 1)
+    item.child = ChildCard(
+        childThreadId: LenientID("q7adapt0"), name: "query-adapter", kind: "implement", state: state,
+        messagesPaused: false)
+    return ConversationSnapshot(load: .ready, entries: [.event(item)])
+}
+
 /// A feed over scripted answers, a clock the test steps by hand, and snapshots and changes the test yields.
 private struct FeedRig {
     let feed: OverviewFeed
@@ -164,6 +172,23 @@ private struct FeedRig {
     await rig.settle()
     #expect(await rig.count(stackRoute) == 3)
     #expect(await rig.count(environmentRoute) == 1)
+    await rig.feed.close()
+}
+
+@Test func aChildCardThatChangesStateReloadsTheStackOnce() async throws {
+    let rig = try await FeedRig()
+    await rig.feed.setVisible(true)
+    await rig.waitForRequests(stack: 1, environment: 1)
+    await rig.clock.waitForSleeper(endingAt: .seconds(10))
+    rig.snapshots.yield(snapshot(child: "queued"))
+    rig.snapshots.yield(snapshot(child: "starting"))
+    await rig.transport.waitForRequests(2, on: stackRoute)
+    await rig.settle()
+    #expect(await rig.count(stackRoute) == 2)
+    // The same card again changes nothing.
+    rig.snapshots.yield(snapshot(child: "starting"))
+    await rig.settle()
+    #expect(await rig.count(stackRoute) == 2)
     await rig.feed.close()
 }
 

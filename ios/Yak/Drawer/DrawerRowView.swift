@@ -265,6 +265,7 @@ struct DrawerRowView: View {
         case .children(let total, let working):
             return String(localized: "drawer.children \(total) \(working)")
         case .step(let text): return text
+        case .subThread(let word): return word.text
         case .taskWaiting: return String(localized: "drawer.taskWaiting")
         case .status(let status):
             switch status {

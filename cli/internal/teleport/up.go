@@ -218,7 +218,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			d.cancel(ctx, started.TeleportID, "error", err.Error())
 			return UpResult{}, err
 		}
-		if err := push(r); err != nil {
+		if err := d.working("Pushing "+r.prepared.Branch, func() error { return push(r) }); err != nil {
 			d.cancel(ctx, started.TeleportID, "error", "push failed")
 			if isCancelled(err) {
 				return UpResult{}, err
@@ -233,7 +233,11 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		since, _ = time.Parse(time.RFC3339, *started.Thread.FirstTeleportedAt)
 	}
 	store := &session.Store{Client: d.API}
-	uploaded, err := session.Upload(ctx, store, started.Thread.ID, sid, projectDir, since, nil)
+	var uploaded session.UploadResult
+	err = d.working("Uploading the session", func() (err error) {
+		uploaded, err = session.Upload(ctx, store, started.Thread.ID, sid, projectDir, since, nil)
+		return err
+	})
 	if err != nil {
 		if errors.Is(err, session.ErrDiverged) || errors.Is(err, session.ErrCheckpointMismatch) {
 			d.cancel(ctx, started.TeleportID, "diverged", err.Error())
@@ -367,7 +371,10 @@ func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req ap
 		return resp, resumable(err)
 	}
 	failures := 0
+	progress := newStatus(d)
+	defer progress.clear()
 	for polls := 0; resp.Teleport.State != "completed"; polls++ {
+		progress.observe(resp.Teleport)
 		if resp.Teleport.State == "failed" || resp.Teleport.State == "cancelled" || resp.Teleport.State == "expired" || polls > maxPolls {
 			msg := "the teleport did not finish"
 			if resp.Teleport.Failure != nil {
@@ -375,7 +382,10 @@ func completeUp(ctx context.Context, d Deps, started api.BeginUpResponse, req ap
 			}
 			return resp, userErrorf(nil, "Yak could not finish the teleport: %s. Nothing changed on this computer.", msg)
 		}
-		if err := d.sleep(ctx, time.Duration(max(resp.Teleport.PollAfterSeconds, 1))*time.Second); err != nil {
+		if err := progress.stalled(resp.Teleport.State, "Nothing changed on this computer. Run yak teleport again to check and resume."); err != nil {
+			return resp, err
+		}
+		if err := progress.wait(ctx, time.Duration(max(resp.Teleport.PollAfterSeconds, 1))*time.Second); err != nil {
 			return resp, err
 		}
 		var next api.Teleport
@@ -495,7 +505,7 @@ func resolveAddDir(ctx context.Context, d Deps, dir string) (*upRepo, bool, erro
 // pickSession returns the session id and the path of its transcript. A session found by guessing is confirmed
 // with the person, showing its first prompt.
 func pickSession(d Deps, in UpInput) (string, string, error) {
-	configDir := session.ClaudeConfigDir(d.Env, d.Home)
+	configDir := session.ClaudeConfigDir(d.Env, d.Home, d.Config.ClaudeConfigDir)
 	sid := in.SessionID
 	if sid == "" {
 		sid = d.Env("CLAUDE_SESSION_ID")

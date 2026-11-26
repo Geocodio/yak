@@ -26,6 +26,8 @@ type Deps struct {
 	Sleep     func(time.Duration)
 	Env       func(string) string
 	Home      string
+	// Live is set when Out is a terminal, which turns on the in-place status line.
+	Live bool
 }
 
 // AppliedRepo is one repo as reported back to Yak when a teleport down completes.

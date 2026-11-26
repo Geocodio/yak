@@ -7,7 +7,7 @@ import { visibleOutbox } from './outboxSource.ts';
 
 const FIXTURES = new URL('../../../tests/Fixtures/app-api/v1/embed-bridge/', import.meta.url);
 /** Types the page sends before the app decodes them: no fixture yet, the shape is pinned in this file and the changelog. */
-const TYPES_WITHOUT_FIXTURE = ['agents'];
+const TYPES_WITHOUT_FIXTURE = [];
 const fixtures = readdirSync(FIXTURES).filter((name) => name.endsWith('.json')).map((name) => ({ name, message: JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8')) }));
 
 test('it ignores unknown types', () => {
@@ -61,6 +61,8 @@ test('a ready message names a thread with its feed position, or neither', () => 
     assert.equal(validatePageMessage({ ...ready, threadId: 'd0e515ef', latestSequence: 3 }).kind, 'ok');
     assert.equal(validatePageMessage({ ...ready, threadId: 'd0e515ef' }).kind, 'malformed');
     assert.equal(validatePageMessage({ ...ready, latestSequence: 3 }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...ready, url: '/\\evil.test/x' }).kind, 'malformed');
+    assert.equal(validatePageMessage({ ...ready, threadId: null, latestSequence: null }).kind, 'malformed');
 });
 
 test('it names the card action of a post', () => {

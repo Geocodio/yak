@@ -8,6 +8,8 @@ enum Design {
     static let disabledOpacity: Double = 0.4
     /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
     static let closedMarkOpacity: Double = 0.62
+    /// How faded a control looks while its change is on its way to the server.
+    static let busyOpacity: Double = 0.7
 
     /// Gaps and insets, in points.
     enum Space {
@@ -97,6 +99,10 @@ enum Design {
         static let statusDot: CGFloat = 9
         /// The tallest the closed thread's line grows at accessibility text sizes; its sentence scrolls past that.
         static let closedLineMaxHeight: CGFloat = 340
+        /// The narrowest the number between a stepper's buttons gets.
+        static let stepValue: CGFloat = 28
+        /// The line of a hollow state mark.
+        static let markRing: CGFloat = 1.5
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
     }

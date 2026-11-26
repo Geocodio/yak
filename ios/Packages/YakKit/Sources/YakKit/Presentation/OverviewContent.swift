@@ -57,16 +57,24 @@ public struct AwakeStepperValue: Equatable, Sendable {
 
 public struct SubThreadsGroup: Equatable, Sendable {
     public let total: Int
-    public let working: Int
+    /// The most sub-threads one thread can have.
+    public let maxChildren: Int
     /// Set when the thread is itself a sub-thread.
     public let parent: StackParent?
     public let rows: [SubThreadRow]
     public let add: AddSubThreadAvailability
+    /// The limit line "N can run at the same time": set when the thread is a root with a sub-thread that has its own
+    /// sandbox. `canChange` is whether the person may open the stepper behind "Change".
+    public let limitLine: LimitLine?
+    /// The stepper behind "Change"; nil when the person cannot change the limit.
     public let awake: AwakeStepperValue?
     public let canStop: Bool
     public let stoppedAt: Date?
-    /// Newest last, as the server sends them.
-    public let messages: [StackMessage]
+
+    public struct LimitLine: Equatable, Sendable {
+        public let current: Int
+        public let canChange: Bool
+    }
 }
 
 public enum StatusTone: Equatable, Sendable { case good, attention, neutral }
@@ -162,8 +170,9 @@ public struct OverviewContent: Equatable, Sendable {
 
     private static func subThreadsGroup(_ stack: ThreadStack) -> SubThreadsGroup? {
         guard !stack.children.isEmpty || !stack.isRoot else { return nil }
+        let hasOwnSandbox = stack.isRoot && stack.children.contains { $0.kind != .research }
         let awake: AwakeStepperValue? =
-            stack.isRoot && stack.canDrive && !stack.children.isEmpty
+            hasOwnSandbox && stack.canDrive
             ? {
                 let range = 1...max(1, stack.limit.max)
                 return AwakeStepperValue(
@@ -172,7 +181,7 @@ public struct OverviewContent: Equatable, Sendable {
             }() : nil
         return SubThreadsGroup(
             total: stack.children.count,
-            working: stack.children.filter { $0.state == .working }.count,
+            maxChildren: stack.maxChildren,
             parent: stack.parent,
             rows: SubThreadRows.make(stack),
             add: stack.addChild.allowed
@@ -180,10 +189,11 @@ public struct OverviewContent: Equatable, Sendable {
                 : .refused(
                     code: stack.addChild.error ?? "forbidden",
                     message: stack.addChild.message ?? "You cannot add a sub-thread right now."),
+            limitLine: hasOwnSandbox
+                ? SubThreadsGroup.LimitLine(current: stack.limit.current, canChange: stack.canDrive) : nil,
             awake: awake,
             canStop: stack.canStop,
-            stoppedAt: stack.stoppedAt.flatMap(parseDate),
-            messages: stack.messages)
+            stoppedAt: stack.stoppedAt.flatMap(parseDate))
     }
 
     private static func statusGroup(_ inputs: OverviewInputs, show: ThreadShow) -> StatusGroup {

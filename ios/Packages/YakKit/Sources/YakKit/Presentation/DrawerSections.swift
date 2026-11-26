@@ -89,6 +89,8 @@ public enum DrawerSubtitle: Equatable, Sendable {
     case children(total: Int, working: Int)
     /// What a sub-thread is doing, as the server words it.
     case step(String)
+    /// The state of a sub-thread row, in the one set of words every sub-thread state uses.
+    case subThread(SubThreadStateStyle.Word)
     /// A task item without a label.
     case taskWaiting
     case unsent(OutboxState)
@@ -197,10 +199,22 @@ public enum DrawerSections {
         let subtitle: DrawerSubtitle =
             if let label = row.needsYouLabel {
                 .serverLabel(label)
+            } else if depth > 0, let state = row.stackState {
+                // The state the stack listing resolves, in the same words as the Overview. The web's row shows a
+                // working sub-thread's step in the place of the state line, so only that state keeps its step.
+                if state == StackChildState.working.rawValue, let step = row.step,
+                    !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                {
+                    .step(step)
+                } else {
+                    .subThread(SubThreadStateStyle.of(StackChildState(rawValue: state)).word)
+                }
             } else if depth > 0, let step = row.step, !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 .step(step)
             } else if !row.children.isEmpty {
                 .children(total: descendants.count, working: descendants.filter { $0.status == .running }.count)
+            } else if depth > 0, let style = SubThreadStateStyle.of(listStatus: row.status) {
+                .subThread(style.word)
             } else {
                 .status(row.status)
             }

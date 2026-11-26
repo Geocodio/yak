@@ -37,6 +37,9 @@ export type ThreadListRow = {
     lastActivityAt: string | null;
     group: 'today' | 'this_week' | 'older';
     children: ThreadListRow[];
+    /** Sub-thread rows only, and absent from an older server. */
+    stackState?: 'closed' | 'failed' | 'done' | 'queued' | 'starting' | 'working' | 'waiting';
+    takenOver?: boolean;
     review?: ThreadReviewSummary;
 };
 

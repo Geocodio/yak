@@ -15,7 +15,7 @@ final class StubOverview: StubFeature, @unchecked Sendable {
     static let scenarioNames = [
         "overview-stack", "overview-stopped", "overview-full", "overview-no-sub-threads", "overview-setting-up",
         "overview-new-thread", "overview-recipient", "overview-refusals", "overview-busy", "overview-slow",
-        "overview-private", "overview-broken",
+        "overview-private", "overview-broken", "overview-states", "overview-states-more", "overview-states-other",
     ]
 
     let name = "overview"
@@ -40,6 +40,12 @@ final class StubOverview: StubFeature, @unchecked Sendable {
         StubFixturePair(
             server: "overview-environment-setup-failed", scenario: "scenario-overview-environment-setup-failed"),
         StubFixturePair(server: "overview-sub-thread-created", scenario: "scenario-overview-sub-thread-created"),
+    ]
+
+    /// The stacks of the state scenarios: hand-written data with no server fixture.
+    let scenarioDataNames = [
+        "scenario-overview-states-stack", "scenario-overview-states-more-stack",
+        "scenario-overview-states-other-stack",
     ]
 
     private struct State {
@@ -304,6 +310,9 @@ final class StubOverview: StubFeature, @unchecked Sendable {
         case "overview-stopped": file = "scenario-overview-stopped-stack"
         case "overview-full": file = "scenario-overview-full-stack"
         case "overview-recipient": file = "scenario-overview-recipient-stack"
+        case "overview-states": file = "scenario-overview-states-stack"
+        case "overview-states-more": file = "scenario-overview-states-more-stack"
+        case "overview-states-other": file = "scenario-overview-states-other-stack"
         case "overview-no-sub-threads", "overview-new-thread": file = "scenario-overview-no-sub-threads"
         default: file = snapshot.isStopped ? "scenario-overview-stopped-stack" : "scenario-overview-busy-stack"
         }

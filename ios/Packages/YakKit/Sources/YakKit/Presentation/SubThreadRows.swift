@@ -3,34 +3,43 @@ import Foundation
 public enum SubThreadAction: Equatable, Sendable { case open, takeOver, split, drop }
 
 public enum SubThreadDetail: Equatable, Sendable {
+    /// What a working sub-thread is doing, as the server words it.
     case step(String)
+    /// The result of a finished sub-thread.
     case result(String)
-    case queued, messagesPaused, takenOver
-    case state(StackChildState)
+    /// Why a sub-thread waits for a free spot; `running` is how many sub-threads run now.
+    case waitingForSpot(running: Int)
 }
 
 public struct SubThreadRow: Equatable, Sendable, Identifiable {
     public let id: String
-    public let title: String
+    public let name: String
     public let kind: StackChildKind
-    public let state: StackChildState
-    public let detail: SubThreadDetail
-    public let filesChanged: Int?
+    public let repo: String?
+    public let style: SubThreadStateStyle
+    public let messagesPaused: Bool
+    public let detail: SubThreadDetail?
     public let pullRequestURL: URL?
     public let actions: [SubThreadAction]
+    /// The limit "Start now" would save: one more than now. Set only on a waiting sub-thread that the person may
+    /// start.
+    public let startNowLimit: Int?
 
     public init(
-        id: String, title: String, kind: StackChildKind, state: StackChildState, detail: SubThreadDetail,
-        filesChanged: Int?, pullRequestURL: URL?, actions: [SubThreadAction]
+        id: String, name: String, kind: StackChildKind, repo: String?, style: SubThreadStateStyle,
+        messagesPaused: Bool, detail: SubThreadDetail?, pullRequestURL: URL?, actions: [SubThreadAction],
+        startNowLimit: Int? = nil
     ) {
         self.id = id
-        self.title = title
+        self.name = name
         self.kind = kind
-        self.state = state
+        self.repo = repo
+        self.style = style
+        self.messagesPaused = messagesPaused
         self.detail = detail
-        self.filesChanged = filesChanged
         self.pullRequestURL = pullRequestURL
         self.actions = actions
+        self.startNowLimit = startNowLimit
     }
 }
 
@@ -61,36 +70,58 @@ public enum SubThreadActions {
 
 public enum SubThreadRows {
     public static func make(_ stack: ThreadStack) -> [SubThreadRow] {
-        stack.children.map { child in
-            SubThreadRow(
+        let startNowLimit = canRaiseLimit(stack) ? stack.limit.current + 1 : nil
+        return stack.children.map { stored in
+            let child = stored.shown
+            return SubThreadRow(
                 id: child.id,
-                title: isBlank(child.title) ? child.name : child.title,
+                name: isBlank(child.name) ? child.title : child.name,
                 kind: child.kind,
-                state: child.state,
-                detail: detail(child),
-                filesChanged: child.filesChanged,
+                repo: isBlank(child.repo) ? nil : child.repo,
+                style: .of(child.state, takenOver: child.takenOver),
+                messagesPaused: child.messagesPaused,
+                detail: detail(child, running: stack.limit.awake),
                 pullRequestURL: secureURL(child.pullRequestUrl),
-                actions: SubThreadActions.forChild(child, canDrive: stack.canDrive))
+                actions: SubThreadActions.forChild(child, canDrive: stack.canDrive),
+                startNowLimit: child.state == .queued ? startNowLimit : nil)
         }
     }
 
-    private static func detail(_ child: StackChild) -> SubThreadDetail {
-        if child.takenOver { return .takenOver }
-        if child.messagesPaused { return .messagesPaused }
-        if child.state == .done, let result = child.resultSummary, !isBlank(result) { return .result(result) }
-        if child.state == .working || child.state == .waiting, let step = child.step, !isBlank(step) {
-            return .step(step)
-        }
-        if child.queued { return .queued }
-        return .state(child.state)
+    /// The web offers "Start now" to a person who can drive the root thread, below the highest limit.
+    static func canRaiseLimit(_ stack: ThreadStack) -> Bool {
+        stack.canDrive && stack.isRoot && stack.limit.current < stack.limit.max
     }
 
-    private static func isBlank(_ text: String) -> Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private static func detail(_ child: StackChild, running: Int) -> SubThreadDetail? {
+        switch child.state {
+        case .queued: .waitingForSpot(running: running)
+        case .working:
+            child.step.flatMap { isBlank($0) ? nil : .step($0) }
+        case .done:
+            child.resultSummary.flatMap { isBlank($0) ? nil : .result($0) }
+        default: nil
+        }
+    }
+
+    private static func isBlank(_ text: String?) -> Bool {
+        text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
     }
 
     private static func secureURL(_ text: String?) -> URL? {
         guard let text, let url = URL(string: text), url.scheme?.lowercased() == "https" else { return nil }
         return url
+    }
+}
+
+extension StackChild {
+    /// The child as the web shows it: the server never reports a research sub-thread as waiting for a free spot (it
+    /// shares the thread's sandbox), so a stored `queued` research sub-thread reads as starting.
+    fileprivate var shown: StackChild {
+        guard state == .queued, kind == .research else { return self }
+        return StackChild(
+            id: id, name: name, title: title, kind: kind, model: model, state: .starting, step: step,
+            resultSummary: resultSummary, branch: branch, repo: repo, pullRequestUrl: pullRequestUrl,
+            ciStatus: ciStatus, filesChanged: filesChanged, queued: queued, messagesPaused: messagesPaused,
+            takenOver: takenOver, canOverride: canOverride)
     }
 }
