@@ -133,14 +133,20 @@ struct RunningAgentsBarView: View {
     }
 
     private func failureRow(_ failure: AgentsStopFailure, line: RunningAgentsBarLine) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
-            Image(systemName: "exclamationmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakDanger)
-                .accessibilityHidden(true)
-            Text(failureText(failure)).font(.yak(.footnote)).foregroundStyle(Color.primary)
-                .fixedSize(horizontal: false, vertical: true).layoutPriority(1)
-                .accessibilityIdentifier("agents.failure")
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Design.Space.small))
+        return layout {
+            HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
+                Image(systemName: "exclamationmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakDanger)
+                    .accessibilityHidden(true)
+                Text(failureText(failure)).font(.yak(.footnote)).foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true).layoutPriority(1)
+                    .accessibilityIdentifier("agents.failure")
+            }
             if line.showsRetry && line.showsStop {
-                Spacer(minLength: Design.Space.small)
+                if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: Design.Space.small) }
                 Button {
                     Task { await model.stop() }
                 } label: {
