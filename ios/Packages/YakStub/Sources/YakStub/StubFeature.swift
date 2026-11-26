@@ -87,6 +87,7 @@ enum StubFeatures {
         StubLayout(),
         StubEmbed(),
         StubThreadActions(),
+        StubSearch(),
     ]
 }
 
