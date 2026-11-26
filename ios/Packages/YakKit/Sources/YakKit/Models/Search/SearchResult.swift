@@ -46,6 +46,14 @@ public struct SearchGroup: Equatable, Sendable, Identifiable {
     public let kind: SearchResult.Kind
     public let results: [SearchResult]
     public var id: SearchResult.Kind { kind }
+
+    /// The groups that have results, in the order threads, repositories, pull requests.
+    public static func groups(of results: [SearchResult]) -> [SearchGroup] {
+        SearchResult.Kind.allCases.compactMap { kind in
+            let matching = results.filter { $0.kind == kind }
+            return matching.isEmpty ? nil : SearchGroup(kind: kind, results: matching)
+        }
+    }
 }
 
 /// The answer to `GET search`. A result of a kind this build does not know, or without an id or a title, is left out.
@@ -92,13 +100,7 @@ public struct SearchAnswer: Decodable, Sendable, Equatable {
         results = items.compactMap { $0.item?.result }
     }
 
-    /// The groups that have results, in the order threads, repositories, pull requests.
-    public var groups: [SearchGroup] {
-        SearchResult.Kind.allCases.compactMap { kind in
-            let matching = results.filter { $0.kind == kind }
-            return matching.isEmpty ? nil : SearchGroup(kind: kind, results: matching)
-        }
-    }
+    public var groups: [SearchGroup] { SearchGroup.groups(of: results) }
 }
 
 extension String {

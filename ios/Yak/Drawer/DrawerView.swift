@@ -77,6 +77,14 @@ struct DrawerView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer")
         .onChange(of: scene.searchFocusRequest) { isSearchFocused = true }
+        .onChange(of: drawer?.searchState.announcement) { _, announcement in
+            guard let announcement else { return }
+            let sentence =
+                announcement.count == 0
+                ? String(localized: "search.announce.none")
+                : String(localized: "search.announce.results \(announcement.count)")
+            AccessibilityNotification.Announcement(sentence).post()
+        }
     }
 
     // MARK: Header
@@ -84,6 +92,7 @@ struct DrawerView: View {
     /// At accessibility sizes the header scrolls with the list or the message, so they get the height.
     private var headerScrollsWithList: Bool {
         guard dynamicTypeSize.isAccessibilitySize, !isSearchFocused else { return false }
+        if drawer?.searchState.showsServerResults == true { return false }
         if drawer?.state?.list != nil, drawer?.content != nil { return true }
         if case .failed? = drawer?.state?.load { return true }
         return false
@@ -256,15 +265,23 @@ struct DrawerView: View {
     // MARK: Content
 
     @ViewBuilder private var content: some View {
-        if let drawer, let state = drawer.state, state.list != nil, let shown = drawer.content {
+        if let drawer, drawer.searchState.showsServerResults {
+            searchResults(drawer)
+        } else if let drawer, let state = drawer.state, state.list != nil, let shown = drawer.displayedContent {
             VStack(spacing: 0) {
-                if state.isOffline {
+                if state.isOffline, drawer.searchState.phase != .offline {
                     notice(offlineSentence(asOf: state.listAsOf), systemImage: "wifi.slash")
                 }
+                searchNotice(drawer)
                 switch shown {
                 case .sections(let sections): list(sections, drawer: drawer)
                 case .empty(let othersHaveThreads): empty(othersHaveThreads: othersHaveThreads, drawer: drawer)
-                case .noResults(let search, let canWiden): noResults(search, canWiden: canWiden, drawer: drawer)
+                case .noResults(let search, let canWiden):
+                    if drawer.isSearchFallback {
+                        fallbackEmpty(search)
+                    } else {
+                        noResults(search, canWiden: canWiden, drawer: drawer)
+                    }
                 }
             }
         } else if case .failed(let problem)? = drawer?.state?.load {
@@ -331,7 +348,9 @@ struct DrawerView: View {
     }
 
     /// A sub-thread row offers a long press menu and swipe actions.
-    @ViewBuilder private func rowView(_ row: DrawerRow, now: Date, drawer: DrawerModel) -> some View {
+    @ViewBuilder private func rowView(
+        _ row: DrawerRow, now: Date, drawer: DrawerModel, highlight: String? = nil
+    ) -> some View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
@@ -340,7 +359,7 @@ struct DrawerView: View {
                 actions.isDeleting($0) ? .deleting : (actions.isClosing($0) ? .closing : nil)
             },
             isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id,
-            openPullRequest: { openPullRequest($0, drawer: drawer) })
+            highlight: highlight, openPullRequest: { openPullRequest($0, drawer: drawer) })
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
         let menu = drawer.childMenu(row)
@@ -507,7 +526,7 @@ struct DrawerView: View {
     @ViewBuilder private func sectionHeading(_ section: DrawerSection) -> some View {
         let heading = HStack(spacing: Design.Space.compact) {
             title(of: section.kind).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
-            if section.kind == .needsYou || isReview(section.kind) {
+            if section.kind == .needsYou || isReview(section.kind) || isSearchFallback(section.kind) {
                 Text(section.count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(
                     Color.yakMuted
                 )
@@ -538,6 +557,10 @@ struct DrawerView: View {
         if case .review = kind { true } else { false }
     }
 
+    private func isSearchFallback(_ kind: DrawerSection.Kind) -> Bool {
+        kind == .savedOnThisPhone || kind == .loadedThreads
+    }
+
     private func title(of kind: DrawerSection.Kind) -> Text {
         switch kind {
         case .notSentYet: Text("drawer.notSentYet")
@@ -546,6 +569,8 @@ struct DrawerView: View {
         case .today: Text("drawer.today")
         case .thisWeek: Text("drawer.thisWeek")
         case .older: Text("drawer.older")
+        case .savedOnThisPhone: Text("search.group.saved")
+        case .loadedThreads: Text("search.group.loaded")
         case .review(_, let label): Text(verbatim: label)
         }
     }
@@ -575,6 +600,166 @@ struct DrawerView: View {
             scene.openNewThread(repo: draft.repo, text: item.text, item: item.id)
         }
     }
+
+    // MARK: Search
+
+    /// The server's answer to the text in the field: shapes while it loads, then the groups, or the line that says
+    /// nothing matched.
+    @ViewBuilder private func searchResults(_ drawer: DrawerModel) -> some View {
+        switch drawer.searchState.phase {
+        case .loading: SearchSkeleton()
+        case .empty: searchEmpty(drawer.searchState.query)
+        case .results(let results): resultList(SearchGroup.groups(of: results), drawer: drawer)
+        default: EmptyView()
+        }
+    }
+
+    private func resultList(_ groups: [SearchGroup], drawer: DrawerModel) -> some View {
+        TimelineView(.everyMinute) { context in
+            List {
+                ForEach(groups) { group in
+                    Section {
+                        ForEach(group.results) { result in
+                            resultRow(result, now: context.date, drawer: drawer)
+                                .listRowInsets(
+                                    .init(
+                                        top: 0, leading: Design.Space.compact, bottom: 0, trailing: Design.Space.compact
+                                    )
+                                )
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
+                    } header: {
+                        SearchGroupHeading(
+                            title: groupTitle(group.kind), count: group.results.count,
+                            identifier: "search.group.\(group.kind)"
+                        )
+                        .textCase(nil)
+                        .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 12 : 20)
+                        .padding(.top, 6)
+                        .listRowInsets(.init())
+                    }
+                    .listSectionSeparator(.hidden)
+                }
+            }
+            .environment(\.defaultMinListHeaderHeight, 0)
+            .listStyle(.plain)
+            .contentMargins(.bottom, Design.Space.large, for: .scrollContent)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .accessibilityIdentifier("search.results")
+        }
+    }
+
+    private func groupTitle(_ kind: SearchResult.Kind) -> Text {
+        switch kind {
+        case .thread: Text("search.group.threads")
+        case .repository: Text("search.group.repositories")
+        case .pullRequest: Text("search.group.pullRequests")
+        }
+    }
+
+    /// A thread is the drawer's own row. A repository, and a pull request without a thread, say with an arrow that
+    /// they open a page.
+    @ViewBuilder private func resultRow(_ result: SearchResult, now: Date, drawer: DrawerModel) -> some View {
+        let highlight = drawer.searchState.query
+        if result.kind == .thread {
+            rowView(drawer.threadRow(for: result), now: now, drawer: drawer, highlight: highlight)
+        } else {
+            SearchResultRowView(
+                result: result, highlight: highlight,
+                opensBrowser: result.kind == .repository || result.threadID == nil,
+                open: { openResult(result) })
+        }
+    }
+
+    /// A thread, and a pull request that has one, open the thread as a tap on a row does. A repository opens its page
+    /// on the instance in the in-app browser, and a pull request without a thread opens GitHub there.
+    private func openResult(_ result: SearchResult) {
+        switch result.kind {
+        case .thread: open(.searchResult(result))
+        case .pullRequest:
+            if result.threadID != nil {
+                open(.searchResult(result))
+            } else if let url = result.url {
+                isSearchFocused = false
+                model.browserURL = url
+            }
+        case .repository:
+            guard let url = ReviewLink.url(path: result.path, instance: instance.url) ?? result.url else { return }
+            isSearchFocused = false
+            model.browserURL = url
+        }
+    }
+
+    private func searchEmpty(_ query: String, isLocal: Bool = false) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Design.Space.tight) {
+                if isLocal {
+                    Text("search.localEmpty.title \(query)").font(.yak(.subheadline, .semibold))
+                } else {
+                    Text("search.empty.title \(query)").font(.yak(.subheadline, .semibold))
+                    Text("search.empty.detail").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Design.Space.section).padding(.vertical, Design.Space.large)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("search.empty")
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollDismissesKeyboard(.interactively)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    /// Why the list under it is the loaded threads and not the server's results.
+    @ViewBuilder private func searchNotice(_ drawer: DrawerModel) -> some View {
+        switch drawer.searchState.phase {
+        case .tooShort:
+            Text("search.hint \(instance.name)").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Design.Space.section).padding(.top, Design.Space.compact)
+                .accessibilityIdentifier("search.hint")
+        case .offline:
+            SearchStrip(
+                tone: .offline, lead: String(localized: "search.offline.lead"),
+                detail: String(localized: "search.offline.detail"),
+                identifier: "search.offline")
+        case .failed:
+            VStack(alignment: .leading, spacing: Design.Space.compact) {
+                Text("search.failed.title").font(.yak(.subheadline, .semibold))
+                Text("search.failed.detail").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+                Button {
+                    drawer.retrySearch()
+                } label: {
+                    Label {
+                        Text("common.retry")
+                    } icon: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("search.retry")
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Design.Space.section).padding(.vertical, Design.Space.compact)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("search.failed")
+        case .rateLimited(let seconds):
+            SearchStrip(
+                tone: .limited, lead: String(localized: "search.limited.lead"),
+                detail: String(localized: "search.limited.detail \(seconds)"),
+                identifier: "search.limited")
+        default: EmptyView()
+        }
+    }
+
+    /// Nothing among the loaded threads matches either.
+    private func fallbackEmpty(_ query: String) -> some View { searchEmpty(query, isLocal: true) }
 
     // MARK: States
 
@@ -770,10 +955,20 @@ struct DrawerView: View {
                 )
                 .focused($isSearchFocused)
                 .submitLabel(.search)
+                .onSubmit { isSearchFocused = false }
+                .onKeyPress(.escape) {
+                    guard !(drawer?.search ?? "").isEmpty else { return .ignored }
+                    drawer?.search = ""
+                    return .handled
+                }
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .disabled(drawer == nil)
                 .accessibilityIdentifier("drawer.search")
+                if drawer?.searchState.phase == .loading {
+                    ProgressView().controlSize(.small).accessibilityHidden(true)
+                        .accessibilityIdentifier("search.spinner")
+                }
                 if !(drawer?.search ?? "").isEmpty {
                     Button {
                         drawer?.search = ""

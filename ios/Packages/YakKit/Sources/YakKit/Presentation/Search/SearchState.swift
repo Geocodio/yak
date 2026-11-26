@@ -10,7 +10,8 @@ public enum SearchFailure: Equatable, Sendable {
     public init(_ failure: APIFailure) {
         switch failure {
         case .network: self = .offline
-        case .server(let error) where error.status == 429: self = .rateLimited(retryAfterSeconds: error.retryAfterSeconds)
+        case .server(let error) where error.status == 429:
+            self = .rateLimited(retryAfterSeconds: error.retryAfterSeconds)
         case .server(let error) where error.status == 503: self = .offline
         default: self = .failed
         }
@@ -175,7 +176,8 @@ public struct SearchMachine: Equatable, Sendable {
             state.phase = .failed
             return []
         case .rateLimited(let seconds):
-            let wait = min(max(seconds ?? Self.defaultWaitSeconds, Self.waitRange.lowerBound), Self.waitRange.upperBound)
+            let wait = min(
+                max(seconds ?? Self.defaultWaitSeconds, Self.waitRange.lowerBound), Self.waitRange.upperBound)
             state.phase = .rateLimited(retryAfterSeconds: wait)
             return [.startWait(generation: state.generation, seconds: wait)]
         }

@@ -90,7 +90,8 @@ final class StubSearch: StubFeature, @unchecked Sendable {
         let rows = ["needsYou", "starred", "threads"].flatMap { key in
             (list[key] as? [[String: Any]] ?? []).filter { $0["type"] as? String != "task" }.flatMap(flatten)
         }
-        let threads = rows.filter { matches($0["title"] as? String ?? "") && $0["id"] is String }.prefix(10).map { row in
+        let threads = rows.filter { matches($0["title"] as? String ?? "") && $0["id"] is String }.prefix(10).map {
+            row in
             let id = row["id"] as? String ?? ""
             return [
                 "type": "thread", "id": id, "title": row["title"] as? String ?? "",

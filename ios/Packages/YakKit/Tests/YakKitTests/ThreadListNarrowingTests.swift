@@ -19,7 +19,9 @@ private func row(_ id: String, _ title: String, repo: String = "example/web", ch
             row("t2", "Dark mode", children: [row("c1", "Fix the Geocoder cache")]),
             row("t3", "Dark docs"),
         ], needsYouCount: 2, hasAnyThreads: true,
-        reviewGroups: [ReviewGroup(key: "waiting", label: "Waiting", rows: [row("r1", "Review geocode"), row("r2", "No")])])
+        reviewGroups: [
+            ReviewGroup(key: "waiting", label: "Waiting", rows: [row("r1", "Review geocode"), row("r2", "No")])
+        ])
 
     @Test func keepsRowsByTitleRepositoryOrSubThread() {
         let narrowed = list.narrowed(to: "geocod")

@@ -81,8 +81,26 @@ private final class ListTransport: HTTPTransport, @unchecked Sendable {
     }
 }
 
+/// The texts the server's search was asked for; every search finds nothing.
+private final class SearchRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var texts: [String] = []
+    private var failure: APIFailure?
+    var asked: [String] { lock.withLock { texts } }
+    func fail(with failure: APIFailure) { lock.withLock { self.failure = failure } }
+    func answer(_ text: String) throws(APIFailure) -> SearchAnswer {
+        let failure = lock.withLock { () -> APIFailure? in
+            texts.append(text)
+            return self.failure
+        }
+        if let failure { throw failure }
+        return SearchAnswer(results: [])
+    }
+}
+
 @MainActor private struct Fixture {
     let transport = ListTransport()
+    let searches = SearchRecorder()
     let typingClock = GateClock()
     let scene = SceneModel(state: SceneState())
     let feed: ThreadListFeed
@@ -104,7 +122,10 @@ private final class ListTransport: HTTPTransport, @unchecked Sendable {
             instances: store, clock: feedClock)
         outbox = Outbox(
             instance: instance.id, client: client, files: files, clock: GateClock(), makeID: { UUID() })
-        model = DrawerModel(feed: feed, outbox: outbox, scene: scene, clock: typingClock)
+        let searches = searches
+        model = DrawerModel(
+            feed: feed, outbox: outbox, scene: scene, clock: typingClock,
+            search: { (text: String) throws(APIFailure) in try searches.answer(text) })
     }
 
     /// Waits until `condition` holds; the tasks it waits for run on this actor or on the feed.
@@ -128,10 +149,82 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     fixture.model.search = "we"
     fixture.model.search = "web"
     #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
-    #expect(fixture.transport.requestedQueries.isEmpty)
+    #expect(fixture.searches.asked.isEmpty)
     fixture.typingClock.release()
-    #expect(await fixture.eventually { !fixture.transport.requestedQueries.isEmpty })
-    #expect(fixture.transport.requestedQueries == ["filter=mine&search=web"])
+    #expect(await fixture.eventually { !fixture.searches.asked.isEmpty })
+    #expect(fixture.searches.asked == ["web"])
+    // The list is never asked to search: the field narrows the loaded rows below two characters.
+    #expect(fixture.transport.requestedQueries.allSatisfy { !$0.contains("search") })
+}
+
+@MainActor @Test func oneCharacterNarrowsTheLoadedListWithoutAskingTheServer() async throws {
+    let fixture = try await Fixture()
+    let running = Task { await fixture.model.run() }
+    defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
+    fixture.model.search = "z"
+    guard case .noResults? = fixture.model.content else {
+        Issue.record("the list was not narrowed")
+        return
+    }
+    fixture.model.search = "p"
+    guard case .sections(let sections)? = fixture.model.content else {
+        Issue.record("no rows")
+        return
+    }
+    #expect(sections.flatMap(\.rows).first?.id == "thread:a1b2c3d4")
+    #expect(fixture.model.searchState.phase == .tooShort && fixture.searches.asked.isEmpty)
+}
+
+@MainActor @Test func fromTwoCharactersTheServersAnswerReplacesTheFilter() async throws {
+    let fixture = try await Fixture()
+    let running = Task { await fixture.model.run() }
+    defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
+    fixture.model.search = "zz"
+    #expect(fixture.model.localQuery == nil && fixture.model.searchState.phase == .loading)
+    #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
+    fixture.typingClock.release()
+    #expect(await fixture.eventually { fixture.model.searchState.phase == .empty })
+    guard case .sections? = fixture.model.content else {
+        Issue.record("the list was filtered")
+        return
+    }
+    fixture.model.search = ""
+    #expect(fixture.model.searchState.phase == .idle)
+}
+
+@MainActor @Test func offlineTheLoadedThreadsStandInUnderTheirOwnHeading() async throws {
+    let fixture = try await Fixture()
+    fixture.searches.fail(with: .network(.notConnectedToInternet))
+    let running = Task { await fixture.model.run() }
+    defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
+    fixture.model.search = "billing"
+    #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
+    fixture.typingClock.release()
+    #expect(await fixture.eventually { fixture.model.searchState.phase == .offline })
+    #expect(fixture.model.isSearchFallback)
+    guard case .sections(let sections)? = fixture.model.displayedContent else {
+        Issue.record("no rows")
+        return
+    }
+    #expect(sections.map(\.kind) == [.savedOnThisPhone] && sections.first?.rows.map(\.id) == ["thread:a1b2c3d4"])
+}
+
+@MainActor @Test func aResultThreadUsesTheLoadedRowWhenTheTabHasIt() async throws {
+    let fixture = try await Fixture()
+    let running = Task { await fixture.model.run() }
+    defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
+    let known = SearchResult(kind: .thread, id: "a1b2c3d4", title: "Private notes on billing", subtitle: "example/api")
+    #expect(fixture.model.threadRow(for: known).isPrivate && fixture.model.threadRow(for: known).canDelete)
+    let unknown = SearchResult(kind: .thread, id: "zzzzzzzz", title: "Other", subtitle: "example/api / yak/other")
+    #expect(fixture.model.threadRow(for: unknown).repositoryDetail == "example/api / yak/other")
 }
 
 @MainActor @Test func widenSearchKeepsTheText() async throws {
@@ -141,11 +234,11 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     fixture.model.search = "webhook"
     #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
     fixture.typingClock.release()
-    #expect(await fixture.eventually { fixture.transport.requestedQueries.count == 1 })
+    #expect(await fixture.eventually { fixture.searches.asked == ["webhook"] })
     await fixture.model.widenSearch()
     #expect(fixture.scene.state.filter == .everyone)
     #expect(fixture.model.search == "webhook")
-    #expect(fixture.transport.requestedQueries.last == "filter=everyone&search=webhook")
+    #expect(await fixture.eventually { fixture.transport.requestedQueries.last == "filter=everyone" })
 }
 
 @MainActor @Test func togglingAParentShowsItsChildren() async throws {

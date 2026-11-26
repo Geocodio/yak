@@ -9,6 +9,8 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     }
     public enum Indicator: Equatable, Sendable {
         case needsYou, unseen, running, blocked, paused, stopped, closed, waiting, notSent, other
+        /// A search result for a thread, whose status the search does not carry.
+        case searchResult
     }
 
     /// `thread:<id>`, `task:<id>` or `outbox:<uuid lowercase>`.
@@ -47,6 +49,7 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     /// differs without color (stopped, paused, waiting for a repository) gives way; a closed row says "Closed"; running, blocked, unseen
     /// and any unknown status keep their words, so color is never the only signal.
     public var repositoryDetail: String? {
+        if case .detail(let text) = subtitle { return text }
         guard case .status = subtitle else { return nil }
         switch indicator {
         case .stopped, .paused, .waiting: return repository
@@ -94,11 +97,15 @@ public enum DrawerSubtitle: Equatable, Sendable {
     /// A task item without a label.
     case taskWaiting
     case unsent(OutboxState)
+    /// A line shown as given in the mono face: a search result's "repository / branch".
+    case detail(String)
 }
 
 public struct DrawerSection: Equatable, Sendable, Identifiable {
     public enum Kind: Equatable, Hashable, Sendable {
         case notSentYet, needsYou, starred, today, thisWeek, older
+        /// The matches among the loaded threads while the server's search is not available: offline, and after a failure.
+        case savedOnThisPhone, loadedThreads
         /// A group of the Review tab; the heading is the server's own `label`.
         case review(key: String, label: String)
     }
@@ -121,10 +128,42 @@ public struct DrawerSection: Equatable, Sendable, Identifiable {
     }
 }
 
+extension DrawerRow {
+    /// The same row without its sub-threads, for a list that does not show them.
+    public func withoutChildren() -> DrawerRow {
+        DrawerRow(
+            id: id, target: target, title: title, subtitle: subtitle, indicator: indicator, isPrivate: isPrivate,
+            lastActivity: lastActivity, depth: depth, childCount: 0, isExpanded: false, source: source,
+            repository: repository, reviewLine: reviewLine, failureDetail: failureDetail,
+            failureFullText: failureFullText, isStarred: isStarred, canDelete: canDelete, sourceLink: sourceLink)
+    }
+
+    /// A thread found by the server's search, as a drawer row: the title and "repository / branch" in the mono face.
+    public static func searchResult(_ result: SearchResult) -> DrawerRow {
+        DrawerRow(
+            id: "thread:\(result.threadID ?? result.id)", target: .thread(result.threadID ?? result.id),
+            title: result.title, subtitle: .detail(result.subtitle), indicator: .searchResult, isPrivate: false,
+            lastActivity: nil, depth: 0, childCount: 0, isExpanded: false)
+    }
+}
+
 public enum DrawerContent: Equatable, Sendable {
     case sections([DrawerSection])
     case empty(othersHaveThreads: Bool)
     case noResults(search: String, canWiden: Bool)
+
+    /// The thread and task rows of every section as one section of `kind`; the sub-threads stay out, and so do the
+    /// threads that were not sent yet. Anything but sections is as it was.
+    public func gathered(as kind: DrawerSection.Kind) -> DrawerContent {
+        guard case .sections(let sections) = self else { return self }
+        let rows = sections.flatMap(\.rows).filter { row in
+            switch row.target {
+            case .thread, .task: row.depth == 0
+            case .unsentThread: false
+            }
+        }.map { $0.withoutChildren() }
+        return rows.isEmpty ? self : .sections([DrawerSection(kind: kind, rows: rows)])
+    }
 }
 
 public enum DrawerSections {
