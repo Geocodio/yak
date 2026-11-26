@@ -97,6 +97,9 @@ enum Design {
         /// The height of a pull request number's text at the default size.
         static let numberLineHeight: CGFloat = 16
         static let statusDot: CGFloat = 9
+        /// The pulsing dot of the agents bar, and the height of its "Stop all" chip (the tap area is `control`).
+        static let agentDot: CGFloat = 8
+        static let agentChip: CGFloat = 30
         /// The narrowest the number between a stepper's buttons gets.
         static let stepValue: CGFloat = 28
         /// The line of a hollow state mark.
