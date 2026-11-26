@@ -11,7 +11,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
     let name = "thread-actions"
     let scenarios = [
         "thread-actions", "thread-actions-recipient", "thread-actions-forbidden", "thread-actions-gone",
-        "thread-actions-conflict", "thread-actions-slow",
+        "thread-actions-conflict", "thread-actions-slow", "thread-actions-single",
     ]
 
     private struct State {
@@ -141,8 +141,10 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         let threadRows = (base["starred"] as? [[String: Any]] ?? []) + (base["threads"] as? [[String: Any]] ?? [])
         let candidates = items.filter { $0["type"] as? String == "thread" } + threadRows
         let edited = candidates.compactMap { edited($0, scenario: context.scenario) }
-        let rows = edited.filter(keep)
-        let tasks = wantsClosed ? [] : items.filter { $0["type"] as? String != "thread" }
+        // One thread (the one with a source badge and a sub-thread) alone in the list, so a drawer can be audited whole.
+        let isSingle = context.scenario == "thread-actions-single"
+        let rows = edited.filter(keep).filter { !isSingle || $0["id"] as? String == "a1b2c3d4" }
+        let tasks = wantsClosed || isSingle ? [] : items.filter { $0["type"] as? String != "thread" }
         let needy = rows.filter { $0["needsYouReason"] is String }
         let others = rows.filter { !($0["needsYouReason"] is String) }
         base["needsYou"] = needy + tasks

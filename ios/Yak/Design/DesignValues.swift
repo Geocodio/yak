@@ -95,6 +95,8 @@ enum Design {
         /// The height of a pull request number's text at the default size.
         static let numberLineHeight: CGFloat = 16
         static let statusDot: CGFloat = 9
+        /// The tallest the closed thread's line grows at accessibility text sizes; its sentence scrolls past that.
+        static let closedLineMaxHeight: CGFloat = 340
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
     }

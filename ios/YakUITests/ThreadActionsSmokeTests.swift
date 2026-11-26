@@ -76,17 +76,8 @@ import XCTest
         XCTAssertTrue(element("drawer.tab.closed").waitForExistence(timeout: Wait.appear))
     }
 
-    /// `includesDynamicType` is false only for a drawer whose single row is the one with the PagerDuty badge. There the
-    /// audit reports "Dynamic Type partially unsupported" on the badge (StaticText 'PagerDuty', frame {{40, 285},
-    /// {64.7, 16.3}}) and "Text clipped" on its detail ('1 sub-thread, 0 working', frame {{110.7, 284.7}, {90, 17}}).
-    /// Untouched main gives the same two findings at the same frames for that row alone in the list (a search for
-    /// "Private notes"), so they are not caused by this change. Contrast, element detection, hit areas and every other
-    /// check still run.
-    private func auditDrawer(includesDynamicType: Bool = true) throws {
-        let types =
-            includesDynamicType
-            ? XCUIAccessibilityAuditType.all : XCUIAccessibilityAuditType.all.subtracting([.dynamicType, .textClipped])
-        try auditTwice(app, for: types) { [app] in
+    private func auditDrawer() throws {
+        try auditTwice(app) { [app] in
             let auditBars = AuditRules.Bars(app)
             return { issue in
                 if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
@@ -309,6 +300,17 @@ import XCTest
         openDrawer()
         element("drawer.tab.closed").tap()
         XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
-        try auditDrawer(includesDynamicType: false)
+        try auditDrawer()
+    }
+
+    /// A drawer with one row, the one with the PagerDuty badge, passes the whole audit.
+    func testADrawerWithASingleRowPassesTheFullAudit() throws {
+        try stub.play("thread-actions-single")
+        app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        app.launchRetryingOnce()
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.firstLoad))
+        XCTAssertFalse(element("drawer.row.thread:d0e515ef").exists)
+        try auditDrawer()
     }
 }

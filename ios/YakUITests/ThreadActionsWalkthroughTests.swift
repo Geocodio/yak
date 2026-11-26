@@ -175,4 +175,14 @@ import XCTest
         XCTAssertTrue(element("composer.new").waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-closed-line", audits: false)
     }
+
+    /// The drawer rows with every kind of source (Slack, Linear, Sentry, Dashboard, PagerDuty, a long unknown label and
+    /// none), shot to compare the badges before and after a change to their layout.
+    func testSourceBadges() throws {
+        try start("thread-states", paired: true)
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        XCTAssertTrue(
+            app.descendants(matching: .any)["drawer.row.thread:c10sed00"].waitForExistence(timeout: Wait.firstLoad))
+        try shoot("thread-actions-source-badges", audits: false)
+    }
 }

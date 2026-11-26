@@ -189,7 +189,8 @@ struct DrawerRowView: View {
             } else {
                 Text(busy == nil ? subtitle : busyText).font(.yakRowDetail).foregroundStyle(subtitleColor)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
+                    .lineLimit(wrapsLines ? nil : detailLineLimit).truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -242,6 +243,13 @@ struct DrawerRowView: View {
     }
 
     private var subtitle: String { DrawerRowView.subtitleText(row.subtitle) }
+
+    /// The sub-thread summary and a failure take two lines at the default size, so they are not cut mid-phrase beside a
+    /// badge; every other detail is one line with an ellipsis, as on the board.
+    private var detailLineLimit: Int {
+        if case .children = row.subtitle { return 2 }
+        return row.indicator == .blocked ? 2 : 1
+    }
 
     private var busyText: String {
         busy == .deleting ? String(localized: "drawer.deleting") : String(localized: "drawer.closing")
@@ -359,38 +367,31 @@ struct DrawerBadge: View {
 
     /// A longer label from a newer server ends in an ellipsis here, so it cannot push into the age column.
     @ScaledMetric(relativeTo: .caption) private var maxWidth = Design.Size.badgeMaxWidth
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// A short badge hugs its text; a long label is cut at the cap with an ellipsis. Standard modifiers only: the badge is
+    /// sized by its content (`fixedSize`), and the text's own frame caps that content. A custom layout in a list row
+    /// trips the audit's Dynamic Type check.
     var body: some View {
-        CappedWidth(limit: maxWidth) { label }
-    }
-
-    private var label: some View {
         HStack(spacing: Design.Space.tight) {
             if let systemImage { Image(systemName: systemImage).imageScale(.small) }
-            Text(text).lineLimit(1)
+            Text(text).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: textCap, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .font(.yakBadge).foregroundStyle(Color.yakText)
         .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
         .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
+        .fixedSize(horizontal: true, vertical: false)
+        // The text size rebuilds the badge, so the audit's size changes are never read from a view that kept the old one.
+        .id(dynamicTypeSize)
         .layoutPriority(1)
         .accessibilityElement(children: .combine)
     }
-}
 
-/// Offers its child at most `limit` points of width and takes the child's own size, so a short badge hugs its text and a
-/// long one is cut at the limit.
-private struct CappedWidth: Layout {
-    let limit: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard let child = subviews.first else { return .zero }
-        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews.first?.place(
-            at: bounds.origin, anchor: .topLeading,
-            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    /// What is left of the cap for the text, after the padding and the icon.
+    private var textCap: CGFloat {
+        max(maxWidth - 2 * Design.Space.small - (systemImage == nil ? 0 : Design.Space.medium + Design.Space.tight), 0)
     }
 }
 
