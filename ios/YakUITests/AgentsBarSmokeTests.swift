@@ -31,6 +31,11 @@ import XCTest
         XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: Wait.appear), .completed, message)
     }
 
+    /// View is enabled once the page has named the newest agent's card; a tap before that does nothing.
+    private func waitForView() {
+        waitFor("isEnabled == true", element("agents.view"), "the page did not name an agent card")
+    }
+
     private func waitForCount(_ text: String) {
         XCTAssertTrue(count.waitForExistence(timeout: Wait.firstLoad), "the bar did not appear")
         waitFor("label == %@".replacingOccurrences(of: "%@", with: "'\(text)'"), count, "the count is not \(text)")
@@ -69,6 +74,7 @@ import XCTest
     func testViewScrollsTheConversationToTheNewestAgent() throws {
         try open("agents-two")
         waitForCount("2 agents running")
+        waitForView()
         element("agents.view").tap()
         XCTAssertTrue(app.staticTexts["Focused agent-card-a0"].waitForExistence(timeout: Wait.appear))
     }
@@ -77,6 +83,7 @@ import XCTest
     func testViewSaysSoWhenTheCardIsNotOnThePage() throws {
         try open("agents-missing")
         waitForCount("2 agents running")
+        waitForView()
         element("agents.view").tap()
         XCTAssertTrue(element("thread.web.notice").waitForExistence(timeout: Wait.appear))
     }
