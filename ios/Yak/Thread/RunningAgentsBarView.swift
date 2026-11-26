@@ -67,9 +67,8 @@ struct RunningAgentsBarView: View {
             PulsingDot().accessibilityHidden(true)
             Text("agents.running \(line.count)").font(.yak(.footnote, .medium)).foregroundStyle(Color.primary)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("agents.count")
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .combine).accessibilityIdentifier("agents.count")
     }
 
     private func viewButton(_ line: RunningAgentsBarLine) -> some View {
@@ -77,7 +76,7 @@ struct RunningAgentsBarView: View {
             guard let fragment = line.newest else { return }
             web?.focusAgent(fragment: fragment, thread: thread.threadID)
         } label: {
-            Text("agents.view").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccent)
+            Text("agents.view").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccentText)
                 .padding(.horizontal, Design.Space.snug)
                 .frame(minHeight: Design.Size.control).contentShape(.rect)
         }
@@ -85,42 +84,54 @@ struct RunningAgentsBarView: View {
         .accessibilityHint(Text("agents.view.hint")).accessibilityIdentifier("agents.view")
     }
 
+    /// The chip: a button, or while the request runs and while the agents wind down a quiet label that cannot be pressed.
     private func stopButton(_ line: RunningAgentsBarLine) -> some View {
         @Bindable var bindable = model
-        return Button {
-            model.askToStop()
-        } label: {
-            HStack(spacing: Design.Space.small) {
-                if line.isRequesting { ProgressView().controlSize(.small) }
-                Text(line.isRequesting || line.isStopping ? "agents.stopping" : "agents.stop")
-                    .font(.yak(.footnote, .semibold))
-                    .foregroundStyle(Color.primary)
+        let isWorking = line.isRequesting || line.isStopping
+        return Group {
+            if isWorking {
+                chip(line).accessibilityElement(children: .combine).accessibilityLabel(Text("agents.stopping"))
+                    .accessibilityAddTraits(.updatesFrequently)
+            } else {
+                Button {
+                    model.askToStop()
+                } label: {
+                    chip(line)
+                }
+                .buttonStyle(.pressable).disabled(!line.stopIsEnabled)
+                .accessibilityHint(Text(line.needsConnection ? "chat.action.offline" : "agents.stop.hint"))
             }
-            .padding(.horizontal, Design.Space.medium)
-            .frame(minHeight: Design.Size.agentChip)
-            .background(Color.yakBar, in: .rect(cornerRadius: Design.Radius.small))
-            .overlay(
-                RoundedRectangle(cornerRadius: Design.Radius.small)
-                    .strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.line)
-            )
-            .frame(minHeight: Design.Size.control).contentShape(.rect)
         }
-        .buttonStyle(.pressable).disabled(!line.stopIsEnabled)
-        .opacity(line.stopIsEnabled || line.isRequesting || line.isStopping ? 1 : Design.disabledOpacity)
-        .accessibilityHint(Text(line.needsConnection ? "chat.action.offline" : "agents.stop.hint"))
         .accessibilityIdentifier("agents.stop")
-        .confirmationDialog(
+        .alert(
             line.count == 1 ? Text("agents.confirm.title.one") : Text("agents.confirm.title \(line.count)"),
-            isPresented: $bindable.isConfirming, titleVisibility: .visible
+            isPresented: $bindable.isConfirming
         ) {
+            // Cancel is the default button; the destructive one is never what Return would press.
+            Button("common.cancel", role: .cancel) {}
             Button("agents.confirm.stop \(line.count)", role: .destructive) { Task { await model.stop() } }
                 .accessibilityIdentifier("agents.confirm.stop")
-            Button("common.cancel", role: .cancel) {}
-                .accessibilityIdentifier("agents.confirm.cancel")
         } message: {
             line.count == 1 ? Text("agents.confirm.message.one") : Text("agents.confirm.message \(line.count)")
         }
     }
+
+    private func chip(_ line: RunningAgentsBarLine) -> some View {
+        HStack(spacing: Design.Space.small) {
+            if line.isRequesting { ProgressView().controlSize(.small) }
+            Text(line.isRequesting || line.isStopping ? "agents.stopping" : "agents.stop")
+                .font(.yak(.footnote, .semibold)).foregroundStyle(Color.primary)
+        }
+        .padding(.horizontal, Design.Space.medium)
+        .frame(minHeight: Design.Size.agentChip)
+        .background(Color.yakBar, in: .rect(cornerRadius: Design.Radius.small))
+        .overlay(
+            RoundedRectangle(cornerRadius: Design.Radius.small)
+                .strokeBorder(Color.yakBarBorder, lineWidth: Design.Space.line)
+        )
+        .frame(minHeight: Design.Size.control).contentShape(.rect)
+    }
+
 
     private func failureRow(_ failure: AgentsStopFailure, line: RunningAgentsBarLine) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
@@ -134,7 +145,7 @@ struct RunningAgentsBarView: View {
                 Button {
                     Task { await model.stop() }
                 } label: {
-                    Text("agents.retry").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccent)
+                    Text("agents.retry").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccentText)
                         .frame(minHeight: Design.Size.control).contentShape(.rect)
                 }
                 .buttonStyle(.pressable).disabled(!line.stopIsEnabled).accessibilityIdentifier("agents.retry")
