@@ -137,6 +137,48 @@ public actor ThreadListFeed {
         await start().value
     }
 
+    /// Applies a change the person's own action already knows to the list on screen and to every saved tab, the widget
+    /// snapshot and the needs-you count, and drops the answer of any request that was asked before it, so a stale
+    /// list never undoes it.
+    public func apply(_ edit: ThreadListEdit) async {
+        if let list = state.list {
+            state.list = list.applying(edit)
+            generation += 1
+            publish()
+        }
+        for tab in ThreadListFilter.allCases {
+            guard let saved = await cache.threadList(tab) else { continue }
+            let savedAt = await cache.threadListSavedAt(tab)
+            await cache.saveThreadList(saved.applying(edit), filter: tab, savedAt: savedAt)
+        }
+        guard let mine = await cache.threadList(.mine) else { return }
+        do {
+            try await instances.setNeedsYouCount(instance.id, mine.needsYouCount)
+        } catch {
+            logFailure("needs-you count not stored: \(type(of: error))")
+        }
+        await cache.saveWidgetSnapshot(WidgetSnapshot.make(from: mine, instanceName: instance.name, now: clock.now()))
+    }
+
+    /// The thread and every sub-thread below it, from the list on screen or, without one, the saved tabs. Just the
+    /// thread when no list holds it.
+    public func subtreeIDs(of threadID: String) async -> [String] {
+        if let row = state.list?.row(ofThread: threadID) { return row.idsIncludingDescendants }
+        for tab in ThreadListFilter.allCases {
+            if let row = await cache.threadList(tab)?.row(ofThread: threadID) { return row.idsIncludingDescendants }
+        }
+        return [threadID]
+    }
+
+    /// Whether the list on screen, or a saved tab, holds the thread starred; nil when no list holds it.
+    public func isStarred(_ threadID: String) async -> Bool? {
+        if let row = state.list?.row(ofThread: threadID) { return row.isStarred }
+        for tab in ThreadListFilter.allCases {
+            if let row = await cache.threadList(tab)?.row(ofThread: threadID) { return row.isStarred }
+        }
+        return nil
+    }
+
     // MARK: Loading
 
     /// Starts a request now, and the polling when visible. Returns the first request.

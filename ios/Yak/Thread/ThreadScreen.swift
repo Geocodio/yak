@@ -10,6 +10,10 @@ struct ThreadScreen: View {
     let threadID: String
     /// The title of the thread's row in the drawer, shown until the thread's own arrives.
     let initialTitle: String?
+    /// Every sub-thread below the thread, for the words of the close and delete questions; 0 when the list does not
+    /// hold the thread.
+    let subThreadCount: Int
+    let actions: ThreadActionsModel
     let instanceURL: URL
     let needsYouCount: Int
     let isSessionActive: Bool
@@ -82,6 +86,15 @@ struct ThreadScreen: View {
             }
         }
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
+        // The thread was deleted on another device: the page and the engine say 404. The window leaves it.
+        .onChange(of: model?.isGone) { _, isGone in if isGone == true { actions.threadIsGone(threadID) } }
+        // A close or a star changed the thread's page; it is read again, and then the person's own star is dropped.
+        .onChange(of: actions.version(of: threadID)) {
+            Task {
+                await model?.engine?.refreshShow()
+                actions.clearStarOverride(threadID)
+            }
+        }
     }
 
     /// Keeps one model per thread while the screen shows it, and stops it when the thread changes or the screen goes.
@@ -156,7 +169,8 @@ struct ThreadScreen: View {
                             title: thread.title, dot: thread.statusDot, meta: Self.meta(of: thread),
                             connectionLine: headerConnectionLine(thread, focused: focused.wrappedValue),
                             tone: thread.statusTone, statusLabel: thread.snapshot?.show?.request?.status.label,
-                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil
+                            action: thread.panes.contains(.overview) ? { scene.toggleOverview() } : nil,
+                            isStarred: isStarred(thread), isClosed: thread.snapshot?.show?.thread.status == .closed
                         )
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -178,9 +192,18 @@ struct ThreadScreen: View {
             .sheet(isPresented: $isShareOpen) {
                 ShareSheet(session: session, threadID: threadID) { await model?.engine?.refreshShow() }
             }
-            .overlay(alignment: .top) { copiedToast }
+            .overlay(alignment: .top) {
+                VStack(spacing: Design.Space.small) {
+                    copiedToast
+                    if let notice = actions.notice, notice.surface == .header {
+                        ThreadActionBanner(notice: notice).id(notice.id)
+                    }
+                }
+                .padding(.top, Design.Space.compact)
+            }
         }
         .environment(scene)
+        .threadActionDialogs(actions, surface: .header)
         .environment(\.hasSystemStrip, hasStrip)
         .sensoryFeedback(.success, trigger: copiedLink)
     }
@@ -262,55 +285,21 @@ struct ThreadScreen: View {
         ThreadsButton(needsYouCount: needsYouCount) { scene.setDrawerOpen(true) }.buttonStyle(.ghost)
     }
 
+    /// The star the header shows: the person's own tap until the server has answered, the page's value after.
+    private func isStarred(_ thread: ThreadModel) -> Bool {
+        actions.isStarred(threadID, page: thread.snapshot?.show?.thread.isStarred ?? false)
+    }
+
     private func threadMenu(_ thread: ThreadModel, shownPane: PaneID) -> some View {
-        let workItems = ThreadMenu.items(show: thread.snapshot?.show, isForbidden: false)
+        let show = thread.snapshot?.show
+        let subject = ThreadActionSubject.header(
+            show: show, isStarred: show == nil ? nil : isStarred(thread), isOffline: thread.isOffline,
+            isBusy: actions.isBusy(threadID))
         return Menu {
-            ForEach(workItems.filter { !$0.isDestructive }) { item in
-                Button {
-                    Task { await thread.performWork(item.action) }
-                } label: {
-                    Text(Self.title(of: item))
-                }
-                .disabled(thread.isOffline)
-                .accessibilityIdentifier("thread.menu.work.\(item.id)")
-            }
-            if thread.snapshot?.show?.canDrive == true {
-                Button {
-                    isAddSubThreadOpen = true
-                } label: {
-                    Label("thread.menu.addSubThread", systemImage: "arrow.triangle.branch")
-                }
-                .accessibilityIdentifier("thread.menu.addSubThread")
-            }
-            if thread.snapshot?.show?.thread.isOwner == true {
-                Button {
-                    isShareOpen = true
-                } label: {
-                    Label("thread.menu.share", systemImage: "person.2")
-                }
-                .accessibilityIdentifier("thread.menu.share")
-            }
-            PaneMenuItems(slots: slots, focused: shownPane)
-            Button {
-                openWeb(webURL)
-            } label: {
-                Label("thread.openWeb", systemImage: "safari")
-            }
-            Button {
-                UIPasteboard.general.url = webURL
-                copiedLink += 1
-            } label: {
-                Label("thread.copyLink", systemImage: "link")
-            }
-            if workItems.contains(where: \.isDestructive) {
-                Button(role: .destructive) {
-                    isConfirmingCancel = true
-                } label: {
-                    Text("thread.menu.cancelRequest")
-                }
-                .disabled(thread.isOffline)
-                .accessibilityIdentifier("thread.menu.work.cancel")
-            }
+            ThreadActionItems(
+                menu: ThreadActionMenu.make(subject), identifierPrefix: "thread.menu",
+                perform: { perform($0, thread: thread) },
+                custom: { kind in kind == .panes ? AnyView(PaneMenuItems(slots: slots, focused: shownPane)) : nil })
         } label: {
             Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44).contentShape(.rect)
         }
@@ -324,20 +313,29 @@ struct ThreadScreen: View {
         }
     }
 
-    private static func title(of item: ThreadMenuItem) -> LocalizedStringKey {
-        switch item.action {
-        case .retry: "common.retry"
-        case .setUpAndContinue: "thread.card.stopped.setUp"
-        case .requestReview: "thread.menu.requestReview"
-        case .retryRender: "thread.menu.retryRender"
-        case .move(let repo): "thread.card.move \(repo)"
-        default: "thread.menu"
+    private func perform(_ item: ThreadActionItem, thread: ThreadModel) {
+        switch item.kind {
+        case .star: actions.setStar(threadID, to: true, from: .header)
+        case .unstar: actions.setStar(threadID, to: false, from: .header)
+        case .work(let action): Task { await thread.performWork(action) }
+        case .addSubThread: isAddSubThreadOpen = true
+        case .share: isShareOpen = true
+        case .openOnWeb: openWeb(webURL)
+        case .copyLink:
+            UIPasteboard.general.url = webURL
+            copiedLink += 1
+        case .cancelRequest: isConfirmingCancel = true
+        case .close, .delete:
+            actions.ask(
+                item.kind == .close ? .close : .delete, from: .header, threadID: threadID,
+                subThreadCount: subThreadCount, show: thread.snapshot?.show)
+        case .open, .openInNewWindow, .openSource, .panes: break
         }
     }
 
     @ViewBuilder private var copiedToast: some View {
         if copiedLink > 0 {
-            CopiedToast().id(copiedLink).padding(.top, 8)
+            CopiedToast().id(copiedLink)
         }
     }
 }

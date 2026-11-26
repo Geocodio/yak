@@ -96,6 +96,9 @@ final class ThreadModel {
         return ThreadLoadPresentation.make(snapshot?.load ?? .loading)
     }
     var hasOpenQuestion: Bool { snapshot?.hasOpenQuestion ?? false }
+    /// The thread was on screen and the server now says it does not exist: it was deleted elsewhere. A thread that
+    /// never loaded keeps the not-found screen.
+    var isGone: Bool { snapshot?.show != nil && snapshot?.problem == .notFound }
     /// The thread `/clear` started; the screen opens it.
     var replacementThreadID: String? { snapshot?.replacementThreadID }
     var instanceURL: URL { session.instance.url }

@@ -86,7 +86,7 @@ private func decodedRow(source: String?) throws -> ThreadRow {
     }
 
     @Test(arguments: [
-        ("stopped", true), ("closed", true), ("paused", true), ("waiting_for_repository", true),
+        ("stopped", true), ("paused", true), ("waiting_for_repository", true), ("closed", false),
         ("running", false), ("blocked", false), ("something_new", false),
     ])
     func theRepositoryReplacesOnlyAStatusWhoseMarkDiffersWithoutColor(status: String, replaces: Bool) {

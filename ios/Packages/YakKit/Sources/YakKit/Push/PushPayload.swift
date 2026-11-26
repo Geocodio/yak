@@ -239,4 +239,18 @@ public enum PushCleanup {
             return notification.identifier
         }
     }
+
+    /// The delivered notifications about `threadIDs` of `instance`, to remove when those threads are deleted.
+    public static func identifiers(
+        in delivered: [DeliveredNotification], forThreads threadIDs: Set<String>, from instance: Instance,
+        among paired: [Instance]? = nil, normalize: (String) -> URL? = InstanceAddress.normalize
+    ) -> [String] {
+        let fromInstance = Set(identifiers(in: delivered, from: instance, among: paired, normalize: normalize))
+        return delivered.compactMap { notification in
+            guard fromInstance.contains(notification.identifier), let yak = notification.payload?.yak,
+                yak.kind == .thread, let id = yak.id, threadIDs.contains(id)
+            else { return nil }
+            return notification.identifier
+        }
+    }
 }

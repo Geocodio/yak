@@ -45,6 +45,13 @@ final class WidgetReloadScheduler {
         reloadBothKinds()
     }
 
+    /// A star, a close or a delete on this device changed the lists the widgets read: reloads both kinds.
+    func threadsChanged() {
+        guard instances != nil else { return }
+        hasUnreloadedChange = true
+        reloadBothKinds()
+    }
+
     /// The app left the front: reloads everything when a list load changed something since the last reload, and
     /// resumes pending registrations within 10 seconds.
     func enteredBackground() async {

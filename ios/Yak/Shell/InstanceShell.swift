@@ -21,6 +21,8 @@ struct InstanceShell: View {
     @State private var isObservationsOpen = false
     /// The thread the Observations list opened over; a different thread closes the list.
     @State private var observationsOverThreadID: String?
+    /// Star, close and delete for this window.
+    @State private var threadActions: ThreadActionsModel
     /// Opens the thread of a task link, push or row.
     @State private var taskOpener: TaskOpener
     /// The drawer moves only after the cold start has placed it; see `DrawerContainer.animates`.
@@ -36,6 +38,20 @@ struct InstanceShell: View {
         self.session = session
         self.scene = scene
         _webConversation = State(initialValue: WebConversationModel(session: session))
+        let actions = ThreadActionsModel(session: session, clock: SystemClock())
+        actions.isThreadOpen = { [weak scene] id in scene?.state.threadID == id }
+        actions.leaveThread = { [weak scene] _ in
+            scene?.closeThread()
+            scene?.setDrawerOpen(true)
+        }
+        actions.threadsChanged = { [weak model] removed in
+            guard let model else { return }
+            model.widgets?.threadsChanged()
+            guard !removed.isEmpty else { return }
+            await model.push?.removeDeliveredNotifications(forThreads: Set(removed), from: routedInstance)
+            NotificationCenter.default.post(name: .yakThreadRemoved, object: nil)
+        }
+        _threadActions = State(initialValue: actions)
         let instanceURL = routedInstance.url
         _taskOpener = State(
             initialValue: TaskOpener(
@@ -80,6 +96,7 @@ struct InstanceShell: View {
         }
         .task { for await next in await session.statuses() { status = next } }
         .task(id: status == .active) { await followThreadList() }
+        .task(id: status == .active) { if status == .active { await threadActions.run() } }
         .webPrewarm(
             model: model, webConversation: webConversation, session: session, scene: scene,
             isSessionActive: status == .active
@@ -198,7 +215,8 @@ struct InstanceShell: View {
 
     private var drawer: some View {
         DrawerView(
-            model: model, instance: instance, scene: scene, drawer: drawerModel, isCompactWidth: isCompactWidth,
+            model: model, instance: instance, scene: scene, drawer: drawerModel, actions: threadActions,
+            isCompactWidth: isCompactWidth,
             openAccount: { scene.isSettingsOpen = true }, openSwitcher: { showsSwitcher = true },
             retry: { Task { await retryList() } }, setObservationsOpen: setObservationsOpen,
             openTask: { taskOpener.open(taskID: $0) }, openingTaskID: taskOpener.openingID)
@@ -226,7 +244,9 @@ struct InstanceShell: View {
         } else if let threadID = scene.state.threadID, !scene.state.isNewThreadOpen {
             ThreadScreen(
                 session: session, scene: scene, threadID: threadID,
-                initialTitle: listState?.list?.title(ofThread: threadID), instanceURL: instance.url,
+                initialTitle: listState?.list?.title(ofThread: threadID),
+                subThreadCount: listState?.list?.row(ofThread: threadID)?.subThreadCount ?? 0,
+                actions: threadActions, instanceURL: instance.url,
                 needsYouCount: drawerModel?.needsYouCount ?? 0, isSessionActive: status == .active,
                 isCoveredByDrawer: isCompactWidth && drawerBinding.wrappedValue, isCompactWidth: isCompactWidth,
                 openWeb: { model.browserURL = $0 }, push: model.push
