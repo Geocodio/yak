@@ -1,0 +1,300 @@
+{
+    "facets": {
+        "sources": [
+            {
+                "count": 1,
+                "key": "dashboard",
+                "label": "Dashboard"
+            }
+        ],
+        "starters": [
+            {
+                "avatarUrl": null,
+                "count": 1,
+                "key": "user:1",
+                "name": "Test person"
+            }
+        ]
+    },
+    "gitHubLinkPath": "/settings/profile",
+    "hasAnyThreads": true,
+    "needsGitHubLink": true,
+    "needsYou": [],
+    "needsYouCount": 0,
+    "reviewCount": 0,
+    "starred": [],
+    "threads": [
+        {
+            "canDelete": true,
+            "children": [
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "starting",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "starting"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "queued",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "queued"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "done",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "done"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "failed",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "failed"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "starting",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": true,
+                    "title": "takenOver"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": false,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": null,
+                    "needsYouReason": null,
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "working",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "running",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "working"
+                },
+                {
+                    "canDelete": false,
+                    "children": [],
+                    "group": "today",
+                    "hasRepository": true,
+                    "id": "<volatile:string>",
+                    "isPrivate": false,
+                    "isShared": false,
+                    "isStarred": false,
+                    "isUnattended": false,
+                    "isUnread": true,
+                    "lastActivityAt": "<volatile:null>",
+                    "needsYouDetail": null,
+                    "needsYouLabel": "Finished, not seen yet",
+                    "needsYouReason": "unseen",
+                    "ownerInitials": null,
+                    "repo": "acme/widgets",
+                    "source": {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "reference": null,
+                        "url": null
+                    },
+                    "stackState": "waiting",
+                    "starter": {
+                        "avatarUrl": null,
+                        "key": "<volatile:string>",
+                        "name": "Test person"
+                    },
+                    "status": "stopped",
+                    "step": null,
+                    "takenOver": false,
+                    "title": "waiting"
+                }
+            ],
+            "group": "today",
+            "hasRepository": true,
+            "id": "<volatile:string>",
+            "isPrivate": false,
+            "isShared": false,
+            "isStarred": false,
+            "isUnattended": false,
+            "isUnread": true,
+            "lastActivityAt": "<volatile:null>",
+            "needsYouDetail": null,
+            "needsYouLabel": "Finished, not seen yet",
+            "needsYouReason": "unseen",
+            "ownerInitials": null,
+            "repo": "acme/widgets",
+            "source": {
+                "key": "dashboard",
+                "label": "Dashboard",
+                "reference": null,
+                "url": null
+            },
+            "starter": {
+                "avatarUrl": null,
+                "key": "<volatile:string>",
+                "name": "Test person"
+            },
+            "status": "stopped",
+            "step": null,
+            "title": "Move search",
+            "type": "thread"
+        }
+    ]
+}
