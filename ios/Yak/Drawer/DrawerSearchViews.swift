@@ -78,15 +78,20 @@ struct SearchGroupHeading: View {
     let count: Int?
     var identifier = "search.heading"
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         HStack(spacing: Design.Space.compact) {
             Text(title).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
+                .fixedSize(horizontal: false, vertical: true)
             if let count {
                 Text(count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
                     .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
                     .background(Color.yakBubble, in: .capsule)
             }
         }
+        // The text size rebuilds the heading, so the audit's size changes are never read from a view that kept the old one.
+        .id(dynamicTypeSize)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(count.map { "\(title), \($0)" } ?? title)
         .accessibilityAddTraits(.isHeader)

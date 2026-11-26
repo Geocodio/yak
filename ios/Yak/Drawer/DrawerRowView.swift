@@ -160,12 +160,15 @@ struct DrawerRowView: View {
         }
         return HStack(alignment: .firstTextBaseline, spacing: Design.Space.tight) {
             Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+                .fixedSize(horizontal: false, vertical: true)
             if row.isStarred {
                 Image(systemName: "star.fill").font(.yak(.caption)).foregroundStyle(Color.yakWarningDot)
                     .accessibilityHidden(true).layoutPriority(1)
                     .accessibilityIdentifier("drawer.starMark.\(row.id)")
             }
         }
+        // The text size rebuilds the title, so the audit's size changes are never read from a view that kept the old one.
+        .id(dynamicTypeSize)
     }
 
     /// The second line: the badges at its start (the source first, then a task's mark), then the reason or detail, or
