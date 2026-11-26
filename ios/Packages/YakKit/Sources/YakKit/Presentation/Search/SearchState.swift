@@ -53,11 +53,11 @@ public struct SearchState: Equatable, Sendable {
 
     public init() {}
 
-    /// The server is asked or has answered: the list gives way to results.
+    /// The server is asked or has answered: the list gives way to shapes, results or a line that nothing matched.
     public var showsServerResults: Bool {
         switch phase {
-        case .idle, .tooShort, .offline: false
-        default: true
+        case .loading, .results, .empty: true
+        case .idle, .tooShort, .offline, .failed, .rateLimited: false
         }
     }
 

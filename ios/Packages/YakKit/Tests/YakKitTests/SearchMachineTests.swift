@@ -126,7 +126,7 @@ private func loading(_ text: String = "geo") -> (machine: SearchMachine, generat
     @Test func aFailureOffersARetryThatAsksAtOnce() {
         var (machine, generation) = loading()
         _ = machine.send(.failed(generation: generation, .failed))
-        #expect(machine.state.phase == .failed && machine.state.filtersLoadedList)
+        #expect(machine.state.phase == .failed && machine.state.filtersLoadedList && !machine.state.showsServerResults)
         let effects = machine.send(.retry)
         #expect(machine.state.phase == .loading)
         #expect(effects == [.cancelPending, .request(generation: machine.state.generation, text: "geo")])
@@ -137,6 +137,7 @@ private func loading(_ text: String = "geo") -> (machine: SearchMachine, generat
         var (machine, generation) = loading()
         let effects = machine.send(.failed(generation: generation, .rateLimited(retryAfterSeconds: 7)))
         #expect(machine.state.phase == .rateLimited(retryAfterSeconds: 7))
+        #expect(machine.state.filtersLoadedList && !machine.state.showsServerResults)
         #expect(effects == [.startWait(generation: generation, seconds: 7)])
         let again = machine.send(.waitOver(generation: generation))
         #expect(machine.state.phase == .loading)
