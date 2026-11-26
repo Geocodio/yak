@@ -39,6 +39,11 @@ class PrepareTeleportUpJob implements ShouldQueue
     /** Unlimited releases: the job re-queues itself until the sandbox is awake or the slot wait runs out. */
     public int $tries = 0;
 
+    /** Waking and restoring a sandbox can take minutes; the default worker timeout would kill the job silently. */
+    public int $timeout = 600;
+
+    public bool $failOnTimeout = true;
+
     public function __construct(public string $teleportId) {}
 
     public function handle(
