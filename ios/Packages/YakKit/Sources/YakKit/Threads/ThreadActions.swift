@@ -38,6 +38,22 @@ extension ThreadEngine {
         await perform("stop", .stopTurn(threadID))
     }
 
+    /// Asks for every agent of the thread to stop; a second call while one is in flight joins it. The page is read
+    /// again afterwards, so the thread show carries the agents that remain.
+    public func stopAgents() async -> AgentsStopResult {
+        // A call that joins one in flight keeps the answer that one is about to leave.
+        if actionTasks["agents:stop"] == nil { lastAgentsStop = nil }
+        let outcome = await perform(
+            "agents:stop", .stopAgents(threadID),
+            onResponse: { engine, answer in
+                await engine.noteAgentsStop(answer.agents)
+                return false
+            })
+        return AgentsStopResult(outcome: outcome, agents: outcome == .done ? lastAgentsStop : nil)
+    }
+
+    func noteAgentsStop(_ agents: RunningAgents) { lastAgentsStop = agents }
+
     public func retryRestore() async -> ThreadActionOutcome {
         await perform("retryRestore", .retryRestore(threadID))
     }

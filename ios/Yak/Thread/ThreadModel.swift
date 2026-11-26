@@ -29,6 +29,9 @@ final class ThreadModel {
     @ObservationIgnored private var actionLineSerial = 0
     /// The Files pane's model; it lives as long as the thread and starts when the pane is first drawn.
     @ObservationIgnored private(set) lazy var files = FilesModel(thread: self)
+    /// The agents bar above the message field: how many agents run and what "Stop all" is doing.
+    @ObservationIgnored private(set) lazy var agents = RunningAgentsModel(
+        threadID: threadID, engine: { [weak self] in self?.engine })
     /// A file another pane wants open in Files; the Files pane takes it and clears it.
     var fileOpenRequest: FileOpenRequest?
     /// The last request whose file the Files pane could not open.
@@ -186,6 +189,7 @@ final class ThreadModel {
                 self.onSnapshot(next)
                 self.noteOpenedForSharing(next)
                 self.composer.update(snapshot: next)
+                self.agents.showReported(next.show?.agents)
             }
         }
     }

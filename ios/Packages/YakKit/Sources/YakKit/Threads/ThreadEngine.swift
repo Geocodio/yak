@@ -56,6 +56,8 @@ public actor ThreadEngine {
     /// The server refused an action as `forbidden`: the person can read this thread but not change it. It holds
     /// until the next fresh page, whose own `canDrive` then decides.
     var isForbidden = false
+    /// The agents the last successful "Stop all" said remain.
+    var lastAgentsStop: RunningAgents?
     /// Actions that are waiting out a `rate_limited` answer for longer than five seconds.
     var slowWaits: Set<UUID> = []
     private var lastDiffUpdateSequence: Int?

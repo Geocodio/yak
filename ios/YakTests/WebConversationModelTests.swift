@@ -208,6 +208,18 @@ private actor SleepGate {
         #expect(await TestTimeScale.poll { await harness.store.copy(thread: "d0e515ef") != nil })
     }
 
+    @Test func anAgentsReportBeforeThePageNamesItsThreadIsIgnored() async {
+        let harness = Harness()
+        harness.model.show(thread: "d0e515ef")
+        harness.model.receive(.agents(running: 2, newest: "agent-card-a0"))
+        #expect(harness.model.agentsReport == nil)
+        await harness.open("d0e515ef")
+        harness.model.receive(.agents(running: 2, newest: "agent-card-a0"))
+        #expect(harness.model.agentsReport == AgentsReport(threadID: "d0e515ef", running: 2, newest: "agent-card-a0"))
+        harness.model.receive(Harness.ready("d0e515ef"))
+        #expect(harness.model.agentsReport == nil, "a new page load starts without a report")
+    }
+
     @Test func aPageThatMovesToAnotherThreadByItselfIsSavedWhenItIsStill() async {
         let gate = SleepGate()
         let harness = Harness(sleep: { try await gate.sleep($0) })
