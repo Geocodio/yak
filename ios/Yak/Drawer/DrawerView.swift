@@ -651,11 +651,11 @@ struct DrawerView: View {
         }
     }
 
-    private func groupTitle(_ kind: SearchResult.Kind) -> Text {
+    private func groupTitle(_ kind: SearchResult.Kind) -> String {
         switch kind {
-        case .thread: Text("search.group.threads")
-        case .repository: Text("search.group.repositories")
-        case .pullRequest: Text("search.group.pullRequests")
+        case .thread: String(localized: "search.group.threads")
+        case .repository: String(localized: "search.group.repositories")
+        case .pullRequest: String(localized: "search.group.pullRequests")
         }
     }
 

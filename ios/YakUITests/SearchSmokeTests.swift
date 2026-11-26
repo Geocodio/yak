@@ -63,7 +63,7 @@ import XCTest
     func testOneCharacterNarrowsTheLoadedThreadsAndClearingBringsThemBack() throws {
         try launch()
         XCTAssertTrue(row(otherThread).exists)
-        type("y")
+        type("w")
         XCTAssertTrue(element("search.hint").waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(row(thread).exists)
         waitUntilGone(row(otherThread))

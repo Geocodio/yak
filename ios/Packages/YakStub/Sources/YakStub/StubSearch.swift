@@ -7,13 +7,17 @@ import Foundation
 ///
 /// Scenarios: `search` (answers), `search-empty` (never finds anything), `search-slow` (the answer waits for
 /// `POST /__stub/search/release`), `search-failing` (500 until `POST /__stub/search/relent`) and `search-limited`
-/// (429 with `Retry-After: 2` until the same relent). `GET /__stub/search/log` lists the queries asked, one per line.
+/// (429 with `Retry-After: 2` until the same relent). `search-limited-long` waits 30 seconds, so a screen can be shot
+/// and audited while the limit message stays. `GET /__stub/search/log` lists the queries asked, one per line.
 final class StubSearch: StubFeature, @unchecked Sendable {
     static let longestHold = Duration.seconds(120)
     static let limitedWaitSeconds = 2
+    static let longLimitedWaitSeconds = 30
 
     let name = "search"
-    let scenarios = ["search", "search-empty", "search-slow", "search-failing", "search-limited"]
+    let scenarios = [
+        "search", "search-empty", "search-slow", "search-failing", "search-limited", "search-limited-long",
+    ]
 
     private struct State {
         var isReleased = false
@@ -60,9 +64,10 @@ final class StubSearch: StubFeature, @unchecked Sendable {
         switch context.scenario {
         case "search-failing" where !current.isRelented:
             return failure(500, "server_error", "Search is not available.")
-        case "search-limited" where !current.isRelented:
+        case "search-limited" where !current.isRelented, "search-limited-long" where !current.isRelented:
             var limited = failure(429, "too_many_requests", "Too many searches.")
-            limited.headers["Retry-After"] = String(Self.limitedWaitSeconds)
+            let wait = context.scenario == "search-limited" ? Self.limitedWaitSeconds : Self.longLimitedWaitSeconds
+            limited.headers["Retry-After"] = String(wait)
             return limited
         default:
             break

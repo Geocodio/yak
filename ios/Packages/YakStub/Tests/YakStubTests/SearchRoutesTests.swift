@@ -87,6 +87,11 @@ import Testing
         #expect(try search(feature, "retry", scenario: "search-limited").status == 200)
     }
 
+    @Test func theLongLimitedScenarioWaitsThirtySeconds() throws {
+        let limited = try search(StubSearch(), "retry", scenario: "search-limited-long")
+        #expect(limited.status == 429 && limited.reply.headers["Retry-After"] == "30")
+    }
+
     @Test func theSlowScenarioHoldsTheAnswerUntilReleased() async throws {
         let feature = StubSearch()
         #expect(try search(feature, "retry").reply.hold == nil)

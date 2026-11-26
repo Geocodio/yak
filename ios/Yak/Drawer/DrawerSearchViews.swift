@@ -74,22 +74,23 @@ struct SearchResultRowView: View {
 
 /// The heading of a group of results: the name in the quiet color and the count in a pill, read as one heading.
 struct SearchGroupHeading: View {
-    let title: Text
+    let title: String
     let count: Int?
-    var identifier: String?
+    var identifier = "search.heading"
 
     var body: some View {
         HStack(spacing: Design.Space.compact) {
-            title.font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
+            Text(title).font(.yakGroupHeading).foregroundStyle(Color.yakMuted)
             if let count {
                 Text(count, format: .number).font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
                     .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.hairline)
                     .background(Color.yakBubble, in: .capsule)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(count.map { "\(title), \($0)" } ?? title)
         .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier(identifier ?? "search.heading")
+        .accessibilityIdentifier(identifier)
     }
 }
 
@@ -136,7 +137,7 @@ struct SearchSkeleton: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                SearchGroupHeading(title: Text("search.group.threads"), count: nil)
+                SearchGroupHeading(title: String(localized: "search.group.threads"), count: nil)
                     .padding(.leading, Design.Space.rowInset + Design.Space.tight).padding(.top, Design.Space.small)
                     .padding(.bottom, Design.Space.compact)
                 VStack(alignment: .leading, spacing: Design.Space.large) {
