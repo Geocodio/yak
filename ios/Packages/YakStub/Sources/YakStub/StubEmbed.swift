@@ -340,9 +340,11 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             el("last").textContent = "Focused " + fragment;
             setTimeout(function () { target.removeAttribute("data-fragment-target"); }, 1600);
           }
-          // The agents scenarios of the stub report the running agents; every other scenario answers 404 and nothing is sent.
+          // The agents scenarios of the stub report the running agents; every other scenario answers 404, which ends the polling.
+          var agentsTimer = null;
           function pollAgents() {
             fetch("/__stub/agents/report", { cache: "no-store" }).then(function (answer) {
+              if (answer.status === 404) { clearInterval(agentsTimer); return null; }
               return answer.ok ? answer.text() : null;
             }).then(function (text) {
               if (!text) { return; }
@@ -363,7 +365,7 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
               post(message);
             }).catch(function () {});
           }
-          setInterval(pollAgents, 300);
+          agentsTimer = setInterval(pollAgents, 300);
           showThread();
           setTimeout(sendReady, \#(readyDelayMilliseconds));
           el("send-link").addEventListener("click", function () { post({ type: "link", url: "https://example.com/docs" }); });
