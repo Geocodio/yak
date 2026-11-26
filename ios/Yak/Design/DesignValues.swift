@@ -6,6 +6,8 @@ import UIKit
 enum Design {
     /// How faded a disabled control looks.
     static let disabledOpacity: Double = 0.4
+    /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
+    static let closedMarkOpacity: Double = 0.62
 
     /// Gaps and insets, in points.
     enum Space {

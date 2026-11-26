@@ -36,14 +36,20 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     public let failureDetail: String?
     /// The same error as the server sent it, line breaks kept, for the long-press preview.
     public let failureFullText: String?
+    /// The thread is starred. Sub-threads and tasks are not.
+    public let isStarred: Bool
+    /// The person may drive this root thread, so Close and Delete are offered. False for a sub-thread and a task.
+    public let canDelete: Bool
+    /// The page the thread started from, from the row's `source.url`, when it passes the link rule.
+    public let sourceLink: URL?
 
     /// The repository the second line shows in the mono face in place of the status word. Only a status whose mark
-    /// differs without color (stopped, closed, paused, waiting for a repository) gives way; running, blocked, unseen
+    /// differs without color (stopped, paused, waiting for a repository) gives way; a closed row says "Closed"; running, blocked, unseen
     /// and any unknown status keep their words, so color is never the only signal.
     public var repositoryDetail: String? {
         guard case .status = subtitle else { return nil }
         switch indicator {
-        case .stopped, .closed, .paused, .waiting: return repository
+        case .stopped, .paused, .waiting: return repository
         default: return nil
         }
     }
@@ -52,7 +58,7 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
         id: String, target: Target, title: String, subtitle: DrawerSubtitle, indicator: Indicator, isPrivate: Bool,
         lastActivity: Date?, depth: Int, childCount: Int, isExpanded: Bool, source: String? = nil,
         repository: String? = nil, reviewLine: ReviewLine? = nil, failureDetail: String? = nil,
-        failureFullText: String? = nil
+        failureFullText: String? = nil, isStarred: Bool = false, canDelete: Bool = false, sourceLink: URL? = nil
     ) {
         self.id = id
         self.target = target
@@ -69,6 +75,9 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
         self.reviewLine = reviewLine
         self.failureDetail = failureDetail
         self.failureFullText = failureFullText
+        self.isStarred = isStarred
+        self.canDelete = canDelete
+        self.sourceLink = sourceLink
     }
 }
 
@@ -163,8 +172,8 @@ public enum DrawerSections {
         let sections =
             (groups + [
                 DrawerSection(kind: .notSentYet, rows: unsent),
-                DrawerSection(kind: .needsYou, rows: needsYou),
                 DrawerSection(kind: .starred, rows: threadRows(list.starred)),
+                DrawerSection(kind: .needsYou, rows: needsYou),
                 DrawerSection(kind: .today, rows: byKind[.today] ?? []),
                 DrawerSection(kind: .thisWeek, rows: byKind[.thisWeek] ?? []),
                 DrawerSection(kind: .older, rows: byKind[.older] ?? []),
@@ -202,7 +211,9 @@ public enum DrawerSections {
             source: depth == 0 ? row.source?.displayName : nil,
             repository: depth == 0 && !row.repo.isEmpty ? row.repo : nil,
             reviewLine: depth == 0 ? ReviewLine.make(row.review) : nil,
-            failureDetail: failureText(of: row)?.collapsed, failureFullText: failureText(of: row)?.full)
+            failureDetail: failureText(of: row)?.collapsed, failureFullText: failureText(of: row)?.full,
+            isStarred: row.isStarred, canDelete: depth == 0 && row.canDelete,
+            sourceLink: depth == 0 ? WebLinkRule.safeURL(row.source?.url) : nil)
         guard isExpanded else { return [line] }
         return [line] + row.children.flatMap { flatten($0, depth: depth + 1, expanded: expanded) }
     }

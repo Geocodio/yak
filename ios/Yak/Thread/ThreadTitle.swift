@@ -16,12 +16,19 @@ struct ThreadTitle: View {
     var statusLabel: String?
     /// Opens the Overview, or returns to the pane before it.
     var action: (() -> Void)?
+    /// A small star after the title. VoiceOver reads "starred" as part of the title.
+    var isStarred = false
+    /// A neutral "Closed" pill starts the second line.
+    var isClosed = false
+
+    /// The title as VoiceOver reads it.
+    private var spokenTitle: String { isStarred ? String(localized: "thread.title.starred \(title)") : title }
 
     var body: some View {
         if let action {
             Button(action: action) { content }
                 .buttonStyle(.ghost)
-                .accessibilityLabel(Text("overview.title.label \(title)"))
+                .accessibilityLabel(Text("overview.title.label \(spokenTitle)"))
                 .accessibilityHint(Text("overview.title.hint"))
                 .accessibilityIdentifier("thread.title")
         } else {
@@ -35,19 +42,35 @@ struct ThreadTitle: View {
                 statusMark.accessibilityHidden(true)
                 Text(title).font(.yakBarTitle).foregroundStyle(Color.yakText)
                     .lineLimit(1).truncationMode(.tail)
+                    .accessibilityLabel(spokenTitle)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityValue(statusText)
+                if isStarred {
+                    Image(systemName: "star.fill").font(.yak(.caption)).foregroundStyle(Color.yakWarningDot)
+                        .accessibilityHidden(true).accessibilityIdentifier("thread.starMark")
+                }
             }
             if let connectionLine {
                 Text(verbatim: connectionLine.text).font(.yak(.caption, .medium)).foregroundStyle(Color.yakWarning)
                     .lineLimit(1)
                     .padding(.leading, markSize + 8)
                     .accessibilityIdentifier("thread.connection")
-            } else if let meta {
-                Text(verbatim: meta).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
-                    .lineLimit(1).truncationMode(.middle)
-                    .padding(.leading, markSize + 8)
-                    .accessibilityIdentifier("thread.meta")
+            } else if isClosed || meta != nil {
+                HStack(spacing: Design.Space.small) {
+                    if isClosed {
+                        Text("thread.closed").font(.yakBadge).foregroundStyle(Color.yakText).lineLimit(1)
+                            .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
+                            .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
+                            .layoutPriority(1)
+                            .accessibilityIdentifier("thread.closedMark")
+                    }
+                    if let meta {
+                        Text(verbatim: meta).font(.yak(.caption)).foregroundStyle(Color.yakMuted)
+                            .lineLimit(1).truncationMode(.middle)
+                            .accessibilityIdentifier("thread.meta")
+                    }
+                }
+                .padding(.leading, markSize + 8)
             }
         }
         .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)

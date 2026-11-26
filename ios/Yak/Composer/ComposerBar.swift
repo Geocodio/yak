@@ -208,11 +208,23 @@ private struct UnavailableRow: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
         layout {
-            VStack(alignment: .leading, spacing: 2) {
-                title.font(.yak(.subheadline, .semibold))
-                detail.font(.yak(.footnote)).foregroundStyle(Color.primary.opacity(0.85))
+            if reason == .closed {
+                // One sentence group, as the board draws it: the title in bold, then what can still be done.
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "xmark.circle").foregroundStyle(Color.yakMuted).accessibilityHidden(true)
+                    Text(
+                        "composer.closed.sentence \(title.font(.yak(.footnote, .semibold))) \(detail.font(.yak(.footnote)))"
+                    )
+                    .foregroundStyle(Color.primary.opacity(0.85))
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    title.font(.yak(.subheadline, .semibold))
+                    detail.font(.yak(.footnote)).foregroundStyle(Color.primary.opacity(0.85))
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .fixedSize(horizontal: false, vertical: true)
             if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: 0) }
             if reason == .closed {
                 Button("composer.new", action: startNewThread)

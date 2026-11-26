@@ -9,6 +9,8 @@ struct DrawerView: View {
     let scene: SceneModel
     /// Nil until the session is active; the drawer shows its loading state meanwhile.
     let drawer: DrawerModel?
+    /// Star, close and delete.
+    let actions: ThreadActionsModel
     let isCompactWidth: Bool
     let openAccount: () -> Void
     let openSwitcher: () -> Void
@@ -47,10 +49,13 @@ struct DrawerView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 actionLine(drawer)
+                toast
                 bottomBar
             }
         }
         .motion(Motion.panel, value: drawer?.actionLine)
+        .motion(Motion.panel, value: actions.notice?.id)
+        .threadActionDialogs(actions, surface: .row)
         .sensoryFeedback(.error, trigger: drawer?.refusalCount ?? 0)
         .confirmationDialog(
             Text("overview.drop.title \(dropTarget?.title ?? "")"), isPresented: dropBinding, titleVisibility: .visible
@@ -330,26 +335,39 @@ struct DrawerView: View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
-                || row.id == openingTaskID.map { "task:\($0)" },
+                || row.id == openingTaskID.map { "task:\($0)" } || threadID(of: row).map(actions.isBusy) == true,
+            busy: threadID(of: row).flatMap {
+                actions.isDeleting($0) ? .deleting : (actions.isClosing($0) ? .closing : nil)
+            },
             isSelected: !scene.state.isNewThreadOpen && scene.state.threadID.map { "thread:\($0)" } == row.id,
             openPullRequest: { openPullRequest($0, drawer: drawer) })
         // Every row carries the same modifiers, so the list holds one kind of row; only a sub-thread fills them.
         let isSubThread: Bool = if row.depth > 0, case .thread = row.target { true } else { false }
         let menu = drawer.childMenu(row)
+        let rowMenu = ThreadActionMenu.make(
+            .row(row, isOffline: drawer.isOffline, isBusy: threadID(of: row).map(actions.isBusy) == true))
         plain
             .contextMenu {
-                if isSubThread { childMenuItems(row, menu: menu, drawer: drawer) }
-                if row.depth == 0, row.reviewLine != nil || row.failureDetail != nil {
-                    Button {
-                        open(row)
-                    } label: {
-                        Text("overview.child.open")
-                    }
-                    ForEach(Array((row.reviewLine?.actionableLinks ?? []).enumerated()), id: \.offset) { _, link in
-                        Button {
-                            openPullRequest(link, drawer: drawer)
-                        } label: {
-                            Text("drawer.review.open \(link.text)")
+                if threadID(of: row) != nil {
+                    if isSubThread {
+                        childMenuItems(row, menu: menu, drawer: drawer)
+                        ThreadActionItems(
+                            menu: ThreadActionMenu(groups: [rowMenu.items.filter { $0.kind == .copyLink }]),
+                            identifierPrefix: "drawer.menu", perform: { perform($0, on: row, drawer: drawer) })
+                    } else {
+                        ThreadActionItems(
+                            menu: rowMenu, identifierPrefix: "drawer.menu",
+                            perform: { perform($0, on: row, drawer: drawer) },
+                            custom: { kind in
+                                guard kind == .openInNewWindow, case .thread(let id) = row.target else { return nil }
+                                return AnyView(OpenInNewWindowButton(threadID: id, instanceID: instance.id))
+                            })
+                        ForEach(Array((row.reviewLine?.actionableLinks ?? []).enumerated()), id: \.offset) { _, link in
+                            Button {
+                                openPullRequest(link, drawer: drawer)
+                            } label: {
+                                Text("drawer.review.open \(link.text)")
+                            }
                         }
                     }
                 }
@@ -387,6 +405,29 @@ struct DrawerView: View {
                     }.tint(Color(.systemGray2))
                 }
             }
+    }
+
+    private func threadID(of row: DrawerRow) -> String? {
+        if case .thread(let id) = row.target { id } else { nil }
+    }
+
+    /// One entry of a row's long-press menu.
+    private func perform(_ item: ThreadActionItem, on row: DrawerRow, drawer: DrawerModel) {
+        guard let id = threadID(of: row) else { return }
+        switch item.kind {
+        case .open: open(row)
+        case .star: actions.setStar(id, to: true, from: .row)
+        case .unstar: actions.setStar(id, to: false, from: .row)
+        case .copyLink:
+            UIPasteboard.general.url = instance.url.appending(path: "threads").appending(path: id)
+            drawer.say(String(localized: "thread.linkCopied"))
+        case .openSource(_, let url): model.browserURL = url
+        case .close, .delete:
+            actions.ask(
+                item.kind == .close ? .close : .delete, from: .row, threadID: id,
+                subThreadCount: drawer.state?.list?.row(ofThread: id)?.subThreadCount ?? 0)
+        default: break
+        }
     }
 
     @ViewBuilder private func childMenuItems(_ row: DrawerRow, menu: DrawerChildMenu, drawer: DrawerModel)
@@ -440,6 +481,13 @@ struct DrawerView: View {
 
     private var dropBinding: Binding<Bool> {
         Binding(get: { dropTarget != nil }, set: { if !$0 { dropTarget = nil } })
+    }
+
+    /// "Thread deleted." or why an action on a row did not happen, above the bottom controls.
+    @ViewBuilder private var toast: some View {
+        if let notice = actions.notice, notice.surface == .row {
+            ThreadActionToast(notice: notice).transition(.opacity)
+        }
     }
 
     /// The server's sentence about a refused action, above the bottom controls.
