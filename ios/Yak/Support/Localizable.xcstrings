@@ -14035,7 +14035,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The branch %1$@ and pull request #%2$lld on GitHub stay."
+            "value" : "The branch %1$@ and pull request #%2$@ on GitHub stay."
           }
         }
       }
@@ -14045,7 +14045,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pull request #%lld on GitHub stays."
+            "value" : "Pull request #%@ on GitHub stays."
           }
         }
       }
