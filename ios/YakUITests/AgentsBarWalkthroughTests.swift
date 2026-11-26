@@ -80,6 +80,10 @@ import XCTest
         XCTAssertTrue(row.waitForExistence(timeout: Wait.firstLoad))
         row.tap()
         XCTAssertTrue(element("agents.bar").waitForExistence(timeout: Wait.firstLoad))
+        let named = NSPredicate(format: "isEnabled == true")
+        wait(
+            for: [XCTNSPredicateExpectation(predicate: named, object: app.buttons["agents.view"])],
+            timeout: Wait.appear)
         try shoot("agents-viewer", audits: false)
     }
 }
