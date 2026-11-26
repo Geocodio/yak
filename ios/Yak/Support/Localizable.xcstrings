@@ -1166,7 +1166,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start a new thread to go on."
+            "value" : "You can still read it. To go on, start a new thread."
           }
         }
       }
@@ -1176,7 +1176,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This thread is closed"
+            "value" : "This thread is closed."
           }
         }
       }
@@ -1256,7 +1256,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "New"
+            "value" : "New thread"
           }
         }
       }
@@ -13626,6 +13626,390 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sub-threads with their own sandbox take turns. Allowing more finishes the work sooner but uses more of your Claude account at once. Research sub-threads don't count toward this."
+          }
+        }
+      }
+    },
+    "thread.menu.star" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star thread"
+          }
+        }
+      }
+    },
+    "thread.menu.unstar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove star"
+          }
+        }
+      }
+    },
+    "thread.menu.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close thread"
+          }
+        }
+      }
+    },
+    "thread.menu.delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete thread"
+          }
+        }
+      }
+    },
+    "thread.menu.copyThreadLink" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy thread link"
+          }
+        }
+      }
+    },
+    "thread.menu.openSource %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in %@"
+          }
+        }
+      }
+    },
+    "thread.menu.busy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working on this thread"
+          }
+        }
+      }
+    },
+    "thread.starred" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        }
+      }
+    },
+    "thread.title.starred %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, starred"
+          }
+        }
+      }
+    },
+    "thread.closed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        }
+      }
+    },
+    "drawer.deleting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting"
+          }
+        }
+      }
+    },
+    "drawer.closing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closing"
+          }
+        }
+      }
+    },
+    "drawer.status.starredMark" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starred"
+          }
+        }
+      }
+    },
+    "lifecycle.close.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close this thread?"
+          }
+        }
+      }
+    },
+    "lifecycle.close.confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close thread"
+          }
+        }
+      }
+    },
+    "lifecycle.close.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its sandbox is destroyed. You can still read it. It cannot be reopened."
+          }
+        }
+      }
+    },
+    "lifecycle.close.messageWithChildren %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Its sandbox is destroyed and its %lld sub-thread closes too. You can still read it. It cannot be reopened."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Its sandbox is destroyed and its %lld sub-threads close too. You can still read it. It cannot be reopened."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lifecycle.delete.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this thread?"
+          }
+        }
+      }
+    },
+    "lifecycle.delete.removes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its messages, sandbox, runs and attachments are removed for good."
+          }
+        }
+      }
+    },
+    "lifecycle.delete.removesWithChildren %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Its messages, sandbox, runs and attachments, and its %lld sub-thread, are removed for good."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Its messages, sandbox, runs and attachments, and its %lld sub-threads, are removed for good."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lifecycle.delete.stays" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The branch and any pull request on GitHub stay."
+          }
+        }
+      }
+    },
+    "lifecycle.delete.staysBranch %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The branch %@ on GitHub stays."
+          }
+        }
+      }
+    },
+    "lifecycle.deleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thread deleted."
+          }
+        }
+      }
+    },
+    "lifecycle.deleteFailed.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not delete the thread"
+          }
+        }
+      }
+    },
+    "lifecycle.deleteFailed.ok" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "lifecycle.deleteFailed.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "lifecycle.failed.star" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not change the star. Try again."
+          }
+        }
+      }
+    },
+    "lifecycle.failed.close" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not close the thread. Try again."
+          }
+        }
+      }
+    },
+    "lifecycle.failed.delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not delete the thread. Try again."
+          }
+        }
+      }
+    },
+    "lifecycle.forbidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot do this on this thread."
+          }
+        }
+      }
+    },
+    "lifecycle.gone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This thread no longer exists."
+          }
+        }
+      }
+    },
+    "lifecycle.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are offline. Try again when the connection returns."
+          }
+        }
+      }
+    },
+    "lifecycle.unauthorized" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device was signed out. Pair it again to go on."
+          }
+        }
+      }
+    },
+    "composer.closed.sentence %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "lifecycle.delete.staysBranchAndPull %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The branch %1$@ and pull request #%2$@ on GitHub stay."
+          }
+        }
+      }
+    },
+    "lifecycle.delete.staysPull %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request #%@ on GitHub stays."
           }
         }
       }

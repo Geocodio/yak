@@ -10,10 +10,14 @@ struct DrawerRowView: View {
     let toggle: () -> Void
     /// True while an action runs on this sub-thread.
     var isRunning = false
+    /// A close or a delete is running on this thread: the row reads dimmed with a spinner and says what is happening.
+    var busy: Busy?
     /// True for the thread the window shows.
     var isSelected = false
     /// The long-press preview shows the whole title and subtitle.
     var showsEverything = false
+
+    enum Busy: Equatable { case closing, deleting }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var indicatorSize = 12.0
@@ -79,6 +83,7 @@ struct DrawerRowView: View {
             if !isLarge {
                 DrawerIndicator(indicator: row.indicator)
                     .frame(width: indicatorSize, height: indicatorSize)
+                    .opacity(isDimmed ? Design.closedMarkOpacity : 1)
                     .padding(.top, Design.Space.small)
                     .allowsHitTesting(!passesTouches)
             }
@@ -94,6 +99,7 @@ struct DrawerRowView: View {
                     // The indicator moves in front of the age so the title keeps the whole width.
                     HStack(spacing: 8) {
                         DrawerIndicator(indicator: row.indicator).frame(width: 22, height: 22)
+                            .opacity(isDimmed ? Design.closedMarkOpacity : 1)
                         trailing(isInline: true)
                     }
                     .allowsHitTesting(!passesTouches)
@@ -129,20 +135,30 @@ struct DrawerRowView: View {
         }
     }
 
-    /// The title; an unread thread's is semibold, with a small dot after it.
+    /// A closed thread, and one that is being closed or deleted, reads dimmed: the quiet text color and a fainter mark.
+    /// The whole row is not made translucent, because text at that opacity would fail the contrast of the audit.
+    private var isDimmed: Bool { row.indicator == .closed || busy != nil }
+
+    /// The title; an unread thread's is semibold, with a small dot after it. A starred thread has a small star after it.
     private var title: some View {
         let isUnread = row.indicator == .unseen
         var name = AttributedString(row.title)
         name.font = isUnread ? .yak(.subheadline, .semibold) : .yakRowTitle
-        // A closed thread reads dimmed, in the quiet text color.
-        name.foregroundColor = row.indicator == .closed ? .yakMuted : .yakText
+        name.foregroundColor = isDimmed ? .yakMuted : .yakText
         if isUnread {
             var dot = AttributedString(" \u{25CF}")
             dot.font = .system(size: 6)
             dot.foregroundColor = .yakInfo
             name += dot
         }
-        return Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+        return HStack(alignment: .firstTextBaseline, spacing: Design.Space.tight) {
+            Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+            if row.isStarred {
+                Image(systemName: "star.fill").font(.yak(.caption)).foregroundStyle(Color.yakWarningDot)
+                    .accessibilityHidden(true).layoutPriority(1)
+                    .accessibilityIdentifier("drawer.starMark.\(row.id)")
+            }
+        }
     }
 
     /// The second line: the badges at its start (the source first, then a task's mark), then the reason or detail, or
@@ -166,14 +182,15 @@ struct DrawerRowView: View {
                 }
                 .layoutPriority(1)
             }
-            if let repository = row.repositoryDetail {
+            if busy == nil, let repository = row.repositoryDetail {
                 Text(repository).font(.yakRowRepository).foregroundStyle(subtitleColor)
                     .multilineTextAlignment(.leading)
                     .lineLimit(wrapsLines ? nil : 1).truncationMode(.middle)
             } else {
-                Text(subtitle).font(.yakRowDetail).foregroundStyle(subtitleColor)
+                Text(busy == nil ? subtitle : busyText).font(.yakRowDetail).foregroundStyle(subtitleColor)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(wrapsLines ? nil : (row.indicator == .blocked ? 2 : 1))
+                    .lineLimit(wrapsLines ? nil : detailLineLimit).truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -226,6 +243,17 @@ struct DrawerRowView: View {
     }
 
     private var subtitle: String { DrawerRowView.subtitleText(row.subtitle) }
+
+    /// The sub-thread summary and a failure take two lines at the default size, so they are not cut mid-phrase beside a
+    /// badge; every other detail is one line with an ellipsis, as on the board.
+    private var detailLineLimit: Int {
+        if case .children = row.subtitle { return 2 }
+        return row.indicator == .blocked ? 2 : 1
+    }
+
+    private var busyText: String {
+        busy == .deleting ? String(localized: "drawer.deleting") : String(localized: "drawer.closing")
+    }
 
     private var isTask: Bool {
         if case .task = row.target { true } else { false }
@@ -286,7 +314,10 @@ struct DrawerRowView: View {
     }
 
     private var accessibilityLabel: String {
-        var parts = [row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, subtitle]
+        var parts = [
+            row.title.isEmpty ? String(localized: "drawer.untitled") : row.title, busy == nil ? subtitle : busyText,
+        ]
+        if row.isStarred { parts.insert(String(localized: "thread.starred"), at: 1) }
         if let detail = row.failureDetail { parts.append(detail) }
         if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
         if let repository = row.repositoryDetail { parts.append(repository) }
@@ -337,38 +368,31 @@ struct DrawerBadge: View {
 
     /// A longer label from a newer server ends in an ellipsis here, so it cannot push into the age column.
     @ScaledMetric(relativeTo: .caption) private var maxWidth = Design.Size.badgeMaxWidth
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// A short badge hugs its text; a long label is cut at the cap with an ellipsis. Standard modifiers only: the badge is
+    /// sized by its content (`fixedSize`), and the text's own frame caps that content. A custom layout in a list row
+    /// trips the audit's Dynamic Type check.
     var body: some View {
-        CappedWidth(limit: maxWidth) { label }
-    }
-
-    private var label: some View {
         HStack(spacing: Design.Space.tight) {
             if let systemImage { Image(systemName: systemImage).imageScale(.small) }
-            Text(text).lineLimit(1)
+            Text(text).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: textCap, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .font(.yakBadge).foregroundStyle(Color.yakText)
         .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.line)
         .background(Color.yakBubble, in: .rect(cornerRadius: Design.Radius.badge))
+        .fixedSize(horizontal: true, vertical: false)
+        // The text size rebuilds the badge, so the audit's size changes are never read from a view that kept the old one.
+        .id(dynamicTypeSize)
         .layoutPriority(1)
         .accessibilityElement(children: .combine)
     }
-}
 
-/// Offers its child at most `limit` points of width and takes the child's own size, so a short badge hugs its text and a
-/// long one is cut at the limit.
-private struct CappedWidth: Layout {
-    let limit: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard let child = subviews.first else { return .zero }
-        return child.sizeThatFits(ProposedViewSize(width: min(proposal.width ?? limit, limit), height: proposal.height))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews.first?.place(
-            at: bounds.origin, anchor: .topLeading,
-            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+    /// What is left of the cap for the text, after the padding and the icon.
+    private var textCap: CGFloat {
+        max(maxWidth - 2 * Design.Space.small - (systemImage == nil ? 0 : Design.Space.medium + Design.Space.tight), 0)
     }
 }
 

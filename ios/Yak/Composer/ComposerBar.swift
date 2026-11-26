@@ -224,24 +224,74 @@ private struct UnavailableRow: View {
     let repo: String?
     let startNewThread: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The height the closed line's content needs; at accessibility sizes the line is as tall as that, up to a cap, and
+    /// scrolls past it.
+    @State private var closedContentHeight: CGFloat = 0
 
     var body: some View {
+        if reason == .closed { closedLine } else { reasonRow }
+    }
+
+    /// The closed thread's line, as the board draws it: one quiet sentence that takes the width (the title in semibold,
+    /// then what can still be done) and a small bordered button at the trailing edge. At accessibility sizes, as the bar
+    /// does for the pane button, the sentence takes the full width and the button sits under it.
+    @ViewBuilder private var closedLine: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            // The bar can grow only so far before the page above it is squeezed out, so a long sentence scrolls inside
+            // the bar instead of being cut.
+            ScrollView {
+                closedRow.onGeometryChange(for: CGFloat.self) {
+                    $0.size.height
+                } action: {
+                    closedContentHeight = $0
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(height: min(max(closedContentHeight, Design.Size.control), Design.Size.closedLineMaxHeight))
+        } else {
+            closedRow
+        }
+    }
+
+    private var closedRow: some View {
+        let layout =
+            dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.compact))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: Design.Space.small))
+        return layout {
+            HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
+                Image(systemName: "xmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+                    .accessibilityHidden(true)
+                Text(
+                    "composer.closed.sentence \(title.font(.yak(.footnote, .semibold))) \(detail.font(.yak(.footnote)))"
+                )
+                .foregroundStyle(Color.primary.opacity(0.85))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+            }
+            if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: 0) }
+            Button("composer.new", action: startNewThread)
+                .buttonStyle(.bordered).tint(.primary).controlSize(.small).fixedSize()
+                .accessibilityIdentifier("composer.new")
+        }
+        .padding(.horizontal, Design.Space.small).frame(minHeight: Design.Size.control, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("composer.unavailable")
+    }
+
+    private var reasonRow: some View {
         let layout =
             dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
-        layout {
+        return layout {
             VStack(alignment: .leading, spacing: 2) {
                 title.font(.yak(.subheadline, .semibold))
                 detail.font(.yak(.footnote)).foregroundStyle(Color.primary.opacity(0.85))
             }
             .fixedSize(horizontal: false, vertical: true)
             if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: 0) }
-            if reason == .closed {
-                Button("composer.new", action: startNewThread)
-                    .buttonStyle(.bordered).tint(.primary).controlSize(.large).fixedSize()
-                    .accessibilityIdentifier("composer.new")
-            }
         }
         .padding(.horizontal, 12).frame(minHeight: 44, alignment: .leading)
         .accessibilityElement(children: .contain)

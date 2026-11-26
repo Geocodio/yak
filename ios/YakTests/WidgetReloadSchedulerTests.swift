@@ -47,6 +47,15 @@ private final class Reloads {
         return (scheduler, reloads, store, instance)
     }
 
+    @Test func aStarCloseOrDeleteOnThisDeviceReloadsBothKinds() async throws {
+        let (scheduler, reloads, _, _) = try await make()
+        scheduler.threadsChanged()
+        #expect(reloads.kinds == ["NeedsYou", "RunningThreads"])
+        let (idle, idleReloads, _, _) = try await make(hasInstances: false)
+        idle.threadsChanged()
+        #expect(idleReloads.kinds.isEmpty)
+    }
+
     @Test func reloadsOnlyWhenTheSnapshotChanged() async throws {
         let (scheduler, reloads, _, instance) = try await make()
         let example = try #require(instance)

@@ -220,3 +220,22 @@ func aPathWithoutAUsableFragmentGivesNoTarget(path: String) throws {
     let payload = try threadPayload(path: nil)
     #expect(PushDestination.make(payload, instances: [home]) == .thread(home, id: "d0e515ef"))
 }
+
+@Test func theNotificationsOfDeletedThreadsAreTheOnesToRemove() throws {
+    let home = Instance(
+        url: URL(string: "https://yak.example.com")!, name: "Home", userName: "Test Person", lastUsedAt: .distantPast)
+    func delivered(_ identifier: String, id: String, kind: String = "thread") throws -> DeliveredNotification {
+        DeliveredNotification(
+            identifier: identifier,
+            payload: try PushPayload(
+                json: Data(
+                    #"{"aps":{},"yak":{"instance":"https://yak.example.com","event":"needs_you","kind":"\#(kind)","id":"\#(id)"}}"#
+                        .utf8)))
+    }
+    let all = [
+        try delivered("root", id: "t0pic001"), try delivered("child", id: "chi1d001"),
+        try delivered("other", id: "other001"), try delivered("task", id: "t0pic001", kind: "task"),
+    ]
+    #expect(
+        PushCleanup.identifiers(in: all, forThreads: ["t0pic001", "chi1d001"], from: home) == ["root", "child"])
+}

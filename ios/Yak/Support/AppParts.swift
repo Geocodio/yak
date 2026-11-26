@@ -209,6 +209,10 @@ private struct SpotlightRoot: ViewModifier {
             ) {
                 _ in Task { await system.spotlight.reindex() }
             }
+            // A deleted thread leaves the index at once, not at the next launch.
+            .onReceive(NotificationCenter.default.publisher(for: .yakThreadRemoved)) { _ in
+                Task { await system.spotlight.reindex() }
+            }
             .onContinueUserActivity(CSSearchableItemActionType) { activity in
                 guard let identifier = SpotlightIndexer.identifier(of: activity) else { return }
                 system.appLock.whenOpen {

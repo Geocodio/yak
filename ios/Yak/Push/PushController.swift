@@ -169,6 +169,14 @@ final class PushController: InstanceLifecycleObserver {
         await refreshBadge()
     }
 
+    /// The notifications about threads that were deleted are taken off the lock screen and the badge follows.
+    func removeDeliveredNotifications(forThreads threadIDs: Set<String>, from instance: Instance) async {
+        let delivered = await center.delivered()
+        let identifiers = PushCleanup.identifiers(in: delivered, forThreads: threadIDs, from: instance)
+        if !identifiers.isEmpty { center.remove(identifiers) }
+        await refreshBadge()
+    }
+
     /// Local cleanup, also after the server revoked this phone.
     func instanceRemoved(_ instance: Instance) async {
         await liveActivities.endAll(instance: instance)

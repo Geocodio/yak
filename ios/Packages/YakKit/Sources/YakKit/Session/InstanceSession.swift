@@ -107,6 +107,7 @@ public actor InstanceSession {
     /// a token, so a capture that finishes late writes nothing.
     private var hasErasedOfflineCopies = false
     private var overview: OverviewActions?
+    private var lifecycle: ThreadLifecycle?
     private var currentOutbox: Outbox?
     private var feed: ThreadListFeed?
     private var realtime: RealtimeClient?
@@ -142,6 +143,8 @@ public actor InstanceSession {
     public func instanceCache() -> Cache? { isActive ? cache : nil }
     /// The Overview's actions, made with the client and cache at start. Nil unless the session is active.
     public func overviewActions() -> OverviewActions? { isActive ? overview : nil }
+    /// Star, close and delete a thread; nil unless the session is active.
+    public func threadLifecycle() -> ThreadLifecycle? { isActive ? lifecycle : nil }
     public nonisolated var clock: any YakClock { environment.clock }
 
     private var isActive: Bool { isStarted && !hasEnded && statusBroadcast.value == .active }
@@ -231,8 +234,11 @@ public actor InstanceSession {
             instance: instance.id, client: client, files: environment.files, clock: environment.clock,
             makeID: environment.makeID, uploads: environment.uploads?(instance.id))
         currentOutbox = newOutbox
-        feed = ThreadListFeed(
+        let newFeed = ThreadListFeed(
             instance: instance, client: client, cache: newCache, instances: instances, clock: environment.clock)
+        feed = newFeed
+        lifecycle = ThreadLifecycle(
+            client: client, cache: newCache, feed: newFeed, offlineCopies: offlineCopies(), outbox: newOutbox)
         Task {
             await newCache.removeRemovedFeatureData()
             await newOutbox.load()
@@ -334,6 +340,7 @@ public actor InstanceSession {
         await currentOutbox?.shutDown()
         cache = nil
         overview = nil
+        lifecycle = nil
         if !keepingOutbox { currentOutbox = nil }
         feed = nil
         realtime = nil
