@@ -65,11 +65,6 @@ type serverStopped struct{ *UserError }
 // errPollsLost marks the failure of a teleport whose status could not be read; the server still owns it.
 var errPollsLost = errors.New("lost the connection to Yak")
 
-var progressLines = map[string]string{
-	"wait_turn": "Waited for the running turn to finish", "stop_turn": "Stopped the running turn",
-	"commit_wip": "Yak committed its work", "push": "Yak pushed the branch", "sync_session": "Yak synced the session",
-}
-
 // Down brings a thread from Yak to this checkout. Nothing is touched before the clash check and the change
 // detection pass, and ownership moves to this computer only in the last request.
 func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err error) {
@@ -159,7 +154,8 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	if err != nil {
 		return result, err
 	}
-	if err := d.gitNetwork(ctx, repo, "fetch", "--quiet", remote, "refs/heads/"+branch); err != nil {
+	fetch := func() error { return d.gitNetwork(ctx, repo, "fetch", "--quiet", remote, "refs/heads/"+branch) }
+	if err := d.working("Fetching "+branch, fetch); err != nil {
 		if isCancelled(err) {
 			return result, err
 		}
@@ -308,8 +304,8 @@ func primaryOf(m api.DownManifest) (api.ManifestRepo, bool) {
 }
 
 func pollReady(ctx context.Context, d Deps, started api.BeginDownResponse) (api.DownManifest, error) {
-	shown := map[string]bool{}
-	state := ""
+	progress := newStatus(d)
+	defer progress.clear()
 	wait := max(started.Teleport.PollAfterSeconds, 1)
 	failures := 0
 	for polls := 0; polls <= maxPolls; polls++ {
@@ -345,20 +341,7 @@ func pollReady(ctx context.Context, d Deps, started api.BeginDownResponse) (api.
 		} else if err := json.Unmarshal(raw, &tp); err != nil {
 			return manifest, err
 		}
-		for _, p := range tp.Progress {
-			if line, ok := progressLines[p.Step]; ok && p.Status == "done" && !shown[p.Step] {
-				shown[p.Step] = true
-				d.say("%s", line)
-			}
-		}
-		if tp.State != state {
-			state = tp.State
-			if state == "waiting_for_turn" {
-				d.say("Waiting for the running turn to finish (ctrl-c cancels)...")
-			} else if state == "preparing" {
-				d.say("Yak is getting the thread ready...")
-			}
-		}
+		progress.observe(tp)
 		switch tp.State {
 		case "ready":
 			return manifest, nil
@@ -374,7 +357,10 @@ func pollReady(ctx context.Context, d Deps, started api.BeginDownResponse) (api.
 		if tp.PollAfterSeconds > 0 {
 			wait = tp.PollAfterSeconds
 		}
-		if err := d.sleep(ctx, time.Duration(wait)*time.Second); err != nil {
+		if err := progress.stalled(tp.State, "Nothing changed on this computer and Yak still has the thread. Run yak teleport again."); err != nil {
+			return api.DownManifest{}, err
+		}
+		if err := progress.wait(ctx, time.Duration(wait)*time.Second); err != nil {
 			return api.DownManifest{}, err
 		}
 	}
@@ -535,8 +521,13 @@ func downloadSession(ctx context.Context, d Deps, threadID int, m api.DownManife
 		}
 		plans = append(plans, session.DownloadPlan{SessionID: other, ProjectDir: projectDir, Files: files, Now: d.Now()})
 	}
+	var conflicts []string
 	for i, plan := range plans {
-		res, err := session.Download(ctx, store, threadID, plan)
+		var res session.DownloadResult
+		err := d.working("Downloading the session", func() (err error) {
+			res, err = session.Download(ctx, store, threadID, plan)
+			return err
+		})
 		if err != nil {
 			return nil, "", err
 		}
@@ -546,9 +537,10 @@ func downloadSession(ctx context.Context, d Deps, threadID int, m api.DownManife
 		if i == 0 {
 			backup = res.LocalBackup
 		}
-		for _, c := range res.MemoryConflicts {
-			d.say("! A memory file changed on both sides. Yak's copy is saved as %s.", c)
-		}
+		conflicts = append(conflicts, res.MemoryConflicts...)
+	}
+	for _, c := range conflicts {
+		d.say("! A memory file changed on both sides. Yak's copy is saved as %s.", c)
 	}
 	return written, backup, nil
 }

@@ -28,6 +28,8 @@ type Context struct {
 	ConfigDir string
 	// Interactive is true when stdin is a terminal and prompts may be shown.
 	Interactive bool
+	// LiveOutput is true when stdout is a terminal that can redraw a status line in place.
+	LiveOutput bool
 	// Exec replaces this process with argv running in dir; nil means print the command instead.
 	Exec func(dir string, argv []string) error
 	// OpenTerminal opens a terminal window running argv in dir; nil means print the command instead.

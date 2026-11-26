@@ -39,7 +39,7 @@ func runHook(ctx *Context, args []string) int {
 	deps.RunTeleport = func(args []string) (string, int) {
 		var buf bytes.Buffer
 		inner := *ctx
-		inner.Stdout, inner.Stderr, inner.Interactive = &buf, &buf, false
+		inner.Stdout, inner.Stderr, inner.Interactive, inner.LiveOutput = &buf, &buf, false, false
 		inner.Stdin, inner.Exec = strings.NewReader(""), nil
 		if in.Cwd != "" {
 			inner.Cwd = in.Cwd

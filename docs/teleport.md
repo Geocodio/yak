@@ -248,6 +248,8 @@ On macOS this creates a small app named "Yak Link" in `~/Applications`. On Linux
 | `Yak still cannot see the pushed branch on GitHub.` | Check your access to the repo and retry. |
 | `Yak's copy of this session differs from the one on this computer, so nothing was overwritten. The teleport is cancelled.` | The thread moved on Yak since your last teleport. Teleport it down first with `yak teleport <thread>`. |
 | `The upload was interrupted ... Run yak teleport again to resume it.` | Run the same command again. |
+| `Yak stopped reporting progress 11 minutes ago` | Yak's prepare job died. Teleporting down cancels the stuck teleport, so running the command again starts fresh. Teleporting up does not cancel, because Yak may already have the thread: run the command again to check and resume. |
+| `Yak took too long to prepare the thread. Run yak teleport again.` | Yak's prepare job hit its 10-minute limit, usually because the sandbox was slow to wake. Run the command again. |
 | `This thread is on Yak. Run yak teleport <N> to bring it down first.` | The thread is not on your computer. Use the number shown. |
 | `This thread is on another computer (<name>). Teleport it up from there first.` | Go to that computer, or revoke it in Settings, Devices. |
 | `This checkout is on <a>, but the thread is on <b>.` | Switch branches. |

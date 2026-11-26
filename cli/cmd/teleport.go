@@ -150,7 +150,7 @@ func runTeleport(ctx *Context, args []string) int {
 	}
 	deps := teleport.Deps{
 		API: client, Prompter: prompter, Out: ctx.Stdout, Config: cfg, ConfigDir: ctx.ConfigDir,
-		Now: ctx.Now, Sleep: ctx.Sleep, Env: ctx.Env, Home: home,
+		Now: ctx.Now, Sleep: ctx.Sleep, Env: ctx.Env, Home: home, Live: ctx.LiveOutput,
 	}
 	bg, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
