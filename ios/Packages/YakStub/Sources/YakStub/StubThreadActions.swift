@@ -80,8 +80,10 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         StubReply(answer: Scenario.error(status, code, message), delay: delay)
     }
 
-    /// Holds the answer of the slow scenario until the test releases it.
-    private func held(_ reply: StubReply, in scenario: String) -> StubReply {
+    /// Holds the answer of the slow scenario until the test releases it, then runs `afterRelease`.
+    private func held(_ reply: StubReply, in scenario: String, afterRelease: @escaping @Sendable () -> Void = {})
+        -> StubReply
+    {
         guard scenario == "thread-actions-slow" else { return reply }
         var held = reply
         held.hold = { [state] in
@@ -89,6 +91,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
             while !state.get().isReleased, ContinuousClock.now < deadline {
                 try? await Task.sleep(for: .milliseconds(100))
             }
+            afterRelease()
         }
         return held
     }
@@ -229,7 +232,13 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
             return failure(409, "sandbox_unavailable", Self.sandboxSentence)
         default: break
         }
-        state.mutate { _ = $0.deleted.insert(id) }
-        return held(reply(["id": id, "status": "deleted"]), in: context.scenario)
+        // The server destroys the sandboxes before the thread is gone, so while the answer is held the list still
+        // carries the row; the polled list would otherwise drop it from under the "Deleting" state.
+        let remove: @Sendable () -> Void = { [state] in state.mutate { _ = $0.deleted.insert(id) } }
+        guard context.scenario == "thread-actions-slow" else {
+            remove()
+            return reply(["id": id, "status": "deleted"])
+        }
+        return held(reply(["id": id, "status": "deleted"]), in: context.scenario, afterRelease: remove)
     }
 }
