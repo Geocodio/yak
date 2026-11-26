@@ -28,7 +28,11 @@ final class StubAgents: StubFeature, @unchecked Sendable {
     func reset() { state.set(State()) }
 
     func played(scenario: String) {
-        let count = ["agents-three": 3, "agents-two": 2, "agents-one": 1, "agents-viewer": 2, "agents-slash": 2, "agents-missing": 2][scenario] ?? 0
+        let count =
+            [
+                "agents-three": 3, "agents-two": 2, "agents-one": 1, "agents-viewer": 2, "agents-slash": 2,
+                "agents-missing": 2,
+            ][scenario] ?? 0
         state.mutate {
             $0.scenario = scenario
             $0.running = count
@@ -116,9 +120,12 @@ final class StubAgents: StubFeature, @unchecked Sendable {
         }
         if context.scenario == "agents-slash" {
             let commands = [
-                ("review", "Review the diff", "[focus]", "command"), ("compact", "Summarise the conversation", nil, "command"),
+                ("review", "Review the diff", "[focus]", "command"),
+                ("compact", "Summarise the conversation", nil, "command"),
                 ("write-tests", "Add tests for the change on this branch", nil, "skill"),
-            ].map { ["name": $0.0, "description": $0.1, "argumentHint": $0.2 ?? NSNull(), "kind": $0.3] as [String: Any] }
+            ].map {
+                ["name": $0.0, "description": $0.1, "argumentHint": $0.2 ?? NSNull(), "kind": $0.3] as [String: Any]
+            }
             page["slashCommands"] = ["commands": commands, "capturedAt": "2026-11-15T12:00:00+00:00"]
         }
         let edited = (try? JSONSerialization.data(withJSONObject: page)) ?? body

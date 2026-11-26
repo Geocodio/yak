@@ -87,7 +87,8 @@ import XCTest
         element("agents.stop").tap()
         XCTAssertTrue(app.alerts["Stop all agents?"].waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(
-            app.alerts.staticTexts["Claude stops its 2 running agents. Claude itself keeps working on this turn."].exists)
+            app.alerts.staticTexts["Claude stops its 2 running agents. Claude itself keeps working on this turn."]
+                .exists)
         app.alerts.buttons["Cancel"].tap()
         waitFor("exists == false", app.alerts["Stop all agents?"])
         XCTAssertEqual(try stub.agentStopRequests(), [])

@@ -534,7 +534,9 @@ final class WebConversationModel {
                 showNotice(String(localized: "agents.view.missed"))
             }
         case .agents(let running, let newest):
-            if let id = pageThreadID ?? threadID { agentsReport = AgentsReport(threadID: id, running: running, newest: newest) }
+            if let id = pageThreadID ?? threadID {
+                agentsReport = AgentsReport(threadID: id, running: running, newest: newest)
+            }
         case .pageReady:
             // Nothing shows this yet; the decoder accepts it so a newer page is not reported as malformed.
             break

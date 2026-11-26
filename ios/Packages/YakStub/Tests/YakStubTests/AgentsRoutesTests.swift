@@ -13,7 +13,8 @@ import Testing
         return StubContext(
             scenario: scenario, baseURL: "http://127.0.0.1:5555",
             fixtures: try StubFixtures(directory: directory.appendingPathComponent("fixtures")),
-            threads: StubThreads(), core: { .reply(status: 200, contentType: "application/json", body: Data(show.utf8)) })
+            threads: StubThreads(),
+            core: { .reply(status: 200, contentType: "application/json", body: Data(show.utf8)) })
     }
 
     private func started(_ scenario: String) throws -> (StubAgents, StubContext) {
@@ -40,7 +41,8 @@ import Testing
 
     @Test func theShowListsTheAgentsThatRun() throws {
         let (feature, context) = try started("agents-three")
-        let agents = try #require(try call(feature, "GET", "threads/\(thread)", context).object["agents"] as? [String: Any])
+        let agents = try #require(
+            try call(feature, "GET", "threads/\(thread)", context).object["agents"] as? [String: Any])
         #expect(agents["runningCount"] as? Int == 3 && (agents["running"] as? [Any])?.count == 3)
     }
 

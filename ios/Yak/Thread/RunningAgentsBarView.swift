@@ -132,7 +132,6 @@ struct RunningAgentsBarView: View {
         .frame(minHeight: Design.Size.control).contentShape(.rect)
     }
 
-
     private func failureRow(_ failure: AgentsStopFailure, line: RunningAgentsBarLine) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
             Image(systemName: "exclamationmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakDanger)
