@@ -7,7 +7,7 @@ import { visibleOutbox } from './outboxSource.ts';
 
 const FIXTURES = new URL('../../../tests/Fixtures/app-api/v1/embed-bridge/', import.meta.url);
 /** Types the page sends before the app decodes them: no fixture yet, the shape is pinned in this file and the changelog. */
-const TYPES_WITHOUT_FIXTURE = ['agents'];
+const TYPES_WITHOUT_FIXTURE = [];
 const fixtures = readdirSync(FIXTURES).filter((name) => name.endsWith('.json')).map((name) => ({ name, message: JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8')) }));
 
 test('it ignores unknown types', () => {

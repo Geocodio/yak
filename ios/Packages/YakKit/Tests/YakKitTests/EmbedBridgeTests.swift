@@ -25,7 +25,8 @@ private func canonical(_ object: Any) throws -> String {
 
 private func typeName(of message: EmbedPageMessage) -> String {
     switch message {
-    case .ready: "ready"
+    case .ready, .pageReady: "ready"
+    case .agents: "agents"
     case .threadChanged: "threadChanged"
     case .link: "link"
     case .openPane: "openPane"
@@ -44,6 +45,9 @@ private let knownPageFixtures: [String: EmbedPageMessage] = [
     "page-ready": .ready(
         threadID: "d0e515ef", path: "/app/embed/threads/d0e515ef", latestSequence: 42,
         title: "Add a retry to the import job"),
+    "page-ready-page": .pageReady(path: "/app/embed/deployments", title: "Deployments"),
+    "page-agents": .agents(running: 2, newest: "agent-a0f3c9"),
+    "page-agents-none-running": .agents(running: 0, newest: nil),
     "page-threadChanged": .threadChanged(threadID: "a1b2c3d4", previousThreadID: "d0e515ef"),
     "page-link": .link(URL(string: "https://yak.example.com/threads/a1b2c3d4")!),
     "page-openPane": .openPane(.files(mode: .changed, path: "app/Jobs/ImportJob.php")),
@@ -197,6 +201,14 @@ func aValueThatIsNotAnObjectIsRefused(json: String) {
     #"{"v":1,"type":"ready","threadId":"short","url":"/a","latestSequence":1,"title":"t"}"#,
     #"{"v":1,"type":"ready","threadId":"d0e515ef","url":"https://evil.test/","latestSequence":1,"title":"t"}"#,
     #"{"v":1,"type":"ready","threadId":"d0e515ef","url":"//evil.test/","latestSequence":1,"title":"t"}"#,
+    #"{"v":1,"type":"ready","url":"/app/embed/deployments","latestSequence":1,"title":"t"}"#,
+    #"{"v":1,"type":"ready","url":"https://evil.test/","title":"t"}"#,
+    #"{"v":1,"type":"agents","running":-1,"newest":null}"#,
+    #"{"v":1,"type":"agents","running":1.5,"newest":null}"#,
+    #"{"v":1,"type":"agents","running":"1","newest":null}"#,
+    #"{"v":1,"type":"agents","newest":null}"#,
+    #"{"v":1,"type":"agents","running":1,"newest":"agent a"}"#,
+    #"{"v":1,"type":"agents","running":1,"newest":5}"#,
     #"{"v":1,"type":"threadChanged","threadId":"../../ab"}"#,
     #"{"v":1,"type":"threadChanged","threadId":"d0e515ef","previousThreadId":"bad"}"#,
     #"{"v":1,"type":"link"}"#, #"{"v":1,"type":"link","url":5}"#,
@@ -310,6 +322,19 @@ private func quickLookName(_ name: String) throws -> String {
         return
     }
     #expect(sequence == 7 && cut.count == EmbedPageMessage.maximumTitleLength)
+}
+
+@Test func aReadyWithoutAThreadIsThePageForm() throws {
+    #expect(
+        try page(#"{"v":1,"type":"ready","url":"/app/embed/pr-reviews","title":"PR reviews","later":1}"#)
+            == .pageReady(path: "/app/embed/pr-reviews", title: "PR reviews"))
+}
+
+@Test func agentsAcceptsAMissingNewestAndIgnoresExtraFields() throws {
+    #expect(try page(#"{"v":1,"type":"agents","running":0}"#) == .agents(running: 0, newest: nil))
+    #expect(
+        try page(#"{"v":1,"type":"agents","running":3,"newest":"agent-1","x":[]}"#)
+            == .agents(running: 3, newest: "agent-1"))
 }
 
 @Test func aNullPreviousThreadIsAccepted() throws {

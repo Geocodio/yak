@@ -47,6 +47,8 @@ public enum EmbedPageMessage: Equatable, Sendable {
     public static let maximumNameLength = 255
 
     case ready(threadID: String, path: String, latestSequence: Int, title: String)
+    /// The Deployments and PR review pages are ready: they name neither a thread nor a feed position.
+    case pageReady(path: String, title: String)
     case threadChanged(threadID: String, previousThreadID: String?)
     /// A URL that passed `WebLinkRule`, so an https address.
     case link(URL)
@@ -60,6 +62,8 @@ public enum EmbedPageMessage: Equatable, Sendable {
     /// The page looked for the element a `focus` message named and did not find it (an older message that is not
     /// loaded, a card that is gone).
     case focusMissed(fragment: String)
+    /// How many agents of the thread run, and the fragment of the newest running agent's card (nil when none runs).
+    case agents(running: Int, newest: String?)
     case error(kind: EmbedErrorKind, status: Int?)
     /// A type or a variant this app does not know; it is ignored.
     case unknown(type: String)
@@ -101,6 +105,7 @@ extension EmbedPageMessage {
         case "unsentAction": message = try payload(UnsentAction.self).message()
         case "auth": message = try payload(Auth.self).message()
         case "focusMissed": message = try payload(FocusMissed.self).message()
+        case "agents": message = try payload(Agents.self).message()
         case "error": message = try payload(ErrorReport.self).message()
         default: return .unknown(type: String(type.prefix(64)))
         }
@@ -132,18 +137,23 @@ extension EmbedPageMessage {
     /// A value is nil in the result when it fails its rule, which makes the whole message malformed. A discriminator
     /// that is not known (a newer page) gives `.unknown` instead.
     private struct Ready: Decodable {
-        let threadId: String
+        let threadId: String?
         let url: String
-        let latestSequence: Int
+        let latestSequence: Int?
         let title: String
 
+        /// A thread page names its thread and feed position; the other pages carry neither, and one without the other
+        /// is malformed.
         func message() -> EmbedPageMessage? {
-            guard ThreadIdentifier.isValid(threadId), url.hasPrefix("/"), !url.hasPrefix("//"),
-                url.utf8.count <= maximumURLLength, latestSequence >= 0
-            else { return nil }
-            return .ready(
-                threadID: threadId, path: url, latestSequence: latestSequence,
-                title: String(title.prefix(maximumTitleLength)))
+            guard url.hasPrefix("/"), !url.hasPrefix("//"), url.utf8.count <= maximumURLLength else { return nil }
+            let cutTitle = String(title.prefix(maximumTitleLength))
+            switch (threadId, latestSequence) {
+            case (nil, nil): return .pageReady(path: url, title: cutTitle)
+            case (let threadId?, let latestSequence?):
+                guard ThreadIdentifier.isValid(threadId), latestSequence >= 0 else { return nil }
+                return .ready(threadID: threadId, path: url, latestSequence: latestSequence, title: cutTitle)
+            default: return nil
+            }
         }
     }
 
@@ -298,6 +308,16 @@ extension EmbedPageMessage {
 
         func message() -> EmbedPageMessage? {
             EmbedAppMessage.isValidFragment(fragment) ? .focusMissed(fragment: fragment) : nil
+        }
+    }
+
+    private struct Agents: Decodable {
+        let running: Int
+        let newest: String?
+
+        func message() -> EmbedPageMessage? {
+            guard running >= 0, newest.map(EmbedAppMessage.isValidFragment) ?? true else { return nil }
+            return .agents(running: running, newest: newest)
         }
     }
 
