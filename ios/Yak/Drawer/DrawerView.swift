@@ -335,7 +335,7 @@ struct DrawerView: View {
         let plain = DrawerRowView(
             row: row, now: now, open: { open(row) }, toggle: { drawer.toggle(row.id) },
             isRunning: drawer.runningChildID.map { "thread:\($0)" } == row.id
-                || row.id == openingTaskID.map { "task:\($0)" } || threadID(of: row).map(actions.isBusy) == true,
+                || row.id == openingTaskID.map { "task:\($0)" } || threadID(of: row).map(actions.isWorking) == true,
             busy: threadID(of: row).flatMap {
                 actions.isDeleting($0) ? .deleting : (actions.isClosing($0) ? .closing : nil)
             },

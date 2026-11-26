@@ -43,6 +43,13 @@ import XCTest
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
     }
 
+    /// The toast with these words, found by its identifier and its label together.
+    private func toast(saying words: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == 'drawer.toast' AND label CONTAINS %@", words)
+        ).firstMatch
+    }
+
     private func openThread() {
         row(thread).tap()
         XCTAssertTrue(app.buttons["thread.menu"].waitForExistence(timeout: Wait.appear))
@@ -179,8 +186,7 @@ import XCTest
         app.sheets.buttons["Delete thread"].firstMatch.tap()
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: row(thread))], timeout: Wait.appear)
-        XCTAssertTrue(element("drawer.toast").waitForExistence(timeout: Wait.appear))
-        XCTAssertTrue(element("drawer.toast").label.contains("Thread deleted."))
+        XCTAssertTrue(toast(saying: "Thread deleted.").waitForExistence(timeout: Wait.appear))
         waitForLog(containing: "DELETE threads/\(thread)")
 
     }
@@ -192,7 +198,7 @@ import XCTest
         openHeaderMenu()
         button("Delete thread").tap()
         app.sheets.buttons["Delete thread"].firstMatch.tap()
-        XCTAssertTrue(element("drawer.toast").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(toast(saying: "Thread deleted.").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(row(thread).exists)
         XCTAssertTrue(element("drawer").exists)
     }
@@ -207,8 +213,12 @@ import XCTest
         wait(for: [XCTNSPredicateExpectation(predicate: deleting, object: row(thread))], timeout: Wait.appear)
         longPress(thread)
         let star = button("Star thread")
-        if star.waitForExistence(timeout: 5) { XCTAssertFalse(star.isEnabled) }
+        XCTAssertTrue(star.waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(star.isEnabled)
+        XCTAssertFalse(button("Close thread").isEnabled)
         dismissMenu()
+        // The stub holds the answer until the test lets it go.
+        try stub.post("thread-actions/release", "go")
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: row(thread))], timeout: Wait.appear)
     }

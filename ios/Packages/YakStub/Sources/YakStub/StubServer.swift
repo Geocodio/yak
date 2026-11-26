@@ -142,6 +142,7 @@ final class StubServer: Sendable {
             }
             let reply = await route(request)
             if reply.delay > .zero { try? await Task.sleep(for: reply.delay) }
+            await reply.hold?()
             Self.write(reply, for: request, to: connection)
         }
     }

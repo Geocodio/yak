@@ -88,12 +88,11 @@ struct ThreadScreen: View {
         .onChange(of: scenePhase) { if scenePhase != .active { Task { await model?.flushDraft() } } }
         // The thread was deleted on another device: the page and the engine say 404. The window leaves it.
         .onChange(of: model?.isGone) { _, isGone in if isGone == true { actions.threadIsGone(threadID) } }
-        // A close or a star changed the thread's page; it is read again.
-        .onChange(of: actions.changeCount) {
-            switch actions.lastChange {
-            case .closed(let id), .starred(let id, _):
-                if id == threadID { Task { await model?.engine?.refreshShow() } }
-            default: break
+        // A close or a star changed the thread's page; it is read again, and then the person's own star is dropped.
+        .onChange(of: actions.version(of: threadID)) {
+            Task {
+                await model?.engine?.refreshShow()
+                actions.clearStarOverride(threadID)
             }
         }
     }
@@ -200,7 +199,7 @@ struct ThreadScreen: View {
                         ThreadActionBanner(notice: notice).id(notice.id)
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, Design.Space.compact)
             }
         }
         .environment(scene)

@@ -66,7 +66,7 @@ struct ThreadActionBanner: View {
             if isShown {
                 Text(verbatim: notice.text).font(.yak(.subheadline, .medium))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.compact)
                     .background(.regularMaterial, in: .rect(cornerRadius: Design.Radius.card))
                     .padding(.horizontal, Design.Space.medium)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
@@ -93,7 +93,7 @@ struct ThreadActionToast: View {
         }
         .font(.yak(.subheadline, .medium))
         .foregroundStyle(Color.yakAccentInk)
-        .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.compact + 2)
+        .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.snug)
         .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
         .background(Color.yakText, in: .rect(cornerRadius: Design.Radius.card))
         .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.small)

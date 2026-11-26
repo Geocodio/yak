@@ -60,10 +60,11 @@ public enum ThreadLifecycleOutcome: Equatable, Sendable {
 public enum ThreadLifecycleChange: Equatable, Sendable {
     case starred(id: String, isStarred: Bool)
     case closed(id: String)
-    /// The thread was deleted by this device. It is gone from every list and from the disk.
-    case deleted(id: String)
-    /// The server says the thread does not exist (any action answered 404). It is removed like a deleted one.
-    case gone(id: String)
+    /// The thread was deleted (by this device, or the server says it is gone). It and its sub-threads are gone from every
+    /// list and from the disk. `subThreadIDs` lists every sub-thread below it, so a window that shows one can leave.
+    case deleted(id: String, subThreadIDs: [String])
+    /// The server says the thread does not exist when asked to star or close it. It is removed like a deleted one.
+    case gone(id: String, subThreadIDs: [String])
 }
 
 /// The requests that run now, by thread.
@@ -160,6 +161,7 @@ public actor ThreadLifecycle {
     }
 
     private func performStar(_ threadID: String, to isStarred: Bool) async -> ThreadLifecycleOutcome {
+        let previous = await feed.isStarred(threadID) ?? !isStarred
         await feed.apply(.setStar(id: threadID, isStarred: isStarred))
         do throws(APIFailure) {
             let row = try await client.send(.starThread(threadID, starred: isStarred))
@@ -170,10 +172,9 @@ public actor ThreadLifecycle {
             logFailure(.star, error)
             let failure = ThreadLifecycleFailure(error)
             if failure == .gone {
-                await purge(threadID)
-                emit(.gone(id: threadID))
+                await forget(threadID)
             } else {
-                await feed.apply(.setStar(id: threadID, isStarred: !isStarred))
+                await feed.apply(.setStar(id: threadID, isStarred: previous))
             }
             return .failed(failure)
         }
@@ -197,10 +198,7 @@ public actor ThreadLifecycle {
         } catch {
             logFailure(.close, error)
             let failure = ThreadLifecycleFailure(error)
-            if failure == .gone {
-                await purge(threadID)
-                emit(.gone(id: threadID))
-            }
+            if failure == .gone { await forget(threadID) }
             return .failed(failure)
         }
     }
@@ -213,39 +211,44 @@ public actor ThreadLifecycle {
     }
 
     private func performDelete(_ threadID: String) async -> ThreadLifecycleOutcome {
+        let subtree = await feed.subtreeIDs(of: threadID)
         do throws(APIFailure) {
             _ = try await client.send(.deleteThread(threadID))
-            await purge(threadID)
-            emit(.deleted(id: threadID))
-            return .done
         } catch {
             logFailure(.delete, error)
             let failure = ThreadLifecycleFailure(error)
-            if failure == .gone {
-                await purge(threadID)
-                emit(.gone(id: threadID))
-            }
-            return .failed(failure)
+            // A thread the server does not know is gone, which is what a delete asks for: a delete whose answer was
+            // lost and then repeated ends here.
+            guard failure == .gone else { return .failed(failure) }
         }
+        await purge(subtree)
+        emit(.deleted(id: threadID, subThreadIDs: Array(subtree.dropFirst())))
+        return .done
     }
 
-    /// Removes what the device holds for a thread that no longer exists: its row in every tab, its saved page, its
-    /// saved offline copy, its draft and its unsent messages with their files and uploads.
-    fileprivate func forget(_ threadID: String) async {
-        await purge(threadID)
-        emit(.gone(id: threadID))
-    }
-
-    private func purge(_ threadID: String) async {
-        await feed.apply(.remove(id: threadID))
-        await cache.removeThread(threadID)
-        await cache.saveComposerDraft(nil, for: .thread(threadID))
-        await offlineCopies.remove(thread: threadID)
+    /// Removes what the device holds for threads that no longer exist: their rows in every tab, saved pages, saved
+    /// offline copies, drafts and unsent messages with their files and uploads. `threadIDs` starts with the root.
+    private func purge(_ threadIDs: [String]) async {
+        if let root = threadIDs.first { await feed.apply(.remove(id: root)) }
+        for threadID in threadIDs {
+            await cache.removeThread(threadID)
+            await cache.saveComposerDraft(nil, for: .thread(threadID))
+            await offlineCopies.remove(thread: threadID)
+        }
         guard let outbox else { return }
-        for item in await outbox.items() where item.target == .thread(threadID) {
+        let ids = Set(threadIDs)
+        for item in await outbox.items() {
+            guard case .thread(let target) = item.target, ids.contains(target) else { continue }
             // An item that is sending right now stays; the server refuses it and it shows as not sent.
             _ = try? await outbox.remove(item.id)
         }
+    }
+
+    /// The server does not know the thread: it is removed like a deleted one.
+    fileprivate func forget(_ threadID: String) async {
+        let subtree = await feed.subtreeIDs(of: threadID)
+        await purge(subtree)
+        emit(.gone(id: threadID, subThreadIDs: Array(subtree.dropFirst())))
     }
 }
 

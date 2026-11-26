@@ -20,6 +20,8 @@ struct StubReply: Sendable {
     var answer: StubAnswer
     /// Waited out before the answer is sent.
     var delay: Duration = .zero
+    /// Waited for after the delay and before the answer is sent: a test holds an answer until it lets it go.
+    var hold: (@Sendable () async -> Void)?
     /// The value of the `X-Yak-Protocol` response header.
     var protocolHeader = 1
     /// Extra response headers (a byte range's `Content-Range`).

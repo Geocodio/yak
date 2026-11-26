@@ -160,6 +160,25 @@ public actor ThreadListFeed {
         await cache.saveWidgetSnapshot(WidgetSnapshot.make(from: mine, instanceName: instance.name, now: clock.now()))
     }
 
+    /// The thread and every sub-thread below it, from the list on screen or, without one, the saved tabs. Just the
+    /// thread when no list holds it.
+    public func subtreeIDs(of threadID: String) async -> [String] {
+        if let row = state.list?.row(ofThread: threadID) { return row.idsIncludingDescendants }
+        for tab in ThreadListFilter.allCases {
+            if let row = await cache.threadList(tab)?.row(ofThread: threadID) { return row.idsIncludingDescendants }
+        }
+        return [threadID]
+    }
+
+    /// Whether the list on screen, or a saved tab, holds the thread starred; nil when no list holds it.
+    public func isStarred(_ threadID: String) async -> Bool? {
+        if let row = state.list?.row(ofThread: threadID) { return row.isStarred }
+        for tab in ThreadListFilter.allCases {
+            if let row = await cache.threadList(tab)?.row(ofThread: threadID) { return row.isStarred }
+        }
+        return nil
+    }
+
     // MARK: Loading
 
     /// Starts a request now, and the polling when visible. Returns the first request.

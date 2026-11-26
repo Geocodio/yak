@@ -87,3 +87,13 @@ import YakKit
         #expect(String(localized: "composer.closed.detail") == "You can still read it. To go on, start a new thread.")
     }
 }
+
+@MainActor struct ThreadActionsRemovalTests {
+    @Test func aDeletedThreadAndItsSubThreadsAreTheOnesRemoved() {
+        let change = ThreadLifecycleChange.deleted(id: "t0pic001", subThreadIDs: ["chi1d001", "gr4nd001"])
+        #expect(ThreadActionsModel.removedThreads(in: change) == ["t0pic001", "chi1d001", "gr4nd001"])
+        #expect(ThreadActionsModel.removedThreads(in: .gone(id: "t0pic001", subThreadIDs: [])) == ["t0pic001"])
+        #expect(ThreadActionsModel.removedThreads(in: .closed(id: "t0pic001")).isEmpty)
+        #expect(ThreadActionsModel.removedThreads(in: .starred(id: "t0pic001", isStarred: true)).isEmpty)
+    }
+}

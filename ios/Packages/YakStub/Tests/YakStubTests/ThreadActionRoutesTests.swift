@@ -100,3 +100,29 @@ import Testing
                 == "POST threads/a1b2c3d4/star {\"starred\":true}\nDELETE threads/a1b2c3d4")
     }
 }
+
+@Suite struct ThreadActionHoldTests {
+    @Test func theSlowScenarioHoldsItsDeleteUntilTheRelease() throws {
+        var directory = URL(fileURLWithPath: #filePath)
+        while directory.lastPathComponent != "ios" { directory.deleteLastPathComponent() }
+        let fixtures = try StubFixtures(
+            directory: directory.appendingPathComponent("fixtures"),
+            scenariosDirectory: directory.appendingPathComponent("Packages/YakKit/Tests/YakKitTests/Scenarios"))
+        let context = StubContext(
+            scenario: "thread-actions-slow", baseURL: "http://127.0.0.1", fixtures: fixtures, threads: StubThreads(),
+            core: { .drop })
+        let feature = StubThreadActions()
+        let held = try #require(
+            feature.answer(
+                route: "DELETE threads/a1b2c3d4", request: StubRequest(method: "DELETE", path: "x"), context: context))
+        #expect(held.hold != nil)
+        let plain = StubThreadActions()
+        let quick = try #require(
+            plain.answer(
+                route: "DELETE threads/a1b2c3d4", request: StubRequest(method: "DELETE", path: "x"),
+                context: StubContext(
+                    scenario: "thread-actions", baseURL: "http://127.0.0.1", fixtures: fixtures,
+                    threads: StubThreads(), core: { .drop })))
+        #expect(quick.hold == nil)
+    }
+}

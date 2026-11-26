@@ -80,7 +80,13 @@ struct ThreadActionNotice: Equatable, Identifiable {
 /// failure alert, and tells the shell when the thread it shows is gone.
 @MainActor @Observable
 final class ThreadActionsModel {
-    static let noticeLifetime: Duration = .seconds(4)
+    /// How long a notice stays; a UI test reads it for longer, so a slow machine still finds it.
+    static var noticeLifetime: Duration {
+        #if DEBUG
+            if TestMode.current() != nil { return .seconds(30) }
+        #endif
+        return .seconds(4)
+    }
 
     private(set) var state = ThreadLifecycleState()
     /// A star the person just set, shown before the server has answered.
@@ -90,9 +96,9 @@ final class ThreadActionsModel {
     var confirmation: ThreadActionConfirmation?
     /// The delete that the server refused because a sandbox could not be destroyed.
     var deleteFailure: DeleteFailure?
-    /// Counts what changed, so a screen can react once per change.
-    private(set) var changeCount = 0
-    private(set) var lastChange: ThreadLifecycleChange?
+    /// Counts the star and close changes of each thread, so its screen reads the page again for every one, however
+    /// many land in one tick.
+    private(set) var versions: [String: Int] = [:]
     /// Plays a success or a warning for a finished action; replaced in tests.
     @ObservationIgnored var playHaptic: @MainActor (Bool) -> Void = { Haptic.playCardAnswered(isOK: $0) }
 
@@ -108,8 +114,10 @@ final class ThreadActionsModel {
     @ObservationIgnored var isThreadOpen: (String) -> Bool = { _ in false }
     /// The window leaves the thread it shows: the shell opens the drawer.
     @ObservationIgnored var leaveThread: (String) -> Void = { _ in }
-    /// The device deleted a thread; the Spotlight index is written again.
-    @ObservationIgnored var threadWasRemoved: () async -> Void = {}
+    /// A star, a close or a removal changed what the device shows; `removed` lists the threads that are gone, sub-threads
+    /// included. The shell clears their notifications, writes the Spotlight index again and reloads the widgets.
+    @ObservationIgnored var threadsChanged: (_ removed: [String]) async -> Void = { _ in }
+    @ObservationIgnored private var isAsking = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var initiated: Set<String> = []
     /// The leaving of a thread says so in the drawer, which is where the window goes.
@@ -122,6 +130,21 @@ final class ThreadActionsModel {
     func isDeleting(_ threadID: String) -> Bool { state.isDeleting(threadID) }
     func isBusy(_ threadID: String) -> Bool { state.isBusy(threadID) }
     func isClosing(_ threadID: String) -> Bool { state.running[threadID]?.contains(.close) == true }
+    /// A close or a delete runs: the row shows a spinner. A star does not.
+    func isWorking(_ threadID: String) -> Bool { isDeleting(threadID) || isClosing(threadID) }
+
+    func version(of threadID: String) -> Int { versions[threadID] ?? 0 }
+
+    /// The page has the star the person set, so their own value is not needed any more.
+    func clearStarOverride(_ threadID: String) { starOverrides[threadID] = nil }
+
+    /// Whether a lifecycle change concerns a thread the window shows, the thread itself or a sub-thread of a removed one.
+    static func removedThreads(in change: ThreadLifecycleChange) -> [String] {
+        switch change {
+        case .deleted(let id, let subThreadIDs), .gone(let id, let subThreadIDs): [id] + subThreadIDs
+        case .starred, .closed: []
+        }
+    }
 
     /// The star the person sees: their own tap until the answer is in, the page's value after.
     func isStarred(_ threadID: String, page: Bool) -> Bool { starOverrides[threadID] ?? page }
@@ -142,26 +165,24 @@ final class ThreadActionsModel {
 
     private func followChanges(_ lifecycle: ThreadLifecycle) async {
         for await change in await lifecycle.changes() {
-            lastChange = change
-            changeCount += 1
+            let removed = Self.removedThreads(in: change)
             switch change {
-            case .deleted(let id):
-                let wasOpen = isThreadOpen(id)
+            case .deleted(let id, _):
+                let wasOpen = removed.contains(where: isThreadOpen)
                 if wasOpen { leaveThread(id) }
                 if initiated.remove(id) != nil || wasOpen {
                     say(String(localized: "lifecycle.deleted"), failure: false, surface: .row)
                 }
-                await threadWasRemoved()
-            case .gone(let id):
-                let wasOpen = isThreadOpen(id)
+            case .gone(let id, _):
+                let wasOpen = removed.contains(where: isThreadOpen)
                 if wasOpen { leaveThread(id) }
                 if initiated.remove(id) != nil || wasOpen {
                     say(String(localized: "lifecycle.gone"), failure: true, surface: .row)
                 }
-                await threadWasRemoved()
-            case .starred, .closed:
-                break
+            case .starred(let id, _), .closed(let id):
+                versions[id, default: 0] += 1
             }
+            await threadsChanged(removed)
         }
     }
 
@@ -173,7 +194,11 @@ final class ThreadActionsModel {
         _ kind: ThreadActionConfirmation.Kind, from surface: ThreadActionSubject.Surface, threadID: String,
         subThreadCount: Int, show: ThreadShow? = nil
     ) {
+        // A second question waits for the first.
+        guard confirmation == nil, !isAsking else { return }
+        isAsking = true
         Task {
+            defer { isAsking = false }
             let known: ThreadShow?
             if let show {
                 known = show
@@ -214,8 +239,14 @@ final class ThreadActionsModel {
     private func finishStar(
         _ threadID: String, outcome: ThreadLifecycleOutcome, surface: ThreadActionSubject.Surface
     ) {
-        starOverrides[threadID] = nil
-        if case .failed(let failure) = outcome { report(failure, action: .star, surface: surface) }
+        // After a success the page may still hold the old star, so the person's value stays until the page is read
+        // again; a failure, or a thread no screen shows, drops it at once.
+        if case .failed(let failure) = outcome {
+            starOverrides[threadID] = nil
+            report(failure, action: .star, surface: surface)
+        } else if !isThreadOpen(threadID) {
+            starOverrides[threadID] = nil
+        }
     }
 
     func close(_ threadID: String, from surface: ThreadActionSubject.Surface) {

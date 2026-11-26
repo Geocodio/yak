@@ -213,7 +213,7 @@ private func headerSubject(
     let menu = ThreadActionMenu.make(try headerSubject())
     #expect(
         actionIDs(menu) == [
-            ["star", "request-review", "add-sub-thread", "share", "panes", "open-web", "copy-link"],
+            ["star", "share", "add-sub-thread"], ["request-review"], ["panes", "open-web", "copy-link"],
             ["cancel", "close", "delete"],
         ])
     #expect(menu.items.filter(\.isDestructive).map(\.id) == ["cancel", "delete"])
@@ -221,7 +221,7 @@ private func headerSubject(
 
 @Test func aShareRecipientsHeaderMenuHasNeitherCloseNorDelete() throws {
     let menu = ThreadActionMenu.make(try headerSubject(canDrive: false, isOwner: false, flags: .none))
-    #expect(actionIDs(menu) == [["star", "panes", "open-web", "copy-link"]])
+    #expect(actionIDs(menu) == [["star"], ["panes", "open-web", "copy-link"]])
 }
 
 @Test func aSubThreadsHeaderMenuHasNoStarAndNoDeleteButCanClose() throws {
@@ -371,7 +371,7 @@ private let deleteRoute = "DELETE threads/\(threadID)"
     let changes = StreamRecorder(await rig.lifecycle.changes())
 
     #expect(await rig.lifecycle.delete(threadID) == .done)
-    _ = try await changes.next { $0 == .deleted(id: threadID) }
+    _ = try await changes.next { $0 == .deleted(id: threadID, subThreadIDs: []) }
 
     for tab in ThreadListFilter.allCases {
         let saved = try #require(await rig.cache.threadList(tab))
@@ -430,22 +430,68 @@ func aFailedDeleteChangesNothingAndNamesItsFailure(status: Int, code: String, fa
 }
 
 @Test func aThreadThatIsGoneIsRemovedLocallyWhateverTheAction() async throws {
-    for action in 0..<3 {
+    for action in 0..<2 {
         let rig = try await makeRig(list(threads: [row(threadID)]))
         await rig.transport.on(starRoute, problem(404, "not_found"))
         await rig.transport.on(closeRoute, problem(404, "not_found"))
-        await rig.transport.on(deleteRoute, problem(404, "not_found"))
         let changes = StreamRecorder(await rig.lifecycle.changes())
-        let outcome: ThreadLifecycleOutcome =
-            switch action {
-            case 0: await rig.lifecycle.setStar(threadID, to: true)
-            case 1: await rig.lifecycle.close(threadID)
-            default: await rig.lifecycle.delete(threadID)
-            }
+        let outcome =
+            action == 0 ? await rig.lifecycle.setStar(threadID, to: true) : await rig.lifecycle.close(threadID)
         #expect(outcome == .failed(.gone))
-        _ = try await changes.next { $0 == .gone(id: threadID) }
+        _ = try await changes.next { $0 == .gone(id: threadID, subThreadIDs: []) }
         #expect(try #require(await rig.cache.threadList(.mine)).row(ofThread: threadID) == nil)
     }
+}
+
+@Test func aDeleteTheServerAnswers404ForIsDoneBecauseTheThreadIsGone() async throws {
+    let rig = try await makeRig(list(threads: [row(threadID)]))
+    let changes = StreamRecorder(await rig.lifecycle.changes())
+    await rig.transport.on(deleteRoute, .failure(.timedOut))
+    #expect(await rig.lifecycle.delete(threadID) == .failed(.failed))
+    #expect(try #require(await rig.cache.threadList(.mine)).row(ofThread: threadID) != nil)
+    await rig.transport.on(deleteRoute, problem(404, "not_found"))
+    #expect(await rig.lifecycle.delete(threadID) == .done)
+    _ = try await changes.next { $0 == .deleted(id: threadID, subThreadIDs: []) }
+    #expect(try #require(await rig.cache.threadList(.mine)).row(ofThread: threadID) == nil)
+}
+
+@Test func aDeleteRemovesWhatTheSubThreadsHoldToo() async throws {
+    let child = row("chi1d001")
+    let rig = try await makeRig(list(threads: [row(threadID, children: [child])]))
+    await rig.transport.on(deleteRoute, .json(200, #"{"id":"\#(threadID)","status":"deleted"}"#))
+    await rig.transport.on("POST threads/chi1d001/messages", .failure(.notConnectedToInternet))
+    _ = try await rig.outbox.enqueue(OutboxDraft(target: .thread("chi1d001"), text: "unsent"))
+    await rig.transport.waitForRequests(1, on: "POST threads/chi1d001/messages")
+    await rig.cache.saveComposerDraft(ComposerDraft(text: "draft"), for: .thread("chi1d001"))
+    #expect(await rig.copies.save(Data("page".utf8), thread: "chi1d001") == .saved)
+    let show = try decoded(ThreadShow.self, "scenario-thread-show")
+    await rig.cache.saveThread("chi1d001", CachedThread(show: show, events: [], lastSequence: 0, firstLoadedAfter: 0))
+    let changes = StreamRecorder(await rig.lifecycle.changes())
+
+    #expect(await rig.lifecycle.delete(threadID) == .done)
+    _ = try await changes.next { $0 == .deleted(id: threadID, subThreadIDs: ["chi1d001"]) }
+
+    #expect(await rig.cache.thread("chi1d001") == nil)
+    #expect(await rig.cache.composerDraft(.thread("chi1d001")) == nil)
+    #expect(await rig.copies.copy(thread: "chi1d001") == nil)
+    #expect(await rig.outbox.items().isEmpty)
+}
+
+@Test func aRefusedStarGoesBackToWhatTheListHeldNotToTheOpposite() async throws {
+    let rig = try await makeRig(list(starred: [row(threadID, isStarred: true)]))
+    await rig.transport.on(starRoute, problem(500, "server_error"))
+    #expect(await rig.lifecycle.setStar(threadID, to: true) == .failed(.failed))
+    let after = try #require(await rig.cache.threadList(.mine))
+    #expect(after.starred.map(\.id) == [threadID] && after.starred[0].isStarred)
+}
+
+@Test func theFeedNamesTheWholeSubtreeOfAThread() async throws {
+    let grandchild = row("gr4nd001")
+    let rig = try await makeRig(
+        list(threads: [row(threadID, children: [row("chi1d001", children: [grandchild])])]))
+    #expect(await rig.feed.subtreeIDs(of: threadID) == [threadID, "chi1d001", "gr4nd001"])
+    #expect(await rig.feed.subtreeIDs(of: "other001") == ["other001"])
+    #expect(await rig.feed.isStarred(threadID) == false)
 }
 
 @Test func offlineAndTimeoutAreToldApart() async throws {

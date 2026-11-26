@@ -4,7 +4,8 @@ import Foundation
 /// so a star, a closed thread and a deleted one show in the next list and page the app asks for. A new scenario
 /// resets everything.
 final class StubThreadActions: StubFeature, @unchecked Sendable {
-    static let slowDelay = Duration.seconds(5)
+    /// The longest a held answer waits for the release, so a test that never releases it cannot hang the stub.
+    static let longestHold = Duration.seconds(120)
     static let sandboxSentence = "The sandbox could not be destroyed yet. Try again in a moment."
 
     let name = "thread-actions"
@@ -18,6 +19,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         var closed: Set<String> = []
         var deleted: Set<String> = []
         var deleteAttempts = 0
+        var isReleased = false
         var log: [String] = []
     }
 
@@ -29,6 +31,9 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         switch (request.method, request.path) {
         case ("GET", "/__stub/thread-actions/log"):
             return text(state.get().log.joined(separator: "\n"))
+        case ("POST", "/__stub/thread-actions/release"):
+            state.mutate { $0.isReleased = true }
+            return text("ok")
         case ("POST", "/__stub/thread-actions/delete-elsewhere"):
             let id = String(decoding: request.body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
             state.mutate { $0.deleted.insert(id) }
@@ -73,6 +78,19 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
 
     private func failure(_ status: Int, _ code: String, _ message: String, delay: Duration = .zero) -> StubReply {
         StubReply(answer: Scenario.error(status, code, message), delay: delay)
+    }
+
+    /// Holds the answer of the slow scenario until the test releases it.
+    private func held(_ reply: StubReply, in scenario: String) -> StubReply {
+        guard scenario == "thread-actions-slow" else { return reply }
+        var held = reply
+        held.hold = { [state] in
+            let deadline = ContinuousClock.now + Self.longestHold
+            while !state.get().isReleased, ContinuousClock.now < deadline {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        return held
     }
 
     private func notFound() -> StubReply { failure(404, "not_found", "This thread does not exist.") }
@@ -191,8 +209,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         default: break
         }
         state.mutate { _ = $0.closed.insert(id) }
-        let delay = context.scenario == "thread-actions-slow" ? Self.slowDelay : Duration.zero
-        return rowAnswer(id, context).map { reply($0, delay: delay) } ?? notFound()
+        return rowAnswer(id, context).map { held(reply($0), in: context.scenario) } ?? notFound()
     }
 
     private func delete(_ id: String, _ context: StubContext) -> StubReply? {
@@ -209,8 +226,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
             return failure(409, "sandbox_unavailable", Self.sandboxSentence)
         default: break
         }
-        let delay = context.scenario == "thread-actions-slow" ? Self.slowDelay : Duration.zero
         state.mutate { _ = $0.deleted.insert(id) }
-        return reply(["id": id, "status": "deleted"], delay: delay)
+        return held(reply(["id": id, "status": "deleted"]), in: context.scenario)
     }
 }

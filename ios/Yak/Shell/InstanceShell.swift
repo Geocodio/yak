@@ -44,7 +44,13 @@ struct InstanceShell: View {
             scene?.closeThread()
             scene?.setDrawerOpen(true)
         }
-        actions.threadWasRemoved = { NotificationCenter.default.post(name: .yakThreadRemoved, object: nil) }
+        actions.threadsChanged = { [weak model] removed in
+            guard let model else { return }
+            model.widgets?.threadsChanged()
+            guard !removed.isEmpty else { return }
+            await model.push?.removeDeliveredNotifications(forThreads: Set(removed), from: routedInstance)
+            NotificationCenter.default.post(name: .yakThreadRemoved, object: nil)
+        }
         _threadActions = State(initialValue: actions)
         let instanceURL = routedInstance.url
         _taskOpener = State(

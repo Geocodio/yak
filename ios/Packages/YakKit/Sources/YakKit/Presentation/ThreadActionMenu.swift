@@ -108,8 +108,9 @@ public struct ThreadActionMenu: Equatable, Sendable {
 
     public func item(_ kind: ThreadActionKind) -> ThreadActionItem? { items.first { $0.kind == kind } }
 
-    /// Header: Star first (not on a sub-thread); then the work actions, sub-thread, share, panes, web and link as they
-    /// were; then Cancel request, Close and Delete in a group of their own. Row: Open, new window, Star, link and the
+    /// Header, as board D1 draws it: Star (not on a sub-thread), Share and Add a sub-thread; then the work actions (Request
+    /// review, Retry walkthrough render and the rest); then the panes, the web page and the link; then Cancel request,
+    /// Close and Delete. Row: Open, new window, Star, link and the
     /// source's page, then Close and Delete. Star needs only reading; Close needs driving; Delete needs a drivable root.
     public static func make(_ subject: ThreadActionSubject) -> ThreadActionMenu {
         func item(
@@ -131,12 +132,12 @@ public struct ThreadActionMenu: Equatable, Sendable {
                 item(.work($0.action), $0.id, needsServer: true)
             }
             let cancel = subject.workItems.contains(where: \.isDestructive)
-            let middle =
-                work + (subject.canAddSubThread ? [item(.addSubThread, "add-sub-thread")] : [])
-                + (subject.canShare ? [item(.share, "share")] : [])
-                + [item(.panes, "panes"), item(.openOnWeb, "open-web"), item(.copyLink, "copy-link")]
+            let people =
+                star + (subject.canShare ? [item(.share, "share")] : [])
+                + (subject.canAddSubThread ? [item(.addSubThread, "add-sub-thread")] : [])
+            let around = [item(.panes, "panes"), item(.openOnWeb, "open-web"), item(.copyLink, "copy-link")]
             let last = (cancel ? [item(.cancelRequest, "cancel", destructive: true, needsServer: true)] : []) + ends
-            return ThreadActionMenu(groups: [star + middle, last].filter { !$0.isEmpty })
+            return ThreadActionMenu(groups: [people, work, around, last].filter { !$0.isEmpty })
         case .row:
             let source = subject.source.map { [item(.openSource(name: $0.name, url: $0.url), "open-source")] } ?? []
             let first =
