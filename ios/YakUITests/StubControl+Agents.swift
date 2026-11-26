@@ -2,7 +2,7 @@ import XCTest
 
 extension StubControl {
     /// How the stub answers "Stop all" from now on: `ok`, `fail` (500), `slow` (held until `releaseAgents()`), `zero`
-    /// (nothing ran) or `limited` (429).
+    /// (nothing ran), `limited` (429), `notfound` (404) or `unauthorized` (401).
     func setAgentsMode(_ mode: String) throws { try post("agents/mode", mode) }
 
     /// Lets the answers the stub holds in `slow` mode go.
@@ -16,6 +16,11 @@ extension StubControl {
 
     /// One line per "Stop all" request the stub took.
     func agentStopRequests() throws -> [String] {
-        try get("agents/log").split(separator: "\n").map(String.init)
+        try get("agents/log").split(separator: "\n").map(String.init).filter { $0.hasPrefix("POST") }
+    }
+
+    /// How many held answers the stub has sent.
+    func agentAnswersSent() -> Int {
+        (getIfPresent("agents/log") ?? "").split(separator: "\n").filter { $0 == "answered" }.count
     }
 }

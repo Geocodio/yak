@@ -12,9 +12,10 @@ import XCTest
         XCUIDevice.shared.orientation = .portrait
     }
 
-    private func open(_ scenario: String, hasField: Bool = true) throws {
+    private func open(_ scenario: String, hasField: Bool = true, contentSize: String? = nil) throws {
         try stub.play(scenario)
         app.launchArguments = ["-yakTestInstance", stub.url, "-yakTestToken", "stub-token"]
+        if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
         app.launchRetryingOnce()
         if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
         let row = app.descendants(matching: .any)["drawer.row.thread:d0e515ef"]
@@ -113,8 +114,14 @@ import XCTest
         stop.tap()
         XCTAssertFalse(app.alerts.firstMatch.exists, "a tap on a running stop asks nothing")
         try stub.releaseAgents()
-        waitFor("label CONTAINS 'Stopping'", stop)
+        // The stub says when the held answer left; only then is "Stopping" the answer's doing.
+        let answered = NSPredicate { _, _ in self.stub.agentAnswersSent() >= 1 }
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: answered, object: nil)], timeout: Wait.appear),
+            .completed)
         XCTAssertEqual(try stub.agentStopRequests().count, 1)
+        XCTAssertTrue(stop.label.contains("Stopping"))
+        XCTAssertFalse(element("agents.failure").exists)
         try auditThreadScreen(app)
         XCTAssertTrue(element("agents.bar").exists, "the bar stays until a report says no agent runs")
         try stub.setRunningAgents(0)
@@ -157,6 +164,18 @@ import XCTest
         XCTAssertEqual(failure.label, "Too many requests. Try again in a moment.")
     }
 
+    /// 404, 403 and 401 offer no Try again: asking again cannot change what the server said.
+    func testANotFoundAnswerSaysSoAndOffersNoTryAgain() throws {
+        try open("agents-two")
+        waitForCount("2 agents running")
+        try stub.setAgentsMode("notfound")
+        confirmStop("2 agents")
+        let failure = element("agents.failure")
+        XCTAssertTrue(failure.waitForExistence(timeout: Wait.appear))
+        XCTAssertEqual(failure.label, "Yak could not find agents to stop on this thread.")
+        XCTAssertFalse(element("agents.retry").exists)
+    }
+
     func testAViewerSeesTheCountAndViewButNoStopAll() throws {
         try open("agents-viewer", hasField: false)
         waitForCount("2 agents running")
@@ -184,8 +203,16 @@ import XCTest
         try stub.setOnline(false)
         waitFor("isEnabled == false", element("agents.stop"))
         XCTAssertTrue(element("agents.offline").exists)
+        try auditThreadScreen(app)
         XCTAssertEqual(count.label, "2 agents running")
         try stub.setOnline(true)
         waitFor("isEnabled == true", element("agents.stop"))
+    }
+
+    /// At the largest text size the bar wraps and still passes the audit.
+    func testTheBarPassesTheAuditAtTheLargestTextSize() throws {
+        try open("agents-one", contentSize: "UICTContentSizeCategoryAccessibilityXXXL")
+        waitForCount("1 agent running")
+        try auditThreadScreen(app)
     }
 }

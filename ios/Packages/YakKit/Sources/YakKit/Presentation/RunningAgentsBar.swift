@@ -55,6 +55,8 @@ public struct RunningAgentsBar: Equatable, Sendable {
     public private(set) var phase: Phase = .running
     /// The page has reported for the current page load.
     public private(set) var hasPageReported = false
+    /// Counts the entries into `.stopping`, whatever reported them, so the owner starts its timeout on each one.
+    public private(set) var stoppingSerial = 0
 
     public init() {}
 
@@ -62,7 +64,7 @@ public struct RunningAgentsBar: Equatable, Sendable {
     public mutating func showReported(_ agents: RunningAgents?) {
         guard !hasPageReported, let agents else { return }
         update(count: agents.runningCount, newest: nil)
-        if count > 0, phase == .running, agents.isStopping { phase = .stopping }
+        if count > 0, phase == .running, agents.isStopping { enterStopping() }
     }
 
     /// The page's `agents` message.
@@ -87,6 +89,18 @@ public struct RunningAgentsBar: Equatable, Sendable {
             // Agents that started after the stop ran are not stopping.
             phase = .running
         }
+        // A report that moves the count says things are not as they were when the stop failed.
+        if newCount != previous, case .failed = phase { phase = .running }
+    }
+
+    private mutating func enterStopping() {
+        phase = .stopping
+        stoppingSerial += 1
+    }
+
+    /// The device went online: a failure that only said there was no connection is gone.
+    public mutating func connectivityChanged(isOffline: Bool) {
+        if !isOffline, phase == .failed(.offline) { phase = .running }
     }
 
     /// Whether a "Stop all" may start now.
@@ -111,7 +125,7 @@ public struct RunningAgentsBar: Equatable, Sendable {
         guard phase == .requesting else { return }
         switch result.outcome {
         case .done:
-            phase = .stopping
+            enterStopping()
             if let agents = result.agents, agents.runningCount == 0 { update(count: 0, newest: nil) }
         default:
             phase = .failed(AgentsStopFailure(result.outcome))
@@ -154,6 +168,6 @@ public struct RunningAgentsBarLine: Equatable, Sendable {
             count: bar.count, isStopping: bar.phase == .stopping, isRequesting: bar.phase == .requesting,
             failure: failure, newest: bar.newest, showsStop: showsStop,
             stopIsEnabled: showsStop && bar.canRequestStop && !isOffline,
-            needsConnection: showsStop && isOffline && bar.canRequestStop)
+            needsConnection: showsStop && isOffline && bar.canRequestStop && failure == nil)
     }
 }

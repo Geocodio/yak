@@ -14237,6 +14237,16 @@
           }
         }
       }
+    },
+    "agents.retry.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks the agents to stop again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

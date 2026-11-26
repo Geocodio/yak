@@ -170,6 +170,60 @@ private func line(
     #expect(bar.phase == .running)
 }
 
+@Test func everyEntryIntoStoppingIsCountedWhateverReportedIt() {
+    var bar = RunningAgentsBar()
+    bar.showReported(agents(2, stopping: true))
+    #expect(bar.stoppingSerial == 1 && bar.phase == .stopping)
+    bar.showReported(agents(2, stopping: true))
+    #expect(bar.stoppingSerial == 1, "a repeat of the same report is no new entry")
+    bar.stoppingTimedOut()
+    var second = RunningAgentsBar()
+    second.pageReported(running: 1, newest: nil)
+    _ = second.beginStop()
+    second.finishStop(AgentsStopResult(outcome: .done))
+    #expect(second.stoppingSerial == 1)
+    second.stoppingTimedOut()
+    _ = second.beginStop()
+    second.finishStop(AgentsStopResult(outcome: .done))
+    #expect(second.stoppingSerial == 2)
+}
+
+@Test func aFailureGoesWhenAReportMovesTheCountAndStaysWhenItDoesNot() {
+    var bar = RunningAgentsBar()
+    bar.pageReported(running: 2, newest: "a")
+    _ = bar.beginStop()
+    bar.finishStop(AgentsStopResult(outcome: .failed(.server(code: "server_error", message: ""))))
+    bar.pageReported(running: 2, newest: "b")
+    #expect(bar.phase == .failed(.serverProblem), "the same count says nothing new")
+    bar.pageReported(running: 1, newest: "b")
+    #expect(bar.phase == .running && bar.canRequestStop)
+}
+
+@Test func comingBackOnlineClearsOnlyAnOfflineFailure() {
+    var bar = RunningAgentsBar()
+    bar.pageReported(running: 2, newest: nil)
+    _ = bar.beginStop()
+    bar.finishStop(AgentsStopResult(outcome: .failed(.offline)))
+    bar.connectivityChanged(isOffline: true)
+    #expect(bar.phase == .failed(.offline))
+    bar.connectivityChanged(isOffline: false)
+    #expect(bar.phase == .running)
+    _ = bar.beginStop()
+    bar.finishStop(AgentsStopResult(outcome: .refused(code: "forbidden", message: "", fieldErrors: [:])))
+    bar.connectivityChanged(isOffline: false)
+    #expect(bar.phase == .failed(.forbidden))
+}
+
+@Test func offlineWithAFailureSaysOneSentence() {
+    var bar = RunningAgentsBar()
+    bar.pageReported(running: 2, newest: nil)
+    _ = bar.beginStop()
+    bar.finishStop(AgentsStopResult(outcome: .failed(.offline)))
+    let offline = line(bar, isOffline: true)
+    #expect(offline?.failure == .offline && offline?.needsConnection == false)
+    #expect(offline?.stopIsEnabled == false)
+}
+
 // MARK: Errors
 
 @Test func everyFailureMapsToOneKind() {
@@ -262,4 +316,20 @@ private func engineRig() async throws -> (engine: ThreadEngine, transport: Scrip
     #expect(AgentsStopFailure(await rig.engine.stopAgents().outcome) == .offline)
     await rig.transport.on(route, .json(500, #"{"error":"server_error","message":"Oops"}"#))
     #expect(AgentsStopFailure(await rig.engine.stopAgents().outcome) == .serverProblem)
+}
+
+@Test func aSignedOutAnswerMapsToTheSignedOutSentence() async throws {
+    let rig = try await engineRig()
+    await rig.transport.on(
+        "POST threads/d0e515ef/agents/stop", .json(401, #"{"error":"invalid_token","message":"No."}"#))
+    #expect(AgentsStopFailure(await rig.engine.stopAgents().outcome) == .signedOut)
+    #expect(!AgentsStopFailure.signedOut.isRetryable)
+}
+
+@Test func aNotFoundAnswerMapsToTheUnavailableSentenceWithNoTryAgain() async throws {
+    let rig = try await engineRig()
+    await rig.transport.on(
+        "POST threads/d0e515ef/agents/stop", .json(404, #"{"error":"not_found","message":"No."}"#))
+    let failure = AgentsStopFailure(await rig.engine.stopAgents().outcome)
+    #expect(failure == .unavailable && !failure.isRetryable)
 }

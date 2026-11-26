@@ -10,6 +10,8 @@ enum Design {
     static let busyOpacity: Double = 0.7
     /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
     static let closedMarkOpacity: Double = 0.62
+    /// How dim the agents bar's dot gets at the low point of its pulse.
+    static let agentDotDimOpacity: Double = 0.4
 
     /// Gaps and insets, in points.
     enum Space {
@@ -189,8 +191,6 @@ extension Color {
     static let yakText = board(dark: 0xE6E7EA, light: 0x282A30)
     /// The accent as a fill: `--accent`.
     static let yakAccent = board(dark: 0xD58F71, light: 0xB45C35)
-    /// The accent as small text on the page: a shade deeper in light mode, so a line of it reads at 4.5 to 1.
-    static let yakAccentText = board(dark: 0xD58F71, light: 0xA3512D)
     /// Success and a running step: `--ok`.
     static let yakOK = board(dark: 0x6FBE68, light: 0x3E8E38)
     /// Warning text: `--warn` in dark; in light a darker orange, because the web's `#D97A22` is under 4.5 to 1 as text.

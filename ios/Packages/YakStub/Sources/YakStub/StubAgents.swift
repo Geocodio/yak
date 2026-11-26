@@ -5,8 +5,8 @@ import Foundation
 /// (the stop route answers 403), `agents-missing` names a newest card the page does not draw, and `agents-slash` has two running and a list of slash commands, so the bar and the
 /// commands menu can be seen together. The stop route mirrors the server: it answers `stopping` with the agents that still
 /// run, or `idle` when none does, and every request is counted. A test changes what it answers with `/__stub/agents/`:
-/// `mode` (`ok`, `fail`, `slow`, `zero`, `limited`), `release` (lets held answers go), `running` (the number that
-/// run now), `newest` (the card fragment the page names) and `log` (one line per stop request).
+/// `mode` (`ok`, `fail`, `slow`, `zero`, `limited`, `notfound`, `unauthorized`), `release` (lets held answers go), `running` (the number that
+/// run now), `newest` (the card fragment the page names) and `log` (one line per stop request, and `answered` when a held answer left).
 final class StubAgents: StubFeature, @unchecked Sendable {
     /// The longest a held answer waits for the release, so a test that never releases it cannot hang the stub.
     static let longestHold = Duration.seconds(120)
@@ -50,7 +50,9 @@ final class StubAgents: StubFeature, @unchecked Sendable {
         case ("GET", "/__stub/agents/report"):
             return report()
         case ("POST", "/__stub/agents/mode"):
-            guard ["ok", "fail", "slow", "zero", "limited"].contains(body) else { return nil }
+            guard ["ok", "fail", "slow", "zero", "limited", "notfound", "unauthorized"].contains(body) else {
+                return nil
+            }
             state.mutate { $0.mode = body }
             return text("ok")
         case ("POST", "/__stub/agents/release"):
@@ -141,14 +143,15 @@ final class StubAgents: StubFeature, @unchecked Sendable {
         switch current.mode {
         case "fail": return failure(500, "server_error", "Something went wrong.")
         case "limited": return failure(429, "rate_limited", "Too many requests.", headers: ["Retry-After": "120"])
+        case "notfound": return failure(404, "not_found", "This thread does not exist.")
+        case "unauthorized": return failure(401, "invalid_token", "This device is not signed in.")
         default: break
         }
-        let stopped = current.running
+        // Nothing ran: the server answers `idle` and stops no one.
+        let isIdle = current.running == 0 || current.mode == "zero"
+        let stopped = isIdle ? 0 : current.running
         if current.mode == "zero" { state.mutate { $0.running = 0 } }
-        let answer = reply([
-            "status": stopped == 0 || current.mode == "zero" ? "idle" : "stopping", "stopped": stopped,
-            "agents": agents(),
-        ])
+        let answer = reply(["status": isIdle ? "idle" : "stopping", "stopped": stopped, "agents": agents()])
         return current.mode == "slow" ? held(answer) : answer
     }
 
@@ -161,6 +164,8 @@ final class StubAgents: StubFeature, @unchecked Sendable {
             while !state.get().isReleased, ContinuousClock.now < deadline {
                 try? await Task.sleep(for: .milliseconds(100))
             }
+            // The log says when the held answer left, so a test waits for that and not for a guess.
+            state.mutate { $0.log.append("answered") }
         }
         return held
     }

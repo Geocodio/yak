@@ -27,14 +27,22 @@ struct RunningAgentsBarView: View {
         }
         .motion(Motion.panel, value: line?.count != nil)
         .onChange(of: web?.agentsReport, initial: true) { model.pageReported(web?.agentsReport) }
-        .onChange(of: line?.count) { old, new in
-            guard let old, RunningAgentsBar.announces(from: old, to: new ?? 0) else { return }
-            var text = AttributedString(
-                new == nil || new == 0
-                    ? String(localized: "agents.announce.none") : String(localized: "agents.running \(new ?? 0)"))
-            text.accessibilitySpeechAnnouncementPriority = .low
-            AccessibilityNotification.Announcement(text).post()
+        .onChange(of: thread.isOffline, initial: true) { model.connectivityChanged(isOffline: thread.isOffline) }
+        .onChange(of: model.bar.count) { old, new in
+            guard RunningAgentsBar.announces(from: old, to: new) else { return }
+            announce(new == 0 ? String(localized: "agents.announce.none") : String(localized: "agents.running \(new)"))
         }
+        .onChange(of: model.bar.phase) { _, phase in
+            if case .failed(let failure) = phase { announce(String(localized: failureText(failure))) }
+        }
+        .onDisappear { model.isConfirming = false }
+    }
+
+    /// Said politely, after what VoiceOver is already reading.
+    private func announce(_ sentence: String) {
+        var text = AttributedString(sentence)
+        text.accessibilitySpeechAnnouncementPriority = .low
+        AccessibilityNotification.Announcement(text).post()
     }
 
     // MARK: Content
@@ -53,7 +61,7 @@ struct RunningAgentsBarView: View {
                     if line.showsStop { stopButton(line) }
                 }
             }
-            if let failure = line.failure { failureRow(failure, line: line) }
+            if let failure = line.failure { failureRow(failure) }
             if line.needsConnection { explanation(Text("chat.action.offline"), identifier: "agents.offline") }
         }
         .padding(.horizontal, Design.Space.small)
@@ -76,7 +84,7 @@ struct RunningAgentsBarView: View {
             guard let fragment = line.newest else { return }
             web?.focusAgent(fragment: fragment, thread: thread.threadID)
         } label: {
-            Text("agents.view").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccentText)
+            Text("agents.view").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAction)
                 .padding(.horizontal, Design.Space.snug)
                 .frame(minHeight: Design.Size.control).contentShape(.rect)
         }
@@ -84,25 +92,31 @@ struct RunningAgentsBarView: View {
         .accessibilityHint(Text("agents.view.hint")).accessibilityIdentifier("agents.view")
     }
 
-    /// The chip: a button, or while the request runs and while the agents wind down a quiet label that cannot be pressed.
+    /// The chip: Stop all, or Try again after a failure that trying again can change; while the request runs and while
+    /// the agents wind down, a quiet label that cannot be pressed.
     private func stopButton(_ line: RunningAgentsBarLine) -> some View {
         @Bindable var bindable = model
         let isWorking = line.isRequesting || line.isStopping
         return Group {
             if isWorking {
                 chip(line).accessibilityElement(children: .combine).accessibilityLabel(Text("agents.stopping"))
-                    .accessibilityAddTraits(.updatesFrequently)
+                    .accessibilityAddTraits(.updatesFrequently).accessibilityIdentifier("agents.stop")
             } else {
                 Button {
-                    model.askToStop()
+                    // A retry was confirmed already; a first stop is asked about.
+                    if line.showsRetry { Task { await model.stop() } } else { model.askToStop() }
                 } label: {
                     chip(line)
                 }
                 .buttonStyle(.pressable).disabled(!line.stopIsEnabled)
-                .accessibilityHint(Text(line.needsConnection ? "chat.action.offline" : "agents.stop.hint"))
+                .accessibilityHint(
+                    Text(
+                        line.needsConnection
+                            ? "chat.action.offline" : line.showsRetry ? "agents.retry.hint" : "agents.stop.hint")
+                )
+                .accessibilityIdentifier(line.showsRetry ? "agents.retry" : "agents.stop")
             }
         }
-        .accessibilityIdentifier("agents.stop")
         .alert(
             line.count == 1 ? Text("agents.confirm.title.one") : Text("agents.confirm.title \(line.count)"),
             isPresented: $bindable.isConfirming
@@ -119,8 +133,11 @@ struct RunningAgentsBarView: View {
     private func chip(_ line: RunningAgentsBarLine) -> some View {
         HStack(spacing: Design.Space.small) {
             if line.isRequesting { ProgressView().controlSize(.small) }
-            Text(line.isRequesting || line.isStopping ? "agents.stopping" : "agents.stop")
-                .font(.yak(.footnote, .semibold)).foregroundStyle(Color.primary)
+            Text(
+                line.isRequesting || line.isStopping
+                    ? "agents.stopping" : line.showsRetry ? "agents.retry" : "agents.stop"
+            )
+            .font(.yak(.footnote, .semibold)).foregroundStyle(line.showsRetry ? Color.yakAction : Color.primary)
         }
         .padding(.horizontal, Design.Space.medium)
         .frame(minHeight: Design.Size.agentChip)
@@ -132,38 +149,22 @@ struct RunningAgentsBarView: View {
         .frame(minHeight: Design.Size.control).contentShape(.rect)
     }
 
-    private func failureRow(_ failure: AgentsStopFailure, line: RunningAgentsBarLine) -> some View {
-        let layout =
-            dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Design.Space.tight))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Design.Space.small))
-        return layout {
-            HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
-                Image(systemName: "exclamationmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakDanger)
-                    .accessibilityHidden(true)
-                Text(failureText(failure)).font(.yak(.footnote)).foregroundStyle(Color.primary)
-                    .fixedSize(horizontal: false, vertical: true).layoutPriority(1)
-                    .accessibilityIdentifier("agents.failure")
-            }
-            if line.showsRetry && line.showsStop {
-                if dynamicTypeSize.isAccessibilitySize == false { Spacer(minLength: Design.Space.small) }
-                Button {
-                    Task { await model.stop() }
-                } label: {
-                    Text("agents.retry").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAccentText)
-                        .frame(minHeight: Design.Size.control).contentShape(.rect)
-                }
-                .buttonStyle(.pressable).disabled(!line.stopIsEnabled).accessibilityIdentifier("agents.retry")
-            }
+    private func failureRow(_ failure: AgentsStopFailure) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Design.Space.small) {
+            Image(systemName: "exclamationmark.circle").font(.yak(.footnote)).foregroundStyle(Color.yakDanger)
+                .accessibilityHidden(true)
+            Text(failureText(failure)).font(.yak(.footnote)).foregroundStyle(Color.primary)
+                .fixedSize(horizontal: false, vertical: true).layoutPriority(1)
+                .accessibilityIdentifier("agents.failure")
         }
     }
 
     private func explanation(_ text: Text, identifier: String) -> some View {
-        text.font(.yak(.footnote)).foregroundStyle(Color.primary.opacity(0.85))
+        text.font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
             .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
     }
 
-    private func failureText(_ failure: AgentsStopFailure) -> LocalizedStringKey {
+    private func failureText(_ failure: AgentsStopFailure) -> LocalizedStringResource {
         switch failure {
         case .offline: "agents.failure.offline"
         case .signedOut: "agents.failure.signedOut"
@@ -175,17 +176,25 @@ struct RunningAgentsBarView: View {
     }
 }
 
-/// The blue dot that says agents are working: a slow pulse, still under Reduce Motion.
+/// The blue dot that says agents are working: a slow pulse, still while Reduce Motion is on.
 private struct PulsingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDim = false
 
     var body: some View {
         Circle().fill(Color.yakInfo).frame(width: Design.Size.agentDot, height: Design.Size.agentDot)
-            .opacity(isDim ? Design.closedMarkOpacity : 1)
-            .onAppear {
-                guard !StillMotion.isOn(reduceMotion: reduceMotion) else { return }
-                withAnimation(Motion.pulse) { isDim = true }
-            }
+            .opacity(isDim ? Design.agentDotDimOpacity : 1)
+            .onAppear { update() }
+            .onChange(of: reduceMotion) { update() }
+    }
+
+    private func update() {
+        if StillMotion.isOn(reduceMotion: reduceMotion) {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { isDim = false }
+        } else {
+            withAnimation(Motion.pulse) { isDim = true }
+        }
     }
 }

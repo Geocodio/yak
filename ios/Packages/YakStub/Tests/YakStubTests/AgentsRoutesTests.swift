@@ -75,6 +75,26 @@ import Testing
         #expect(limited.headers["Retry-After"] == "120")
     }
 
+    @Test func notFoundAndUnauthorizedAnswerTheServersErrors() throws {
+        let (feature, context) = try started("agents-two")
+        _ = control(feature, "POST", "mode", "notfound")
+        #expect(try call(feature, "POST", "threads/\(thread)/agents/stop", context).status == 404)
+        _ = control(feature, "POST", "mode", "unauthorized")
+        let refused = try call(feature, "POST", "threads/\(thread)/agents/stop", context)
+        #expect(refused.status == 401 && refused.object["error"] as? String == "invalid_token")
+    }
+
+    @Test func idleStopsNoOne() throws {
+        let (feature, context) = try started("agents-two")
+        _ = control(feature, "POST", "mode", "zero")
+        let answer = try call(feature, "POST", "threads/\(thread)/agents/stop", context)
+        #expect(answer.object["status"] as? String == "idle" && answer.object["stopped"] as? Int == 0)
+        let none = try started("agents-two")
+        _ = control(none.0, "POST", "running", "0")
+        let empty = try call(none.0, "POST", "threads/\(thread)/agents/stop", none.1)
+        #expect(empty.object["status"] as? String == "idle" && empty.object["stopped"] as? Int == 0)
+    }
+
     @Test func aViewerCannotStopAndDoesNotDrive() throws {
         let (feature, context) = try started("agents-viewer")
         let refused = try call(feature, "POST", "threads/\(thread)/agents/stop", context)
