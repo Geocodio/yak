@@ -1,8 +1,12 @@
 public struct StackChildState: OpenValue {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
+    /// Open, no turn run yet, and not waiting for a free spot.
+    public static let starting = StackChildState(rawValue: "starting")
+    /// Waiting for a free spot; the web says "Waiting".
     public static let queued = StackChildState(rawValue: "queued")
     public static let working = StackChildState(rawValue: "working")
+    /// The sub-thread's turn ended and it needs the person; the web says "Needs you".
     public static let waiting = StackChildState(rawValue: "waiting")
     public static let done = StackChildState(rawValue: "done")
     public static let failed = StackChildState(rawValue: "failed")

@@ -79,6 +79,27 @@ import XCTest
         try shootOverview("overview-subthreads")
     }
 
+    func testSubThreadStates() throws {
+        try openOverview("overview-states")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.q7adapt0"].waitForExistence(timeout: 60))
+        try shootOverview("overview-states")
+    }
+
+    func testSubThreadStatesChangeTapped() throws {
+        try openOverview("overview-states")
+        let change = app.buttons["overview.limit.change"]
+        XCTAssertTrue(change.waitForExistence(timeout: 60))
+        change.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.awake"].waitForExistence(timeout: 60))
+        try shootOverview("overview-states-change")
+    }
+
+    func testSubThreadMoreStates() throws {
+        try openOverview("overview-states-more")
+        XCTAssertTrue(app.descendants(matching: .any)["overview.child.n33dsyou"].waitForExistence(timeout: 60))
+        try shootOverview("overview-states-more")
+    }
+
     func testSubThreadMenu() throws {
         try openOverview("overview-stack")
         let menu = app.buttons["overview.child.q7adapt0.menu"]
@@ -98,7 +119,7 @@ import XCTest
 
     func testStopAllConfirmation() throws {
         try openOverview("overview-stack")
-        try scrollToStopAll().tap()
+        try tapStopAll()
         XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 60))
         try shoot("overview-stop-confirm", audits: false)
     }
@@ -125,16 +146,6 @@ import XCTest
         app.descendants(matching: .any)["thread.title"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["overview.parent"].waitForExistence(timeout: 60))
         try shootOverview("overview-child")
-    }
-
-    func testSubThreadMessages() throws {
-        try openOverview("overview-stack")
-        let folded = app.buttons["overview.messages"]
-        XCTAssertTrue(folded.waitForExistence(timeout: 60))
-        for _ in 0..<6 where !folded.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
-        folded.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["overview.message.51"].waitForExistence(timeout: 60))
-        try shootOverview("overview-messages")
     }
 
     func testActionRefused() throws {
@@ -437,11 +448,13 @@ import XCTest
         button.tap()
     }
 
-    private func scrollToStopAll() throws -> XCUIElement {
-        let stop = app.buttons["overview.stopAll"]
+    private func tapStopAll() throws {
+        let menu = app.buttons["overview.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 60))
+        menu.tap()
+        let stop = app.buttons["Stop all sub-threads"]
         XCTAssertTrue(stop.waitForExistence(timeout: 60))
-        for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
-        return stop
+        stop.tap()
     }
 
     /// Plays the scenario, opens the root thread from the drawer and the Overview from the title.
