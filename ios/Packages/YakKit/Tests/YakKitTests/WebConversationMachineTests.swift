@@ -47,6 +47,16 @@ private func readyMachine() -> Machine {
     #expect(machine.phase == .ready && machine.nextDeadline == nil)
 }
 
+@Test func aPageReadyWhileWaitingLeavesThePhaseAndTheTimeout() {
+    var machine = waiting()
+    let pageReady = EmbedPageMessage.pageReady(path: "/app/embed/deployments", title: "Deployments")
+    #expect(machine.handle(.page(pageReady), at: later(1)) == [])
+    #expect(machine.phase == .loading(.waitingForReady) && machine.nextDeadline == later(8))
+    _ = machine.handle(.tick, at: later(8))
+    _ = machine.handle(.tick, at: later(30))
+    #expect(machine.phase == .failed(.timeout))
+}
+
 @Test func noReadyAfterTheThresholdIsSlowThenFails() {
     var machine = waiting()
     #expect(machine.nextDeadline == later(8))
