@@ -94,6 +94,22 @@ import Testing
         }
     }
 
+    @Test func theManyScenarioAnswersTheServersLimitOfThreads() throws {
+        let rows = results(try search(StubSearch(), "retry", scenario: "search-many").json)
+        #expect(rows.count == 10 && rows.allSatisfy { $0["type"] as? String == "thread" })
+    }
+
+    @Test func theUnknownScenarioAnswersAKindTheAppDoesNotKnow() throws {
+        let rows = results(try search(StubSearch(), "retry", scenario: "search-unknown").json)
+        #expect(rows.map { $0["type"] as? String } == ["deployment", "deployment"])
+        #expect(rows[0]["path"] as? String == "/deployments/1" && rows[1]["path"] is NSNull)
+    }
+
+    @Test func tooManySearchesAnswerTheServersCode() throws {
+        let limited = try search(StubSearch(), "retry", scenario: "search-limited")
+        #expect(limited.json["error"] as? String == "rate_limited")
+    }
+
     @Test func theLongLimitedScenarioWaitsThirtySeconds() throws {
         let limited = try search(StubSearch(), "retry", scenario: "search-limited-long")
         #expect(limited.status == 429 && limited.reply.headers["Retry-After"] == "30")

@@ -7,37 +7,48 @@ struct SearchResultRowView: View {
     let result: SearchResult
     let highlight: String
     let opensBrowser: Bool
+    /// False for a result of a kind this build does not know that has nowhere to go: the row only reads.
+    var isTappable = true
     let open: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        Button(action: open) {
-            HStack(alignment: .top, spacing: Design.Space.snug) {
-                Image(systemName: icon).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
-                    .frame(width: Design.Size.resultIcon).padding(.top, Design.Space.small)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: Design.Space.nudge) {
-                    Text(title).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
-                    Text(result.subtitle).font(.yakRowRepository).foregroundStyle(Color.yakMuted)
-                        .multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1).truncationMode(.middle)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: Design.Space.tight)
-                if opensBrowser {
-                    Image(systemName: "arrow.up.right").font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
-                        .padding(.top, Design.Space.small).accessibilityHidden(true)
-                }
-            }
-            .padding(.leading, Design.Space.snug).padding(.trailing, Design.Space.medium)
-            .padding(.vertical, Design.Space.compact)
-            .frame(minHeight: Design.Size.row).contentShape(.rect)
+        if isTappable {
+            Button(action: open) { content }
+                .buttonStyle(RowButtonStyle(isSelected: false))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(label)
+                .accessibilityHint(opensBrowser ? Text("search.result.opensBrowser") : Text(verbatim: ""))
+                .accessibilityIdentifier("search.result.\(result.identity)")
+        } else {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(label)
+                .accessibilityIdentifier("search.result.\(result.identity)")
         }
-        .buttonStyle(RowButtonStyle(isSelected: false))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityHint(opensBrowser ? Text("search.result.opensBrowser") : Text(verbatim: ""))
-        .accessibilityIdentifier("search.result.\(result.identity)")
+    }
+
+    private var content: some View {
+        HStack(alignment: .top, spacing: Design.Space.snug) {
+            Image(systemName: icon).font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakMuted)
+                .frame(width: Design.Size.resultIcon).padding(.top, Design.Space.small)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Design.Space.nudge) {
+                Text(title).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+                Text(result.subtitle).font(.yakRowRepository).foregroundStyle(Color.yakMuted)
+                    .multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1).truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: Design.Space.tight)
+            if opensBrowser {
+                Image(systemName: "arrow.up.right").font(.yak(.caption, .semibold)).foregroundStyle(Color.yakMuted)
+                    .padding(.top, Design.Space.small).accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, Design.Space.snug).padding(.trailing, Design.Space.medium)
+        .padding(.vertical, Design.Space.compact)
+        .frame(minHeight: Design.Size.row).contentShape(.rect)
     }
 
     private var wrapsLines: Bool { dynamicTypeSize > .large }
@@ -47,6 +58,7 @@ struct SearchResultRowView: View {
         case .repository: "book.closed"
         case .pullRequest: "arrow.triangle.pull"
         case .thread: "bubble.left"
+        case .other: "circle.dotted"
         }
     }
 
@@ -67,6 +79,7 @@ struct SearchResultRowView: View {
             case .repository: String(localized: "search.kind.repository")
             case .pullRequest: String(localized: "search.kind.pullRequest")
             case .thread: String(localized: "search.kind.thread")
+            case .other: String(localized: "search.kind.other")
             }
         return [kind, result.title, result.subtitle].joined(separator: ". ")
     }
@@ -168,5 +181,31 @@ struct SearchSkeleton: View {
                 .frame(maxWidth: index % 2 == 0 ? .infinity : Design.Size.previewWidth * 0.6, alignment: .leading)
         }
         .frame(minHeight: Design.Size.row)
+    }
+}
+
+/// A small bordered button, aligned leading, for the one action a search message offers (Retry, Show all matches).
+struct SearchSmallButton: View {
+    let title: Text
+    var systemImage: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label {
+                title
+            } icon: {
+                if let systemImage { Image(systemName: systemImage) }
+            }
+            .font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText)
+            .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.small)
+            .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.Radius.control)
+                    .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line)
+            )
+            .frame(minHeight: Design.Size.control).contentShape(.rect)
+        }
+        .buttonStyle(.pressable)
     }
 }

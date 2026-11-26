@@ -86,15 +86,17 @@ private final class SearchRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var texts: [String] = []
     private var failure: APIFailure?
+    private var found: [SearchResult] = []
+    func find(_ results: [SearchResult]) { lock.withLock { found = results } }
     var asked: [String] { lock.withLock { texts } }
     func fail(with failure: APIFailure) { lock.withLock { self.failure = failure } }
     func answer(_ text: String) throws(APIFailure) -> SearchAnswer {
-        let failure = lock.withLock { () -> APIFailure? in
+        let (failure, results) = lock.withLock { () -> (APIFailure?, [SearchResult]) in
             texts.append(text)
-            return self.failure
+            return (self.failure, found)
         }
         if let failure { throw failure }
-        return SearchAnswer(results: [])
+        return SearchAnswer(results: results)
     }
 }
 
@@ -215,6 +217,33 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     #expect(sections.map(\.kind) == [.savedOnThisPhone] && sections.first?.rows.map(\.id) == ["thread:a1b2c3d4"])
 }
 
+@MainActor @Test func showingAllMatchesInTheTabSwapsTheServersFirstTenForTheLocalNarrowing() async throws {
+    let fixture = try await Fixture()
+    fixture.searches.find(
+        (0..<SearchResult.limitPerKind).map {
+            SearchResult(kind: .thread, id: "m\($0)", title: "Billing \($0)", subtitle: "example/api")
+        })
+    let running = Task { await fixture.model.run() }
+    defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
+    fixture.model.search = "billing"
+    #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
+    fixture.typingClock.release()
+    #expect(await fixture.eventually { fixture.model.searchState.showsServerResults })
+    #expect(fixture.model.showsServerResults && fixture.model.localQuery == nil)
+    fixture.model.showAllMatchesInTab()
+    #expect(!fixture.model.showsServerResults && fixture.model.localQuery == "billing")
+    guard case .sections(let sections)? = fixture.model.content else {
+        Issue.record("no rows")
+        return
+    }
+    #expect(sections.flatMap(\.rows).first?.id == "thread:a1b2c3d4")
+    // Editing the text ends it.
+    fixture.model.search = "billin"
+    #expect(!fixture.model.isShowingAllInTab)
+}
+
 @MainActor @Test func aResultThreadUsesTheLoadedRowWhenTheTabHasIt() async throws {
     let fixture = try await Fixture()
     let running = Task { await fixture.model.run() }
@@ -231,13 +260,16 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     let fixture = try await Fixture()
     let running = Task { await fixture.model.run() }
     defer { running.cancel() }
-    fixture.model.search = "webhook"
-    #expect(await fixture.eventually { fixture.typingClock.sleeperCount == 1 })
-    fixture.typingClock.release()
-    #expect(await fixture.eventually { fixture.searches.asked == ["webhook"] })
+    // One character narrows the loaded tab, so the widening is reachable from "no match".
+    fixture.model.search = "z"
+    guard case .noResults(_, let canWiden)? = fixture.model.content else {
+        Issue.record("one character found a match")
+        return
+    }
+    #expect(canWiden)
     await fixture.model.widenSearch()
     #expect(fixture.scene.state.filter == .everyone)
-    #expect(fixture.model.search == "webhook")
+    #expect(fixture.model.search == "z" && fixture.searches.asked.isEmpty)
     #expect(await fixture.eventually { fixture.transport.requestedQueries.last == "filter=everyone" })
 }
 

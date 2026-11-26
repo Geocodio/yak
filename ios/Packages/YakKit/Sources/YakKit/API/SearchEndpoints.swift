@@ -5,8 +5,9 @@ extension Endpoint where Response == SearchAnswer {
     /// decides when to ask again.
     public static func search(_ text: String) -> Endpoint<SearchAnswer> {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cut = String(String.UnicodeScalarView(trimmed.unicodeScalars.prefix(100)))
         return Endpoint(
-            method: .get, path: "search", query: [URLQueryItem(name: "q", value: String(String.UnicodeScalarView(trimmed.unicodeScalars.prefix(100))))],
+            method: .get, path: "search", query: [URLQueryItem(name: "q", value: cut)],
             retriesTransientFailures: false)
     }
 }

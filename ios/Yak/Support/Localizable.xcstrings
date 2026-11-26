@@ -14049,7 +14049,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saved on this iPhone"
+            "value" : "Saved on this device"
           }
         }
       }
@@ -14089,7 +14089,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Searching only the threads saved on this iPhone. Repositories and pull requests need a connection."
+            "value" : "Searching only the threads saved on this device. Repositories and pull requests need a connection."
           }
         }
       }
@@ -14120,38 +14120,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Too many searches."
-          }
-        }
-      }
-    },
-    "search.limited.detail %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%#@count@"
-          },
-          "substitutions" : {
-            "count" : {
-              "argNum" : 1,
-              "formatSpecifier" : "lld",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "Try again in %arg second."
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "Try again in %arg seconds."
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -14274,6 +14242,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No results"
+          }
+        }
+      }
+    },
+    "search.limited.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in a moment."
+          }
+        }
+      }
+    },
+    "search.group.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "search.kind.other" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
+          }
+        }
+      }
+    },
+    "search.limit.note %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Showing the first %lld."
+          }
+        }
+      }
+    },
+    "search.limit.showAll" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all matches in this tab"
+          }
+        }
+      }
+    },
+    "search.rejected.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This search cannot be sent"
+          }
+        }
+      }
+    },
+    "search.rejected.detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try a shorter text or different words."
           }
         }
       }

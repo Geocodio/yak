@@ -6,7 +6,8 @@ import Foundation
 /// thread and one without.
 ///
 /// Scenarios: `search` (answers), `search-one` (one thread result for any query, so a screen at the largest text size
-/// shows it whole), `search-empty` (never finds anything), `search-slow` (the answer waits for
+/// shows it whole), `search-many` (ten thread results, the server's limit), `search-unknown` (two results of a kind the
+/// app does not know, one with a thread and one without), `search-empty` (never finds anything), `search-slow` (the answer waits for
 /// `POST /__stub/search/release`), `search-failing` (500 until `POST /__stub/search/relent`) and `search-limited`
 /// (429 with `Retry-After: 2` until the same relent). `search-limited-long` waits 30 seconds, so a screen can be shot
 /// and audited while the limit message stays. `GET /__stub/search/log` lists the queries asked, one per line.
@@ -17,7 +18,8 @@ final class StubSearch: StubFeature, @unchecked Sendable {
 
     let name = "search"
     let scenarios = [
-        "search", "search-one", "search-empty", "search-slow", "search-failing", "search-limited",
+        "search", "search-one", "search-many", "search-unknown", "search-empty", "search-slow", "search-failing",
+        "search-limited",
         "search-limited-long",
     ]
 
@@ -67,16 +69,20 @@ final class StubSearch: StubFeature, @unchecked Sendable {
         case "search-failing" where !current.isRelented:
             return failure(500, "server_error", "Search is not available.")
         case "search-limited" where !current.isRelented, "search-limited-long" where !current.isRelented:
-            var limited = failure(429, "too_many_requests", "Too many searches.")
+            var limited = failure(429, "rate_limited", "Too many searches.")
             let wait = context.scenario == "search-limited" ? Self.limitedWaitSeconds : Self.longLimitedWaitSeconds
             limited.headers["Retry-After"] = String(wait)
             return limited
         default:
             break
         }
-        let found =
-            context.scenario == "search-one"
-            ? Array(results(for: "retry", context).prefix(1)) : results(for: query, context)
+        let found: [[String: Any]]
+        switch context.scenario {
+        case "search-one": found = Array(results(for: "retry", context).prefix(1))
+        case "search-many": found = Self.manyThreads()
+        case "search-unknown": found = Self.unknownKinds()
+        default: found = results(for: query, context)
+        }
         var reply = json(["results": context.scenario == "search-empty" ? [] : found])
         if context.scenario == "search-slow" {
             reply.hold = { [state] in
@@ -90,6 +96,32 @@ final class StubSearch: StubFeature, @unchecked Sendable {
     }
 
     // MARK: Results
+
+    /// The server's limit of one kind: ten threads that are not in any loaded list.
+    private static func manyThreads() -> [[String: Any]] {
+        (0..<10).map { index in
+            let id = "m0000000\(index)"
+            return [
+                "type": "thread", "id": id, "title": "Retry match \(index)",
+                "subtitle": "example/web / yak/retry-\(index)",
+                "threadId": id, "path": "/threads/\(id)", "url": NSNull(),
+            ]
+        }
+    }
+
+    /// A kind a newer server may add: with a thread to open, and with nowhere to go.
+    private static func unknownKinds() -> [[String: Any]] {
+        [
+            [
+                "type": "deployment", "id": "dep-1", "title": "Preview of the retry branch", "subtitle": "example/web",
+                "threadId": "d0e515ef", "path": "/deployments/1", "url": NSNull(),
+            ],
+            [
+                "type": "deployment", "id": "dep-2", "title": "Retry preview, no page", "subtitle": "example/api",
+                "threadId": NSNull(), "path": NSNull(), "url": NSNull(),
+            ],
+        ]
+    }
 
     private func results(for query: String, _ context: StubContext) -> [[String: Any]] {
         func matches(_ text: String) -> Bool { text.localizedStandardContains(query) }

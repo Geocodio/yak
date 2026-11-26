@@ -38,13 +38,13 @@ struct DrawerView: View {
             if !(isSearching && isShortOfRoom) {
                 tiles
                 // The server's search covers everything whatever the tab, so no tab or filter shows while it does.
-                if drawer?.searchState.showsServerResults != true {
+                if drawer?.showsServerResults != true {
                     tabRow.transition(.opacity)
                 }
             }
             content.frame(maxHeight: .infinity, alignment: .top)
         }
-        .motion(Motion.content, value: drawer?.searchState.showsServerResults)
+        .motion(Motion.content, value: drawer?.showsServerResults)
         // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
         .frame(maxHeight: .infinity, alignment: .top)
         .clipped()
@@ -79,6 +79,10 @@ struct DrawerView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("drawer")
         .onChange(of: scene.searchFocusRequest) { isSearchFocused = true }
+        .onChange(of: drawer?.searchState.phase) { _, phase in
+            guard let phase, let sentence = Self.messageSentence(for: phase) else { return }
+            AccessibilityNotification.Announcement(sentence).post()
+        }
         .onChange(of: drawer?.searchState.announcement) { _, announcement in
             guard let announcement else { return }
             let sentence =
@@ -86,6 +90,19 @@ struct DrawerView: View {
                 ? String(localized: "search.announce.none")
                 : String(localized: "search.announce.results \(announcement.count)")
             AccessibilityNotification.Announcement(sentence).post()
+        }
+    }
+
+    /// What VoiceOver hears when a search ends in a message, once for each change of state.
+    private static func messageSentence(for phase: SearchState.Phase) -> String? {
+        switch phase {
+        case .offline: String(localized: "search.offline.lead") + " " + String(localized: "search.offline.detail")
+        case .failed: String(localized: "search.failed.title") + ". " + String(localized: "search.failed.detail")
+        case .rejected(let message):
+            String(localized: "search.rejected.title") + ". "
+                + (message.isEmpty ? String(localized: "search.rejected.detail") : message)
+        case .rateLimited: String(localized: "search.limited.lead") + " " + String(localized: "search.limited.detail")
+        default: nil
         }
     }
 
@@ -272,7 +289,7 @@ struct DrawerView: View {
     // MARK: Content
 
     @ViewBuilder private var content: some View {
-        if let drawer, drawer.searchState.showsServerResults {
+        if let drawer, drawer.showsServerResults {
             searchResults(drawer)
         } else if let drawer, let state = drawer.state, state.list != nil, let shown = drawer.displayedContent {
             VStack(spacing: 0) {
@@ -636,6 +653,12 @@ struct DrawerView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                         }
+                        if group.isAtLimit {
+                            limitRow(group, drawer: drawer)
+                                .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        }
                     } header: {
                         SearchGroupHeading(
                             title: groupTitle(group.kind), count: group.results.count,
@@ -663,6 +686,7 @@ struct DrawerView: View {
         case .thread: String(localized: "search.group.threads")
         case .repository: String(localized: "search.group.repositories")
         case .pullRequest: String(localized: "search.group.pullRequests")
+        case .other: String(localized: "search.group.other")
         }
     }
 
@@ -674,16 +698,51 @@ struct DrawerView: View {
             rowView(drawer.threadRow(for: result), now: now, drawer: drawer, highlight: highlight)
         } else {
             SearchResultRowView(
-                result: result, highlight: highlight,
-                opensBrowser: result.kind == .repository || result.threadID == nil,
-                open: { openResult(result) })
+                result: result, highlight: highlight, opensBrowser: opensBrowser(result),
+                isTappable: result.kind != .other || isOpenable(result), open: { openResult(result) })
         }
     }
 
     /// A thread, and a pull request that has one, open the thread as a tap on a row does. A repository opens its page
     /// on the instance in the in-app browser, and a pull request without a thread opens GitHub there.
+    /// A page on the instance for the result's own path, when the path stays on the instance.
+    private func page(of result: SearchResult) -> URL? { ReviewLink.url(path: result.path, instance: instance.url) }
+
+    private func isOpenable(_ result: SearchResult) -> Bool { result.threadID != nil || page(of: result) != nil }
+
+    private func opensBrowser(_ result: SearchResult) -> Bool {
+        switch result.kind {
+        case .repository: true
+        case .pullRequest: result.threadID == nil
+        case .other: result.threadID == nil && page(of: result) != nil
+        case .thread: false
+        }
+    }
+
+    /// A group that holds all the server sends may have more matches than it shows.
+    private func limitRow(_ group: SearchGroup, drawer: DrawerModel) -> some View {
+        VStack(alignment: .leading, spacing: Design.Space.tight) {
+            Text("search.limit.note \(SearchResult.limitPerKind)").font(.yak(.footnote))
+                .foregroundStyle(Color.yakMuted).fixedSize(horizontal: false, vertical: true)
+            if group.kind == .thread {
+                SearchSmallButton(title: Text("search.limit.showAll")) { drawer.showAllMatchesInTab() }
+                    .accessibilityIdentifier("search.showAll")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, Design.Space.section).padding(.trailing, Design.Space.medium)
+        .padding(.vertical, Design.Space.compact)
+    }
+
     private func openResult(_ result: SearchResult) {
         switch result.kind {
+        case .other:
+            if result.threadID != nil {
+                open(.searchResult(result))
+            } else if let url = page(of: result) {
+                isSearchFocused = false
+                model.browserURL = url
+            }
         case .thread: open(.searchResult(result))
         case .pullRequest:
             if result.threadID != nil {
@@ -693,7 +752,7 @@ struct DrawerView: View {
                 model.browserURL = url
             }
         case .repository:
-            guard let url = ReviewLink.url(path: result.path, instance: instance.url) ?? result.url else { return }
+            guard let url = page(of: result) ?? result.url else { return }
             isSearchFocused = false
             model.browserURL = url
         }
@@ -730,46 +789,51 @@ struct DrawerView: View {
                 .padding(.horizontal, Design.Space.section).padding(.top, Design.Space.compact)
                 .accessibilityIdentifier("search.hint")
         case .offline:
-            SearchStrip(
-                tone: .offline, lead: String(localized: "search.offline.lead"),
-                detail: String(localized: "search.offline.detail"),
-                identifier: "search.offline")
-        case .failed:
-            VStack(alignment: .leading, spacing: Design.Space.compact) {
-                Text("search.failed.title").font(.yak(.subheadline, .semibold))
-                Text("search.failed.detail").font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
-                Button {
-                    drawer.retrySearch()
-                } label: {
-                    Label {
-                        Text("common.retry")
-                    } icon: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText)
-                    .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.small)
-                    .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Design.Radius.control)
-                            .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line)
-                    )
-                    .frame(minHeight: Design.Size.control).contentShape(.rect)
+            VStack(alignment: .leading, spacing: 0) {
+                SearchStrip(
+                    tone: .offline, lead: String(localized: "search.offline.lead"),
+                    detail: String(localized: "search.offline.detail"), identifier: "search.offline")
+                // The feed still reaches the server, so the search that failed can be asked again.
+                if !drawer.isOffline {
+                    retryButton(drawer).padding(.horizontal, Design.Space.section).padding(.top, Design.Space.small)
                 }
-                .buttonStyle(.pressable)
-                .accessibilityIdentifier("search.retry")
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Design.Space.section).padding(.vertical, Design.Space.compact)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("search.failed")
-        case .rateLimited(let seconds):
+        case .failed:
+            searchMessage(
+                title: Text("search.failed.title"), detail: Text("search.failed.detail"), drawer: drawer,
+                canRetry: true, identifier: "search.failed")
+        case .rejected(let message):
+            searchMessage(
+                title: Text("search.rejected.title"),
+                detail: message.isEmpty ? Text("search.rejected.detail") : Text(verbatim: message), drawer: drawer,
+                canRetry: false, identifier: "search.rejected")
+        case .rateLimited:
             SearchStrip(
                 tone: .limited, lead: String(localized: "search.limited.lead"),
-                detail: String(localized: "search.limited.detail \(seconds)"),
-                identifier: "search.limited")
+                detail: String(localized: "search.limited.detail"), identifier: "search.limited")
         default: EmptyView()
         }
+    }
+
+    private func retryButton(_ drawer: DrawerModel) -> some View {
+        SearchSmallButton(title: Text("common.retry"), systemImage: "arrow.clockwise") { drawer.retrySearch() }
+            .accessibilityIdentifier("search.retry")
+    }
+
+    /// A heading, one sentence and, when asking again can help, a small Retry, aligned leading.
+    private func searchMessage(title: Text, detail: Text, drawer: DrawerModel, canRetry: Bool, identifier: String)
+        -> some View
+    {
+        VStack(alignment: .leading, spacing: Design.Space.compact) {
+            title.font(.yak(.subheadline, .semibold))
+            detail.font(.yak(.footnote)).foregroundStyle(Color.yakMuted)
+            if canRetry { retryButton(drawer) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Design.Space.section).padding(.vertical, Design.Space.compact)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
     }
 
     /// Nothing among the loaded threads matches either.

@@ -16,12 +16,16 @@ final class DrawerModel {
     var search = "" {
         didSet {
             guard search != oldValue else { return }
+            isShowingAllInTab = false
             searchDriver?.setText(search)
             recompute()
         }
     }
     /// What the search field shows beyond the list: the server's results, or why the list is filtered locally.
     private(set) var searchState = SearchState()
+    /// The person asked for every match in the selected tab instead of the server's first ones; the next change of the
+    /// text ends it.
+    private(set) var isShowingAllInTab = false
 
     @ObservationIgnored private let feed: ThreadListFeed
     @ObservationIgnored private let outbox: Outbox?
@@ -131,6 +135,8 @@ final class DrawerModel {
 
     /// Follows the feed and the outbox until the calling task is cancelled.
     func run() async {
+        // A wait that is over once the drawer is gone must not send a request.
+        defer { searchDriver?.stop() }
         async let listing: Void = followFeed()
         async let unsentThreads: Void = followOutbox()
         _ = await (listing, unsentThreads)
@@ -241,6 +247,16 @@ final class DrawerModel {
         await setFilter(.everyone)
     }
 
+    /// The server's answer is on screen, in place of the list.
+    var showsServerResults: Bool { searchState.showsServerResults && !isShowingAllInTab }
+
+    /// Swaps the server's first results for every match among the threads of the selected tab, which is loaded whole.
+    func showAllMatchesInTab() {
+        guard searchState.showsServerResults, !isShowingAllInTab else { return }
+        isShowingAllInTab = true
+        recompute()
+    }
+
     /// Asks the server again after a failed search.
     func retrySearch() { searchDriver?.retry() }
 
@@ -248,7 +264,7 @@ final class DrawerModel {
     var localQuery: String? {
         let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        guard searchDriver != nil else { return trimmed }
+        guard searchDriver != nil, !isShowingAllInTab else { return trimmed }
         return searchState.filtersLoadedList ? trimmed : nil
     }
 

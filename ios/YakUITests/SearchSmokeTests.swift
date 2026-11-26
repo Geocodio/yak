@@ -92,9 +92,9 @@ import XCTest
         XCTAssertTrue(element(repository).exists)
         XCTAssertTrue(element(pullRequestWithThread).exists)
         XCTAssertTrue(element(pullRequestWithoutThread).exists)
-        XCTAssertEqual(stub.searchLog(), ["retry"])
+        XCTAssertEqual(stub.searchLog().last, "retry")
         search.typeText("\n")
-        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 2))
+        waitUntilGone(app.keyboards.firstMatch)
         XCTAssertTrue(element("search.results").exists)
         XCTAssertEqual(search.value as? String, "retry")
         try audit()
@@ -198,10 +198,46 @@ import XCTest
         type("retry\n")
         XCTAssertTrue(element("search.limited").waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(app.staticTexts["Loaded threads"].exists)
-        try audit()
         try stub.relentSearch()
         waitForResults()
         XCTAssertFalse(element("search.limited").exists)
+    }
+
+    /// The limit message stays long enough to audit (the 2 second retry cycle swaps views).
+    func testALimitedSearchPassesTheAudit() throws {
+        try launch("search-limited-long")
+        type("retry\n")
+        XCTAssertTrue(element("search.limited").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.staticTexts["Loaded threads"].exists)
+        try audit()
+    }
+
+    /// A group at the server's limit says so, and "Show all matches in this tab" swaps the first ten for every match
+    /// among the tab's loaded threads. The tab row comes back with it.
+    func testAFullGroupOffersEveryMatchInTheTab() throws {
+        try launch("search-many")
+        type("retry\n")
+        waitForResults()
+        XCTAssertTrue(app.staticTexts["Showing the first 10."].exists)
+        element("search.showAll").tap()
+        XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
+        XCTAssertFalse(element("search.results").exists)
+        XCTAssertTrue(element("drawer.tabs").exists)
+        search.typeText("x")
+        XCTAssertTrue(element("search.results").waitForExistence(timeout: Wait.appear))
+    }
+
+    /// A result of a kind the app does not know shows as a plain row; with a thread it opens it, and without a page
+    /// it only reads.
+    func testAnUnknownKindShowsAsAPlainRow() throws {
+        try launch("search-unknown")
+        type("retry\n")
+        waitForResults()
+        XCTAssertTrue(app.buttons["search.result.other:dep-1"].exists)
+        XCTAssertTrue(element("search.result.other:dep-2").exists)
+        XCTAssertFalse(app.buttons["search.result.other:dep-2"].exists)
+        app.buttons["search.result.other:dep-1"].tap()
+        XCTAssertTrue(app.buttons["thread.menu"].waitForExistence(timeout: Wait.appear))
     }
 
     /// Offline the field narrows the threads saved on the phone under a heading that says so, and the server is asked

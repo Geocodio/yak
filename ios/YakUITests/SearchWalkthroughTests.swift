@@ -48,6 +48,14 @@ import XCTest
         try shoot("search-one-character", audits: false)
     }
 
+    /// One character that matches nothing in the tab: the message and the way to widen to every tab.
+    func testOneCharacterNoMatch() throws {
+        try launch()
+        type("z")
+        XCTAssertTrue(app.buttons["drawer.noResults.widen"].waitForExistence(timeout: Wait.appear))
+        try shoot("search-one-character-no-match")
+    }
+
     func testLoading() throws {
         try launch("search-slow")
         type("retry")
