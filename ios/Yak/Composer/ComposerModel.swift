@@ -84,6 +84,11 @@ final class ComposerModel {
     private(set) var thumbnails: [String: Data] = [:]
 
     private var typedText = ""
+    /// The commands menu was closed with Escape or by a pick; the next edit opens it again.
+    private(set) var isSlashMenuDismissed = false
+    private var highlightedCommand: String?
+    /// Counts picks from the menu, so the view moves focus back to the field once per pick.
+    private(set) var slashPickCount = 0
     private var snapshot: ConversationSnapshot?
     private(set) var sendKey: UUID?
     /// The draft a send has taken out of the field and the outbox has not accepted yet.
@@ -125,9 +130,49 @@ final class ComposerModel {
             typedText = newValue
             hasEdited = true
             problem = nil
+            isSlashMenuDismissed = false
+            highlightedCommand = nil
             refreshSendKey()
             scheduleSave()
         }
+    }
+
+    /// The commands menu for the text in the field, from the commands the last thread data lists, which is also what
+    /// an offline thread has. Nil while the menu is closed, and always for a server that lists no commands.
+    var slashMenu: SlashMenu? {
+        SlashMenu.make(
+            commands: snapshot?.show?.slashCommands?.commands, text: typedText, isDismissed: isSlashMenuDismissed,
+            highlighted: highlightedCommand)
+    }
+
+    func moveSlashSelection(_ direction: SlashMenu.Direction) {
+        highlightedCommand = slashMenu?.moved(direction)
+    }
+
+    /// Fills the command into the field and waits for Send; the menu stays closed until the next edit.
+    func pickSlashCommand(_ command: SlashCommand) {
+        text = SlashMenu.pick(command).text
+        isSlashMenuDismissed = true
+        slashPickCount += 1
+    }
+
+    func dismissSlashMenu() { isSlashMenuDismissed = true }
+
+    /// The keys the menu takes from the field right now.
+    func slashKeys(isComposing: Bool) -> Set<SlashKey> {
+        SlashKeyRouting.keys(menu: slashMenu, isComposing: isComposing)
+    }
+
+    /// Applies a key the menu takes; false when the field keeps it.
+    @discardableResult
+    func handleSlashKey(_ key: SlashKey, isComposing: Bool) -> Bool {
+        switch SlashKeyRouting.action(for: key, menu: slashMenu, isComposing: isComposing) {
+        case .move(let direction): moveSlashSelection(direction)
+        case .pick(let command): pickSlashCommand(command)
+        case .dismiss: dismissSlashMenu()
+        case nil: return false
+        }
+        return true
     }
 
     var bar: ComposerBarState {
