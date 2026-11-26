@@ -2,10 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\StackThreadMessageKind;
-use App\Enums\ThreadKind;
-use App\Models\StackThreadMessage;
-use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadAgent;
 use App\Models\ThreadAgentMessage;
@@ -143,10 +139,7 @@ final class ThreadAgentsData
             return [];
         }
 
-        $ids = $children->pluck('id');
-        $failed = StackThreadMessage::query()->whereIn('from_thread_id', $ids)->where('kind', StackThreadMessageKind::Failure)->pluck('from_thread_id')->flip();
-        $hasRuns = TaskRun::query()->whereIn('thread_id', $ids)->distinct()->pluck('thread_id')->flip();
-        $active = TaskRun::query()->whereIn('thread_id', $ids)->whereIn('turn_state', ThreadTurns::ACTIVE_STATES)->distinct()->pluck('thread_id')->flip();
+        $states = StackListing::states($children);
 
         $rows = [];
 
@@ -156,7 +149,7 @@ final class ThreadAgentsData
                 'name' => $child->name,
                 'title' => $child->title,
                 'kind' => $child->kind->value,
-                'state' => StackListing::resolveState($child->isOpen(), $failed->has($child->id), $child->result_summary !== null, $child->queued_for_slot_at !== null, $child->kind === ThreadKind::Research, $hasRuns->has($child->id), $active->has($child->id)),
+                'state' => $states[$child->id],
                 'step' => $child->current_step,
                 'branch' => $child->branch,
                 'pullRequestUrl' => $child->primaryRepository?->pull_request_url,
