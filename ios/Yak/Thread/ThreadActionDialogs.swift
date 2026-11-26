@@ -1,7 +1,7 @@
 import SwiftUI
 import YakKit
 
-/// The system sheet that asks before a close or a delete, and the alert for a delete the server could not finish.
+/// The system alert that asks before a close or a delete, and the alert for a delete the server could not finish.
 /// Each screen that can start an action attaches it for its own `surface`, so one question shows once, where it was
 /// asked. The destructive button is never the default: Cancel is.
 private struct ThreadActionDialogs: ViewModifier {
@@ -10,15 +10,16 @@ private struct ThreadActionDialogs: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .confirmationDialog(
+            .alert(
                 Text(verbatim: shownConfirmation?.title ?? ""), isPresented: confirmationBinding,
-                titleVisibility: .visible, presenting: shownConfirmation
+                presenting: shownConfirmation
             ) { confirmation in
+                // Cancel is the default button; the action is never the one Return would press.
+                Button("common.cancel", role: .cancel) {}
                 Button(confirmation.confirmLabel, role: confirmation.kind == .delete ? .destructive : nil) {
                     actions.confirm(confirmation)
                 }
                 .accessibilityIdentifier("thread.confirm.\(confirmation.kind == .delete ? "delete" : "close")")
-                Button("common.cancel", role: .cancel) {}
             } message: { confirmation in
                 Text(verbatim: confirmation.message)
             }

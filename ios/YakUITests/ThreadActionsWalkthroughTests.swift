@@ -104,9 +104,9 @@ import XCTest
         openThread()
         app.buttons["thread.menu"].tap()
         button("Close thread").tap()
-        XCTAssertTrue(app.staticTexts["Close this thread?"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.alerts.staticTexts["Close this thread?"].waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-close-sheet", audits: false)
-        app.sheets.buttons["Close thread"].firstMatch.tap()
+        app.alerts.buttons["Close thread"].firstMatch.tap()
         XCTAssertTrue(element("thread.closedMark").waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(element("composer.new").waitForExistence(timeout: Wait.appear))
         try shootThread("thread-actions-closed-thread")
@@ -121,9 +121,9 @@ import XCTest
         openThread()
         app.buttons["thread.menu"].tap()
         button("Delete thread").tap()
-        XCTAssertTrue(app.staticTexts["Delete this thread?"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.alerts.staticTexts["Delete this thread?"].waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-delete-sheet", audits: false)
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         try stub.post("thread-actions/release", "go")
         XCTAssertTrue(element("drawer.toast").waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-deleted", audits: false)
@@ -133,7 +133,7 @@ import XCTest
         try launch("thread-actions-slow")
         longPress(thread)
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         let deleting = NSPredicate(format: "label CONTAINS %@", "Deleting")
         wait(for: [XCTNSPredicateExpectation(predicate: deleting, object: row(thread))], timeout: Wait.appear)
         try shoot("thread-actions-deleting", audits: false)
@@ -144,7 +144,7 @@ import XCTest
         try launch("thread-actions-conflict")
         longPress(thread)
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         XCTAssertTrue(app.alerts["Could not delete the thread"].waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-delete-refused", audits: false)
     }
@@ -156,5 +156,23 @@ import XCTest
         longPress(thread)
         XCTAssertTrue(button("Star thread").waitForExistence(timeout: Wait.appear))
         try shoot("thread-actions-offline-row-menu", audits: false)
+    }
+
+    /// The closed thread's line at every text size, from a thread that opens at once (no drawer to scroll first).
+    func testClosedThreadLine() throws {
+        try start("thread-actions", paired: true)
+        if !app.otherElements["drawer"].waitForExistence(timeout: 10) { app.buttons["threads.button"].tap() }
+        // At the largest text size the list is long, so the thread is found by search.
+        let search = app.textFields["drawer.search"]
+        XCTAssertTrue(search.waitForExistence(timeout: Wait.firstLoad))
+        search.tap()
+        search.typeText("Private notes\n")
+        XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
+        openThread()
+        app.buttons["thread.menu"].tap()
+        button("Close thread").tap()
+        app.alerts.buttons["Close thread"].firstMatch.tap()
+        XCTAssertTrue(element("composer.new").waitForExistence(timeout: Wait.appear))
+        try shoot("thread-actions-closed-line", audits: false)
     }
 }

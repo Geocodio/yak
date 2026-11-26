@@ -139,9 +139,9 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
             item["type"] as? String == "thread" ? edited(item, scenario: context.scenario) : item
         }
         let threadRows = (base["starred"] as? [[String: Any]] ?? []) + (base["threads"] as? [[String: Any]] ?? [])
-        let rows = (items.filter { $0["type"] as? String == "thread" } + threadRows)
-            .compactMap { edited($0, scenario: context.scenario) }
-            .filter(keep)
+        let candidates = items.filter { $0["type"] as? String == "thread" } + threadRows
+        let edited = candidates.compactMap { edited($0, scenario: context.scenario) }
+        let rows = edited.filter(keep)
         let tasks = wantsClosed ? [] : items.filter { $0["type"] as? String != "thread" }
         let needy = rows.filter { $0["needsYouReason"] is String }
         let others = rows.filter { !($0["needsYouReason"] is String) }
@@ -158,6 +158,7 @@ final class StubThreadActions: StubFeature, @unchecked Sendable {
         let current = state.get()
         var thread = page["thread"] as? [String: Any] ?? [:]
         thread["isStarred"] = current.starred.contains(id)
+        page["pullRequest"] = ["number": 2301, "url": "https://github.com/example/web/pull/2301"]
         let isClosed = current.closed.contains(id)
         if isClosed {
             thread["status"] = "closed"

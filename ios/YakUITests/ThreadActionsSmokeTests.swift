@@ -59,22 +59,11 @@ import XCTest
         app.buttons["thread.menu"].tap()
     }
 
-    /// The question shows as a popover that has no Cancel button; a tap outside it is the cancel.
+    /// Cancel on the question that asks before a close or a delete.
     private func dismissDialog() {
-        if app.buttons["Cancel"].exists {
-            app.buttons["Cancel"].tap()
-        } else {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.93)).tap()
-        }
+        app.alerts.buttons["Cancel"].tap()
         let gone = NSPredicate(format: "exists == false")
-        wait(
-            for: [
-                XCTNSPredicateExpectation(
-                    predicate: gone,
-                    object: app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "this thread?"))
-                        .firstMatch)
-            ],
-            timeout: Wait.appear)
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: app.alerts.firstMatch)], timeout: Wait.appear)
     }
 
     private func dismissMenu() {
@@ -87,8 +76,17 @@ import XCTest
         XCTAssertTrue(element("drawer.tab.closed").waitForExistence(timeout: Wait.appear))
     }
 
-    private func auditDrawer() throws {
-        try auditTwice(app) { [app] in
+    /// `includesDynamicType` is false only for a drawer whose single row is the one with the PagerDuty badge. There the
+    /// audit reports "Dynamic Type partially unsupported" on the badge (StaticText 'PagerDuty', frame {{40, 285},
+    /// {64.7, 16.3}}) and "Text clipped" on its detail ('1 sub-thread, 0 working', frame {{110.7, 284.7}, {90, 17}}).
+    /// Untouched main gives the same two findings at the same frames for that row alone in the list (a search for
+    /// "Private notes"), so they are not caused by this change. Contrast, element detection, hit areas and every other
+    /// check still run.
+    private func auditDrawer(includesDynamicType: Bool = true) throws {
+        let types =
+            includesDynamicType
+            ? XCUIAccessibilityAuditType.all : XCUIAccessibilityAuditType.all.subtracting([.dynamicType, .textClipped])
+        try auditTwice(app, for: types) { [app] in
             let auditBars = AuditRules.Bars(app)
             return { issue in
                 if AuditRules.isContrastOfAnElementOffScreen(issue, bars: auditBars) { return true }
@@ -148,16 +146,16 @@ import XCTest
         openThread()
         openHeaderMenu()
         button("Close thread").tap()
-        XCTAssertTrue(app.staticTexts["Close this thread?"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.alerts.staticTexts["Close this thread?"].waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(
-            app.staticTexts[
+            app.alerts.staticTexts[
                 "Its sandbox is destroyed and its 1 sub-thread closes too. You can still read it. It cannot be reopened."
             ].exists)
         dismissDialog()
         XCTAssertFalse(log().contains("/close"))
         openHeaderMenu()
         button("Close thread").tap()
-        app.sheets.buttons["Close thread"].firstMatch.tap()
+        app.alerts.buttons["Close thread"].firstMatch.tap()
         XCTAssertTrue(element("thread.closedMark").waitForExistence(timeout: Wait.appear))
         waitForLog(containing: "POST threads/\(thread)/close")
         XCTAssertTrue(element("composer.new").waitForExistence(timeout: Wait.appear))
@@ -175,15 +173,16 @@ import XCTest
         try launch()
         longPress(thread)
         button("Delete thread").tap()
-        XCTAssertTrue(app.staticTexts["Delete this thread?"].waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(app.alerts.staticTexts["Delete this thread?"].waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "are removed for good")).firstMatch.exists
+            app.alerts.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "are removed for good")).firstMatch
+                .exists
         )
         dismissDialog()
         XCTAssertFalse(log().contains("DELETE"))
         longPress(thread)
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         let gone = NSPredicate(format: "exists == false")
         wait(for: [XCTNSPredicateExpectation(predicate: gone, object: row(thread))], timeout: Wait.appear)
         XCTAssertTrue(toast(saying: "Thread deleted.").waitForExistence(timeout: Wait.appear))
@@ -197,7 +196,14 @@ import XCTest
         openThread()
         openHeaderMenu()
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        // The thread has a branch and a pull request, so the question names both.
+        XCTAssertTrue(
+            app.alerts.staticTexts.matching(
+                NSPredicate(
+                    format: "label CONTAINS %@",
+                    "The branch yak/retry-failed-rows and pull request #2301 on GitHub stay.")
+            ).firstMatch.waitForExistence(timeout: Wait.appear))
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         XCTAssertTrue(toast(saying: "Thread deleted.").waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(row(thread).exists)
         XCTAssertTrue(element("drawer").exists)
@@ -208,7 +214,7 @@ import XCTest
         try launch("thread-actions-slow")
         longPress(thread)
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         let deleting = NSPredicate(format: "label CONTAINS %@", "Deleting")
         wait(for: [XCTNSPredicateExpectation(predicate: deleting, object: row(thread))], timeout: Wait.appear)
         longPress(thread)
@@ -228,7 +234,7 @@ import XCTest
         try launch("thread-actions-conflict")
         longPress(thread)
         button("Delete thread").tap()
-        app.sheets.buttons["Delete thread"].firstMatch.tap()
+        app.alerts.buttons["Delete thread"].firstMatch.tap()
         XCTAssertTrue(app.alerts["Could not delete the thread"].waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(
             app.alerts.staticTexts["The sandbox could not be destroyed yet. Try again in a moment."].exists)
@@ -298,10 +304,11 @@ import XCTest
         openThread()
         openHeaderMenu()
         button("Close thread").tap()
-        app.sheets.buttons["Close thread"].firstMatch.tap()
+        app.alerts.buttons["Close thread"].firstMatch.tap()
         XCTAssertTrue(element("thread.closedMark").waitForExistence(timeout: Wait.appear))
         openDrawer()
         element("drawer.tab.closed").tap()
         XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
+        try auditDrawer(includesDynamicType: false)
     }
 }
