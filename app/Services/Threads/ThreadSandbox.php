@@ -203,7 +203,7 @@ class ThreadSandbox
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
-            return SandboxWake::restoring();
+            return SandboxWake::wakingElsewhere();
         }
 
         try {
@@ -215,7 +215,7 @@ class ThreadSandbox
 
             return match ($thread->sandbox_state) {
                 ThreadSandboxState::Running => SandboxWake::ready(),
-                ThreadSandboxState::Starting => SandboxWake::restoring(),
+                ThreadSandboxState::Starting => SandboxWake::wakingElsewhere(),
                 ThreadSandboxState::Paused => $this->resume($thread),
                 ThreadSandboxState::Stopped => $this->startStopped($thread),
                 ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed => $this->restoreAwake($thread),

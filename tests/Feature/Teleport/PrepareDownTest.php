@@ -261,6 +261,12 @@ it('shows the sandbox wake as running while no slot is free', function () {
     expect(runDown(downTeleport($this))->progress)->toContain(['step' => 'wake_sandbox', 'status' => 'running', 'detail' => 'waiting for a free sandbox']);
 });
 
+it('says when another wake of the sandbox holds it up', function () {
+    $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::wakingElsewhere());
+
+    expect(runDown(downTeleport($this))->progress)->toContain(['step' => 'wake_sandbox', 'status' => 'running', 'detail' => 'waiting for another wake of this sandbox to finish']);
+});
+
 it('fails the teleport when the job times out, so the CLI stops waiting', function () {
     $teleport = downTeleport($this);
     $job = new PrepareTeleportDownJob($teleport->id);

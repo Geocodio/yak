@@ -131,7 +131,11 @@ class TeleportDownPreparer
         }
 
         if ($wake->waitingForSlot || $wake->restoring) {
-            $teleport->progressStep(TeleportStep::WakeSandbox, 'running', $wake->waitingForSlot ? 'waiting for a free sandbox' : 'restoring the sandbox snapshot');
+            $teleport->progressStep(TeleportStep::WakeSandbox, 'running', match (true) {
+                $wake->waitingForSlot => 'waiting for a free sandbox',
+                $wake->wakingElsewhere => 'waiting for another wake of this sandbox to finish',
+                default => 'restoring the sandbox snapshot',
+            });
 
             return false;
         }
