@@ -52,6 +52,10 @@ type HookDeps struct {
 	Home string
 	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
 	RefreshHandler func()
+	// ClaudePID returns the process id of the claude that runs this hook, or 0 when unknown; nil means unknown.
+	ClaudePID func() int
+	// ProcessAlive reports whether a process exists; nil means every process is alive.
+	ProcessAlive func(pid int) bool
 	// RunTeleport runs yak teleport with args and returns what it printed; nil leaves the slash command to the command file.
 	RunTeleport func(args []string) (output string, exitCode int)
 }
@@ -123,8 +127,8 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 		return block(fmt.Sprintf("This session is on Yak. Run %s teleport %s to bring it back, or run %s marker clear %s to use it as a local session again (its work can be teleported up as a new thread).",
 			bin, m.ThreadRef(), bin, in.SessionID))
 	}
-	if ok && m.Owner == "device" && m.ResumeEpoch != "" && (d.Env == nil || d.Env(EpochEnv) != m.ResumeEpoch) {
-		return block(fmt.Sprintf("This terminal has an out-of-date copy of this session. The thread was teleported to this computer again and is running in another terminal, so a turn here would write to the same session with old context. Use the terminal where you ran yak teleport. If it is gone, run %s marker clear %s to use this session as a plain local one.", quotedBinary(d), in.SessionID))
+	if ok && m.Owner == "device" && m.ResumeEpoch != "" && (d.Env == nil || d.Env(EpochEnv) != m.ResumeEpoch) && !takeOver(d, in.SessionID, m) {
+		return block(fmt.Sprintf("This terminal has an out-of-date copy of this session. The thread was teleported to this computer again and is running in another terminal, so a turn here would write to the same session with old context. Use the terminal where you ran yak teleport. Once that terminal is closed, continue here with %s=%s claude --resume %s.", EpochEnv, m.ResumeEpoch, in.SessionID))
 	}
 	if out, handled := slashTeleport(d, in.Prompt); handled {
 		return out
@@ -135,6 +139,29 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 		}
 	}
 	return ""
+}
+
+// takeOver reports whether this claude may use a session whose epoch it does not carry: it is the process that
+// last launched or took over the session, or that process is gone, in which case this claude becomes the owner.
+// ponytail: a recycled process id can rarely make a takeover be refused or allowed wrongly; recording the launch
+// process start time next to the id would close that gap.
+func takeOver(d HookDeps, sessionID string, m config.Marker) bool {
+	if d.ClaudePID == nil || m.LaunchPID <= 0 {
+		return false
+	}
+	pid := d.ClaudePID()
+	if pid <= 0 {
+		return false
+	}
+	if m.LaunchPID == pid {
+		return true
+	}
+	if d.ProcessAlive == nil || d.ProcessAlive(m.LaunchPID) {
+		return false
+	}
+	m.LaunchPID = pid
+	_ = config.WriteMarker(d.ConfigDir, sessionID, m)
+	return true
 }
 
 // quotedBinary is the command to show a person: the quoted absolute path, or plain yak.

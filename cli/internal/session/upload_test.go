@@ -86,11 +86,16 @@ func TestClaudeConfigDir(t *testing.T) {
 		}
 		return ""
 	}
-	if got := ClaudeConfigDir(env, "/home/me"); got != "/custom" {
-		t.Fatal(got)
-	}
-	if got := ClaudeConfigDir(func(string) string { return "" }, "/home/me"); got != "/home/me/.claude" {
-		t.Fatal(got)
+	none := func(string) string { return "" }
+	for name, c := range map[string]struct{ got, want string }{
+		"env beats setting": {ClaudeConfigDir(env, "/home/me", "/saved"), "/custom"},
+		"setting":           {ClaudeConfigDir(none, "/home/me", "/saved"), "/saved"},
+		"setting with ~/":   {ClaudeConfigDir(none, "/home/me", "~/.claude-work"), "/home/me/.claude-work"},
+		"default":           {ClaudeConfigDir(none, "/home/me", ""), "/home/me/.claude"},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s: got %q, want %q", name, c.got, c.want)
+		}
 	}
 }
 

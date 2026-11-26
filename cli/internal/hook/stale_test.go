@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestStaleTerminalIsBlockedWhenTheThreadWasResumedElsewhere(t *testing.T) {
 	} {
 		r.deps.Env = env
 		out := UserPromptSubmit(r.deps, prompt)
-		if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "another terminal") || !strings.Contains(out, "marker clear "+sid) {
+		if !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "another terminal") || !strings.Contains(out, "YAK_TELEPORT_EPOCH=tp2 claude --resume "+sid) {
 			t.Errorf("%s: stale terminal not blocked with a clear message: %q", name, out)
 		}
 	}
@@ -60,5 +61,53 @@ func TestYakOwnedBlockNamesThePublicThreadID(t *testing.T) {
 	out := UserPromptSubmit(r.deps, Input{SessionID: sid, Prompt: "hi"})
 	if !strings.Contains(out, "teleport k0000042 ") || strings.Contains(out, "teleport 42") {
 		t.Fatalf("%q", out)
+	}
+}
+
+func TestStaleTerminalTakeover(t *testing.T) {
+	const thisClaude, otherClaude = 200, 100
+	r := newRig(t)
+	r.deps.Env = func(string) string { return "" }
+	r.deps.ClaudePID = func() int { return thisClaude }
+	prompt := Input{SessionID: sid, Prompt: "keep going"}
+	write := func(launchPID int) {
+		m := config.Marker{ThreadID: 42, TeleportID: "tp2", Owner: "device", ResumeEpoch: "tp2", LaunchPID: launchPID}
+		if err := config.WriteMarker(r.dir, sid, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	blocked := func() bool { return strings.Contains(UserPromptSubmit(r.deps, prompt), `"decision":"block"`) }
+
+	r.deps.ProcessAlive = func(int) bool { return true }
+	write(thisClaude)
+	if blocked() {
+		t.Error("the claude that launched the session was blocked")
+	}
+	write(otherClaude)
+	if !blocked() {
+		t.Error("a live original was taken over")
+	}
+	write(0)
+	r.deps.ProcessAlive = func(int) bool { return false }
+	if !blocked() {
+		t.Error("a marker without a launch pid allowed a takeover")
+	}
+
+	write(otherClaude)
+	if blocked() {
+		t.Fatal("a dead original was not taken over")
+	}
+	if m, _ := config.ReadMarker(r.dir, sid); m.LaunchPID != thisClaude {
+		t.Errorf("marker not rewritten: %+v", m)
+	}
+	r.deps.ProcessAlive = func(int) bool { return true }
+	if blocked() {
+		t.Error("the new owner was blocked on its next prompt")
+	}
+}
+
+func TestProcessAlive(t *testing.T) {
+	if !ProcessAlive(os.Getpid()) || ProcessAlive(1<<22+12345) {
+		t.Fatal("liveness check is wrong")
 	}
 }

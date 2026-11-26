@@ -8,9 +8,11 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 
 	"github.com/geocodio/yak/cli/internal/api"
+	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/hook"
 	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/slash"
@@ -132,6 +134,16 @@ func runTeleport(ctx *Context, args []string) int {
 	if err != nil {
 		return exitFailure
 	}
+	prompter := ctx.Prompter
+	if f.yes && !f.fromLink {
+		prompter = ui.NewNonInteractive()
+	}
+	home := homeDir(ctx)
+	if f.thread != "" && ctx.Interactive && !ui.IsNonInteractive(prompter) {
+		if cfg, err = askClaudeProfile(ctx, prompter, cfg, home); err != nil {
+			return reportTeleportError(ctx, err)
+		}
+	}
 	var me api.Me
 	if err := client.Do(context.Background(), "GET", "/me", nil, &me); err != nil {
 		return reportAPIError(ctx, err)
@@ -139,14 +151,6 @@ func runTeleport(ctx *Context, args []string) int {
 	if me.Protocol.Min > version.ProtocolVersion {
 		printTooOld(ctx)
 		return exitFailure
-	}
-	prompter := ctx.Prompter
-	if f.yes && !f.fromLink {
-		prompter = ui.NewNonInteractive()
-	}
-	home := ctx.Env("HOME")
-	if home == "" {
-		home, _ = os.UserHomeDir()
 	}
 	deps := teleport.Deps{
 		API: client, Prompter: prompter, Out: ctx.Stdout, Config: cfg, ConfigDir: ctx.ConfigDir,
@@ -159,6 +163,54 @@ func runTeleport(ctx *Context, args []string) int {
 		return teleportUp(bg, ctx, deps, f)
 	}
 	return teleportDown(bg, ctx, deps, f, f.thread)
+}
+
+// askClaudeProfile asks once which Claude Code profile teleported threads open in, when the choice is not already
+// made by $CLAUDE_CONFIG_DIR or a saved setting and the home folder holds more than one profile.
+func askClaudeProfile(ctx *Context, prompter ui.Prompter, cfg config.Config, home string) (config.Config, error) {
+	if ctx.Env("CLAUDE_CONFIG_DIR") != "" || cfg.ClaudeConfigDir != "" {
+		return cfg, nil
+	}
+	entries, _ := os.ReadDir(home)
+	var profiles []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if name != ".claude" && !strings.HasPrefix(name, ".claude-") {
+			continue
+		}
+		dir := filepath.Join(home, name)
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			continue
+		}
+		if name == ".claude" || exists(filepath.Join(dir, "settings.json")) || exists(filepath.Join(dir, "projects")) {
+			profiles = append(profiles, dir)
+		}
+	}
+	if len(profiles) < 2 {
+		return cfg, nil
+	}
+	options := make([]ui.Option, len(profiles))
+	defaultIndex := 0
+	for i, dir := range profiles {
+		options[i] = ui.Option{Label: dir}
+		if dir == filepath.Join(home, ".claude") {
+			defaultIndex = i
+		}
+	}
+	chosen, err := prompter.Choose("Which Claude Code profile should teleported threads open in?", options, defaultIndex)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.ClaudeConfigDir = profiles[chosen]
+	if err := cfg.Save(ctx.ConfigDir); err != nil {
+		ui.Fail(ctx.Stderr, "Could not save the yak config: %v", err)
+	}
+	return cfg, nil
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func teleportUp(bg context.Context, ctx *Context, deps teleport.Deps, f teleportFlags) int {
@@ -206,6 +258,11 @@ func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f telepo
 		return reportTeleportError(ctx, err)
 	}
 	argv := []string{"claude", "--resume", res.SessionID}
+	// A profile other than the default is passed on as CLAUDE_CONFIG_DIR, so claude opens the folder the session was written to.
+	envPrefix := fmt.Sprintf("%s=%s ", hook.EpochEnv, res.TeleportID)
+	if res.ClaudeConfigDir != filepath.Join(deps.Home, ".claude") {
+		envPrefix = "CLAUDE_CONFIG_DIR=" + res.ClaudeConfigDir + " " + envPrefix
+	}
 	// Claude Code clears the screen when it starts, so a person at a terminal reads the summary first.
 	startNow := ctx.Exec != nil
 	if startNow && ctx.Interactive && !f.yes {
@@ -217,15 +274,23 @@ func teleportDown(bg context.Context, ctx *Context, deps teleport.Deps, f telepo
 	if startNow {
 		// Only the claude started here carries the epoch, so a terminal that still has the old session open is recognised as stale.
 		_ = os.Setenv(hook.EpochEnv, res.TeleportID)
+		if res.ClaudeConfigDir != filepath.Join(deps.Home, ".claude") {
+			_ = os.Setenv("CLAUDE_CONFIG_DIR", res.ClaudeConfigDir)
+		}
+		// This process becomes claude, so its id is the one a later terminal checks before taking the session over.
+		if m, ok := config.ReadMarker(ctx.ConfigDir, res.SessionID); ok {
+			m.LaunchPID = os.Getpid()
+			_ = config.WriteMarker(ctx.ConfigDir, res.SessionID, m)
+		}
 		fmt.Fprintf(ctx.Stdout, "Starting claude --resume %s in %s\n", res.SessionID, res.ResumeDir)
 		if err := ctx.Exec(res.ResumeDir, argv); err != nil {
 			ui.Fail(ctx.Stderr, "Could not start claude: %v", err)
-			fmt.Fprintf(ctx.Stderr, "  Run it yourself: cd %s && %s=%s claude --resume %s\n", res.ResumeDir, hook.EpochEnv, res.TeleportID, res.SessionID)
+			fmt.Fprintf(ctx.Stderr, "  Run it yourself: cd %s && %sclaude --resume %s\n", res.ResumeDir, envPrefix, res.SessionID)
 			return exitFailure
 		}
 		return exitOK
 	}
-	fmt.Fprintf(ctx.Stdout, "Continue with: cd %s && %s=%s claude --resume %s\n", res.ResumeDir, hook.EpochEnv, res.TeleportID, res.SessionID)
+	fmt.Fprintf(ctx.Stdout, "Continue with: cd %s && %sclaude --resume %s\n", res.ResumeDir, envPrefix, res.SessionID)
 	return exitOK
 }
 

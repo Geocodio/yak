@@ -56,3 +56,13 @@ func TestLoadMissingReturnsZero(t *testing.T) {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 }
+
+func TestConfigRoundTripsClaudeConfigDir(t *testing.T) {
+	dir := t.TempDir()
+	if err := (Config{ClaudeConfigDir: "~/.claude-work"}).Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := Load(dir); err != nil || c.ClaudeConfigDir != "~/.claude-work" {
+		t.Fatalf("%+v %v", c, err)
+	}
+}

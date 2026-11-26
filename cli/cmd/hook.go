@@ -35,7 +35,7 @@ func runHook(ctx *Context, args []string) int {
 		}
 		_, _ = link.Install(runtime.GOOS, home, binary, run)
 	}
-	deps := hook.HookDeps{Env: ctx.Env, Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	deps := hook.HookDeps{Env: ctx.Env, Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, ClaudePID: hook.FindClaudePID, ProcessAlive: hook.ProcessAlive, API: func() (*api.Client, bool) { return silentClient(ctx) }}
 	deps.RunTeleport = func(args []string) (string, int) {
 		var buf bytes.Buffer
 		inner := *ctx

@@ -58,6 +58,6 @@ func Run(ctx *Context, args []string) int {
 			return c(ctx, args[1:])
 		}
 	}
-	fmt.Fprintln(ctx.Stderr, "Usage: yak <login|logout|whoami|teleport|ssh|hook|mcp|open-link|marker|version>")
+	fmt.Fprintln(ctx.Stderr, "Usage: yak <login|logout|whoami|teleport|ssh|hook|mcp|open-link|marker|config|version>")
 	return 2
 }

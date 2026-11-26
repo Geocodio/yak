@@ -57,6 +57,8 @@ type DownResult struct {
 	TeleportID string
 	ResumeDir  string
 	Applied    []AppliedRepo
+	// ClaudeConfigDir is the Claude Code profile folder the session was written to.
+	ClaudeConfigDir string
 }
 
 // serverStopped marks a failure after which Yak already ended the teleport, so there is nothing to cancel.
@@ -186,7 +188,8 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	}
 	printDownPlan(d, manifest, mode, top, folderName)
 
-	projectDir := filepath.Join(session.ClaudeConfigDir(d.Env, d.Home), "projects", session.ProjectFolderName(resumeDir))
+	claudeConfigDir := session.ClaudeConfigDir(d.Env, d.Home, d.Config.ClaudeConfigDir)
+	projectDir := filepath.Join(claudeConfigDir, "projects", session.ProjectFolderName(resumeDir))
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
 		return result, err
 	}
@@ -240,7 +243,7 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	} else {
 		d.say("Turns you run here use your local Claude login.")
 	}
-	return DownResult{ThreadID: thread.ID, SessionID: sid, TeleportID: started.TeleportID, ResumeDir: resumeDir, Applied: applied}, nil
+	return DownResult{ThreadID: thread.ID, SessionID: sid, TeleportID: started.TeleportID, ResumeDir: resumeDir, Applied: applied, ClaudeConfigDir: claudeConfigDir}, nil
 }
 
 func beginDown(ctx context.Context, d Deps, thread api.Thread, opts DownOptions, top, slug string) (api.BeginDownResponse, error) {

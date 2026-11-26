@@ -505,7 +505,7 @@ func resolveAddDir(ctx context.Context, d Deps, dir string) (*upRepo, bool, erro
 // pickSession returns the session id and the path of its transcript. A session found by guessing is confirmed
 // with the person, showing its first prompt.
 func pickSession(d Deps, in UpInput) (string, string, error) {
-	configDir := session.ClaudeConfigDir(d.Env, d.Home)
+	configDir := session.ClaudeConfigDir(d.Env, d.Home, d.Config.ClaudeConfigDir)
 	sid := in.SessionID
 	if sid == "" {
 		sid = d.Env("CLAUDE_SESSION_ID")
