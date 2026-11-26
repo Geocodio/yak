@@ -7,6 +7,7 @@ struct ComposerBar: View {
     let thread: ThreadModel
     @Environment(SceneModel.self) private var scene
     @FocusState private var isFocused: Bool
+    @AccessibilityFocusState private var isFieldSpokenFocused: Bool
     @Environment(\.inputBlocked) private var inputBlocked
     @Environment(\.openAddSubThread) private var openAddSubThread
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -56,6 +57,11 @@ struct ComposerBar: View {
         }
         .preference(key: ComposerFocusKey.self, value: isFocused)
         .background { shortcuts }
+        .background {
+            SlashKeyHook(keys: inputBlocked ? [] : composer.slashKeys(isComposing: false)) {
+                composer.handleSlashKey($0, isComposing: $1)
+            }
+        }
         .composerDropTarget(composer)
         #if DEBUG
             .task { await composer.addTestFixtures(count: TestMode.attachmentFixtureCount()) }
@@ -68,6 +74,7 @@ struct ComposerBar: View {
             isKeyboardUp = false
         }
         .onChange(of: scene.composerFocusRequest) { takeFocusIfOpen() }
+        .onChange(of: composer.slashPickCount) { isFieldSpokenFocused = true }
         .onChange(of: inputBlocked) { takeFocusIfOpen() }
         .task { takeFocusIfOpen() }
         .sensoryFeedback(.error, trigger: composer.refusalCount)
@@ -98,11 +105,27 @@ struct ComposerBar: View {
         .font(.yakField)
         .lineLimit(isCollapsed ? 1...1 : 1...6)
         .focused($isFocused)
+        .accessibilityFocused($isFieldSpokenFocused)
+        .onKeyPress(phases: [.down, .repeat]) { handleKey($0) }
         .textInputAutocapitalization(.sentences)
         .padding(.horizontal, Design.Space.small).padding(.vertical, Design.Space.snug)
         .frame(maxWidth: .infinity, minHeight: Design.Size.control, alignment: .leading)
         .accessibilityLabel("composer.field.label")
         .accessibilityIdentifier("composer.field")
+    }
+
+    /// A key the text view leaves to SwiftUI while the menu has rows: the arrows move the highlight. Return and
+    /// Escape reach the menu through `SlashKeyHook`, which takes them before the text view does.
+    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard press.modifiers.isEmpty else { return .ignored }
+        let key: SlashKey? =
+            switch press.key {
+            case .downArrow: .down
+            case .upArrow: .up
+            default: nil
+            }
+        guard let key, composer.handleSlashKey(key, isComposing: false) else { return .ignored }
+        return .handled
     }
 
     /// A tap steers; a long press offers "Send after this turn" while a turn runs.
