@@ -287,7 +287,7 @@ private func imageData() -> Data {
 
 private func snapshot(
     state: String, nextAttachmentNumber: Int = 1, models: String = "[]", canDrive: Bool = true,
-    effort: String = "null"
+    effort: String = "null", slashCommands: String? = nil
 ) throws
     -> ConversationSnapshot
 {
@@ -298,7 +298,7 @@ private func snapshot(
         "pullRequestCount":0,"isOwner":true,"isStarred":false},"canDrive":\(canDrive),"messages":[],
         "composer":{"state":"\(state)","model":"sonnet","effort":\(effort),"accountName":"Test account","nextAttachmentNumber":\(nextAttachmentNumber),"models":\(models)},
         "notice":null,"panes":{"chat":true,"preview":false,"terminal":true,"changes":true,"files":true},
-        "question":null,"latestSequence":14}
+        "question":null,"latestSequence":14\(slashCommands.map { ",\"slashCommands\":" + $0 } ?? "")}
         """
     let show = try JSONDecoder().decode(ThreadShow.self, from: Data(json.utf8))
     return ConversationSnapshot(load: .ready, show: show)
@@ -356,6 +356,103 @@ private func snapshot(
         #expect(composer.text == "" && composer.attachments.isEmpty && composer.problem == nil)
         #expect(backend.savedDraft(.thread("d0e515ef")) == nil)
         #expect(composer.acceptedSendCount == 1 && composer.refusalCount == 0)
+    }
+
+    private static let twoCommands =
+        """
+        {"commands":[{"name":"review","description":"Review the diff","argumentHint":"[focus]","kind":"skill"},
+        {"name":"clear","description":"Start fresh","argumentHint":null,"kind":"yak"}],"capturedAt":null}
+        """
+
+    @Test func theMenuFollowsTheTextAndTheThreadsCommands() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        #expect(composer.slashMenu == nil)
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        #expect(composer.slashMenu?.rows.map(\.name) == ["review", "clear"])
+        composer.text = "/cl"
+        #expect(composer.slashMenu?.rows.map(\.name) == ["clear"])
+        composer.text = "/review focus"
+        #expect(composer.slashMenu == nil)
+        composer.text = "Hello /re"
+        #expect(composer.slashMenu == nil)
+    }
+
+    @Test func anOlderServerHasNoMenuAndTheSlashIsText() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle"))
+        composer.text = "/review"
+        #expect(composer.slashMenu == nil && composer.text == "/review")
+    }
+
+    @Test func aPickFillsTheFieldAndSendsNothing() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/re"
+        let review = try #require(composer.slashMenu?.selected)
+        composer.pickSlashCommand(review)
+        #expect(composer.text == "/review " && composer.slashMenu == nil && composer.slashPickCount == 1)
+        #expect(backend.sentDrafts.isEmpty)
+        composer.text = "/c"
+        composer.pickSlashCommand(try #require(composer.slashMenu?.selected))
+        #expect(composer.text == "/clear " && composer.slashMenu == nil)
+        composer.text = "/clear"
+        #expect(composer.slashMenu != nil, "the next edit opens the menu again")
+        await composer.send(delivery: .steer)
+        #expect(backend.sentDrafts.map(\.text) == ["/clear"])
+        #expect(composer.text == "" && composer.slashMenu == nil)
+    }
+
+    @Test func returnPicksTheHighlightedCommandAndNeverTouchesTheText() async throws {
+        let backend = FakeComposerBackend()
+        let composer = makeModel(backend: backend, clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        #expect(composer.slashKeys(isComposing: false) == [.up, .down, .returnKey, .escape])
+        #expect(composer.handleSlashKey(.down, isComposing: false))
+        #expect(composer.handleSlashKey(.returnKey, isComposing: false))
+        #expect(composer.text == "/clear " && composer.slashMenu == nil && composer.slashPickCount == 1)
+        #expect(backend.sentDrafts.isEmpty)
+        // With the menu closed Return is the field's: a line break.
+        #expect(!composer.handleSlashKey(.returnKey, isComposing: false))
+        composer.text = "plain\n"
+        #expect(composer.text == "plain\n")
+    }
+
+    @Test func anInputMethodThatIsComposingKeepsEveryKey() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        #expect(composer.slashKeys(isComposing: true).isEmpty)
+        #expect(!composer.handleSlashKey(.escape, isComposing: true) && composer.slashMenu != nil)
+        composer.text = "/zzz"
+        #expect(composer.slashKeys(isComposing: false) == [.escape], "no match: arrows and Return stay with the field")
+        #expect(!composer.handleSlashKey(.down, isComposing: false))
+        #expect(composer.handleSlashKey(.escape, isComposing: false) && composer.slashMenu == nil)
+    }
+
+    @Test func escapeClosesTheMenuUntilTheNextEdit() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        composer.moveSlashSelection(.down)
+        #expect(composer.slashMenu?.selected?.name == "clear")
+        composer.moveSlashSelection(.down)
+        #expect(composer.slashMenu?.selected?.name == "review")
+        composer.dismissSlashMenu()
+        #expect(composer.slashMenu == nil)
+        composer.text = "/r"
+        #expect(composer.slashMenu?.selected?.name == "review")
+    }
+
+    @Test func aRefreshedEmptyListClosesTheBareSlashMenu() async throws {
+        let composer = makeModel(backend: FakeComposerBackend(), clock: StepClock())
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: Self.twoCommands))
+        composer.text = "/"
+        #expect(composer.slashMenu != nil)
+        composer.update(snapshot: try snapshot(state: "idle", slashCommands: "{\"commands\":[],\"capturedAt\":null}"))
+        #expect(composer.slashMenu == nil, "a refreshed empty list closes the bare slash menu")
     }
 
     @Test func aLongPressSendsAfterTheTurn() async throws {

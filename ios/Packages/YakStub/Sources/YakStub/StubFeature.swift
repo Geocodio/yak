@@ -74,6 +74,8 @@ extension StubFeature {
 enum StubFeatures {
     /// One line per feature.
     static let all: [any StubFeature] = [
+        // First, because it edits the thread show that another feature would otherwise answer unedited.
+        StubSlashCommands(),
         StubWidgets(),
         StubPush(),
         StubPreviewFeature(),

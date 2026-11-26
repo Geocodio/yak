@@ -103,6 +103,13 @@ enum Design {
         static let stepValue: CGFloat = 28
         /// The line of a hollow state mark.
         static let markRing: CGFloat = 1.5
+        /// One command row of the slash menu at the default text size, and the heading above a group.
+        static let slashRow: CGFloat = 60
+        static let slashHeading: CGFloat = 24
+        /// The tallest the slash menu gets: five rows and one heading; more commands scroll inside the card.
+        /// What the thread's header and a line of the conversation keep above the slash menu.
+        static let slashTopReserve: CGFloat = 130
+        static let slashMenuMaxHeight: CGFloat = slashRow * 5 + slashHeading
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
     }
