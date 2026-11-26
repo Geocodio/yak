@@ -8,10 +8,16 @@ import (
 	"strings"
 )
 
-// ClaudeConfigDir is $CLAUDE_CONFIG_DIR, else ~/.claude.
-func ClaudeConfigDir(env func(string) string, home string) string {
+// ClaudeConfigDir is $CLAUDE_CONFIG_DIR, else the saved setting (a leading ~/ means the home folder), else ~/.claude.
+func ClaudeConfigDir(env func(string) string, home, setting string) string {
 	if d := env("CLAUDE_CONFIG_DIR"); d != "" {
 		return d
+	}
+	if rest, ok := strings.CutPrefix(setting, "~/"); ok {
+		return filepath.Join(home, rest)
+	}
+	if setting != "" {
+		return setting
 	}
 	return filepath.Join(home, ".claude")
 }

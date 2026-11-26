@@ -11,6 +11,7 @@ enum TeleportStep: string
     case SessionRestore = 'session_restore';
     case WaitTurn = 'wait_turn';
     case StopTurn = 'stop_turn';
+    case WakeSandbox = 'wake_sandbox';
     case CommitWip = 'commit_wip';
     case Push = 'push';
     case SyncSession = 'sync_session';

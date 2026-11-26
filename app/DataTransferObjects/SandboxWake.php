@@ -8,6 +8,7 @@ final readonly class SandboxWake
         public bool $ready,
         public bool $waitingForSlot,
         public bool $restoring,
+        public bool $wakingElsewhere = false,
     ) {}
 
     public static function ready(): self
@@ -23,5 +24,13 @@ final readonly class SandboxWake
     public static function restoring(): self
     {
         return new self(false, false, true);
+    }
+
+    /**
+     * Another process holds the wake lock or is starting the container; callers treat it like a restore and retry.
+     */
+    public static function wakingElsewhere(): self
+    {
+        return new self(false, false, true, true);
     }
 }

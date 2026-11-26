@@ -14,6 +14,8 @@ type Config struct {
 	BaseURL    string            `json:"base_url"`
 	DeviceName string            `json:"device_name"`
 	Checkouts  map[string]string `json:"checkouts,omitempty"`
+	// ClaudeConfigDir is the Claude Code profile folder teleported sessions live in when $CLAUDE_CONFIG_DIR is unset.
+	ClaudeConfigDir string `json:"claude_config_dir,omitempty"`
 }
 
 // Dir returns the state directory: $YAK_HOME, else $XDG_CONFIG_HOME/yak, else ~/.config/yak.
