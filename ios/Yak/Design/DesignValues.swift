@@ -6,8 +6,6 @@ import UIKit
 enum Design {
     /// How faded a disabled control looks.
     static let disabledOpacity: Double = 0.4
-    /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
-    static let closedMarkOpacity: Double = 0.62
     /// How faded a control looks while its change is on its way to the server.
     static let busyOpacity: Double = 0.7
     /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
