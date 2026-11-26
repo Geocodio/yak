@@ -515,6 +515,9 @@ final class WebConversationModel {
             // The element is not on the page (an older message that is not loaded, a card that is gone): the page
             // stays where it is and nothing is shown.
             Self.log("The page did not find the target of a push or link")
+        case .pageReady, .agents:
+            // Nothing shows these yet; the decoder accepts them so a newer page is not reported as malformed.
+            break
         case .unknown: break
         }
     }

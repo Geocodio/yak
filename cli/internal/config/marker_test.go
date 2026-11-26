@@ -97,3 +97,14 @@ func TestTakeNoteDeletesAfterRead(t *testing.T) {
 		t.Fatal("note printed twice")
 	}
 }
+
+func TestMarkerKeepsLaunchPID(t *testing.T) {
+	dir := t.TempDir()
+	sid := "4f1c0c9e-7b53-4a52-9f7d-1c2b3a4d5e6f"
+	if err := WriteMarker(dir, sid, Marker{ThreadID: 1, TeleportID: "tp", Owner: "device", LaunchPID: 4242}); err != nil {
+		t.Fatal(err)
+	}
+	if m, ok := ReadMarker(dir, sid); !ok || m.LaunchPID != 4242 {
+		t.Fatalf("%+v %v", m, ok)
+	}
+}

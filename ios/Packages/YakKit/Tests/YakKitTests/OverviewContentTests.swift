@@ -29,9 +29,9 @@ private func inputs(
 
 @Test func theSubThreadsGroupShowsOnlyWhatTheServerAllows() throws {
     let busy = try #require(OverviewContent.make(inputs(stack: "scenario-overview-busy-stack"))?.subThreads)
-    #expect(busy.total == 3 && busy.working == 1 && busy.add == .allowed && busy.canStop)
+    #expect(busy.total == 3 && busy.maxChildren == 12 && busy.add == .allowed && busy.canStop)
     #expect(busy.awake == AwakeStepperValue(value: 2, range: 1...4, awake: 1, waiting: 0))
-    #expect(busy.messages.count == 2)
+    #expect(busy.limitLine == SubThreadsGroup.LimitLine(current: 2, canChange: true))
     let stopped = try #require(
         OverviewContent.make(inputs(stack: "scenario-overview-stopped-stack"))?.subThreads)
     #expect(!stopped.canStop && stopped.stoppedAt != nil)
@@ -42,6 +42,7 @@ private func inputs(
     let recipient = try #require(
         OverviewContent.make(inputs(stack: "scenario-overview-recipient-stack"))?.subThreads)
     #expect(recipient.awake == nil && !recipient.canStop)
+    #expect(recipient.limitLine?.canChange == false)
     #expect(
         recipient.add == .refused(code: "forbidden", message: "You do not have access to this."))
     #expect(recipient.rows.allSatisfy { $0.actions == [.open] })
@@ -199,4 +200,21 @@ func activityFollowsTheThread(
 
 @Test func nothingBeforeTheShowLoads() {
     #expect(OverviewContent.make(OverviewInputs(show: nil)) == nil)
+}
+
+@Test func theLimitLineShowsOnlyForARootWithASubThreadThatHasItsOwnSandbox() {
+    func group(kind: StackChildKind, isRoot: Bool = true) -> SubThreadsGroup? {
+        let stack = ThreadStack(
+            rootId: "s7ackr00", isRoot: isRoot, parent: isRoot ? nil : StackParent(id: "p", name: "p", title: "P"),
+            children: [StackChild(id: "c1", name: "n", title: "t", kind: kind, state: .working)],
+            limit: StackLimit(current: 2, max: 4, awake: 1, waiting: 0), maxChildren: 12, models: [],
+            usage: StackUsage(turnCount: 0, costUsd: 0, activeHours: 0), messages: [], canDrive: true,
+            canStop: true, addChild: AddChildAvailability(allowed: true))
+        return OverviewContent.make(
+            OverviewInputs(show: try? decoded(ThreadShow.self, "scenario-overview-thread-show"), stack: stack))?
+            .subThreads
+    }
+    #expect(group(kind: .implement)?.limitLine == SubThreadsGroup.LimitLine(current: 2, canChange: true))
+    #expect(group(kind: .research)?.limitLine == nil && group(kind: .research)?.awake == nil)
+    #expect(group(kind: .implement, isRoot: false)?.limitLine == nil)
 }

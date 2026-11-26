@@ -50,18 +50,105 @@ import XCTest
         let title = app.descendants(matching: .any)["thread.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 60))
         title.tap()
-        let stop = app.buttons["overview.stopAll"]
+        let menu = app.buttons["overview.menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 60))
+        menu.tap()
+        let stop = app.buttons["Stop all sub-threads"]
         XCTAssertTrue(stop.waitForExistence(timeout: 60))
-        for _ in 0..<6 where !stop.isHittable { app.descendants(matching: .any)["overview"].swipeUp() }
         stop.tap()
         XCTAssertTrue(app.staticTexts["Stop all sub-threads?"].waitForExistence(timeout: 60))
         app.buttons["Stop all"].tap()
         let gone = NSPredicate(format: "exists == false")
-        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: stop)], timeout: 10)
+        wait(for: [XCTNSPredicateExpectation(predicate: gone, object: menu)], timeout: 10)
         XCTAssertTrue(
             app.staticTexts["This stack was stopped, so it cannot start sub-threads."].waitForExistence(timeout: 60))
         XCTAssertTrue(try stub.lastOverviewRequest().hasPrefix("POST threads/s7ackr00/stack/stop"))
         try audit()
+    }
+
+    /// Every sub-thread state reads in the web's words, on a screen where all the rows are fully visible.
+    func testSubThreadStatesReadInTheWebsWords() throws {
+        try launch(scenario: "overview-states")
+        try openOverview()
+        let heading = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@", "Sub-threads, 4 of 12"))
+        XCTAssertTrue(heading.firstMatch.waitForExistence(timeout: 60))
+        XCTAssertTrue(app.staticTexts["overview.definition"].exists)
+        XCTAssertFalse(app.buttons["overview.messages"].exists)
+        let expected = [
+            "b4ckf111": ["backfill-job", "Implement \u{00B7} example/web \u{00B7} Working", "Writing the migration"],
+            "q7adapt0": [
+                "query-adapter", "Implement \u{00B7} example/web \u{00B7} Waiting",
+                "Waiting for a free spot. 2 sub-threads",
+            ],
+            "s3ttings": ["settings-page", "Implement \u{00B7} example/web \u{00B7} Starting"],
+            "r3search": ["index-settings", "Research \u{00B7} Done", "The analyzer needs the ascii folding filter."],
+        ]
+        for (id, parts) in expected {
+            let row = app.buttons["overview.child.\(id)"]
+            XCTAssertTrue(row.waitForExistence(timeout: 60), id)
+            for part in parts { XCTAssertTrue(row.label.contains(part), "\(id): \(row.label)") }
+        }
+        XCTAssertTrue(app.buttons["overview.child.q7adapt0.startNow"].label == "Start now and allow 3 at a time")
+        XCTAssertTrue(app.staticTexts["2 can run at the same time"].exists)
+        try audit()
+    }
+
+    func testTheOtherSubThreadStatesReadInTheWebsWords() throws {
+        try launch(scenario: "overview-states-more")
+        try openOverview()
+        let expected = [
+            "n33dsyou": "Implement \u{00B7} example/web \u{00B7} Needs you",
+            "f41led00": "Implement \u{00B7} example/web \u{00B7} Failed",
+            "st0pped0": "Implement \u{00B7} example/web \u{00B7} Stopped",
+        ]
+        for (id, line) in expected {
+            let row = app.buttons["overview.child.\(id)"]
+            XCTAssertTrue(row.waitForExistence(timeout: 60), id)
+            XCTAssertTrue(row.label.contains(line), "\(id): \(row.label)")
+        }
+        XCTAssertFalse(app.buttons["overview.child.n33dsyou.startNow"].exists)
+        try audit()
+    }
+
+    func testAnUnknownStateAndATakenOverSubThreadReadNeutrally() throws {
+        try launch(scenario: "overview-states-other")
+        try openOverview()
+        let unknown = app.buttons["overview.child.unkn0wn0"]
+        XCTAssertTrue(unknown.waitForExistence(timeout: 60))
+        XCTAssertTrue(unknown.label.contains("Research \u{00B7} Other"), unknown.label)
+        let taken = app.buttons["overview.child.t4k3n000"]
+        XCTAssertTrue(taken.label.contains("Taken over \u{00B7} messages paused"), taken.label)
+        try audit()
+    }
+
+    func testStartNowRaisesTheLimitOnceAndChangeShowsTheStepper() throws {
+        try launch(scenario: "overview-states")
+        try openOverview()
+        let startNow = app.buttons["overview.child.q7adapt0.startNow"]
+        XCTAssertTrue(startNow.waitForExistence(timeout: 60))
+        startNow.tap()
+        let line = app.staticTexts["3 can run at the same time"]
+        XCTAssertTrue(line.waitForExistence(timeout: 60))
+        let request = try stub.lastOverviewRequest()
+        XCTAssertTrue(request.hasPrefix("PATCH threads/s7ackr00/stack/limit"), request)
+        XCTAssertTrue(request.contains("\"limit\":3"), request)
+        XCTAssertTrue(app.buttons["overview.child.q7adapt0.startNow"].label == "Start now and allow 4 at a time")
+        app.buttons["overview.limit.change"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.awake"].waitForExistence(timeout: 60))
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label BEGINSWITH %@", "Sub-threads with their own sandbox take turns.")
+            ).firstMatch.exists)
+        XCTAssertFalse(line.exists)
+    }
+
+    private func openOverview() throws {
+        openThread("s7ackr00")
+        let title = app.descendants(matching: .any)["thread.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 60))
+        title.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["overview.group.subThreads"].waitForExistence(timeout: 60))
     }
 
     func testAddingASubThreadSendsOnceAndShowsIt() throws {

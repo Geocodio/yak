@@ -68,3 +68,13 @@ it('counts held events on the thread', function () {
 
     expect($thread->heldEvents()->whereNull('delivered_at')->count())->toBe(1);
 });
+
+it('keeps a step detail only while the step reports one', function () {
+    $teleport = Teleport::factory()->down()->create();
+
+    $teleport->progressStep(TeleportStep::Push, 'running', 'pushing acme/widgets');
+    expect($teleport->progress)->toBe([['step' => 'push', 'status' => 'running', 'detail' => 'pushing acme/widgets']]);
+
+    $teleport->progressStep(TeleportStep::Push, 'done');
+    expect($teleport->progress)->toBe([['step' => 'push', 'status' => 'done']]);
+});

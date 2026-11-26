@@ -131,7 +131,9 @@ If the thread already exists and is on your computer, running `/yak:yak teleport
 4. The command downloads the session, checks each file by hash, and writes the files only if all of them arrive.
 5. It then starts `claude --resume <session-id>` in the right folder. In a terminal it first asks "Start claude --resume now?", because Claude Code clears the screen and you would lose the summary above. If it cannot start Claude, it prints `Continue with: cd <folder> && YAK_TELEPORT_EPOCH=<id> claude --resume <session-id>`.
 
-Only the Claude started this way (it carries `YAK_TELEPORT_EPOCH`) may run turns on the session. A terminal that still has the same session open from before, for example the one you teleported up from, is blocked with "This terminal has an out-of-date copy of this session" so two terminals cannot write to one transcript. Run `yak marker clear <session-id>` there to use it as a plain local session.
+The session goes into the Claude Code profile folder from `$CLAUDE_CONFIG_DIR`, else the one saved with `yak config claude-config-dir <path>`, else `~/.claude`. If you keep several profiles (`~/.claude`, `~/.claude-work`, ...) and none of those is set, `yak teleport <thread>` asks once which one to use and saves the answer. Show the setting with `yak config`, clear it with `yak config claude-config-dir --unset`. When the profile is not `~/.claude`, Claude is started with `CLAUDE_CONFIG_DIR` set, and the printed command includes it.
+
+Only the Claude started this way (it carries `YAK_TELEPORT_EPOCH`) may run turns on the session. A terminal that still has the same session open from before, for example the one you teleported up from, is blocked with "This terminal has an out-of-date copy of this session" so two terminals cannot write to one transcript. If the terminal that ran `yak teleport` has been closed, a new `claude --resume <session-id>` takes over on its first prompt. If the message still shows while that terminal is open, close it, then continue with `YAK_TELEPORT_EPOCH=<id> claude --resume <session-id>`, which the message prints.
 
 The final line is "Thread <id> is now on this computer. Yak will not run turns on it until you teleport it back up."
 
@@ -248,6 +250,8 @@ On macOS this creates a small app named "Yak Link" in `~/Applications`. On Linux
 | `Yak still cannot see the pushed branch on GitHub.` | Check your access to the repo and retry. |
 | `Yak's copy of this session differs from the one on this computer, so nothing was overwritten. The teleport is cancelled.` | The thread moved on Yak since your last teleport. Teleport it down first with `yak teleport <thread>`. |
 | `The upload was interrupted ... Run yak teleport again to resume it.` | Run the same command again. |
+| `Yak stopped reporting progress 11 minutes ago` | Yak's prepare job died. Teleporting down cancels the stuck teleport, so running the command again starts fresh. Teleporting up does not cancel, because Yak may already have the thread: run the command again to check and resume. |
+| `Yak took too long to prepare the thread. Run yak teleport again.` | Yak's prepare job hit its 10-minute limit, usually because the sandbox was slow to wake. Run the command again. |
 | `This thread is on Yak. Run yak teleport <N> to bring it down first.` | The thread is not on your computer. Use the number shown. |
 | `This thread is on another computer (<name>). Teleport it up from there first.` | Go to that computer, or revoke it in Settings, Devices. |
 | `This checkout is on <a>, but the thread is on <b>.` | Switch branches. |

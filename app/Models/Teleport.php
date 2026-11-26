@@ -101,21 +101,15 @@ class Teleport extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function progressStep(TeleportStep $step, string $status): void
+    /**
+     * Records a step's status; the optional detail says what the step is doing right now, for the CLI's live line.
+     */
+    public function progressStep(TeleportStep $step, string $status, ?string $detail = null): void
     {
-        $progress = $this->progress;
-        $found = false;
-
-        foreach ($progress as $index => $entry) {
-            if ($entry['step'] === $step->value) {
-                $progress[$index]['status'] = $status;
-                $found = true;
-            }
-        }
-
-        if (! $found) {
-            $progress[] = ['step' => $step->value, 'status' => $status];
-        }
+        $entry = array_filter(['step' => $step->value, 'status' => $status, 'detail' => $detail], fn (?string $value): bool => $value !== null);
+        $progress = collect($this->progress);
+        $index = $progress->search(fn (array $existing): bool => $existing['step'] === $step->value);
+        $progress = ($index === false ? $progress->push($entry) : $progress->put($index, $entry))->all();
 
         $this->forceFill(['progress' => $progress])->save();
     }
