@@ -194,6 +194,10 @@ import XCTest
         XCTAssertTrue(menu.waitForExistence(timeout: Wait.appear))
         XCTAssertTrue(element("agents.bar").exists)
         XCTAssertLessThanOrEqual(menu.frame.maxY, element("agents.bar").frame.minY + 1)
+        // The menu closes under the audit's own text size passes, so the bar is audited with the keyboard up and the
+        // menu closed again.
+        field.typeText(XCUIKeyboardKey.delete.rawValue)
+        waitFor("exists == false", menu)
         try auditThreadScreen(app)
     }
 

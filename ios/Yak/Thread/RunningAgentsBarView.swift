@@ -84,11 +84,12 @@ struct RunningAgentsBarView: View {
             guard let fragment = line.newest else { return }
             web?.focusAgent(fragment: fragment, thread: thread.threadID)
         } label: {
-            Text("agents.view").font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakAction)
+            Text("agents.view").font(.yak(.footnote, .semibold))
+                .foregroundStyle(line.newest == nil || web == nil ? Color.yakMuted : Color.yakAction)
                 .padding(.horizontal, Design.Space.snug)
                 .frame(minHeight: Design.Size.control).contentShape(.rect)
         }
-        .buttonStyle(.pressable).disabled(line.newest == nil || web == nil)
+        .buttonStyle(UndimmedButtonStyle()).disabled(line.newest == nil || web == nil)
         .accessibilityHint(Text("agents.view.hint")).accessibilityIdentifier("agents.view")
     }
 
@@ -108,7 +109,7 @@ struct RunningAgentsBarView: View {
                 } label: {
                     chip(line)
                 }
-                .buttonStyle(.pressable).disabled(!line.stopIsEnabled)
+                .buttonStyle(UndimmedButtonStyle()).disabled(!line.stopIsEnabled)
                 .accessibilityHint(
                     Text(
                         line.needsConnection
@@ -137,7 +138,10 @@ struct RunningAgentsBarView: View {
                 line.isRequesting || line.isStopping
                     ? "agents.stopping" : line.showsRetry ? "agents.retry" : "agents.stop"
             )
-            .font(.yak(.footnote, .semibold)).foregroundStyle(line.showsRetry ? Color.yakAction : Color.primary)
+            .font(.yak(.footnote, .semibold))
+            .foregroundStyle(
+                !line.stopIsEnabled && !line.isRequesting && !line.isStopping
+                    ? Color.yakMuted : line.showsRetry ? Color.yakAction : Color.primary)
         }
         .padding(.horizontal, Design.Space.medium)
         .frame(minHeight: Design.Size.agentChip)
@@ -196,5 +200,13 @@ private struct PulsingDot: View {
         } else {
             withAnimation(Motion.pulse) { isDim = true }
         }
+    }
+}
+
+/// A pressed button that stays as readable when it is disabled: the bar's disabled controls change their text colour,
+/// because a dimmed label fails the contrast audit.
+private struct UndimmedButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.pressFeedback(configuration.isPressed)
     }
 }
