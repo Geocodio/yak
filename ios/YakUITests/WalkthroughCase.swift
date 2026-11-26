@@ -9,7 +9,7 @@ import XCTest
     static let threadListScreens: Set<String> = [
         "drawer", "drawer-everyone", "drawer-offline", "drawer-sub-threads", "drawer-tabs-mine", "drawer-tabs-review",
         "drawer-tabs-everyone", "drawer-tabs-closed", "drawer-tabs-quiet", "drawer-tabs-older", "drawer-tabs-filters",
-        "drawer-tabs-menu-open", "search-results", "search-offline", "search-error", "search-rate-limited",
+        "drawer-tabs-menu-open",
     ]
 
     var stub: StubControl!

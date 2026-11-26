@@ -6,16 +6,23 @@ public enum SearchFailure: Equatable, Sendable {
     /// 429; the server's `Retry-After` in seconds when it sent a sane one.
     case rateLimited(retryAfterSeconds: Int?)
     case failed
+    /// 422: the server refused the text, so asking again with it cannot help. The server's own sentence, maybe empty.
+    case rejected(message: String)
 
+    /// Only a missing connection is offline. A timeout, a 503 or a server error is a failure to retry.
     public init(_ failure: APIFailure) {
         switch failure {
-        case .network: self = .offline
+        case .network(let code) where Self.offlineCodes.contains(code): self = .offline
         case .server(let error) where error.status == 429:
             self = .rateLimited(retryAfterSeconds: error.retryAfterSeconds)
-        case .server(let error) where error.status == 503: self = .offline
+        case .server(let error) where error.status == 422: self = .rejected(message: error.message)
         default: self = .failed
         }
     }
+
+    private static let offlineCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed,
+    ]
 }
 
 /// What the drawer's search field shows, as one value. The drawer asks the server from two characters; below that
@@ -32,6 +39,8 @@ public struct SearchState: Equatable, Sendable {
         /// The server cannot be reached: the loaded threads are filtered by the text instead.
         case offline
         case failed
+        /// The server refused the text (422); there is nothing to retry.
+        case rejected(message: String)
         /// The server said to wait; the search asks again by itself when the wait has passed.
         case rateLimited(retryAfterSeconds: Int)
     }
@@ -57,7 +66,7 @@ public struct SearchState: Equatable, Sendable {
     public var showsServerResults: Bool {
         switch phase {
         case .loading, .results, .empty: true
-        case .idle, .tooShort, .offline, .failed, .rateLimited: false
+        case .idle, .tooShort, .offline, .failed, .rejected, .rateLimited: false
         }
     }
 
@@ -66,7 +75,7 @@ public struct SearchState: Equatable, Sendable {
     public var filtersLoadedList: Bool {
         switch phase {
         case .idle: false
-        case .tooShort, .offline, .failed, .rateLimited: true
+        case .tooShort, .offline, .failed, .rejected, .rateLimited: true
         case .loading, .results, .empty: false
         }
     }
@@ -174,6 +183,9 @@ public struct SearchMachine: Equatable, Sendable {
             return []
         case .failed:
             state.phase = .failed
+            return []
+        case .rejected(let message):
+            state.phase = .rejected(message: message)
             return []
         case .rateLimited(let seconds):
             let wait = min(

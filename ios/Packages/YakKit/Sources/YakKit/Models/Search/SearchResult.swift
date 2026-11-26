@@ -4,7 +4,12 @@ import Foundation
 public struct SearchResult: Equatable, Sendable, Identifiable {
     public enum Kind: Equatable, Hashable, Sendable, CaseIterable {
         case thread, repository, pullRequest
+        /// A kind this build does not know: shown as a plain row by its title.
+        case other
     }
+
+    /// The most results of one kind the server sends; a group this long may have more matches than it shows.
+    public static let limitPerKind = 10
 
     public let kind: Kind
     public let id: String
@@ -37,6 +42,7 @@ public struct SearchResult: Equatable, Sendable, Identifiable {
         case .thread: "thread:\(id)"
         case .repository: "repository:\(id)"
         case .pullRequest: "pullRequest:\(id)"
+        case .other: "other:\(id)"
         }
     }
 }
@@ -47,6 +53,9 @@ public struct SearchGroup: Equatable, Sendable, Identifiable {
     public let results: [SearchResult]
     public var id: SearchResult.Kind { kind }
 
+    /// The group holds all the server sends of its kind, so more may match than it shows.
+    public var isAtLimit: Bool { results.count >= SearchResult.limitPerKind }
+
     /// The groups that have results, in the order threads, repositories, pull requests.
     public static func groups(of results: [SearchResult]) -> [SearchGroup] {
         SearchResult.Kind.allCases.compactMap { kind in
@@ -56,7 +65,8 @@ public struct SearchGroup: Equatable, Sendable, Identifiable {
     }
 }
 
-/// The answer to `GET search`. A result of a kind this build does not know, or without an id or a title, is left out.
+/// The answer to `GET search`. A result of a kind this build does not know shows as a plain row; one without an id or a
+/// title is left out.
 public struct SearchAnswer: Decodable, Sendable, Equatable {
     public let results: [SearchResult]
 
@@ -77,7 +87,8 @@ public struct SearchAnswer: Decodable, Sendable, Equatable {
             case "thread": kind = .thread
             case "repository": kind = .repository
             case "pull_request": kind = .pullRequest
-            default: return nil
+            case .some: kind = .other
+            case nil: return nil
             }
             guard let id, !id.isEmpty, let title, !title.isEmpty else { return nil }
             return SearchResult(

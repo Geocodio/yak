@@ -255,4 +255,15 @@ private func list(
             DrawerContent.noResults(search: "x", canWiden: false).gathered(as: .loadedThreads)
                 == .noResults(search: "x", canWiden: false))
     }
+
+    @Test func aThreadResultThatIsNotLoadedOffersNoStarAndNoCloseOrDelete() {
+        let result = SearchResult(kind: .thread, id: "zz", title: "T", subtitle: "example/web / yak/t")
+        let row = DrawerRow.searchResult(result)
+        #expect(row.isUnloadedSearchResult)
+        let menu = ThreadActionMenu.make(.row(row, isOffline: false))
+        let kinds = menu.items.map(\.kind)
+        #expect(
+            !kinds.contains(.star) && !kinds.contains(.unstar) && !kinds.contains(.close) && !kinds.contains(.delete))
+        #expect(kinds.contains(.open))
+    }
 }

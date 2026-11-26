@@ -37,10 +37,14 @@ struct DrawerView: View {
             if let name = scene.justPairedUserName { banner(name) }
             if !(isSearching && isShortOfRoom) {
                 tiles
-                tabRow
+                // The server's search covers everything whatever the tab, so no tab or filter shows while it does.
+                if drawer?.searchState.showsServerResults != true {
+                    tabRow.transition(.opacity)
+                }
             }
             content.frame(maxHeight: .infinity, alignment: .top)
         }
+        .motion(Motion.content, value: drawer?.searchState.showsServerResults)
         // Whatever sits above the bottom bar is clipped to the room left, so the bar is always fully on screen.
         .frame(maxHeight: .infinity, alignment: .top)
         .clipped()
@@ -742,9 +746,16 @@ struct DrawerView: View {
                     } icon: {
                         Image(systemName: "arrow.clockwise")
                     }
+                    .font(.yak(.footnote, .semibold)).foregroundStyle(Color.yakText)
+                    .padding(.horizontal, Design.Space.medium).padding(.vertical, Design.Space.small)
+                    .background(Color.yakCard, in: .rect(cornerRadius: Design.Radius.control))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Design.Radius.control)
+                            .strokeBorder(Color.yakBorderStrong, lineWidth: Design.Space.line)
+                    )
+                    .frame(minHeight: Design.Size.control).contentShape(.rect)
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .fixedSize(horizontal: false, vertical: true)
+                .buttonStyle(.pressable)
                 .accessibilityIdentifier("search.retry")
             }
             .fixedSize(horizontal: false, vertical: true)

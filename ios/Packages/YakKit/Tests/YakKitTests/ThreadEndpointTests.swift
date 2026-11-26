@@ -162,21 +162,16 @@ private func jsonBody<R>(_ endpoint: Endpoint<R>) throws -> [String: Any] {
     #expect(text.contains("name=\"attachment_refs[]\"\r\n\r\nImage #1"))
 }
 
-@Test func trimsAndOmitsTheSearch() {
-    #expect(
-        Endpoint<ThreadList>.threads(filter: .mine, search: "  ").query == [URLQueryItem(name: "filter", value: "mine")]
-    )
-    #expect(Endpoint<ThreadList>.threads(filter: .mine, search: nil).query.count == 1)
-    let long = Endpoint<ThreadList>.threads(filter: .yak, search: String(repeating: "a", count: 300))
-    #expect(long.query.last?.value?.count == 100)
-    #expect(Endpoint<ThreadList>.threads(filter: .mine, search: " a ").query.last?.value == "a")
+@Test func theThreadsRequestCarriesOnlyTheFilter() {
+    #expect(Endpoint<ThreadList>.threads(filter: .mine).query == [URLQueryItem(name: "filter", value: "mine")])
+    #expect(Endpoint<ThreadList>.threads(filter: .yak).query.map(\.name) == ["filter"])
 }
 
 @Test func escapesPlusAndAmpersandInTheSearch() async throws {
     let transport = ScriptedTransport()
-    _ = try? await makeClient(transport).send(.threads(filter: .everyone, search: "c++ & x"))
+    _ = try? await makeClient(transport).send(.search("c++ & x"))
     let url = try #require(await transport.requests.first?.url)
-    #expect(url.absoluteString == "https://yak.example.com/api/app/v1/threads?filter=everyone&search=c%2B%2B%20%26%20x")
+    #expect(url.absoluteString == "https://yak.example.com/api/app/v1/search?q=c%2B%2B%20%26%20x")
 }
 
 @Test func readsRetryAfterOnA429() async throws {
@@ -229,7 +224,7 @@ private struct Row: Sendable, CustomTestStringConvertible {
 }
 
 private let rows: [Row] = [
-    Row("threads", Endpoint<ThreadList>.threads(filter: .mine, search: nil)),
+    Row("threads", Endpoint<ThreadList>.threads(filter: .mine)),
     Row("thread", Endpoint<ThreadShow>.thread("t")),
     Row("markSeen", Endpoint<EmptyResponse>.markSeen("t")),
     Row("newThreadOptions", Endpoint<NewThreadOptions>.newThreadOptions()),

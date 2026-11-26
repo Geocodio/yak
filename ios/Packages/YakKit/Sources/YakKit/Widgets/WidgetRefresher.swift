@@ -75,7 +75,7 @@ public struct WidgetRefresher: Sendable {
                 sleep: { [clock = environment.clock] in try await clock.sleep(for: $0) })
             let outcome = await withBudget(budget, clock: environment.clock) { () async -> Loaded in
                 do throws(APIFailure) {
-                    return .list(try await client.send(.threads(filter: .mine, search: nil)))
+                    return .list(try await client.send(.threads(filter: .mine)))
                 } catch {
                     return .failure(error)
                 }

@@ -21,13 +21,12 @@ public struct ThreadListState: Equatable, Sendable {
     /// When the list on screen was answered by the server (a saved copy: when it was saved); nil when not known.
     public var listAsOf: Date?
     public var filter: ThreadListFilter
-    public var search: String?
     public var sources: [String]
     public var starters: [String]
 
     public init(
         list: ThreadList? = nil, load: ThreadLoadState = .loading, isShowingCachedCopy: Bool = false,
-        isOffline: Bool = false, listAsOf: Date? = nil, filter: ThreadListFilter = .mine, search: String? = nil,
+        isOffline: Bool = false, listAsOf: Date? = nil, filter: ThreadListFilter = .mine,
         sources: [String] = [],
         starters: [String] = []
     ) {
@@ -37,13 +36,12 @@ public struct ThreadListState: Equatable, Sendable {
         self.isOffline = isOffline
         self.listAsOf = listAsOf
         self.filter = filter
-        self.search = search
         self.sources = sources
         self.starters = starters
     }
 
-    /// No search, source or starter narrows the tab: the answer is the tab's whole list, the one that is stored.
-    public var isWholeTab: Bool { search == nil && sources.isEmpty && starters.isEmpty }
+    /// No source or starter narrows the tab: the answer is the tab's whole list, the one that is stored.
+    public var isWholeTab: Bool { sources.isEmpty && starters.isEmpty }
 
     /// The whole Mine tab: the only list the badge count, the cold start and the widget read.
     public var isWholeMine: Bool { filter == .mine && isWholeTab }
@@ -56,7 +54,7 @@ public struct ThreadListState: Equatable, Sendable {
 }
 
 /// Keeps the thread list of one instance fresh while the drawer is visible. Each tab's whole list is stored on its
-/// own; a searched or filtered view is never stored. Only the whole `mine` list feeds the badge count and the widget.
+/// own; a filtered view is never stored. Only the whole `mine` list feeds the badge count and the widget.
 public actor ThreadListFeed {
     public static let pollInterval: Duration = .seconds(5)
     /// How long a first load may wait before it counts as slow.
@@ -103,17 +101,9 @@ public actor ThreadListFeed {
     }
 
     /// Cancels the request in flight and loads the new view at once.
-    public func setFilter(
-        _ filter: ThreadListFilter, search: String?, sources: [String] = [], starters: [String] = []
-    ) async {
-        let trimmed = search?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let search = trimmed?.isEmpty == false ? trimmed : nil
-        guard
-            filter != state.filter || search != state.search || sources != state.sources
-                || starters != state.starters
-        else { return }
+    public func setFilter(_ filter: ThreadListFilter, sources: [String] = [], starters: [String] = []) async {
+        guard filter != state.filter || sources != state.sources || starters != state.starters else { return }
         state.filter = filter
-        state.search = search
         state.sources = sources
         state.starters = starters
         state.list = nil
@@ -247,13 +237,12 @@ public actor ThreadListFeed {
 
     private func fetch(generation current: Int) async {
         let filter = state.filter
-        let search = state.search
         let sources = state.sources
         let starters = state.starters
         let fetched: ThreadList
         do {
             fetched = try await client.send(
-                .threads(filter: filter, search: search, sources: sources, starters: starters))
+                .threads(filter: filter, sources: sources, starters: starters))
         } catch {
             guard !Task.isCancelled, current == generation else { return }
             let problem = ThreadProblem(error)
@@ -278,7 +267,7 @@ public actor ThreadListFeed {
         state.isShowingCachedCopy = false
         state.isOffline = false
         publish()
-        guard search == nil, sources.isEmpty, starters.isEmpty else { return }
+        guard sources.isEmpty, starters.isEmpty else { return }
         await cache.saveThreadList(fetched, filter: filter, savedAt: answeredAt)
         guard filter == .mine else { return }
         do {

@@ -62,17 +62,12 @@ private func attachmentParts(_ attachments: [MultipartBody.Part], references: [S
 }
 
 extension Endpoint where Response == ThreadList {
-    public static func threads(
-        filter: ThreadListFilter, search: String?, sources: [String] = [], starters: [String] = []
-    ) -> Endpoint<ThreadList> {
+    public static func threads(filter: ThreadListFilter, sources: [String] = [], starters: [String] = [])
+        -> Endpoint<ThreadList>
+    {
         var query = [URLQueryItem(name: "filter", value: filter.rawValue)]
         query += sources.map { URLQueryItem(name: "sources[]", value: $0) }
         query += starters.map { URLQueryItem(name: "starters[]", value: $0) }
-        let trimmed = search?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !trimmed.isEmpty {
-            // The server's ListThreadsRequest allows at most 100 characters.
-            query.append(URLQueryItem(name: "search", value: String(trimmed.prefix(100))))
-        }
         return Endpoint(method: .get, path: "threads", query: query)
     }
 }

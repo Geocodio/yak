@@ -119,6 +119,26 @@ import XCTest
         XCTAssertFalse(element("search.results").exists)
     }
 
+    /// Server search covers everything whatever the tab, so no tab row or filter shows while it does (loading and
+    /// results alike). Below two characters and after clearing, the tabs are back.
+    func testTheTabsGiveWayToServerSearchAndComeBack() throws {
+        try launch("search-slow")
+        XCTAssertTrue(element("drawer.tabs").exists && element("drawer.filter").exists)
+        type("retry")
+        XCTAssertTrue(element("search.loading").waitForExistence(timeout: Wait.appear))
+        waitUntilGone(element("drawer.tabs"))
+        XCTAssertFalse(element("drawer.filter").exists)
+        try stub.releaseSearch()
+        waitForResults()
+        XCTAssertFalse(element("drawer.tabs").exists || element("drawer.filter").exists)
+        app.buttons["drawer.clearSearch"].tap()
+        XCTAssertTrue(element("drawer.tabs").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("drawer.filter").exists)
+        search.typeText("w")
+        XCTAssertTrue(element("search.hint").waitForExistence(timeout: Wait.appear))
+        XCTAssertTrue(element("drawer.tabs").exists)
+    }
+
     // MARK: Opening a result
 
     func testAThreadResultOpensTheThread() throws {

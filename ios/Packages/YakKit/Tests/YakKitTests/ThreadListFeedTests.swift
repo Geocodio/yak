@@ -114,28 +114,27 @@ struct ThreadListFeedTests {
         let rig = try await makeRig()
         let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)
         await rig.transport.on("GET threads", .json(200, body))
-        await rig.feed.setFilter(.everyone, search: nil)
+        await rig.feed.setFilter(.everyone)
         #expect(await rig.cache.threadList(.everyone) != nil)
         #expect(await rig.cache.threadList(.mine) == nil)
         #expect(await rig.instances.all().first?.needsYouCount == 0)
         #expect(await rig.cache.widgetSnapshot() == nil)
-        await rig.feed.setFilter(.closed, search: nil)
+        await rig.feed.setFilter(.closed)
         #expect(await rig.cache.threadList(.closed) != nil)
         #expect(await rig.instances.all().first?.needsYouCount == 0)
-        await rig.feed.setFilter(.mine, search: nil)
+        await rig.feed.setFilter(.mine)
         #expect(await rig.cache.threadList(.mine) != nil)
         #expect(await rig.instances.all().first?.needsYouCount == 2)
         #expect(await rig.cache.widgetSnapshot()?.needsYouCount == 2)
         #expect(await rig.instances.badgeCount() == 2)
     }
 
-    @Test func aSearchedOrFilteredViewIsNeverStored() async throws {
+    @Test func aFilteredViewIsNeverStored() async throws {
         let rig = try await makeRig()
         let body = String(decoding: try Scenarios.data("scenario-thread-list"), as: UTF8.self)
         await rig.transport.on("GET threads", .json(200, body))
-        await rig.feed.setFilter(.mine, search: "retry")
-        await rig.feed.setFilter(.mine, search: nil, sources: ["slack"])
-        await rig.feed.setFilter(.mine, search: nil, starters: ["yak"])
+        await rig.feed.setFilter(.mine, sources: ["slack"])
+        await rig.feed.setFilter(.mine, starters: ["yak"])
         #expect(await rig.cache.threadList(.mine) == nil)
         #expect(await rig.cache.widgetSnapshot() == nil)
         #expect(await rig.instances.all().first?.needsYouCount == 0)
@@ -153,11 +152,11 @@ struct ThreadListFeedTests {
         let recorder = StreamRecorder(await rig.feed.states())
         await rig.feed.setVisible(true)
         _ = try await recorder.next { $0.isShowingCachedCopy && $0.list == mine }
-        let switching = Task { await rig.feed.setFilter(.closed, search: nil) }
+        let switching = Task { await rig.feed.setFilter(.closed) }
         let saved = try await recorder.next { $0.filter == .closed && $0.isShowingCachedCopy }
         #expect(saved.list == closed)
         // A tab that was never loaded shows no copy: its list stays empty until the server answers.
-        let other = Task { await rig.feed.setFilter(.everyone, search: nil) }
+        let other = Task { await rig.feed.setFilter(.everyone) }
         let unloaded = try await recorder.next { $0.filter == .everyone }
         #expect(unloaded.list == nil && !unloaded.isShowingCachedCopy && unloaded.load == .loading)
         await rig.transport.release("GET threads")
@@ -166,21 +165,21 @@ struct ThreadListFeedTests {
         await rig.feed.setVisible(false)
     }
 
-    @Test func aSearchCancelsTheRequestInFlight() async throws {
+    @Test func aNewFilterCancelsTheRequestInFlight() async throws {
         let rig = try await makeRig()
         await rig.transport.on("GET threads", .json(200, emptyList))
         await rig.transport.hold("GET threads")
         await rig.feed.setVisible(true)
         await rig.transport.waitForRequests(1, on: "GET threads")
         let recorder = StreamRecorder(await rig.feed.states())
-        let search = Task { await rig.feed.setFilter(.mine, search: "import") }
+        let search = Task { await rig.feed.setFilter(.mine, sources: ["slack"]) }
         await rig.transport.waitForRequests(2, on: "GET threads")
         #expect(await rig.transport.cancelledRequests == 1)
         await rig.transport.release("GET threads")
         await search.value
         let requests = await rig.transport.requests(on: "GET threads")
-        #expect(requests.last?.url?.query?.contains("search=import") == true)
-        let state = try await recorder.next { $0.search == "import" && $0.load == .ready }
+        #expect(requests.last?.url?.query?.contains("slack") == true)
+        let state = try await recorder.next { $0.sources == ["slack"] && $0.load == .ready }
         #expect(state.list != nil)
         await rig.feed.setVisible(false)
     }
@@ -200,10 +199,10 @@ struct ThreadListFeedTests {
         await rig.cache.saveThreadList(closed, filter: .closed)
         await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
         let recorder = StreamRecorder(await rig.feed.states())
-        await rig.feed.setFilter(.closed, search: nil)
+        await rig.feed.setFilter(.closed)
         let shown = try await recorder.next { $0.filter == .closed && $0.isOffline && $0.list == closed }
         #expect(shown.load == .ready)
-        await rig.feed.setFilter(.review, search: nil)
+        await rig.feed.setFilter(.review)
         let empty = try await recorder.next { $0.filter == .review && $0.load == .failed(.offline) }
         #expect(empty.list == nil)
     }
@@ -234,10 +233,10 @@ struct ThreadListFeedTests {
         await rig.cache.saveThreadList(older, filter: .review)
         await rig.transport.on("GET threads", .failure(.notConnectedToInternet))
         let recorder = StreamRecorder(await rig.feed.states())
-        await rig.feed.setFilter(.closed, search: nil)
+        await rig.feed.setFilter(.closed)
         let shown = try await recorder.next { $0.filter == .closed && $0.isOffline && $0.list == closed }
         #expect(shown.listAsOf == savedAt)
-        await rig.feed.setFilter(.review, search: nil)
+        await rig.feed.setFilter(.review)
         let noTime = try await recorder.next { $0.filter == .review && $0.list != nil && $0.isOffline }
         #expect(noTime.listAsOf == nil)
     }

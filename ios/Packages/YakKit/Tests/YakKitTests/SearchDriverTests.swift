@@ -159,6 +159,34 @@ private final class Recorder: @unchecked Sendable {
         #expect(await server.questions.count == 1 && recorder.last.phase == .tooShort)
     }
 
+    @Test func aWaitThatIsOverAfterStopAsksNothing() async {
+        driver.setText("geo")
+        await clock.waitForSleepers(1)
+        await clock.advance(by: .milliseconds(300))
+        await questions(1)
+        await server.reply(
+            0, .failure(.server(APIError(status: 429, code: "x", message: "", details: [:], retryAfterSeconds: 4))))
+        await waitUntil { recorder.last.phase == .rateLimited(retryAfterSeconds: 4) }
+        driver.stop()
+        await clock.advance(by: .seconds(10))
+        #expect(await server.questions.count == 1)
+    }
+
+    @Test func aDriverThatIsGoneAsksNothingWhenItsWaitIsOver() async {
+        let gone = SearchServer()
+        let recorded = Recorder()
+        var held: SearchDriver? = SearchDriver(
+            clock: clock, debounce: .milliseconds(300),
+            perform: { (text: String) async throws(APIFailure) -> SearchAnswer in try await gone.answer(text).get() },
+            onChange: { recorded.record($0) })
+        held?.setText("geo")
+        await clock.waitForSleepers(1)
+        held = nil
+        await clock.advance(by: .seconds(10))
+        for _ in 0..<50 { await Task.yield() }
+        #expect(await gone.questions.isEmpty)
+    }
+
     @Test func goingOfflineMidRequestShowsTheLocalFilter() async {
         driver.setText("geo")
         await clock.waitForSleepers(1)

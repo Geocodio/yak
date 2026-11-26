@@ -45,6 +45,9 @@ public struct DrawerRow: Equatable, Sendable, Identifiable {
     /// The page the thread started from, from the row's `source.url`, when it passes the link rule.
     public let sourceLink: URL?
 
+    /// A thread found by the search that is not in the loaded list: the answer carries no star, closed state or rights.
+    public var isUnloadedSearchResult: Bool { indicator == .searchResult }
+
     /// The repository the second line shows in the mono face in place of the status word. Only a status whose mark
     /// differs without color (stopped, paused, waiting for a repository) gives way; a closed row says "Closed"; running, blocked, unseen
     /// and any unknown status keep their words, so color is never the only signal.

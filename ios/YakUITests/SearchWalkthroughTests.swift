@@ -5,6 +5,10 @@ import XCTest
 /// the audit, which cannot reach it.
 @MainActor final class SearchWalkthroughTests: WalkthroughCase {
     private let thread = "d0e515ef"
+    private var isLargestText: Bool { environment["YAK_TEXT_SIZE"] == "largest" }
+    /// At the largest text a state that keeps the loaded matches under its message cannot show them above the bottom
+    /// bar, so it is shot with a text that matches none of the loaded threads: every line is then whole on screen.
+    private var fallbackQuery: String { isLargestText ? "worker" : "retry" }
 
     private func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any)[identifier] }
     private func row(_ id: String) -> XCUIElement { element("drawer.row.thread:\(id)") }
@@ -53,8 +57,9 @@ import XCTest
         try stub.releaseSearch()
     }
 
+    /// At the largest text the results are one thread, so every row is whole on screen above the bottom bar.
     func testResults() throws {
-        try launch()
+        try launch(isLargestText ? "search-one" : "search")
         type("retry")
         XCTAssertTrue(element("search.results").waitForExistence(timeout: Wait.appear))
         submit()
@@ -73,7 +78,7 @@ import XCTest
         try launch()
         try stub.setOnline(false)
         XCTAssertTrue(element("drawer.offlineNotice").waitForExistence(timeout: Wait.appear))
-        type("retry")
+        type(fallbackQuery)
         XCTAssertTrue(element("search.offline").waitForExistence(timeout: Wait.appear))
         submit()
         try shoot("search-offline")
@@ -81,7 +86,7 @@ import XCTest
 
     func testError() throws {
         try launch("search-failing")
-        type("retry")
+        type(fallbackQuery)
         XCTAssertTrue(element("search.failed").waitForExistence(timeout: Wait.appear))
         submit()
         try shoot("search-error")
@@ -89,7 +94,7 @@ import XCTest
 
     func testRateLimited() throws {
         try launch("search-limited-long")
-        type("retry")
+        type(fallbackQuery)
         XCTAssertTrue(element("search.limited").waitForExistence(timeout: Wait.appear))
         submit()
         try shoot("search-rate-limited")

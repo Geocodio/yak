@@ -87,6 +87,13 @@ import Testing
         #expect(try search(feature, "retry", scenario: "search-limited").status == 200)
     }
 
+    @Test func theOneScenarioAnswersASingleThreadForAnyQuery() throws {
+        for query in ["retry", "zzzz"] {
+            let rows = results(try search(StubSearch(), query, scenario: "search-one").json)
+            #expect(rows.count == 1 && rows.first?["type"] as? String == "thread")
+        }
+    }
+
     @Test func theLongLimitedScenarioWaitsThirtySeconds() throws {
         let limited = try search(StubSearch(), "retry", scenario: "search-limited-long")
         #expect(limited.status == 429 && limited.reply.headers["Retry-After"] == "30")

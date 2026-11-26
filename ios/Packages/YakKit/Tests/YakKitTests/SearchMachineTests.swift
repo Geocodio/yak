@@ -171,6 +171,14 @@ private func loading(_ text: String = "geo") -> (machine: SearchMachine, generat
         #expect(machine.send(.waitOver(generation: generation)).isEmpty && machine.state.phase == .idle)
     }
 
+    @Test func aRefusedTextShowsTheServersSentenceAndHasNothingToRetry() {
+        var (machine, generation) = loading()
+        _ = machine.send(.failed(generation: generation, .rejected(message: "Too long.")))
+        #expect(machine.state.phase == .rejected(message: "Too long."))
+        #expect(machine.state.filtersLoadedList && !machine.state.showsServerResults)
+        #expect(machine.send(.retry).isEmpty && machine.state.phase == .rejected(message: "Too long."))
+    }
+
     @Test func aRateLimitHasNoManualRetry() {
         var (machine, generation) = loading()
         _ = machine.send(.failed(generation: generation, .rateLimited(retryAfterSeconds: 5)))
@@ -229,7 +237,14 @@ private func loading(_ text: String = "geo") -> (machine: SearchMachine, generat
             SearchFailure(
                 .server(APIError(status: 429, code: "too_many", message: "", details: [:], retryAfterSeconds: 12)))
                 == .rateLimited(retryAfterSeconds: 12))
-        #expect(SearchFailure(.server(APIError(status: 503, code: "x", message: "", details: [:]))) == .offline)
+        #expect(SearchFailure(.network(.networkConnectionLost)) == .offline)
+        #expect(SearchFailure(.network(.dataNotAllowed)) == .offline)
+        #expect(SearchFailure(.network(.timedOut)) == .failed)
+        #expect(SearchFailure(.network(.cannotConnectToHost)) == .failed)
+        #expect(SearchFailure(.server(APIError(status: 503, code: "x", message: "", details: [:]))) == .failed)
+        #expect(
+            SearchFailure(.server(APIError(status: 422, code: "validation_failed", message: "Too long.", details: [:])))
+                == .rejected(message: "Too long."))
         #expect(SearchFailure(.server(APIError(status: 500, code: "x", message: "", details: [:]))) == .failed)
         #expect(SearchFailure(.notYak) == .failed)
     }

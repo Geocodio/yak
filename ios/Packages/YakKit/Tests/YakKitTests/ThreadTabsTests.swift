@@ -244,11 +244,11 @@ private let row =
 }
 
 @Suite struct ThreadListRequestTests {
-    @Test func theRequestCarriesTheTabSourcesStartersAndSearch() {
+    @Test func theRequestCarriesTheTabSourcesAndStarters() {
         let endpoint = Endpoint<ThreadList>.threads(
-            filter: .review, search: " retry ", sources: ["slack", "sentry"], starters: ["yak"])
+            filter: .review, sources: ["slack", "sentry"], starters: ["yak"])
         let pairs = endpoint.query.map { "\($0.name)=\($0.value ?? "")" }
-        #expect(pairs == ["filter=review", "sources[]=slack", "sources[]=sentry", "starters[]=yak", "search=retry"])
-        #expect(Endpoint<ThreadList>.threads(filter: .mine, search: nil).query.map(\.name) == ["filter"])
+        #expect(pairs == ["filter=review", "sources[]=slack", "sources[]=sentry", "starters[]=yak"])
+        #expect(Endpoint<ThreadList>.threads(filter: .mine).query.map(\.name) == ["filter"])
     }
 }

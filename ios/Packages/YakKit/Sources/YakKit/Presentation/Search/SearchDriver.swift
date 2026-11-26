@@ -30,8 +30,10 @@ public final class SearchDriver {
     public func retry() { apply(.retry) }
     public func setOnline(_ isOnline: Bool) { apply(.connectivity(isOnline: isOnline)) }
 
-    /// Stops whatever is pending; the state stays as it is.
+    /// Stops whatever is pending, so a wait that is over after the drawer is gone asks nothing; the state stays as it is.
     public func stop() { cancelPending() }
+
+    isolated deinit { cancelPending() }
 
     private func apply(_ event: SearchEvent) {
         let before = machine.state
@@ -51,24 +53,24 @@ public final class SearchDriver {
         switch effect {
         case .cancelPending: cancelPending()
         case .startDebounce(let generation):
-            timerTask = Task { [clock, debounce] in
+            timerTask = Task { [weak self, clock, debounce] in
                 do { try await clock.sleep(for: debounce) } catch { return }
-                self.apply(.debounced(generation: generation))
+                self?.apply(.debounced(generation: generation))
             }
         case .startWait(let generation, let seconds):
-            timerTask = Task { [clock] in
+            timerTask = Task { [weak self, clock] in
                 do { try await clock.sleep(for: .seconds(seconds)) } catch { return }
-                self.apply(.waitOver(generation: generation))
+                self?.apply(.waitOver(generation: generation))
             }
         case .request(let generation, let text):
-            requestTask = Task { [perform] in
+            requestTask = Task { [weak self, perform] in
                 do throws(APIFailure) {
                     let answer = try await perform(text)
                     guard !Task.isCancelled else { return }
-                    self.apply(.answered(generation: generation, results: answer.results))
+                    self?.apply(.answered(generation: generation, results: answer.results))
                 } catch {
                     guard !Task.isCancelled else { return }
-                    self.apply(.failed(generation: generation, SearchFailure(error)))
+                    self?.apply(.failed(generation: generation, SearchFailure(error)))
                 }
             }
         }

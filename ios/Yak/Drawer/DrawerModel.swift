@@ -213,7 +213,7 @@ final class DrawerModel {
     private func sendToFeed() async {
         let held = scene.state.selection
         let asked = tabs.request(filter: held.filter, starters: held.starters)
-        await feed.setFilter(asked.filter, search: nil, sources: held.sources, starters: asked.starters)
+        await feed.setFilter(asked.filter, sources: held.sources, starters: asked.starters)
     }
 
     /// A Review group folds open or shut.
