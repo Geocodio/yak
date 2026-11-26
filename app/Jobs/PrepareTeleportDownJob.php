@@ -21,6 +21,11 @@ class PrepareTeleportDownJob implements ShouldQueue
 
     public int $tries = 0;
 
+    /** Waking a hibernated sandbox and pushing can take minutes; the default worker timeout would kill the job silently. */
+    public int $timeout = 600;
+
+    public bool $failOnTimeout = true;
+
     public function __construct(public string $teleportId) {}
 
     public function handle(TeleportDownPreparer $preparer, Teleports $teleports): void
@@ -39,6 +44,18 @@ class PrepareTeleportDownJob implements ShouldQueue
             $isKnown = $exception instanceof TeleportError || $exception instanceof SandboxCommandFailed;
             $teleports->fail($teleport->refresh(), $exception instanceof TeleportError ? $exception->errorCode : 'teleport_failed', $isKnown ? $exception->getMessage() : 'Preparing the thread for your computer failed.');
             report($exception);
+        }
+    }
+
+    /**
+     * A killed or timed-out run ends the teleport, so the CLI stops waiting on work nobody is doing.
+     */
+    public function failed(Throwable $exception): void
+    {
+        $teleport = Teleport::query()->find($this->teleportId);
+
+        if ($teleport !== null) {
+            app(Teleports::class)->fail($teleport, 'teleport_failed', 'Yak took too long to prepare the thread. Run yak teleport again.');
         }
     }
 }

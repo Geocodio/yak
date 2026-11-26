@@ -129,6 +129,7 @@ type ThreadResponse struct {
 type Progress struct {
 	Step   string `json:"step"`
 	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type Failure struct {

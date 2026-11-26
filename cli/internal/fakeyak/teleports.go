@@ -34,12 +34,14 @@ type teleportRow struct {
 	upRepos    []api.BeginRepo
 	completed  any
 	pollsLeft  int
+	progress   []api.Progress
 	completeBy time.Time
 }
 
 type downScript struct {
 	manifest api.DownManifest
 	states   []string
+	progress [][]api.Progress
 }
 
 type teleportState struct {
@@ -104,6 +106,14 @@ func (s *Server) ScriptDownStates(threadID int, manifest api.DownManifest, state
 		s.tele.scripts = map[int]*downScript{}
 	}
 	s.tele.scripts[threadID] = &downScript{manifest: manifest, states: states}
+}
+
+// ScriptDownProgress scripts the progress entries each poll of the thread's next down teleport reports, one
+// snapshot per poll with the last one repeating. Call it after ScriptDownStates.
+func (s *Server) ScriptDownProgress(threadID int, snapshots ...[]api.Progress) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tele.scripts[threadID].progress = snapshots
 }
 
 // FailNextBegin makes the next teleport-up begin fail with 409 and the given code.
@@ -193,7 +203,7 @@ func (row *teleportRow) object() api.Teleport {
 		TeleportID: row.id, ThreadID: row.threadID, Direction: row.direction, State: row.state, DeviceID: row.deviceID,
 		CreatedAt: row.created.UTC().Format(time.RFC3339), UpdatedAt: row.updated.UTC().Format(time.RFC3339),
 		ExpiresAt: row.updated.Add(teleportIdleLimit).UTC().Format(time.RFC3339), PollAfterSeconds: 2,
-		Progress: []api.Progress{}, Failure: row.failure,
+		Progress: append([]api.Progress{}, row.progress...), Failure: row.failure,
 	}
 }
 
@@ -544,6 +554,12 @@ func (s *Server) getTeleport(w http.ResponseWriter, row *teleportRow) {
 	}
 	if row.direction == "down" && !terminalState(row.state) {
 		if script := s.tele.scripts[row.threadID]; script != nil && len(script.states) > 0 {
+			if len(script.progress) > 0 {
+				row.progress = script.progress[0]
+				if len(script.progress) > 1 {
+					script.progress = script.progress[1:]
+				}
+			}
 			next := script.states[0]
 			if len(script.states) > 1 {
 				script.states = script.states[1:]

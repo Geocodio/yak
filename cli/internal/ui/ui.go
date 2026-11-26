@@ -155,6 +155,12 @@ type nonInteractive struct{}
 // NewNonInteractive answers every question with its default.
 func NewNonInteractive() Prompter { return nonInteractive{} }
 
+// IsNonInteractive reports whether p answers every question with its default.
+func IsNonInteractive(p Prompter) bool {
+	_, ok := p.(nonInteractive)
+	return ok
+}
+
 func (nonInteractive) Confirm(_ string, def bool) (bool, error) { return def, nil }
 func (nonInteractive) Choose(_ string, _ []Option, defIndex int) (int, error) {
 	return defIndex, nil

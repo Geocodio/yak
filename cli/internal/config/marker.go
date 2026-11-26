@@ -22,7 +22,9 @@ type Marker struct {
 	TeleportID     string `json:"teleport_id"`
 	// ResumeEpoch is set when a teleport down hands the session to one process: only a claude started by that
 	// command carries it in YAK_TELEPORT_EPOCH, so any other process with the session open is stale.
-	ResumeEpoch      string    `json:"resume_epoch,omitempty"`
+	ResumeEpoch string `json:"resume_epoch,omitempty"`
+	// LaunchPID is the process id of the claude that yak teleport started, or of the one that took over from it.
+	LaunchPID        int       `json:"launch_pid,omitempty"`
 	Owner            string    `json:"owner"`
 	ThreadURL        string    `json:"thread_url,omitempty"`
 	StackMessagesURL string    `json:"stack_messages_url,omitempty"`

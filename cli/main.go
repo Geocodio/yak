@@ -36,6 +36,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Sleep:        time.Sleep,
 		Cwd:          cwd,
 		Interactive:  isTerminal(stdin),
+		LiveOutput:   isTerminal(stdout),
 		Exec:         execIn,
 		OpenTerminal: link.OpenTerminalSystem(runtime.GOOS),
 		RunCommand:   link.SystemRunner,
@@ -43,8 +44,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}, args)
 }
 
-func isTerminal(stdin io.Reader) bool {
-	f, ok := stdin.(*os.File)
+func isTerminal(stream any) bool {
+	f, ok := stream.(*os.File)
 	return ok && ui.IsTTY(f)
 }
 

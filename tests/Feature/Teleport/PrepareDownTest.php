@@ -255,6 +255,30 @@ it('stays preparing while no sandbox slot is free', function () {
     expect(runDown(downTeleport($this))->state)->toBe(TeleportState::Preparing);
 });
 
+it('shows the sandbox wake as running while no slot is free', function () {
+    $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::waitingForSlot());
+
+    expect(runDown(downTeleport($this))->progress)->toContain(['step' => 'wake_sandbox', 'status' => 'running', 'detail' => 'waiting for a free sandbox']);
+});
+
+it('says when another wake of the sandbox holds it up', function () {
+    $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::wakingElsewhere());
+
+    expect(runDown(downTeleport($this))->progress)->toContain(['step' => 'wake_sandbox', 'status' => 'running', 'detail' => 'waiting for another wake of this sandbox to finish']);
+});
+
+it('fails the teleport when the job times out, so the CLI stops waiting', function () {
+    $teleport = downTeleport($this);
+    $job = new PrepareTeleportDownJob($teleport->id);
+
+    $job->failed(new RuntimeException('timed out'));
+
+    expect($job->timeout)->toBe(600)
+        ->and($job->failOnTimeout)->toBeTrue()
+        ->and($teleport->refresh()->state)->toBe(TeleportState::Failed)
+        ->and($teleport->failure_message)->toContain('took too long');
+});
+
 it('stops running agents, waits for them to end, and proceeds on the next attempt', function () {
     config(['yak.threads.subagents' => true]);
     $this->thread->forceFill(['runner_generation' => 1, 'runner_state' => RunnerState::Idle])->save();

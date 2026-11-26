@@ -56,7 +56,7 @@ class TeleportDownPreparer
             return false;
         }
 
-        if (! $this->wakeSandbox($thread)) {
+        if (! $this->wakeSandbox($teleport, $thread)) {
             return false;
         }
 
@@ -119,15 +119,24 @@ class TeleportDownPreparer
         return false;
     }
 
-    private function wakeSandbox(Thread $thread): bool
+    private function wakeSandbox(Teleport $teleport, Thread $thread): bool
     {
+        $teleport->progressStep(TeleportStep::WakeSandbox, 'running', 'starting the sandbox');
         $wake = $this->sandbox->ensureAwake($thread);
 
         if ($wake->ready) {
+            $teleport->progressStep(TeleportStep::WakeSandbox, 'done');
+
             return true;
         }
 
         if ($wake->waitingForSlot || $wake->restoring) {
+            $teleport->progressStep(TeleportStep::WakeSandbox, 'running', match (true) {
+                $wake->waitingForSlot => 'waiting for a free sandbox',
+                $wake->wakingElsewhere => 'waiting for another wake of this sandbox to finish',
+                default => 'restoring the sandbox snapshot',
+            });
+
             return false;
         }
 
@@ -153,6 +162,8 @@ class TeleportDownPreparer
             if ($repository->role === RepositoryRole::Context || blank($repository->branch)) {
                 continue;
             }
+
+            $teleport->progressStep(TeleportStep::Push, 'running', "pushing {$repository->repo}");
 
             if ($repository->role === RepositoryRole::Primary) {
                 $this->pushedBranches->ensure($thread, $repository->sandbox_path, (string) $repository->branch);
