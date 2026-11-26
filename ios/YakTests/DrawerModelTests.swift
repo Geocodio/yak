@@ -260,6 +260,8 @@ private final class MemoryDefaults: KeyValueStore, @unchecked Sendable {
     let fixture = try await Fixture()
     let running = Task { await fixture.model.run() }
     defer { running.cancel() }
+    await fixture.feed.refresh()
+    #expect(await fixture.eventually { fixture.model.content != nil })
     // One character narrows the loaded tab, so the widening is reachable from "no match".
     fixture.model.search = "z"
     guard case .noResults(_, let canWiden)? = fixture.model.content else {

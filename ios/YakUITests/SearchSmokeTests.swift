@@ -219,6 +219,9 @@ import XCTest
         type("retry\n")
         waitForResults()
         XCTAssertTrue(app.staticTexts["Showing the first 10."].exists)
+        // Ten rows push the action under the bottom bar; the list scrolls to it.
+        element("search.results").swipeUp()
+        XCTAssertTrue(element("search.showAll").isHittable)
         element("search.showAll").tap()
         XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(element("search.results").exists)
@@ -233,10 +236,10 @@ import XCTest
         try launch("search-unknown")
         type("retry\n")
         waitForResults()
-        XCTAssertTrue(app.buttons["search.result.other:dep-1"].exists)
+        XCTAssertEqual(element("search.result.other:dep-1").elementType, .button)
         XCTAssertTrue(element("search.result.other:dep-2").exists)
-        XCTAssertFalse(app.buttons["search.result.other:dep-2"].exists)
-        app.buttons["search.result.other:dep-1"].tap()
+        XCTAssertNotEqual(element("search.result.other:dep-2").elementType, .button)
+        element("search.result.other:dep-1").tap()
         XCTAssertTrue(app.buttons["thread.menu"].waitForExistence(timeout: Wait.appear))
     }
 
@@ -248,7 +251,7 @@ import XCTest
         XCTAssertTrue(element("drawer.offlineNotice").waitForExistence(timeout: Wait.appear))
         type("retry\n")
         XCTAssertTrue(element("search.offline").waitForExistence(timeout: Wait.appear))
-        XCTAssertTrue(app.staticTexts["Saved on this iPhone"].exists)
+        XCTAssertTrue(app.staticTexts["Saved on this device"].exists)
         XCTAssertTrue(row(thread).exists)
         waitUntilGone(row(otherThread))
         try audit()
