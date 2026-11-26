@@ -141,11 +141,29 @@ extension EmbedPageMessage {
         let url: String
         let latestSequence: Int?
         let title: String
+        /// An explicit null for `threadId` or `latestSequence` is refused; only an absent field means the page form.
+        let hasNull: Bool
+
+        enum CodingKeys: String, CodingKey { case threadId, url, latestSequence, title }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            threadId = try container.decodeIfPresent(String.self, forKey: .threadId)
+            url = try container.decode(String.self, forKey: .url)
+            latestSequence = try container.decodeIfPresent(Int.self, forKey: .latestSequence)
+            title = try container.decode(String.self, forKey: .title)
+            hasNull =
+                try [CodingKeys.threadId, .latestSequence].contains {
+                    try container.contains($0) && container.decodeNil(forKey: $0)
+                }
+        }
 
         /// A thread page names its thread and feed position; the other pages carry neither, and one without the other
-        /// is malformed.
+        /// is malformed. A path starting with a second slash or a backslash would read as another host.
         func message() -> EmbedPageMessage? {
-            guard url.hasPrefix("/"), !url.hasPrefix("//"), url.utf8.count <= maximumURLLength else { return nil }
+            guard !hasNull, url.hasPrefix("/"), !url.hasPrefix("//"), !url.contains("\\"),
+                url.utf8.count <= maximumURLLength
+            else { return nil }
             let cutTitle = String(title.prefix(maximumTitleLength))
             switch (threadId, latestSequence) {
             case (nil, nil): return .pageReady(path: url, title: cutTitle)
@@ -313,6 +331,7 @@ extension EmbedPageMessage {
 
     private struct Agents: Decodable {
         let running: Int
+        /// An absent or null `newest` both mean no running agent; the page itself always sends null.
         let newest: String?
 
         func message() -> EmbedPageMessage? {
