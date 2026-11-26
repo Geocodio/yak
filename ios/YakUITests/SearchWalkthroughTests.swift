@@ -63,7 +63,7 @@ import XCTest
 
     func testNoResults() throws {
         try launch("search-empty")
-        type("geocodr")
+        type("retryx")
         XCTAssertTrue(element("search.empty").waitForExistence(timeout: Wait.appear))
         submit()
         try shoot("search-no-results")

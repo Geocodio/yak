@@ -12,19 +12,19 @@ private func row(_ id: String, _ title: String, repo: String = "example/web", ch
 
 @Suite struct ThreadListNarrowingTests {
     private let list = ThreadList(
-        starred: [row("s1", "Starred geocoder work")],
-        needsYou: [.thread(row("n1", "Batch geocode retries")), .thread(row("n2", "Unrelated"))],
+        starred: [row("s1", "Starred parser work")],
+        needsYou: [.thread(row("n1", "Batch parse retries")), .thread(row("n2", "Unrelated"))],
         threads: [
-            row("t1", "Move search", repo: "example/geocoder"),
-            row("t2", "Dark mode", children: [row("c1", "Fix the Geocoder cache")]),
+            row("t1", "Move search", repo: "example/parser"),
+            row("t2", "Dark mode", children: [row("c1", "Fix the Parser cache")]),
             row("t3", "Dark docs"),
         ], needsYouCount: 2, hasAnyThreads: true,
         reviewGroups: [
-            ReviewGroup(key: "waiting", label: "Waiting", rows: [row("r1", "Review geocode"), row("r2", "No")])
+            ReviewGroup(key: "waiting", label: "Waiting", rows: [row("r1", "Review parse"), row("r2", "No")])
         ])
 
     @Test func keepsRowsByTitleRepositoryOrSubThread() {
-        let narrowed = list.narrowed(to: "geocod")
+        let narrowed = list.narrowed(to: "pars")
         #expect(narrowed.starred.map(\.id) == ["s1"])
         #expect(narrowed.needsYou.count == 1)
         #expect(narrowed.threads.map(\.id) == ["t1", "t2"])

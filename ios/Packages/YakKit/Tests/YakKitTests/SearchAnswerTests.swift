@@ -41,9 +41,9 @@ import Testing
     }
 
     @Test func buildsTheRequest() {
-        let endpoint = Endpoint<SearchAnswer>.search("  geocod  ")
+        let endpoint = Endpoint<SearchAnswer>.search("  pars  ")
         #expect(endpoint.method == .get && endpoint.path == "search")
-        #expect(endpoint.query == [URLQueryItem(name: "q", value: "geocod")])
+        #expect(endpoint.query == [URLQueryItem(name: "q", value: "pars")])
         #expect(!endpoint.retriesTransientFailures)
         #expect(Endpoint<SearchAnswer>.search(String(repeating: "a", count: 150)).query[0].value?.count == 100)
     }
