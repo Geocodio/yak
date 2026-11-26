@@ -45,7 +45,12 @@ struct BottomBar: View {
                     scene.requestComposerFocus()
                 }
             }
-            card.onGeometryChange(for: CGFloat.self) {
+            // The agents bar and the card are measured together: the slash menu keeps clear of both.
+            VStack(spacing: Design.Space.small) {
+                if pane == .chat { RunningAgentsBarView(thread: thread) }
+                card
+            }
+            .onGeometryChange(for: CGFloat.self) {
                 $0.size.height
             } action: {
                 cardHeight = $0

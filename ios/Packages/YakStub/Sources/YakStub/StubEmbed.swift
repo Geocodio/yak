@@ -314,7 +314,9 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             el("last").textContent = "Sent " + message.type;
           }
           function showThread() { el("title").textContent = "Stub conversation " + threadId; }
+          var lastAgents = null;
           function sendReady() {
+            lastAgents = null;
             el("status").textContent = "Ready";
             post({ type: "ready", threadId: threadId, url: "/app/embed/threads/" + threadId, latestSequence: 42,
                    title: "Stub conversation " + threadId });
@@ -338,6 +340,32 @@ final class StubEmbed: StubFeature, @unchecked Sendable {
             el("last").textContent = "Focused " + fragment;
             setTimeout(function () { target.removeAttribute("data-fragment-target"); }, 1600);
           }
+          // The agents scenarios of the stub report the running agents; every other scenario answers 404, which ends the polling.
+          var agentsTimer = null;
+          function pollAgents() {
+            fetch("/__stub/agents/report", { cache: "no-store" }).then(function (answer) {
+              if (answer.status === 404) { clearInterval(agentsTimer); return null; }
+              return answer.ok ? answer.text() : null;
+            }).then(function (text) {
+              if (!text) { return; }
+              var report = JSON.parse(text);
+              var key = report.running + ":" + report.newest;
+              if (key === lastAgents) { return; }
+              lastAgents = key;
+              report.cards.forEach(function (id) {
+                if (el(id)) { return; }
+                var card = document.createElement("section");
+                card.id = id;
+                card.setAttribute("tabindex", "-1");
+                card.textContent = "Agent card " + id;
+                el("history").appendChild(card);
+              });
+              var message = { type: "agents", running: report.running };
+              if (report.newest) { message.newest = report.newest; }
+              post(message);
+            }).catch(function () {});
+          }
+          agentsTimer = setInterval(pollAgents, 300);
           showThread();
           setTimeout(sendReady, \#(readyDelayMilliseconds));
           el("send-link").addEventListener("click", function () { post({ type: "link", url: "https://example.com/docs" }); });

@@ -14315,6 +14315,240 @@
           }
         }
       }
+    },
+    "agents.running %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld agent running"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld agents running"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "agents.view" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View"
+          }
+        }
+      }
+    },
+    "agents.view.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrolls the conversation to the newest agent."
+          }
+        }
+      }
+    },
+    "agents.view.missed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That agent is not on the page any more."
+          }
+        }
+      }
+    },
+    "agents.stop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop all"
+          }
+        }
+      }
+    },
+    "agents.stop.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks before stopping the running agents."
+          }
+        }
+      }
+    },
+    "agents.stopping" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopping…"
+          }
+        }
+      }
+    },
+    "agents.confirm.title %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop all agents?"
+          }
+        }
+      }
+    },
+    "agents.confirm.message %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude stops its %lld running agents. Claude itself keeps working on this turn."
+          }
+        }
+      }
+    },
+    "agents.confirm.stop %lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stop %lld agent"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Stop %lld agents"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "agents.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again"
+          }
+        }
+      }
+    },
+    "agents.announce.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agents running"
+          }
+        }
+      }
+    },
+    "agents.failure.offline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection, so the agents were not stopped."
+          }
+        }
+      }
+    },
+    "agents.failure.signedOut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device is not signed in any more. Pair it again to stop the agents."
+          }
+        }
+      }
+    },
+    "agents.failure.forbidden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can read this thread but not stop its agents."
+          }
+        }
+      }
+    },
+    "agents.failure.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not find agents to stop on this thread."
+          }
+        }
+      }
+    },
+    "agents.failure.tooManyRequests" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many requests. Try again in a moment."
+          }
+        }
+      }
+    },
+    "agents.failure.serverProblem" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yak could not stop the agents. Try again."
+          }
+        }
+      }
+    },
+    "agents.confirm.title.one" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop the agent?"
+          }
+        }
+      }
+    },
+    "agents.confirm.message.one" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude stops its running agent. Claude itself keeps working on this turn."
+          }
+        }
+      }
+    },
+    "agents.retry.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks the agents to stop again."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

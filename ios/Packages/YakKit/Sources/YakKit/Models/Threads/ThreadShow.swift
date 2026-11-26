@@ -34,6 +34,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
     public let legacyAnswers: [LegacyAnswer]
     /// The composer's slash commands. Nil from an older server, which has no menu.
     public let slashCommands: SlashCommands?
+    /// The agents that run now. Nil from an older server, which does not list them.
+    public let agents: RunningAgents?
 
     public init(
         thread: ThreadDetail,
@@ -62,7 +64,8 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         actions: ThreadActionFlags = .none,
         isLegacy: Bool = false,
         legacyAnswers: [LegacyAnswer] = [],
-        slashCommands: SlashCommands? = nil
+        slashCommands: SlashCommands? = nil,
+        agents: RunningAgents? = nil
     ) {
         self.thread = thread
         self.canDrive = canDrive
@@ -91,6 +94,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         self.isLegacy = isLegacy
         self.legacyAnswers = legacyAnswers
         self.slashCommands = slashCommands
+        self.agents = agents
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -99,7 +103,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         case canOpenPullRequest, diffTotals, pullRequest, publishWarning
         case liveActivityChannel
         case request, progress, milestones, card, repositoryQuestion, earlyWarning, coOwner, stopped
-        case actions, isLegacy, legacyAnswers, slashCommands
+        case actions, isLegacy, legacyAnswers, slashCommands, agents
     }
 
     public init(from decoder: any Decoder) throws {
@@ -131,6 +135,7 @@ public struct ThreadShow: Codable, Equatable, Sendable {
         isLegacy = try container.decodeIfPresent(Bool.self, forKey: .isLegacy) ?? false
         legacyAnswers = try container.decodeIfPresent([LegacyAnswer].self, forKey: .legacyAnswers) ?? []
         slashCommands = (try? container.decodeIfPresent(SlashCommands.self, forKey: .slashCommands)) ?? nil
+        agents = (try? container.decodeIfPresent(RunningAgents.self, forKey: .agents)) ?? nil
     }
 }
 

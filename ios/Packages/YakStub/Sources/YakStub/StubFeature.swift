@@ -76,6 +76,7 @@ enum StubFeatures {
     static let all: [any StubFeature] = [
         // First, because it edits the thread show that another feature would otherwise answer unedited.
         StubSlashCommands(),
+        StubAgents(),
         StubWidgets(),
         StubPush(),
         StubPreviewFeature(),

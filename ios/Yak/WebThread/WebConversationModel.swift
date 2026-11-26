@@ -28,6 +28,13 @@ extension EnvironmentValues {
     @Entry var webConversation: WebConversationModel?
 }
 
+/// The page's count of the running agents of a thread, and the fragment of the newest one's card.
+struct AgentsReport: Equatable {
+    let threadID: String
+    let running: Int
+    let newest: String?
+}
+
 /// The web view, as far as the model needs it.
 @MainActor protocol WebConversationPage: AnyObject {
     /// Loads the POST that redeems a code; the server answers with a redirect to the page.
@@ -106,6 +113,9 @@ final class WebConversationModel {
     /// A short line about something that went wrong beside the page, such as a file that could not be opened. It
     /// goes away by itself.
     private(set) var noticeLine: String?
+    /// What the page last said about the agents of the thread it shows. Nil from a page load that has not reported yet:
+    /// a new page load and a change of thread clear it.
+    private(set) var agentsReport: AgentsReport?
     /// The saved copy of the shown thread, drawn instead of the live page while the live page is not there. It stays
     /// until the live page is ready, so the swap back has no empty moment.
     private(set) var savedCopy: SavedWebCopy? {
@@ -150,6 +160,8 @@ final class WebConversationModel {
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFocus = PendingFocusSlot()
     @ObservationIgnored private var focusSerial = 0
+    /// The card the agents bar asked the page to scroll to; a `focusMissed` for it says so on screen.
+    @ObservationIgnored private var barFocusFragment: String?
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
     @ObservationIgnored private var hasBegun = false
     /// Makes the web view before a pane shows it; the window's shell sets it, and only a prepared page needs it.
@@ -482,6 +494,7 @@ final class WebConversationModel {
     func receive(_ message: EmbedPageMessage) {
         switch message {
         case .ready(let readyThreadID, _, _, _):
+            agentsReport = nil
             pageThreadID = readyThreadID
             self.readyThreadID = readyThreadID
             if threadID == readyThreadID {
@@ -494,6 +507,7 @@ final class WebConversationModel {
             deliverPendingFocus()
             scheduleCapture()
         case .threadChanged(let changedThreadID, _):
+            agentsReport = nil
             pageThreadID = changedThreadID
             apply(.opened(threadID: changedThreadID))
             scheduleCapture()
@@ -511,12 +525,19 @@ final class WebConversationModel {
             scheduleCapture()
         case .unsentAction(let key, let action): handleRequest(.unsent(key: key, action: action))
         case .authExpired, .error: apply(.page(message))
-        case .focusMissed:
+        case .focusMissed(let fragment):
             // The element is not on the page (an older message that is not loaded, a card that is gone): the page
-            // stays where it is and nothing is shown.
+            // stays where it is. A card the agents bar asked for says so; a push or link target stays quiet.
             Self.log("The page did not find the target of a push or link")
-        case .pageReady, .agents:
-            // Nothing shows these yet; the decoder accepts them so a newer page is not reported as malformed.
+            if fragment == barFocusFragment {
+                barFocusFragment = nil
+                showNotice(String(localized: "agents.view.missed"))
+            }
+        case .agents(let running, let newest):
+            // A report that comes before the page has named its thread belongs to no thread yet.
+            if let id = pageThreadID { agentsReport = AgentsReport(threadID: id, running: running, newest: newest) }
+        case .pageReady:
+            // Nothing shows this yet; the decoder accepts it so a newer page is not reported as malformed.
             break
         case .unknown: break
         }
@@ -530,6 +551,13 @@ final class WebConversationModel {
         guard mode != .unsupported, target.threadID == threadID else { return }
         pendingFocus.set(target)
         deliverPendingFocus()
+    }
+
+    /// The agents bar's View: scrolls the page to the card of the newest running agent.
+    func focusAgent(fragment: String, thread id: String) {
+        guard let target = PendingFocus(threadID: id, fragment: fragment) else { return }
+        barFocusFragment = fragment
+        focus(target)
     }
 
     /// The target that has not been sent yet; nil once it was sent or dropped.
