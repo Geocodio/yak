@@ -226,7 +226,7 @@ import XCTest
         XCTAssertTrue(row(thread).waitForExistence(timeout: Wait.appear))
         XCTAssertFalse(element("search.results").exists)
         XCTAssertTrue(element("drawer.tabs").exists)
-        search.typeText("x")
+        type("x")
         XCTAssertTrue(element("search.results").waitForExistence(timeout: Wait.appear))
     }
 
@@ -236,9 +236,10 @@ import XCTest
         try launch("search-unknown")
         type("retry\n")
         waitForResults()
-        XCTAssertEqual(element("search.result.other:dep-1").elementType, .button)
-        XCTAssertTrue(element("search.result.other:dep-2").exists)
-        XCTAssertNotEqual(element("search.result.other:dep-2").elementType, .button)
+        XCTAssertTrue(element("search.result.other:dep-1").exists && element("search.result.other:dep-2").exists)
+        // Without a page or a thread the row only reads.
+        element("search.result.other:dep-2").tap()
+        XCTAssertFalse(app.buttons["thread.menu"].waitForExistence(timeout: 3))
         element("search.result.other:dep-1").tap()
         XCTAssertTrue(app.buttons["thread.menu"].waitForExistence(timeout: Wait.appear))
     }
