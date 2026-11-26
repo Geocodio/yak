@@ -31,13 +31,11 @@ struct DrawerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)),
-                !headerScrollsWithList
-            {
+            if !(isSearching && isShortOfRoom), !headerScrollsWithList {
                 header
             }
             if let name = scene.justPairedUserName { banner(name) }
-            if !(isSearchFocused && (verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize)) {
+            if !(isSearching && isShortOfRoom) {
                 tiles
                 tabRow
             }
@@ -89,10 +87,15 @@ struct DrawerView: View {
 
     // MARK: Header
 
+    /// The field has focus or holds text. Where the room is short (landscape, large text) the header, the tile and the
+    /// tabs give way to the matches then.
+    private var isSearching: Bool { isSearchFocused || !(drawer?.search ?? "").isEmpty }
+
+    private var isShortOfRoom: Bool { verticalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize }
+
     /// At accessibility sizes the header scrolls with the list or the message, so they get the height.
     private var headerScrollsWithList: Bool {
-        guard dynamicTypeSize.isAccessibilitySize, !isSearchFocused else { return false }
-        if drawer?.searchState.showsServerResults == true { return false }
+        guard dynamicTypeSize.isAccessibilitySize, !isSearching else { return false }
         if drawer?.state?.list != nil, drawer?.content != nil { return true }
         if case .failed? = drawer?.state?.load { return true }
         return false

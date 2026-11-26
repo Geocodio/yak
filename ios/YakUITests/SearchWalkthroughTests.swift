@@ -97,7 +97,7 @@ import XCTest
 
     func testPullRequestInTheBrowserSheet() throws {
         try launch()
-        type("retry")
+        type("worker")
         XCTAssertTrue(element("search.results").waitForExistence(timeout: Wait.appear))
         submit()
         element("search.result.pullRequest:https://github.com/example/retry-worker/pull/88").tap()
