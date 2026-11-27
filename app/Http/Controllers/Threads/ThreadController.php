@@ -13,6 +13,7 @@ use App\Http\Resources\ThreadShowData;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\Threads\SlashCommands;
+use App\Services\Threads\ThreadCiChecks;
 use App\Services\Threads\ThreadTasks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -35,6 +36,7 @@ class ThreadController extends Controller
             ...$page,
             'pullRequest' => ThreadPageData::webPullRequest($thread),
             ...self::repositoryQuestionProps($thread, $request, $page['card']),
+            ...self::ciChecksProps($thread, $request, $page['card'], $page['stopped']),
             ...(($waitingProgress = ThreadRequestData::waitingForRepositoryProgress($thread)) === null ? [] : ['progress' => $waitingProgress]),
             'turnAnchors' => $thread->is_legacy ? [] : ThreadShowData::turnAnchors($thread),
             'isExpiredCoOwnerStop' => ! $thread->is_legacy && ($head = ThreadTasks::head($thread)) !== null && ThreadCardsData::isExpiredCoOwnerStop($head),
@@ -60,6 +62,23 @@ class ThreadController extends Controller
         }
 
         return in_array($sharedCard, [null, 'repository_question'], true) ? ['repositoryQuestion' => $question, 'card' => 'repository_question'] : [];
+    }
+
+    /**
+     * The GitHub checks of a thread that waits on or stopped at CI, and the card they make in place of the generic stop.
+     *
+     * @param  array{kind: string}|null  $stopped
+     * @return array<string, mixed>
+     */
+    private static function ciChecksProps(Thread $thread, Request $request, ?string $sharedCard, ?array $stopped): array
+    {
+        if (! in_array($sharedCard, [null, 'stopped'], true) || ($stopped['kind'] ?? null) === 'cancelled') {
+            return ['ciChecks' => null];
+        }
+
+        $ciChecks = ThreadCiChecks::for($thread, $request->user());
+
+        return $ciChecks === null ? ['ciChecks' => null] : ['ciChecks' => $ciChecks, 'card' => 'ci_checks'];
     }
 
     /**

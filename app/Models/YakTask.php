@@ -72,6 +72,7 @@ use Illuminate\Support\Str;
  * @property int|null $author_user_id
  * @property int|null $tagged_co_owner_user_id
  * @property array<string, mixed>|null $early_warning
+ * @property array{why: string, next: string}|null $ci_diagnosis
  * @property int|null $responsible_user_id
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
@@ -134,6 +135,7 @@ class YakTask extends Model
             'clarification_reminder_at' => 'datetime',
             'screenshots' => 'json',
             'early_warning' => 'array',
+            'ci_diagnosis' => 'array',
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
             'dispatched_at' => 'datetime',
@@ -167,6 +169,10 @@ class YakTask extends Model
     protected static function booted(): void
     {
         static::updating(function (YakTask $task): void {
+            if ($task->isDirty('status') && $task->status === TaskStatus::Retrying && ! $task->isDirty('ci_diagnosis')) {
+                $task->ci_diagnosis = null;
+            }
+
             if ($task->isDirty('status') && ! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
                 $task->stop_kind = null;
                 $task->stop_summary = null;

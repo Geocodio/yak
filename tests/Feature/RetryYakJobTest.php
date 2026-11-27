@@ -53,6 +53,19 @@ test('a retry without new commits succeeds and clears a stale pr_body_update', f
         ->and($task->fresh()->pr_body_update)->toBeNull();
 });
 
+test('a retry stores the ci diagnosis and keeps it out of the pull request summary, and a new retry clears it', function () {
+    $task = retryTask(['ci_diagnosis' => ['why' => 'Old.', 'next' => 'Old.']]);
+    $task->update(['status' => TaskStatus::AwaitingCi]);
+    $task->update(['status' => TaskStatus::Retrying]);
+
+    expect($task->fresh()->ci_diagnosis)->toBeNull();
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, new FakeSandboxManager, "Fixed what I could.\n\n```ci_diagnosis\n{\"why\": \"The audit fails.\", \"next\": \"Upgrade it.\"}\n```", TaskRunKind::Retry);
+
+    expect($task->fresh()->ci_diagnosis)->toBe(['why' => 'The audit fails.', 'next' => 'Upgrade it.'])
+        ->and($task->fresh()->result_summary)->toBe('Fixed what I could.');
+});
+
 function unchangedRetryTask(): YakTask
 {
     config()->set('yak.channels.github.installation_id', 99999);
