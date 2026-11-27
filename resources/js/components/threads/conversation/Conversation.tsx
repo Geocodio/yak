@@ -120,11 +120,15 @@ function CollapsingWaitingRow({ waiting }: { waiting: { queued: boolean; since: 
             return;
         }
 
+        if (shown === null) {
+            return;
+        }
+
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const timer = window.setTimeout(() => setShown(null), reducedMotion ? 0 : 280);
 
         return () => window.clearTimeout(timer);
-    }, [waiting]);
+    }, [waiting, shown]);
 
     const row = waiting ?? (shown === null ? null : lastWaiting.current);
 

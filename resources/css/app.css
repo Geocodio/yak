@@ -170,12 +170,15 @@
     .waiting-collapse {
         transition:
             grid-template-rows 280ms var(--ease-out-quart),
+            margin-top 280ms var(--ease-out-quart),
             opacity 180ms var(--ease-out-quart);
     }
 }
 
 .waiting-collapse[data-collapsed='true'] {
     grid-template-rows: 0fr;
+    /* cancels the flex gap above the row so unmounting moves nothing */
+    margin-top: -1rem;
     opacity: 0;
 }
 
