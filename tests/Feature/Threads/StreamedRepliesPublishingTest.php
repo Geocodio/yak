@@ -4,6 +4,7 @@ use App\Events\ThreadActivity;
 use App\Events\ThreadEventBroadcast;
 use App\Listeners\PublishThreadActivity;
 use App\Models\Thread;
+use App\Services\Threads\DeltaBatcher;
 use Illuminate\Support\Facades\Event;
 
 /**
@@ -78,4 +79,38 @@ it('ignores a stream line carrying a parent tool use id', function () {
     app(PublishThreadActivity::class)->handle(new ThreadActivity($thread, 1, 2, ['type' => 'result', 'result' => 'done']));
 
     expect(Event::dispatched(ThreadEventBroadcast::class)->filter(fn (array $a) => $a[0]->type === 'delta'))->toHaveCount(0);
+});
+
+function streamLine(string $type, array $extra = []): array
+{
+    return ['type' => 'stream_event', 'api_message_id' => 'msg_1', 'event' => ['type' => $type, 'index' => 0] + $extra];
+}
+
+it('leaves no stream state after a result or a runner exit', function (array $endLine) {
+    Event::fake([ThreadEventBroadcast::class]);
+    $thread = Thread::factory()->create();
+    $listener = app(PublishThreadActivity::class);
+
+    foreach ([streamLine('content_block_start'), streamLine('content_block_delta', ['delta' => ['type' => 'text_delta', 'text' => 'hi']]), $endLine] as $sequence => $line) {
+        $listener->handle(new ThreadActivity($thread, 1, $sequence, $line));
+    }
+
+    expect(app(DeltaBatcher::class)->hasStateFor($thread->id))->toBeFalse()
+        ->and(Event::dispatched(ThreadEventBroadcast::class)->filter(fn (array $a) => $a[0]->type === 'delta'))->toHaveCount(1);
+})->with([
+    'result' => [['type' => 'result', 'result' => 'done']],
+    'runner exit' => [['type' => 'broker', 'event' => 'runner_exited']],
+]);
+
+it('omits blockIndex and startedAt when nothing streamed', function () {
+    Event::fake([ThreadEventBroadcast::class]);
+    $thread = Thread::factory()->create();
+    $listener = app(PublishThreadActivity::class);
+
+    $listener->handle(new ThreadActivity($thread, 1, 1, streamLine('content_block_start')));
+    $listener->handle(new ThreadActivity($thread, 1, 2, ['type' => 'assistant', 'message' => ['id' => 'msg_1', 'content' => [['type' => 'text', 'text' => 'hi']]]]));
+
+    $entry = Event::dispatched(ThreadEventBroadcast::class)->map(fn (array $a) => $a[0])->first(fn ($e) => $e->type === 'entry');
+
+    expect($entry->data)->not->toHaveKeys(['blockIndex', 'startedAt']);
 });

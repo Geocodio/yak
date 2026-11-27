@@ -99,3 +99,17 @@ it('reports pending text', function () {
     $batcher->takeThread(1);
     expect($batcher->hasPending())->toBeFalse();
 });
+
+it('holds no state for a thread after it is closed', function () {
+    $batcher = new DeltaBatcher;
+    $batcher->startMessage(1, 'm1');
+    $batcher->startBlock(1, 'm1', 0);
+    $batcher->add(1, 'm1', 0, 'text', 'a', 0.0);
+    $batcher->takeThread(1);
+    $batcher->add(1, 'm1', 0, 'text', 'b', 0.0);
+
+    expect($batcher->hasStateFor(1))->toBeTrue();
+
+    $batcher->closeThread(1);
+    expect($batcher->hasStateFor(1))->toBeFalse();
+});

@@ -6,6 +6,7 @@ use App\Enums\TurnMessageKind;
 use App\Events\ThreadActivity;
 use App\Models\ThreadAgent;
 use App\Models\ThreadTurnMessage;
+use App\Services\Threads\BrokerLine;
 use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadEventProjector;
 use App\Services\Threads\ThreadEventPublisher;
@@ -37,16 +38,26 @@ class PublishThreadActivity
             return;
         }
 
+        $isTurnEnd = ($line['type'] ?? null) === 'result' || BrokerLine::event($line) === 'runner_exited';
+
+        if ($isTurnEnd) {
+            $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
+        }
+
         $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
 
         if ($projected === []) {
+            if ($isTurnEnd) {
+                $this->closeStream($threadId);
+            }
+
             return;
         }
 
         $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
 
         foreach ($projected as $item) {
-            if (($item['data']['role'] ?? null) === 'assistant' && is_string($item['data']['messageId'] ?? null) && ($block = $this->batcher->takeOpenBlock($threadId, $item['data']['messageId'])) !== null) {
+            if (($item['data']['role'] ?? null) === 'assistant' && is_string($item['data']['messageId'] ?? null) && ($block = $this->batcher->takeOpenBlock($threadId, $item['data']['messageId'])) !== null && $block['startedAt'] !== null) {
                 $item['data'] = [...$item['data'], 'blockIndex' => $block['blockIndex'], 'startedAt' => $block['startedAt']];
             }
 
@@ -56,6 +67,18 @@ class PublishThreadActivity
 
             $this->publisher->append($threadId, $item['type'], $this->withPromptKind($item), isStored: $item['type'] !== 'stream.reset');
         }
+
+        if ($isTurnEnd) {
+            $this->closeStream($threadId);
+        }
+    }
+
+    /**
+     * Ends the thread's stream bookkeeping once its turn is over.
+     */
+    private function closeStream(int $threadId): void
+    {
+        $this->batcher->closeThread($threadId);
     }
 
     /**

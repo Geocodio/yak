@@ -45,6 +45,18 @@ class DeltaBatcher
         $this->currentMessages[$threadId] = $messageId;
     }
 
+    /**
+     * Whether any buffer, open block, message or offset is still held for the thread.
+     */
+    public function hasStateFor(int $threadId): bool
+    {
+        $prefix = $threadId . '|';
+        $keys = array_merge(array_keys($this->buffers), array_keys($this->firstDeltaTimes), array_keys($this->offsets));
+
+        return isset($this->openThreads[$threadId]) || isset($this->openBlocks[$threadId]) || isset($this->currentMessages[$threadId])
+            || array_filter($keys, fn (int|string $key): bool => str_starts_with((string) $key, $prefix)) !== [];
+    }
+
     public function currentMessageId(int $threadId): ?string
     {
         return $this->currentMessages[$threadId] ?? null;
@@ -152,7 +164,7 @@ class DeltaBatcher
      */
     public function closeThread(int $threadId): void
     {
-        unset($this->openThreads[$threadId], $this->openBlocks[$threadId]);
+        unset($this->openThreads[$threadId], $this->openBlocks[$threadId], $this->currentMessages[$threadId]);
 
         foreach (array_keys($this->firstDeltaTimes + $this->offsets) as $key) {
             if (str_starts_with((string) $key, $threadId . '|')) {
