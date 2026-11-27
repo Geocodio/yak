@@ -10,6 +10,7 @@ use App\Services\Threads\BrokerLine;
 use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadEventProjector;
 use App\Services\Threads\ThreadEventPublisher;
+use App\Support\SecretRedactor;
 
 /**
  * Turns one handled, already redacted runner line into sequenced thread events. Streaming
@@ -104,7 +105,7 @@ class PublishThreadActivity
                 'blockIndex' => $block['blockIndex'],
                 'startedAt' => $block['startedAt'],
                 'cutOff' => true,
-                'blocks' => [['type' => $block['kind'], 'text' => $block['text']]],
+                'blocks' => [['type' => $block['kind'], 'text' => SecretRedactor::redact($block['text'])]],
             ]), isStored: true);
         }
     }

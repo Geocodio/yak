@@ -175,3 +175,31 @@ it('never stores a block twice when its assistant line arrived', function () {
     expect($stored)->toHaveCount(1)
         ->and(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true))->toBe([]);
 });
+
+it('redacts a secret split across two deltas in the cut-off entry', function () {
+    $events = publishStreamedLines([
+        streamedLine('content_block_start'), streamedDeltaLine('key sk-ant-abc12'), streamedDeltaLine('3456789xyz done'),
+        ['type' => 'broker', 'event' => 'runner_exited'],
+    ]);
+    $cutOff = array_values(array_filter($events, fn ($event) => $event->type === 'entry' && ($event->data['cutOff'] ?? false) === true));
+
+    expect($cutOff)->toHaveCount(1)
+        ->and($cutOff[0]->data['blocks'][0]['text'])->not->toContain('sk-ant')
+        ->and($cutOff[0]->data['blocks'][0]['text'])->toContain('[redacted]');
+});
+
+it('stores a later block of a message after the first block finished', function () {
+    $block = fn (string $type, int $index, array $extra = []) => ['type' => 'stream_event', 'api_message_id' => 'msg', 'event' => ['type' => $type, 'index' => $index] + $extra];
+    $delta = fn (int $index, string $text) => $block('content_block_delta', $index, ['delta' => ['type' => 'text_delta', 'text' => $text]]);
+
+    $events = publishStreamedLines([
+        $block('content_block_start', 0), $delta(0, 'one'),
+        ['type' => 'assistant', 'message' => ['id' => 'msg', 'content' => [['type' => 'text', 'text' => 'one']]]],
+        $block('content_block_stop', 0), $block('content_block_start', 1), $delta(1, 'two'),
+        ['type' => 'broker', 'event' => 'runner_exited'],
+    ]);
+    $cutOff = array_values(array_filter($events, fn ($event) => $event->type === 'entry' && ($event->data['cutOff'] ?? false) === true));
+
+    expect($cutOff)->toHaveCount(1)
+        ->and($cutOff[0]->data['messageId'] . ':' . $cutOff[0]->data['blockIndex'])->toBe('msg:1');
+});
