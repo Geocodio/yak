@@ -166,7 +166,6 @@ it('stores the streamed text of a block that never got its assistant line', func
 })->with([
     'runner exit' => [['type' => 'broker', 'event' => 'runner_exited']],
     'result' => [['type' => 'result', 'result' => 'done']],
-    'stream reset' => [['type' => 'user', 'isSynthetic' => true, 'message' => ['content' => 'x']]],
 ]);
 
 it('never stores a block twice when its assistant line arrived', function () {
@@ -207,4 +206,61 @@ it('stores a later block of a message after the first block finished', function 
 
     expect($cutOff)->toHaveCount(1)
         ->and($cutOff[0]->data['messageId'] . ':' . $cutOff[0]->data['blockIndex'])->toBe('msg:1');
+});
+
+it('keeps the final entry when a held-back tail arrives after it', function () {
+    $events = publishStreamedLines([
+        streamedLine('content_block_start'), streamedDeltaLine('- Fixed the loggin'),
+        ['type' => 'assistant', 'message' => ['id' => 'msg_1', 'content' => [['type' => 'text', 'text' => '- Fixed the logging']]]],
+        streamedDeltaLine('g'), streamedLine('content_block_stop'), streamedLine('message_stop'),
+        ['type' => 'result', 'result' => '- Fixed the logging'],
+    ]);
+    $entry = collect($events)->first(fn ($event) => $event->type === 'entry' && ($event->data['role'] ?? null) === 'assistant');
+    $lateDeltas = collect($events)->filter(fn ($event) => $event->type === 'delta' && $event->sequence > $entry->sequence);
+
+    expect($lateDeltas)->toHaveCount(0)
+        ->and(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true))->toBe([]);
+});
+
+it('leaves the main reply streaming while an agent writes lines', function () {
+    $agentLine = ['parent_tool_use_id' => 'toolu_1', 'agent_id' => 'agent-1'];
+    $events = publishStreamedLines([
+        streamedLine('content_block_start'), streamedDeltaLine('Three agents are running. '),
+        ['type' => 'assistant', 'message' => ['id' => 'agent_msg', 'content' => [['type' => 'text', 'text' => 'agent says hi']]]] + $agentLine,
+        ['type' => 'user', 'isSynthetic' => true, 'message' => ['content' => 'agent context']] + $agentLine,
+        streamedDeltaLine('Meanwhile I will check the routes.'),
+        ['type' => 'assistant', 'message' => ['id' => 'msg_1', 'content' => [['type' => 'text', 'text' => 'Three agents are running. Meanwhile I will check the routes.']]]],
+        streamedLine('content_block_stop'),
+        ['type' => 'result', 'result' => 'done'],
+    ]);
+    $deltas = array_values(array_filter($events, fn ($event) => $event->type === 'delta'));
+
+    expect(array_filter($events, fn ($event) => $event->type === 'stream.reset'))->toBe([])
+        ->and(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true))->toBe([])
+        ->and(array_map(fn ($delta) => $delta->data['offset'], $deltas))->toBe([0, 26]);
+});
+
+it('drops the abandoned partial when the stream resets', function () {
+    $events = publishStreamedLines([
+        streamedLine('content_block_start'), streamedDeltaLine('Hello '),
+        ['type' => 'user', 'isSynthetic' => true, 'message' => ['content' => 'x']],
+        ['type' => 'stream_event', 'api_message_id' => 'msg_2', 'event' => ['type' => 'content_block_start', 'index' => 0]],
+        ['type' => 'stream_event', 'api_message_id' => 'msg_2', 'event' => ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Hello again']]],
+        ['type' => 'result', 'result' => 'done'],
+    ]);
+    $cutOff = array_values(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true));
+
+    expect(array_filter($events, fn ($event) => $event->type === 'stream.reset'))->toHaveCount(1)
+        ->and($cutOff)->toHaveCount(1)
+        ->and($cutOff[0]->data['messageId'])->toBe('msg_2');
+});
+
+it('stores the cut-off block before the result entry', function () {
+    $events = publishStreamedLines([
+        streamedLine('content_block_start'), streamedDeltaLine('Partial answer that'),
+        ['type' => 'result', 'subtype' => 'error_during_execution', 'is_error' => true],
+    ]);
+    $types = array_map(fn ($event) => $event->type === 'entry' ? (($event->data['cutOff'] ?? false) ? 'cutOff' : $event->data['role']) : $event->type, $events);
+
+    expect(array_values(array_filter($types, fn ($type) => in_array($type, ['cutOff', 'result'], true))))->toBe(['cutOff', 'result']);
 });

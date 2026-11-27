@@ -187,3 +187,13 @@ test("an opening delta's startedAt is the block's start time", () => {
 
     assert.equal(state.streamingBlocks['m1:0'].startedAt, '2026-11-11T00:00:07Z');
 });
+
+test('a late delta for a block that has its final entry is ignored, and a cut-off copy never replaces the entry', () => {
+    const entry = (sequence, text, extra = {}) => ({ sequence, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text }], ...extra } });
+    const state = apply(initialEventState(), delta(1, '- Fixed the loggin'), entry(2, '- Fixed the logging'), delta(3, 'g'), entry(4, 'g', { cutOff: true, cutReason: 'restarted' }));
+
+    assert.deepEqual(state.streamingBlocks, {});
+    assert.equal(state.entries.length, 1);
+    assert.equal(state.entries[0].blocks[0].text, '- Fixed the logging');
+    assert.equal(state.entries[0].cutOff, undefined);
+});

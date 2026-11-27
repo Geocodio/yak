@@ -40,62 +40,85 @@ class PublishThreadActivity
         }
 
         $isTurnEnd = ($line['type'] ?? null) === 'result' || BrokerLine::event($line) === 'runner_exited';
+        $isAgentLine = $this->isAgentLine($line);
 
         if ($isTurnEnd) {
             $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
+            $this->storeUnfinishedBlocks($threadId);
         }
 
-        if ($this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
+        if (! $isAgentLine && $this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
             $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey, 'reason' => 'stopped'], isStored: true);
         }
 
-        $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
+        $projected = $this->projector->project($line, ! $isAgentLine && $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
 
-        if ($projected === []) {
-            if ($isTurnEnd) {
-                $this->closeStream($threadId);
-            }
-
-            return;
+        if ($projected !== []) {
+            $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
         }
 
-        $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
-
         foreach ($projected as $item) {
-            if (($item['data']['role'] ?? null) === 'assistant' && is_string($item['data']['messageId'] ?? null) && ($block = $this->batcher->takeOpenBlock($threadId, $item['data']['messageId'])) !== null && $block['startedAt'] !== null) {
-                $item['data'] = [...$item['data'], 'blockIndex' => $block['blockIndex'], 'startedAt' => $block['startedAt']];
+            if (! $isAgentLine && ($item['data']['role'] ?? null) === 'assistant' && is_string($item['data']['messageId'] ?? null)) {
+                $item['data'] = $this->finishBlock($threadId, $item['data']);
             }
 
             if ($item['type'] === 'stream.reset') {
-                $this->storeUnfinishedBlocks($threadId);
-            }
-
-            if ($item['type'] === 'stream.reset' || ($item['data']['role'] ?? null) === 'assistant') {
-                $this->batcher->closeThread($threadId);
-            }
-
-            if (isset($item['data']['blockIndex']) && is_string($item['data']['messageId'] ?? null)) {
-                $this->batcher->rememberAssistantBlock($threadId, $item['data']['messageId'] . ':' . $item['data']['blockIndex']);
+                $this->batcher->discardUnfinishedBlocks($threadId);
             }
 
             $this->publisher->append($threadId, $item['type'], $this->withPromptKind($item), isStored: $item['type'] !== 'stream.reset');
         }
 
         if ($isTurnEnd) {
-            $this->closeStream($threadId);
+            $this->batcher->closeThread($threadId);
         }
     }
 
     /**
-     * Stores the text of every block that streamed but never got its assistant line, then ends
-     * the thread's stream bookkeeping once its turn is over.
+     * Ends the streaming block an assistant entry finishes and gives the entry that block's index
+     * and start time when it streamed. The block's assistant line arrives before its stop, so the
+     * block still open for the message is the one this entry finishes.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
      */
-    private function closeStream(int $threadId): void
+    private function finishBlock(int $threadId, array $data): array
     {
-        $this->storeUnfinishedBlocks($threadId);
-        $this->batcher->closeThread($threadId);
+        $block = $this->batcher->takeOpenBlock($threadId, $data['messageId']);
+
+        if ($block === null) {
+            $this->batcher->rememberAssistantBlock($threadId, null);
+
+            return $data;
+        }
+
+        $blockKey = $data['messageId'] . ':' . $block['blockIndex'];
+        $this->batcher->finishBlock($threadId, $blockKey);
+
+        if ($block['startedAt'] === null) {
+            $this->batcher->rememberAssistantBlock($threadId, null);
+
+            return $data;
+        }
+
+        $this->batcher->rememberAssistantBlock($threadId, $blockKey);
+
+        return [...$data, 'blockIndex' => $block['blockIndex'], 'startedAt' => $block['startedAt']];
     }
 
+    /**
+     * A line a sub-agent wrote; it never touches the main reply's stream.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function isAgentLine(array $line): bool
+    {
+        return ($line['parent_tool_use_id'] ?? null) !== null || ($line['agent_id'] ?? null) !== null;
+    }
+
+    /**
+     * Stores the text of every block that streamed but never got its assistant line, marked cut off.
+     */
     private function storeUnfinishedBlocks(int $threadId): void
     {
         foreach ($this->batcher->takeUnfinishedBlocks($threadId) as $block) {

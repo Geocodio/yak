@@ -53,6 +53,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
     switch (event.type) {
         case 'delta': {
             const data = event.data as ThreadEventEnvelope<'delta'>['data'];
+            // A tail the runner held back can follow the block's final entry; the entry already holds it.
+            if (state.entries.some((entry) => entry.role === 'assistant' && blockKeyOf(entry) === data.blockKey)) {
+                return next;
+            }
+
             const known = state.streamingBlocks[data.blockKey];
             // A block is shown only when every chunk of it arrived in order from its start.
             const isContiguous = data.offset === (known?.text.length ?? 0);
@@ -76,6 +81,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const closes = (key: string): boolean => (entry.blockIndex === undefined ? key.startsWith(entry.messageId + ':') : key === `${entry.messageId}:${entry.blockIndex}`);
             const streamingBlocks = Object.fromEntries(Object.entries(state.streamingBlocks).filter(([key]) => !closes(key)));
             const replaced = entry.blockIndex === undefined ? -1 : state.entries.findIndex((known) => known.role === 'assistant' && blockKeyOf(known) === blockKeyOf(entry));
+            // A cut-off copy never replaces a finished entry of the same block.
+            if (replaced !== -1 && entry.cutOff === true && (state.entries[replaced] as typeof entry).cutOff !== true) {
+                return { ...next, streamingBlocks };
+            }
+
             const entries = replaced === -1 ? [...state.entries, entry] : state.entries.map((known, index) => (index === replaced ? entry : known));
 
             return { ...next, entries, streamingBlocks };

@@ -22,8 +22,8 @@ class DeltaBatcher
     /** @var array<string, array{threadId: int, blockKey: string, kind: string, text: string, startedAt: float}> */
     private array $buffers = [];
 
-    /** @var array<int, true> */
-    private array $openThreads = [];
+    /** @var array<string, true> thread|blockKey => the block got its final entry; later deltas for it are dropped */
+    private array $finishedBlocks = [];
 
     /** @var array<int, string> */
     private array $currentMessages = [];
@@ -59,7 +59,9 @@ class DeltaBatcher
         $prefix = $threadId . '|';
         $keys = array_merge(array_keys($this->fullTexts), array_keys($this->buffers), array_keys($this->firstDeltaTimes), array_keys($this->offsets));
 
-        return isset($this->openThreads[$threadId]) || isset($this->openBlocks[$threadId]) || isset($this->currentMessages[$threadId]) || isset($this->lastAssistantBlockKeys[$threadId])
+        $keys = array_merge($keys, array_keys($this->finishedBlocks));
+
+        return isset($this->openBlocks[$threadId]) || isset($this->currentMessages[$threadId]) || isset($this->lastAssistantBlockKeys[$threadId])
             || array_filter($keys, fn (int|string $key): bool => str_starts_with((string) $key, $prefix)) !== [];
     }
 
@@ -104,11 +106,20 @@ class DeltaBatcher
         return array_filter($this->buffers, fn (array $buffer): bool => $buffer['text'] !== '') !== [];
     }
 
+    /**
+     * Buffers a delta. A delta for a block whose final entry already went out is dropped: the
+     * runner can release a held-back tail after the block's assistant line, and the entry
+     * already holds that text.
+     */
     public function add(int $threadId, string $messageId, int $index, string $kind, string $text, float $now): void
     {
-        $this->openThreads[$threadId] = true;
         $blockKey = $messageId . ':' . $index;
         $key = $threadId . '|' . $blockKey;
+
+        if (isset($this->finishedBlocks[$key])) {
+            return;
+        }
+
         $this->firstDeltaTimes[$key] ??= $now;
         $this->fullTexts[$key] ??= ['messageId' => $messageId, 'blockIndex' => $index, 'kind' => $kind, 'text' => '', 'startedAt' => $now];
         $this->fullTexts[$key]['text'] .= $text;
@@ -175,8 +186,18 @@ class DeltaBatcher
         return $blocks;
     }
 
-    public function rememberAssistantBlock(int $threadId, string $blockKey): void
+    /**
+     * Remembers the block of the thread's latest assistant entry, or forgets it when that entry
+     * did not stream.
+     */
+    public function rememberAssistantBlock(int $threadId, ?string $blockKey): void
     {
+        if ($blockKey === null) {
+            unset($this->lastAssistantBlockKeys[$threadId]);
+
+            return;
+        }
+
         $this->lastAssistantBlockKeys[$threadId] = $blockKey;
     }
 
@@ -186,23 +207,44 @@ class DeltaBatcher
     }
 
     /**
-     * Whether a streaming block of the thread has started and no entry or reset has closed it.
+     * Whether a block of the thread streamed text and has neither its final entry nor a reset yet.
      */
     public function hasOpenBlock(int $threadId): bool
     {
-        return isset($this->openThreads[$threadId]);
+        return $this->unfinishedKeys($threadId) !== [];
     }
 
     /**
-     * Drops the thread's buffers and open-block mark.
+     * Ends one block when its final entry goes out; deltas that arrive for it later are dropped
+     * until the turn ends.
+     */
+    public function finishBlock(int $threadId, string $blockKey): void
+    {
+        $key = $threadId . '|' . $blockKey;
+        $this->finishedBlocks[$key] = true;
+        unset($this->buffers[$key], $this->firstDeltaTimes[$key], $this->offsets[$key], $this->fullTexts[$key]);
+    }
+
+    /**
+     * Forgets every block of the thread that has no final entry, for a stream the runner restarted.
+     */
+    public function discardUnfinishedBlocks(int $threadId): void
+    {
+        foreach ($this->unfinishedKeys($threadId) as $key) {
+            unset($this->buffers[$key], $this->firstDeltaTimes[$key], $this->offsets[$key], $this->fullTexts[$key]);
+        }
+    }
+
+    /**
+     * Drops all of the thread's stream state once its turn is over.
      */
     public function closeThread(int $threadId): void
     {
-        unset($this->openThreads[$threadId], $this->openBlocks[$threadId], $this->currentMessages[$threadId], $this->lastAssistantBlockKeys[$threadId]);
+        unset($this->openBlocks[$threadId], $this->currentMessages[$threadId], $this->lastAssistantBlockKeys[$threadId]);
 
-        foreach (array_keys($this->firstDeltaTimes + $this->offsets + $this->fullTexts) as $key) {
+        foreach (array_keys($this->firstDeltaTimes + $this->offsets + $this->fullTexts + $this->finishedBlocks) as $key) {
             if (str_starts_with((string) $key, $threadId . '|')) {
-                unset($this->firstDeltaTimes[$key], $this->offsets[$key], $this->fullTexts[$key]);
+                unset($this->firstDeltaTimes[$key], $this->offsets[$key], $this->fullTexts[$key], $this->finishedBlocks[$key]);
             }
         }
 
@@ -211,6 +253,14 @@ class DeltaBatcher
                 unset($this->buffers[$key]);
             }
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function unfinishedKeys(int $threadId): array
+    {
+        return array_values(array_filter(array_keys($this->fullTexts), fn (string $key): bool => str_starts_with($key, $threadId . '|')));
     }
 
     private function isoTime(float $seconds): string

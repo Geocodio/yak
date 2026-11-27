@@ -85,7 +85,8 @@ it('flushes buffered deltas before a structural event', function () {
     $window = app(ThreadEventWindow::class)->since($thread->id, 0, 100);
 
     expect(array_column($window, 'type'))->toBe(['delta', 'entry'])
-        ->and($window[0]['data'])->toBe(['blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello', 'offset' => 0]);
+        ->and(array_diff_key($window[0]['data'], ['startedAt' => true]))->toBe(['blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello', 'offset' => 0])
+        ->and($window[0]['data']['startedAt'])->toBeString();
 });
 
 it('flushes a due batch of another thread on the next line', function () {
@@ -101,7 +102,7 @@ it('flushes a due batch of another thread on the next line', function () {
     expect(array_column(app(ThreadEventWindow::class)->since($first->id, 0, 10), 'type'))->toBe(['delta']);
 });
 
-it('resets streaming state on a cut-off synthetic message', function () {
+it('resets streaming state on a cut-off synthetic message and drops the abandoned partial', function () {
     $thread = Thread::factory()->create();
     $synthetic = collect(fixtureLines('cutoff-synthetic-user-message'))->first(fn (array $line): bool => ($line['isSynthetic'] ?? false) === true);
 
@@ -111,8 +112,8 @@ it('resets streaming state on a cut-off synthetic message', function () {
 
     $window = app(ThreadEventWindow::class)->since($thread->id, 0, 100);
 
-    expect(array_column($window, 'type'))->toBe(['delta', 'entry', 'stream.reset'])
-        ->and(DB::table('thread_events')->count())->toBe(1);
+    expect(array_column($window, 'type'))->toBe(['delta', 'stream.reset'])
+        ->and(DB::table('thread_events')->count())->toBe(0);
 });
 
 it('marks a prompt entry as a steer when its uuid was sent as one', function () {
