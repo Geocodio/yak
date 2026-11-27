@@ -85,3 +85,13 @@ test('renders a link whose url is still arriving as a link', () => {
     assert.match(html, /<a[^>]*>the docs<\/a>/);
     assert.ok(!html.includes('](')); 
 });
+
+test('never formats a marker that cannot open, and never adds a closer the source lacks', () => {
+    assert.equal(renderStreamingMarkdown('Roughly ~200 lines'), '<p>Roughly ~200 lines</p>');
+    assert.equal(renderStreamingMarkdown('git diff HEAD~1 sho'), '<p>git diff HEAD~1 sho</p>');
+    assert.equal(renderStreamingMarkdown('Result: 3 * 4'), '<p>Result: 3 * 4</p>');
+    assert.equal(renderStreamingMarkdown('Match *.php fil'), '<p>Match *.php fil</p>');
+    assert.equal(renderStreamingMarkdown('Then a*b sta'), '<p>Then a*b sta</p>');
+    assert.match(renderStreamingMarkdown('and ~~stru'), /<del>stru<\/del>/);
+    assert.match(renderStreamingMarkdown('and **bol'), /<strong>bol<\/strong>/);
+});

@@ -188,29 +188,54 @@ function closeParagraph(paragraph: string): string {
     const marker = paragraph.match(blockStart)?.[0] ?? '';
     let body = closeCodeSpan(paragraph.slice(marker.length));
 
-    body = ['~', '~~', '*', '**'].reduce(closeEmphasis, body);
+    body = closeRuns(closeRuns(body, '~'), '*');
 
     return marker + closeUnderscore(body);
 }
 
+const isSpace = (character: string): boolean => /\s/.test(character);
+const isPunctuation = (character: string): boolean => /[\p{P}\p{S}]/u.test(character);
+
 /**
- * Closes one unbalanced emphasis marker at the end of the text, or removes it
- * when the marker itself is what arrived last.
+ * Closes the `*`/`**` emphasis or `~`/`~~` strikethrough still open at the end,
+ * pairing delimiter runs by CommonMark's flanking rules. Only a clean opener (it
+ * can open and not close, and a letter, digit, code span, link or quote follows)
+ * is closed, so `3 * 4`, `*.php`, `a*b`, `~/.ssh` and `HEAD~1` stay literal. A
+ * single `~` closes only before a letter, so `~200` stays literal. A run at the
+ * very end is held back unless it closes the innermost open run.
  */
-function closeEmphasis(line: string, marker: string): string {
-    const outsideCode = codeSpanState(line).outside;
-    const withoutDoubles = marker.length === 1 ? outsideCode.replaceAll(marker + marker, '') : outsideCode;
-    const markerCount = withoutDoubles.split(marker).length - 1;
+function closeRuns(text: string, marker: '*' | '~'): string {
+    const trailing = text.match(marker === '*' ? /\*+$/ : /~+$/)?.[0] ?? '';
+    let body = text.slice(0, text.length - trailing.length);
+    const outside = body.replace(/(`+)[\s\S]*?\1/g, 'c');
+    const openers: number[] = [];
 
-    if (markerCount % 2 === 0) {
-        return line;
+    for (const run of outside.matchAll(marker === '*' ? /\*+/g : /~+/g)) {
+        const before = outside[run.index - 1] ?? ' ';
+        const after = outside[run.index + run[0].length] ?? ' ';
+        const isLeftFlanking = !isSpace(after) && (!isPunctuation(after) || isSpace(before) || isPunctuation(before));
+        const isRightFlanking = !isSpace(before) && (!isPunctuation(before) || isSpace(after) || isPunctuation(after));
+        // A run of three stars opens emphasis around strong and closes the strong first; three tildes never strike.
+        const lengths = run[0].length < 3 ? [run[0].length] : marker === '~' ? [] : run[0].length > 3 ? [] : isRightFlanking && openers.length > 0 ? [2, 1] : [1, 2];
+
+        for (const length of lengths) {
+            const opener = openers.lastIndexOf(length);
+
+            if (isRightFlanking && opener !== -1) {
+                openers.length = opener;
+            } else if (isLeftFlanking && !isRightFlanking && (marker === '~' && length === 1 ? /\p{L}/u : /[\p{L}\p{N}`["'(]/u).test(after)) {
+                openers.push(length);
+            }
+        }
     }
 
-    if (line.trimEnd().endsWith(marker)) {
-        return line.trimEnd().slice(0, -marker.length);
+    // A run still arriving counts only when it closes the innermost open run; otherwise more of it may follow.
+    if (trailing !== '' && !isSpace(body.at(-1) ?? ' ') && openers.at(-1) === trailing.length) {
+        body += trailing;
+        openers.pop();
     }
 
-    return `${line.trimEnd()}${marker}`;
+    return openers.length === 0 ? body : `${body.trimEnd()}${openers.reverse().map((length) => marker.repeat(length)).join('')}`;
 }
 
 /**
