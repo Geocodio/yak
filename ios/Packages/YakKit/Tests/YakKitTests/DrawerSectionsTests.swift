@@ -221,3 +221,49 @@ private func list(
     #expect(RelativeAge.parse("not a date") == nil)
     #expect(RelativeAge.parse(nil) == nil)
 }
+
+@Suite struct DrawerSearchRowsTests {
+    @Test func aThreadResultReadsAsARowWithItsRepositoryLine() {
+        let result = SearchResult(
+            kind: .thread, id: "a1b2c3d4", title: "Retry uploads", subtitle: "example/web / yak/retry")
+        let row = DrawerRow.searchResult(result)
+        #expect(row.id == "thread:a1b2c3d4" && row.target == .thread("a1b2c3d4") && row.depth == 0)
+        #expect(row.repositoryDetail == "example/web / yak/retry" && row.indicator == .searchResult)
+    }
+
+    @Test func aPullRequestWithAThreadOpensThatThread() {
+        let result = SearchResult(
+            kind: .pullRequest, id: "https://github.com/example/web/pull/1", title: "T", subtitle: "", threadID: "t9")
+        #expect(DrawerRow.searchResult(result).target == .thread("t9"))
+    }
+
+    @Test func gatheringKeepsRootThreadsAndTasksUnderOneHeadingAndDropsSubThreads() throws {
+        let list = try decoded(ThreadList.self, "scenario-overview-thread-list")
+        let content = DrawerSections.make(
+            list: list, filter: .mine, search: nil, expanded: ["thread:s7ackr00": true], unsentNewThreads: [])
+        guard case .sections(let gathered) = content.gathered(as: .savedOnThisPhone) else {
+            Issue.record("no section")
+            return
+        }
+        #expect(gathered.map(\.kind) == [.savedOnThisPhone])
+        let rows = try #require(gathered.first?.rows)
+        #expect(!rows.isEmpty && rows.allSatisfy { $0.depth == 0 && $0.childCount == 0 })
+    }
+
+    @Test func gatheringLeavesAMessageAsItIs() {
+        #expect(
+            DrawerContent.noResults(search: "x", canWiden: false).gathered(as: .loadedThreads)
+                == .noResults(search: "x", canWiden: false))
+    }
+
+    @Test func aThreadResultThatIsNotLoadedOffersNoStarAndNoCloseOrDelete() {
+        let result = SearchResult(kind: .thread, id: "zz", title: "T", subtitle: "example/web / yak/t")
+        let row = DrawerRow.searchResult(result)
+        #expect(row.isUnloadedSearchResult)
+        let menu = ThreadActionMenu.make(.row(row, isOffline: false))
+        let kinds = menu.items.map(\.kind)
+        #expect(
+            !kinds.contains(.star) && !kinds.contains(.unstar) && !kinds.contains(.close) && !kinds.contains(.delete))
+        #expect(kinds.contains(.open))
+    }
+}

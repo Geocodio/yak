@@ -84,13 +84,15 @@ public struct ThreadActionSubject: Equatable, Sendable {
         return subject
     }
 
-    /// A drawer row. The list says nothing about driving, so a root row's `canDelete` (the person may drive it) stands
+    /// A drawer row. A search result that is not a loaded row carries no star and no right to drive, so it offers
+    /// neither. The list says nothing about driving, so a root row's `canDelete` (the person may drive it) stands
     /// for it, and a sub-thread row offers neither Close nor Delete: its own menu keeps the sub-thread actions.
     public static func row(_ row: DrawerRow, isOffline: Bool, isBusy: Bool = false) -> ThreadActionSubject {
         let isSubThread = row.depth > 0
         var subject = ThreadActionSubject(
             surface: .row, isStarred: row.isStarred, isClosed: row.indicator == .closed, isSubThread: isSubThread,
-            canStar: !isSubThread, canDrive: !isSubThread && row.canDelete, canDelete: !isSubThread && row.canDelete)
+            canStar: !isSubThread && !row.isUnloadedSearchResult, canDrive: !isSubThread && row.canDelete,
+            canDelete: !isSubThread && row.canDelete)
         if let url = row.sourceLink, let name = row.source { subject.source = Source(name: name, url: url) }
         subject.isOffline = isOffline
         subject.isBusy = isBusy

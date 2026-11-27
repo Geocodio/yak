@@ -377,7 +377,14 @@ struct InstanceShell: View {
         guard status == .active, let feed = await session.threadList() else { return }
         let drawer = DrawerModel(
             feed: feed, outbox: await session.outbox(), scene: scene, clock: SystemClock(),
-            overview: await session.overviewActions())
+            overview: await session.overviewActions(),
+            search: { [session] text throws(APIFailure) in
+                guard let client = await session.apiClient() else {
+                    throw .server(
+                        APIError(status: 0, code: "session_inactive", message: "", details: [:]))
+                }
+                return try await client.send(.search(text))
+            })
         drawerModel = drawer
         await drawer.configure(
             serverFilters: await session.threadFilters(), viewerID: await session.me()?.user.id.value)

@@ -83,12 +83,13 @@ import XCTest
     }
 
     func testDrawerNoResults() throws {
-        try start("paired", paired: true)
+        try start("search", paired: true)
         try waitForDrawer()
         let search = app.textFields["drawer.search"]
         search.tap()
         search.typeText("webhook retry")
-        XCTAssertTrue(app.buttons["drawer.noResults.widen"].waitForExistence(timeout: 10))
+        // From two characters the server answers; its empty answer replaces the list.
+        XCTAssertTrue(app.descendants(matching: .any)["search.empty"].waitForExistence(timeout: 10))
         try shoot("drawer-no-results")
     }
 

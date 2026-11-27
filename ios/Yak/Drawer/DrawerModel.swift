@@ -11,13 +11,21 @@ final class DrawerModel {
 
     private(set) var content: DrawerContent?
     private(set) var state: ThreadListState?
-    /// The search text as typed; the list follows it 300 ms after the last change.
+    /// The search text as typed. From two characters the server is asked 300 ms after the last change; below that,
+    /// and while the server cannot answer, the text narrows the threads that are loaded.
     var search = "" {
         didSet {
             guard search != oldValue else { return }
-            scheduleSearch()
+            isShowingAllInTab = false
+            searchDriver?.setText(search)
+            recompute()
         }
     }
+    /// What the search field shows beyond the list: the server's results, or why the list is filtered locally.
+    private(set) var searchState = SearchState()
+    /// The person asked for every match in the selected tab instead of the server's first ones; the next change of the
+    /// text ends it.
+    private(set) var isShowingAllInTab = false
 
     @ObservationIgnored private let feed: ThreadListFeed
     @ObservationIgnored private let outbox: Outbox?
@@ -26,7 +34,8 @@ final class DrawerModel {
     @ObservationIgnored private let overview: OverviewActions?
     @ObservationIgnored private var unsent: [OutboxItem] = []
     @ObservationIgnored private var expanded: [String: Bool] = [:]
-    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var searchDriver: SearchDriver?
+    @ObservationIgnored private var lastReportedOffline = false
     @ObservationIgnored private var stackTasks: [String: (token: UUID, task: Task<Void, Never>)] = [:]
     /// The roots whose stack was fetched during this visit of the drawer, so a list update never asks again.
     @ObservationIgnored private var fetchedRoots: Set<String> = []
@@ -46,13 +55,21 @@ final class DrawerModel {
 
     init(
         feed: ThreadListFeed, outbox: Outbox?, scene: SceneModel, clock: any YakClock,
-        overview: OverviewActions? = nil
+        overview: OverviewActions? = nil, search perform: SearchDriver.Perform? = nil
     ) {
         self.feed = feed
         self.outbox = outbox
         self.scene = scene
         self.clock = clock
         self.overview = overview
+        if let perform {
+            searchDriver = SearchDriver(
+                clock: clock, debounce: Self.searchDelay, perform: perform,
+                onChange: { [weak self] in
+                    self?.searchState = $0
+                    self?.recompute()
+                })
+        }
     }
 
     var isOffline: Bool { state?.isOffline ?? false }
@@ -118,6 +135,8 @@ final class DrawerModel {
 
     /// Follows the feed and the outbox until the calling task is cancelled.
     func run() async {
+        // A wait that is over once the drawer is gone must not send a request.
+        defer { searchDriver?.stop() }
         async let listing: Void = followFeed()
         async let unsentThreads: Void = followOutbox()
         _ = await (listing, unsentThreads)
@@ -126,6 +145,10 @@ final class DrawerModel {
     private func followFeed() async {
         for await next in await feed.states() {
             state = next
+            if next.isOffline != lastReportedOffline {
+                lastReportedOffline = next.isOffline
+                searchDriver?.setOnline(!next.isOffline)
+            }
             if let list = next.list {
                 reviewCount = list.reviewCount
                 if let facets = list.facets { facetsByTab[next.filter] = facets }
@@ -182,7 +205,6 @@ final class DrawerModel {
     /// Points the feed at the tab and filters the scene holds and the text in the search field. A tab the server does
     /// not list reads as Mine.
     func syncFilter() async {
-        searchTask?.cancel()
         var held = scene.state.selection
         var settled = held
         settled.filter = tabs.resolved(held.filter)
@@ -197,7 +219,7 @@ final class DrawerModel {
     private func sendToFeed() async {
         let held = scene.state.selection
         let asked = tabs.request(filter: held.filter, starters: held.starters)
-        await feed.setFilter(asked.filter, search: search, sources: held.sources, starters: asked.starters)
+        await feed.setFilter(asked.filter, sources: held.sources, starters: asked.starters)
     }
 
     /// A Review group folds open or shut.
@@ -225,12 +247,52 @@ final class DrawerModel {
         await setFilter(.everyone)
     }
 
-    private func scheduleSearch() {
-        searchTask?.cancel()
-        searchTask = Task { [clock] in
-            do { try await clock.sleep(for: Self.searchDelay) } catch { return }
-            await self.sendToFeed()
+    /// The server's answer is on screen, in place of the list.
+    var showsServerResults: Bool { searchState.showsServerResults && !isShowingAllInTab }
+
+    /// Swaps the server's first results for every match among the threads of the selected tab, which is loaded whole.
+    func showAllMatchesInTab() {
+        guard searchState.showsServerResults, !isShowingAllInTab else { return }
+        isShowingAllInTab = true
+        recompute()
+    }
+
+    /// Asks the server again after a failed search.
+    func retrySearch() { searchDriver?.retry() }
+
+    /// The text that narrows the loaded list, or nil while the server's results (or nothing) are shown.
+    var localQuery: String? {
+        let trimmed = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard searchDriver != nil, !isShowingAllInTab else { return trimmed }
+        return searchState.filtersLoadedList ? trimmed : nil
+    }
+
+    /// True when the loaded threads stand in for the server's results: offline, failed or limited, from two characters.
+    var isSearchFallback: Bool {
+        switch searchState.phase {
+        case .offline, .failed, .rateLimited: localQuery != nil
+        default: false
         }
+    }
+
+    /// What the list shows: the content, or, while the loaded threads stand in for the server's results, the matches
+    /// gathered under a heading of their own.
+    var displayedContent: DrawerContent? {
+        guard isSearchFallback, let content else { return content }
+        return content.gathered(as: searchState.phase == .offline ? .savedOnThisPhone : .loadedThreads)
+    }
+
+    /// The drawer row of a thread result: the loaded row when the thread is in the tab, so its menu knows what it may
+    /// do, and a plain row otherwise.
+    func threadRow(for result: SearchResult) -> DrawerRow {
+        let id = "thread:\(result.threadID ?? result.id)"
+        if case .sections(let sections)? = content,
+            let loaded = sections.lazy.flatMap(\.rows).first(where: { $0.id == id && $0.depth == 0 })
+        {
+            return loaded.withoutChildren()
+        }
+        return .searchResult(result)
     }
 
     private func recompute() {
@@ -238,9 +300,10 @@ final class DrawerModel {
             content = nil
             return
         }
+        let query = localQuery
         let next = DrawerSections.make(
-            list: list, filter: state.filter, search: state.search, expanded: expanded, unsentNewThreads: unsent,
-            openedGroups: openedGroups)
+            list: query.map { list.narrowed(to: $0) } ?? list, filter: state.filter, search: query, expanded: expanded,
+            unsentNewThreads: query == nil ? unsent : [], openedGroups: openedGroups)
         if next != content { content = next }
         rootOfChild = [:]
         let needing = list.needsYou.compactMap { item -> ThreadRow? in

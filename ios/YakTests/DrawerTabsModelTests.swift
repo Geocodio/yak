@@ -262,7 +262,9 @@ private let allFilters = ["mine", "yak", "everyone", "closed", "review"]
         await rig.model.configure(serverFilters: allFilters, viewerID: nil)
         await rig.model.setFilter(.closed)
         rig.model.search = "pricing"
-        #expect(await rig.eventually { rig.transport.requested.last == "filter=closed&search=pricing" })
+        // The text narrows the closed tab's loaded rows; the list is not asked to search.
+        #expect(rig.model.localQuery == "pricing" && rig.model.selection.filter == .closed)
+        #expect(await rig.eventually { rig.transport.requested.last == "filter=closed" })
     }
 
     @Test func theNeedsYouCountReadsOnlyTheMineList() async throws {

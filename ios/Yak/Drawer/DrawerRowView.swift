@@ -16,6 +16,8 @@ struct DrawerRowView: View {
     var isSelected = false
     /// The long-press preview shows the whole title and subtitle.
     var showsEverything = false
+    /// The part of the title a search matched, shown in bold.
+    var highlight: String?
 
     enum Busy: Equatable { case closing, deleting }
 
@@ -145,6 +147,11 @@ struct DrawerRowView: View {
         var name = AttributedString(row.title)
         name.font = isUnread ? .yak(.subheadline, .semibold) : .yakRowTitle
         name.foregroundColor = isDimmed ? .yakMuted : .yakText
+        if let highlight, !highlight.isEmpty,
+            let range = name.range(of: highlight, options: [.caseInsensitive, .diacriticInsensitive])
+        {
+            name[range].font = .yak(.subheadline, .bold)
+        }
         if isUnread {
             var dot = AttributedString(" \u{25CF}")
             dot.font = .system(size: 6)
@@ -153,12 +160,15 @@ struct DrawerRowView: View {
         }
         return HStack(alignment: .firstTextBaseline, spacing: Design.Space.tight) {
             Text(name).multilineTextAlignment(.leading).lineLimit(wrapsLines ? nil : 1)
+                .fixedSize(horizontal: false, vertical: true)
             if row.isStarred {
                 Image(systemName: "star.fill").font(.yak(.caption)).foregroundStyle(Color.yakWarningDot)
                     .accessibilityHidden(true).layoutPriority(1)
                     .accessibilityIdentifier("drawer.starMark.\(row.id)")
             }
         }
+        // The text size rebuilds the title, so the audit's size changes are never read from a view that kept the old one.
+        .id(dynamicTypeSize)
     }
 
     /// The second line: the badges at its start (the source first, then a task's mark), then the reason or detail, or
@@ -255,6 +265,10 @@ struct DrawerRowView: View {
         busy == .deleting ? String(localized: "drawer.deleting") : String(localized: "drawer.closing")
     }
 
+    private var isSearchResult: Bool {
+        if case .detail = row.subtitle { true } else { false }
+    }
+
     private var isTask: Bool {
         if case .task = row.target { true } else { false }
     }
@@ -267,6 +281,7 @@ struct DrawerRowView: View {
         case .step(let text): return text
         case .subThread(let word): return word.text
         case .taskWaiting: return String(localized: "drawer.taskWaiting")
+        case .detail(let text): return text
         case .status(let status):
             switch status {
             case .running: return String(localized: "drawer.status.running")
@@ -320,7 +335,8 @@ struct DrawerRowView: View {
         if row.isStarred { parts.insert(String(localized: "thread.starred"), at: 1) }
         if let detail = row.failureDetail { parts.append(detail) }
         if let source = row.source { parts.insert(String(localized: "drawer.from \(source)"), at: 1) }
-        if let repository = row.repositoryDetail { parts.append(repository) }
+        // A search result's subtitle is its repository line already.
+        if let repository = row.repositoryDetail, !isSearchResult { parts.append(repository) }
         if isTask { parts.insert(String(localized: "drawer.taskLabel"), at: 0) }
         if let age { parts.append(age) }
         if row.isPrivate { parts.append(String(localized: "drawer.private")) }
@@ -348,6 +364,7 @@ struct DrawerIndicator: View {
             case .stopped: glyph("stop.fill")
             case .closed: Circle().strokeBorder(Color.yakFaint, lineWidth: 1.5).frame(width: 8, height: 8)
             case .other: glyph("circle.dotted")
+            case .searchResult: glyph("bubble.left")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

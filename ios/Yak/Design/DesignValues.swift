@@ -10,6 +10,8 @@ enum Design {
     static let busyOpacity: Double = 0.7
     /// How faded the mark of a closed row, or of a row being closed or deleted, looks.
     static let closedMarkOpacity: Double = 0.62
+    /// The tint of a search notice: its status color over the quiet surface.
+    static let noticeTintOpacity: Double = 0.12
     /// How dim the agents bar's dot gets at the low point of its pulse.
     static let agentDotDimOpacity: Double = 0.4
 
@@ -117,6 +119,10 @@ enum Design {
         static let closedLineMaxHeight: CGFloat = 340
         /// A status pill's smallest height.
         static let pill: CGFloat = 24
+        /// The rows of shapes shown while a search waits for its answer.
+        static let searchSkeletonRows = 4
+        /// The column a search result's type icon sits in.
+        static let resultIcon: CGFloat = 24
     }
 }
 
