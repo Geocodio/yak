@@ -124,6 +124,20 @@ it('does not mark a dashboard follow-up as a reply', function () {
     expect($message['isReply'])->toBeFalse()->and($message['via'])->toBeNull();
 });
 
+it('shows the request when a task first runs as a retry', function () {
+    $root = YakTask::factory()->success()->create(['source' => 'github']);
+    $child = YakTask::factory()->create(['source' => 'github', 'parent_task_id' => $root->id, 'thread_id' => $root->thread_id, 'author_name' => 'sylvester', 'description' => 'The FK failure still happens']);
+    foreach ([1, 2] as $attempt) {
+        $run = TaskRun::factory()->create(['yak_task_id' => $child->id, 'thread_id' => $child->thread_id, 'kind' => TaskRunKind::Retry]);
+        ThreadTurnMessage::factory()->create(['task_run_id' => $run->id, 'text' => null]);
+    }
+
+    $messages = ThreadMessagesData::for(Thread::query()->findOrFail($child->thread_id));
+
+    expect($messages[0])->toMatchArray(['isRetry' => false, 'retryNumber' => null, 'text' => 'The FK failure still happens', 'authorName' => 'sylvester'])
+        ->and($messages[1])->toMatchArray(['isRetry' => true, 'retryNumber' => 1, 'text' => '']);
+});
+
 it('shows a retry as a slim row without the request text', function () {
     $task = YakTask::factory()->create(['description' => 'Fix the login bug']);
     messageFor($task);

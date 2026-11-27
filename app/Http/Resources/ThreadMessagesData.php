@@ -93,7 +93,8 @@ final class ThreadMessagesData
                     ? ($run->task?->attachments->where('context', TaskAttachment::CONTEXT_REQUEST)->whereNull('thread_turn_message_id') ?? [])
                     : [])->unique('id')->values();
             $attachments = array_values($files->map(fn (TaskAttachment $attachment): array => AttachmentData::from($attachment))->all());
-            $isRetry = $run->kind === TaskRunKind::Retry;
+            // A task whose first attempt failed before its turn started has a retry as its first run, so that run shows the request.
+            $isRetry = $run->kind === TaskRunKind::Retry && ! $firstRunIds->contains($run->id);
 
             if ($isRetry) {
                 $files = collect();
@@ -138,7 +139,7 @@ final class ThreadMessagesData
                 'text' => $text,
                 ...$author,
                 'isRetry' => $isRetry,
-                'retryNumber' => $isRetry ? TaskRun::query()->where('yak_task_id', $run->yak_task_id)->where('kind', TaskRunKind::Retry)->where('id', '<=', $run->id)->count() : null,
+                'retryNumber' => $isRetry ? TaskRun::query()->where('yak_task_id', $run->yak_task_id)->where('kind', TaskRunKind::Retry)->where('id', '<=', $run->id)->whereNotIn('id', $firstRunIds)->count() : null,
                 'model' => $steer !== null ? $steer->model : $run->model,
                 'effort' => $steer !== null ? $steer->effort : $run->effort,
                 'state' => match ($row->state) {
