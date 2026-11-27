@@ -81,6 +81,7 @@ class VisibilityRoutes
         'threads.agents.stop-all' => ['POST', '/threads/{thread}/agents/stop'],
         'threads.agents.messages.store' => ['POST', '/threads/{thread}/agents/{agent}/messages', ['message' => 'Look at the config too.']],
         'threads.retry' => ['POST', '/threads/{thread}/retry'],
+        'threads.ci.rerun' => ['POST', '/threads/{thread}/ci/rerun'],
         'threads.cancel' => ['POST', '/threads/{thread}/cancel'],
         'threads.move' => ['POST', '/threads/{thread}/move', ['repo' => 'nope']],
         'threads.setup-and-continue' => ['POST', '/threads/{thread}/setup-and-continue'],

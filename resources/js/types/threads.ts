@@ -211,6 +211,21 @@ export type ThreadMilestone = {
 /** Why a thread stopped; mirrors `App\Services\Tasks\TaskStopSummary`. `cancelled` is a cancelled head task. */
 export type ThreadStopped = { kind: 'needs_you' | 'yak_retrying' | 'yak_stopped' | 'cancelled'; summary: string; detail: string | null; nextStep: string; isWaitingForSetup: boolean };
 
+/** One GitHub check of the head commit; mirrors `App\Services\Threads\ThreadCiChecks`. */
+export type ThreadCiCheck = { name: string; status: 'failed' | 'running' | 'passed' | 'skipped'; url: string | null; startedAt: string | null; durationSeconds: number | null; title: string | null; alsoFailsOnDefaultBranch: boolean | null };
+
+/** The checks a thread waits on or stopped at; mirrors `App\Services\Threads\ThreadCiChecks`. Web only. */
+export type ThreadCiChecks = {
+    state: 'running' | 'failed';
+    pullRequestUrl: string | null;
+    defaultBranch: string;
+    counts: { failing: number; passed: number; skipped: number; running: number };
+    checks: ThreadCiCheck[];
+    sharedWithDefaultBranch: boolean;
+    diagnosis: { why: string; next: string } | null;
+    canRerun: boolean;
+};
+
 /** What the viewer may do with the thread; mirrors `ThreadCardsData`. Every flag is false for a viewer who cannot drive the thread. */
 export type ThreadActions = { canStop: boolean; canRetry: boolean; canCancel: boolean; canMove: boolean; moveTargets: string[]; canRequestReview: boolean; canRetryRender: boolean };
 
@@ -254,7 +269,9 @@ export type ThreadPageData = {
     stopped: ThreadStopped | null;
     actions: ThreadActions;
     /** The one card to show above the composer; `question` is the question form inside the conversation. */
-    card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | null;
+    card: 'question' | 'repository_question' | 'early_warning' | 'co_owner' | 'stopped' | 'ci_checks' | null;
+    /** Web only: the GitHub checks behind the `ci_checks` card; null when the thread has none to show. */
+    ciChecks: ThreadCiChecks | null;
     /** Web only: the element id of each follow-up task's first message, by the task's public id, for old `#turn-<id>` links. */
     turnAnchors: Record<string, string>;
     /** The stop card is the head task's own expired co-owner request; web only. */

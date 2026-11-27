@@ -6,6 +6,7 @@ final readonly class AgentRunResult
 {
     /**
      * @param  list<ClarificationQuestion>  $clarificationQuestions
+     * @param  array{why: string, next: string}|null  $ciDiagnosis
      */
     public function __construct(
         public string $sessionId,
@@ -26,6 +27,7 @@ final readonly class AgentRunResult
         public ?string $wrongRepositoryReason = null,
         public ?string $suggestedRepository = null,
         public array $clarificationQuestions = [],
+        public ?array $ciDiagnosis = null,
     ) {}
 
     public function needsClarification(): bool

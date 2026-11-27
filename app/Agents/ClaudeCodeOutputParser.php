@@ -20,6 +20,8 @@ class ClaudeCodeOutputParser
         $resultText = (string) ($decoded['result'] ?? $decoded['result_summary'] ?? '');
 
         $wrongRepository = self::extractWrongRepository($resultText);
+        $ciDiagnosis = self::extractCiDiagnosis($resultText);
+        $resultText = self::stripCiDiagnosisBlock($resultText);
 
         $isError = ($decoded['is_error'] ?? false) === true;
         $subtype = isset($decoded['subtype']) ? (string) $decoded['subtype'] : null;
@@ -41,6 +43,7 @@ class ClaudeCodeOutputParser
             wrongRepositoryReason: $wrongRepository['reason'] ?? null,
             suggestedRepository: $wrongRepository['suggested_repository'] ?? null,
             clarificationQuestions: self::extractClarificationQuestions($resultText),
+            ciDiagnosis: $ciDiagnosis,
         );
     }
 
@@ -170,6 +173,32 @@ class ClaudeCodeOutputParser
             'reason' => trim((string) ($decoded['reason'] ?? '')),
             'suggested_repository' => is_string($suggested) && trim($suggested) !== '' ? trim($suggested) : null,
         ];
+    }
+
+    /**
+     * The `why` and `next` of a fenced `ci_diagnosis` block: why a check Claude left failing fails, and what a person can do.
+     * Null when the block is absent, is not valid JSON or holds no `why`.
+     *
+     * @return array{why: string, next: string}|null
+     */
+    public static function extractCiDiagnosis(string $resultText): ?array
+    {
+        if (! preg_match('/```ci_diagnosis\s*\n(.+?)\n```/s', $resultText, $m)) {
+            return null;
+        }
+
+        $decoded = json_decode(trim($m[1]), true);
+        $why = is_array($decoded) ? trim((string) ($decoded['why'] ?? '')) : '';
+
+        return $why === '' ? null : ['why' => $why, 'next' => trim((string) ($decoded['next'] ?? ''))];
+    }
+
+    /**
+     * The result text without its `ci_diagnosis` block, so it never reaches the pull request body.
+     */
+    public static function stripCiDiagnosisBlock(string $resultText): string
+    {
+        return trim((string) preg_replace('/```ci_diagnosis\s*\n.+?\n```/s', '', $resultText));
     }
 
     public const MAX_QUESTIONS = 6;

@@ -36,4 +36,14 @@ Your final summary replaces the **entire** pull request body — not just the pa
 - A CI fix that was unrelated to the original task (a flaky test, a dependency advisory that predates the branch, an infrastructure failure) gets at most one bullet near the end of `## Changes`. Never make it the summary, and do not open the body with an explanation of it.
 - Do not complain about the CI failure, argue that it was pre-existing, or justify your choices to the reviewer in the PR body. State what changed. If a decision genuinely needs the reviewer's attention, make it one short bullet.
 
+## When a failing check is not yours to fix
+
+If the run ends with a failing check you did not fix (you judged it unrelated to this branch, already failing before it, or beyond what you may change), end your final message with a fenced block tagged `ci_diagnosis` containing JSON:
+
+```ci_diagnosis
+{"why": "Two or three plain sentences on why the check fails.", "next": "What a person can do about it."}
+```
+
+Leave the block out when you fixed everything.
+
 @include('prompts.partials.wrong-repository')

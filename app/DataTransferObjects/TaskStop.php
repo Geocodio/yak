@@ -7,6 +7,13 @@ use Carbon\CarbonInterface;
 
 final readonly class TaskStop
 {
+    private const string CI_NEVER_REPORTED = "The automated checks on Yak's change didn't report back";
+
+    private const string CI_STILL_FAILING = "Yak's change still fails the automated checks";
+
+    /** The error a CI retry ends on when it changed nothing and GitHub would not run the failed checks again. */
+    private const string CI_RERUN_REFUSED = 'Retry made no changes to the branch, so CI could not run again on it.';
+
     public function __construct(
         public StopKind $kind,
         public string $summary,
@@ -37,7 +44,7 @@ final readonly class TaskStop
     {
         return new self(
             StopKind::YakStopped,
-            "The automated checks on Yak's change didn't report back within {$minutes} minutes, so Yak stopped waiting.",
+            self::CI_NEVER_REPORTED . " within {$minutes} minutes, so Yak stopped waiting.",
             $detail,
         );
     }
@@ -51,9 +58,19 @@ final readonly class TaskStop
 
         return new self(
             StopKind::YakStopped,
-            "Yak's change still fails the automated checks after {$attempts} tries{$failing}.",
+            self::CI_STILL_FAILING . " after {$attempts} tries{$failing}.",
             $detail,
         );
+    }
+
+    /**
+     * Whether a recorded stop came from CI: checks that kept failing, never reported, or could not run again.
+     */
+    public static function isCiStop(?string $summary, ?string $detail): bool
+    {
+        return str_starts_with((string) $summary, self::CI_STILL_FAILING)
+            || str_starts_with((string) $summary, self::CI_NEVER_REPORTED)
+            || str_starts_with((string) $detail, self::CI_RERUN_REFUSED);
     }
 
     public static function yakSideProblem(string $detail): self

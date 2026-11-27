@@ -1,3 +1,4 @@
+import { CiChecksCard } from '@/components/threads/cards/CiChecksCard';
 import { CoOwnerCard } from '@/components/threads/cards/CoOwnerCard';
 import { EarlyWarningCard } from '@/components/threads/cards/EarlyWarningCard';
 import { RepositoryQuestionCard } from '@/components/threads/cards/RepositoryQuestionCard';
@@ -6,7 +7,7 @@ import { edit as editRepository } from '@/routes/repos';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = {
-    page: Pick<ThreadPageData, 'thread' | 'card' | 'repositoryQuestion' | 'earlyWarning' | 'coOwner' | 'stopped' | 'actions' | 'isExpiredCoOwnerStop'> & { request?: ThreadPageData['request'] };
+    page: Pick<ThreadPageData, 'thread' | 'card' | 'repositoryQuestion' | 'earlyWarning' | 'coOwner' | 'stopped' | 'actions' | 'isExpiredCoOwnerStop' | 'ciChecks'> & { request?: ThreadPageData['request'] };
     onOpenChanges: () => void;
     onMove: () => void;
     /** Opens the log of the latest run; null when the thread has no run. */
@@ -17,7 +18,7 @@ type Props = {
 
 /** The one card above the composer: the repository question, the early warning, the co-owner decision or the stop. The question form lives in the conversation. */
 export function ThreadCards({ page, onOpenChanges, onMove, onShowLog, isInline = false }: Props) {
-    const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request } = page;
+    const { thread, card, repositoryQuestion, earlyWarning, coOwner, stopped, actions, isExpiredCoOwnerStop, request, ciChecks } = page;
     let content = null;
     let anchor = '';
 
@@ -30,6 +31,9 @@ export function ThreadCards({ page, onOpenChanges, onMove, onShowLog, isInline =
     } else if (card === 'co_owner' && coOwner !== null) {
         anchor = 'card-co-owner';
         content = <CoOwnerCard threadId={thread.id} coOwner={coOwner} repoUrl={thread.repo === 'unknown' ? null : editRepository.url(thread.repo)} onOpenChanges={onOpenChanges} />;
+    } else if (card === 'ci_checks' && ciChecks !== null) {
+        anchor = 'card-ci-checks';
+        content = <CiChecksCard threadId={thread.id} ciChecks={ciChecks} actions={actions} onShowLog={onShowLog} />;
     } else if (card === 'stopped' && stopped !== null) {
         anchor = 'card-stop';
         content = <StopCard threadId={thread.id} stopped={stopped} actions={actions} onMove={onMove} onShowLog={onShowLog} title={isExpiredCoOwnerStop ? 'The co-owner request expired' : undefined} />;

@@ -146,3 +146,19 @@ it('strips the clarification block from a summary', function () {
 
     expect(ClaudeCodeOutputParser::stripClarificationBlock($text))->toBe('Findings here.');
 });
+
+it('extracts a ci_diagnosis block and keeps it out of the result summary', function () {
+    $text = "Opened the change.\n\n```ci_diagnosis\n{\"why\": \"The audit finds two advisories.\", \"next\": \"Upgrade the package.\"}\n```";
+
+    $result = ClaudeCodeOutputParser::parse(json_encode(['result' => $text, 'session_id' => 's']));
+
+    expect($result->ciDiagnosis)->toBe(['why' => 'The audit finds two advisories.', 'next' => 'Upgrade the package.'])
+        ->and($result->resultSummary)->toBe('Opened the change.');
+});
+
+it('tolerates a malformed ci_diagnosis block', function () {
+    $result = ClaudeCodeOutputParser::parse(json_encode(['result' => "Done.\n\n```ci_diagnosis\nnot json\n```", 'session_id' => 's']));
+
+    expect($result->ciDiagnosis)->toBeNull()
+        ->and($result->resultSummary)->toBe('Done.');
+});

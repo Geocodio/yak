@@ -103,6 +103,7 @@ use App\Http\Controllers\Threads\Stack\StackStopController;
 use App\Http\Controllers\Threads\StoreThreadController;
 use App\Http\Controllers\Threads\TerminalSessionController;
 use App\Http\Controllers\Threads\ThreadAgentController;
+use App\Http\Controllers\Threads\ThreadCiRerunController;
 use App\Http\Controllers\Threads\ThreadCloseController;
 use App\Http\Controllers\Threads\ThreadController;
 use App\Http\Controllers\Threads\ThreadCoOwnerController;
@@ -358,6 +359,7 @@ Route::middleware(['auth'])->group(function () {
         });
         Route::post('threads/{thread}/repository-answer', ThreadRepositoryAnswerController::class)->name('threads.repository-answer.store');
         Route::post('threads/{thread}/retry', [ThreadTaskActionController::class, 'retry'])->name('threads.retry');
+        Route::post('threads/{thread}/ci/rerun', ThreadCiRerunController::class)->name('threads.ci.rerun');
         Route::post('threads/{thread}/cancel', [ThreadTaskActionController::class, 'cancel'])->name('threads.cancel');
         Route::post('threads/{thread}/move', [ThreadTaskActionController::class, 'move'])->name('threads.move');
         Route::post('threads/{thread}/setup-and-continue', [ThreadTaskActionController::class, 'setUpRepositoryAndContinue'])->name('threads.setup-and-continue');

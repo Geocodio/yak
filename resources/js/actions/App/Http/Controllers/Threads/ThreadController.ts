@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/app/embed/threads/{thread}'
 */
 const show7f9b3a562a452bfec7e80e3f8250aac7 = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show7f9b3a562a452bfec7e80e3f8250aac7.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/app/embed/threads/{thread}'
 */
 show7f9b3a562a452bfec7e80e3f8250aac7.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show7f9b3a562a452bfec7e80e3f8250aac7.url = (args: { thread: string | { public_id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/app/embed/threads/{thread}'
 */
 show7f9b3a562a452bfec7e80e3f8250aac7.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show7f9b3a562a452bfec7e80e3f8250aac7.get = (args: { thread: string | { public_id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/app/embed/threads/{thread}'
 */
 show7f9b3a562a452bfec7e80e3f8250aac7.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ show7f9b3a562a452bfec7e80e3f8250aac7.head = (args: { thread: string | { public_i
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/threads/{thread}'
 */
 const show6819ad8d694f9b52849e844933ad7258 = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -84,7 +84,7 @@ show6819ad8d694f9b52849e844933ad7258.definition = {
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/threads/{thread}'
 */
 show6819ad8d694f9b52849e844933ad7258.url = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions) => {
@@ -117,7 +117,7 @@ show6819ad8d694f9b52849e844933ad7258.url = (args: { thread: string | { public_id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/threads/{thread}'
 */
 show6819ad8d694f9b52849e844933ad7258.get = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -127,7 +127,7 @@ show6819ad8d694f9b52849e844933ad7258.get = (args: { thread: string | { public_id
 
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
-* @see app/Http/Controllers/Threads/ThreadController.php:24
+* @see app/Http/Controllers/Threads/ThreadController.php:25
 * @route '/threads/{thread}'
 */
 show6819ad8d694f9b52849e844933ad7258.head = (args: { thread: string | { public_id: string } } | [thread: string | { public_id: string } ] | string | { public_id: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -52,6 +52,7 @@ trait FinishesRetryRuns
     private function handleSuccess(Repository $repository, AgentRunResult $result, SandboxShell $sandbox, string $containerName, RunRecorder $recorder): void
     {
         TaskMetricsAccumulator::record($this->task, $result);
+        $this->task->update(['ci_diagnosis' => $result->ciDiagnosis]);
         // The task was counted the day its first run finished.
         DailyCost::accumulate($result->costUsd, newTask: false);
 

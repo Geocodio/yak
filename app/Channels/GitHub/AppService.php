@@ -515,6 +515,32 @@ class AppService
     }
 
     /**
+     * Every check run on a ref (a branch name or a commit sha). Throws when GitHub
+     * cannot be reached or refuses the request, so the caller can tell "no check
+     * runs" apart from "could not find out".
+     *
+     * @param  bool  $isTimeBounded  fail fast (2 s connect, 3 s total), for callers that answer a waiting user
+     * @return list<array{name: string, status: ?string, conclusion: ?string, url: ?string, startedAt: ?string, completedAt: ?string, title: ?string}>
+     */
+    public function listCheckRuns(int $installationId, string $repoSlug, string $ref, bool $isTimeBounded = false): array
+    {
+        $runs = $this->installationClient($installationId, $isTimeBounded)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$ref}/check-runs", ['per_page' => 100])
+            ->throw()
+            ->json('check_runs', []);
+
+        return array_values(array_map(fn (array $run): array => [
+            'name' => (string) ($run['name'] ?? ''),
+            'status' => $run['status'] ?? null,
+            'conclusion' => $run['conclusion'] ?? null,
+            'url' => $run['html_url'] ?? null,
+            'startedAt' => $run['started_at'] ?? null,
+            'completedAt' => $run['completed_at'] ?? null,
+            'title' => ($title = $run['output']['title'] ?? null) !== null && $title !== '' ? (string) $title : null,
+        ], (array) $runs));
+    }
+
+    /**
      * The lines of a GitHub Actions job log leading up to its failure.
      *
      * Actions leaves the check run's output empty, so the log is the only

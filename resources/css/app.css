@@ -493,3 +493,41 @@ details[open] > summary > .activity-chevron {
         --approval-armed-glow: rgba(239, 68, 68, 0.6);
     }
 }
+
+/* The CI checks card: a running check pulses and the running part of the progress bar moves. Reduce Motion keeps both still. */
+@keyframes ci-pulse-ring {
+    from {
+        opacity: 0.6;
+        scale: 1;
+    }
+    to {
+        opacity: 0;
+        scale: 2.6;
+    }
+}
+
+@keyframes ci-stripes {
+    to {
+        background-position: 20px 0;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .ci-pulse::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        background: var(--color-warn);
+        animation: ci-pulse-ring 1.6s ease-out infinite;
+    }
+
+    .ci-stripes {
+        animation: ci-stripes 0.9s linear infinite;
+    }
+}
+
+.ci-stripes {
+    background-image: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.35) 0 5px, transparent 5px 10px);
+    background-size: 20px 20px;
+}

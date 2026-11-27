@@ -4,6 +4,7 @@ import ThreadAgentController from './ThreadAgentController'
 import ThreadStepLimitController from './ThreadStepLimitController'
 import ThreadRepositoryAnswerController from './ThreadRepositoryAnswerController'
 import ThreadTaskActionController from './ThreadTaskActionController'
+import ThreadCiRerunController from './ThreadCiRerunController'
 import ThreadCoOwnerController from './ThreadCoOwnerController'
 import ThreadQueuedMessageController from './ThreadQueuedMessageController'
 import ContinueTurnController from './ContinueTurnController'
@@ -43,6 +44,7 @@ const Threads = {
     ThreadStepLimitController: Object.assign(ThreadStepLimitController, ThreadStepLimitController),
     ThreadRepositoryAnswerController: Object.assign(ThreadRepositoryAnswerController, ThreadRepositoryAnswerController),
     ThreadTaskActionController: Object.assign(ThreadTaskActionController, ThreadTaskActionController),
+    ThreadCiRerunController: Object.assign(ThreadCiRerunController, ThreadCiRerunController),
     ThreadCoOwnerController: Object.assign(ThreadCoOwnerController, ThreadCoOwnerController),
     ThreadQueuedMessageController: Object.assign(ThreadQueuedMessageController, ThreadQueuedMessageController),
     ContinueTurnController: Object.assign(ContinueTurnController, ContinueTurnController),
