@@ -242,8 +242,10 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
-                "blockKey": "m1:0",
+                "blockKey": "id_0023:0",
                 "kind": "text",
+                "offset": 0,
+                "startedAt": "2026-11-15T12:00:00+00:00",
                 "text": "Checking "
             },
             "sequence": 18,
@@ -252,8 +254,9 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
-                "blockKey": "m1:0",
+                "blockKey": "id_0023:0",
                 "kind": "text",
+                "offset": 9,
                 "text": "the uploads"
             },
             "sequence": 19,
@@ -262,6 +265,7 @@
         {
             "createdAt": "2026-11-15T12:00:00+00:00",
             "data": {
+                "blockIndex": 0,
                 "blocks": [
                     {
                         "html": "<p>scrubbed text 28</p>\n",
@@ -270,7 +274,8 @@
                     }
                 ],
                 "messageId": "id_0023",
-                "role": "assistant"
+                "role": "assistant",
+                "startedAt": "2026-11-15T12:00:00+00:00"
             },
             "sequence": 20,
             "type": "entry"
@@ -553,8 +558,10 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
-                    "blockKey": "m1:0",
+                    "blockKey": "id_0023:0",
                     "kind": "text",
+                    "offset": 0,
+                    "startedAt": "2026-11-15T12:00:00+00:00",
                     "text": "Checking "
                 },
                 "sequence": 18,
@@ -563,8 +570,9 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
-                    "blockKey": "m1:0",
+                    "blockKey": "id_0023:0",
                     "kind": "text",
+                    "offset": 9,
                     "text": "the uploads"
                 },
                 "sequence": 19,
@@ -573,6 +581,7 @@
             {
                 "createdAt": "2026-11-15T12:00:00+00:00",
                 "data": {
+                    "blockIndex": 0,
                     "blocks": [
                         {
                             "html": "<p>scrubbed text 28</p>\n",
@@ -581,7 +590,8 @@
                         }
                     ],
                     "messageId": "id_0023",
-                    "role": "assistant"
+                    "role": "assistant",
+                    "startedAt": "2026-11-15T12:00:00+00:00"
                 },
                 "sequence": 20,
                 "type": "entry"

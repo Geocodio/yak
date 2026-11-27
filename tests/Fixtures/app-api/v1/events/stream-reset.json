@@ -49,6 +49,8 @@
             "data": {
                 "blockKey": "m1:0",
                 "kind": "text",
+                "offset": 0,
+                "startedAt": "2026-11-15T12:00:00+00:00",
                 "text": "Checking the upl"
             },
             "sequence": 5,
@@ -218,6 +220,8 @@
                 "data": {
                     "blockKey": "m1:0",
                     "kind": "text",
+                    "offset": 0,
+                    "startedAt": "2026-11-15T12:00:00+00:00",
                     "text": "Checking the upl"
                 },
                 "sequence": 5,

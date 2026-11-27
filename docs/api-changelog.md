@@ -38,6 +38,18 @@ A `stream.reset` event carries `data` as an empty JSON object (`{}`), in broadca
 
 New field on task show, so the protocol stays 1: `task.isFollowUp`, true when the conversation's latest task is a follow-up (a review follow-up then cannot re-run the review).
 
+#### Streamed replies (2026-11-27)
+
+Additions, so the protocol stays 1.
+
+New fields on `delta` events: `offset`, the number of UTF-16 code units of the block's text sent before this chunk, and `startedAt` on the chunk with `offset` 0. A client shows a block only when its chunks arrive contiguously from `offset` 0 and otherwise waits for the block's entry.
+
+New fields on assistant `entry` events whose block streamed: `blockIndex`, so the entry's block key `{messageId}:{blockIndex}` matches its deltas' `blockKey`, and `startedAt`. A reply that ended early carries `cutOff: true` and `cutReason` (`stopped` or `restarted`; treat an unknown value as `restarted`).
+
+New event type: `block.cut` with `blockKey` and `cutReason`, which marks an entry already received as cut off.
+
+`delta` events with `kind: tool_input` are no longer sent.
+
 New field on task show, so the protocol stays 1: `progress.steps.*.failed`, true on the CI step while Yak retries after a CI failure. The CI step's `label` now follows the task: "Waiting for CI" while CI runs, "CI failed, retrying" during a retry, and "CI passed" otherwise.
 
 New field on task show, so the protocol stays 1: `task.repositorySetup`, null unless the task failed or expired on a repository that has no sandbox snapshot. It then carries `repo`, `settingsUrl`, `isSettingUp`, `continuesAfterSetup` and `failedSetup` (`at` and `url` of the last failed setup, or null), so the client can offer to set the repository up.
