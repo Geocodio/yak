@@ -593,6 +593,26 @@
   ansible.builtin.debug:
     msg: "{{ incus_list.stdout_lines }}"
 
+# Incus keeps no history of who started, paused or resumed a container. This journal does:
+# `journalctl -u incus-lifecycle-log`. The requestor shows the caller (unix/www-data is Yak,
+# root is a person); a stop with no requestor came from inside the container.
+- name: Install the Incus lifecycle logger
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: incus-lifecycle-log.sh, dest: /usr/local/bin/incus-lifecycle-log, mode: "0755" }
+    - { src: incus-lifecycle-log.service, dest: /etc/systemd/system/incus-lifecycle-log.service, mode: "0644" }
+  register: incus_lifecycle_log
+
+- name: Run the Incus lifecycle logger
+  ansible.builtin.systemd:
+    name: incus-lifecycle-log
+    enabled: true
+    state: "{{ 'restarted' if incus_lifecycle_log.changed else 'started' }}"
+    daemon_reload: "{{ incus_lifecycle_log.changed }}"
+
 - name: Create sandbox cleanup cron job
   ansible.builtin.cron:
     name: "Cleanup stale Incus sandbox containers"

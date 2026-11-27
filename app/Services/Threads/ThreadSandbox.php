@@ -531,6 +531,13 @@ class ThreadSandbox
 
     private function record(Thread $thread, ThreadSandboxState $state): void
     {
+        Log::info('Thread sandbox state recorded', [
+            'thread' => $thread->id,
+            'container' => $thread->sandbox_container,
+            'from' => $thread->sandbox_state?->value,
+            'to' => $state->value,
+        ]);
+
         $values = ['sandbox_state' => $state->value, 'sandbox_state_changed_at' => now()];
 
         if ($thread->sandbox_container !== null) {
