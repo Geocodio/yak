@@ -46,18 +46,26 @@ test('every prefix renders text the final reply starts with', () => {
     }
 });
 
-test('no prefix leaves a fence, bold or code span open', () => {
+test('no prefix leaves a fence, bold, emphasis or code span open', () => {
     const outsideCode = (html) => textOf(html.replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code>[\s\S]*?<\/code>/g, ''));
+    const count = (text, marker) => text.split(marker).length - 1;
     for (const name of names) {
         const full = read(name, 'md');
         const finalOutside = outsideCode(renderMarkdown(stripClarificationBlock(full)));
         for (let length = 0; length <= full.length; length++) {
             const outside = outsideCode(renderStreamingMarkdown(full.slice(0, length)));
-            for (const marker of ['```', '**', '`']) {
-                assert.ok(finalOutside.includes(marker) || !outside.includes(marker), `${name} @${length} ${marker}`);
+            for (const marker of ['```', '**', '*', '_', '~', '`']) {
+                assert.ok(count(outside, marker) <= count(finalOutside, marker), `${name} @${length} ${marker}`);
             }
         }
     }
+});
+
+test('settles emphasis across a paragraph and leaves identifiers alone', () => {
+    assert.match(renderStreamingMarkdown('and _under scor'), /<em>under scor<\/em>/);
+    assert.match(renderStreamingMarkdown('This is **bold across\nlines and more'), /<strong>bold across\nlines and more<\/strong>/);
+    assert.match(renderStreamingMarkdown('See snake_case and foo__bar now'), /snake_case and foo__bar now/);
+    assert.match(renderStreamingMarkdown('Use ``a ` ba'), /<code>a ` ba<\/code>/);
 });
 
 test('hides a clarification fence from its opening line', () => {

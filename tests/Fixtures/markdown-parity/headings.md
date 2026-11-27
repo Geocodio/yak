@@ -4,6 +4,12 @@
 
 ### Third
 
+#### Fourth
+
+##### Fifth
+
+###### Sixth
+
 Setext heading
 ===============
 

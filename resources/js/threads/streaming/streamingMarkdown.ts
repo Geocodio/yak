@@ -31,8 +31,8 @@ export function renderMarkdown(source: string): string {
     })
         .replace(/<a href="">/g, '<a>')
         .replace(/<input type="checkbox" disabled="" (checked="" )?\/>/g, (_match, checked) =>
-        checked ? '<input checked="" disabled="" type="checkbox">' : '<input disabled="" type="checkbox">',
-    );
+            checked ? '<input checked="" disabled="" type="checkbox">' : '<input disabled="" type="checkbox">',
+        );
 }
 
 /**
@@ -91,21 +91,114 @@ function closeInline(line: string): string {
         .replace(/\[([^\]]*)$/, '$1')
         .replace(/(^|\s)!$/, '$1');
 
-    const tickCount = (line.match(/`/g) ?? []).length;
-
-    if (tickCount % 2 === 1) {
-        return line.endsWith('`') ? line.slice(0, -1) : `${line}\``;
-    }
-
-    return ['~', '~~', '*', '**'].reduce(closeEmphasis, line);
+    return line;
 }
 
 /**
- * Closes one unbalanced emphasis marker at the end of the line, or removes it
+ * Splits text into what is outside code spans and the length of a code span
+ * left open at the end (0 when none), and where that opener ends.
+ */
+function codeSpanState(text: string): { outside: string; openRun: number; openEnd: number } {
+    let outside = '';
+    let openRun = 0;
+    let openEnd = 0;
+    let index = 0;
+
+    while (index < text.length) {
+        if (text[index] === '`') {
+            let end = index;
+
+            while (text[end] === '`') {
+                end++;
+            }
+
+            if (openRun === 0) {
+                openRun = end - index;
+                openEnd = end;
+            } else if (end - index === openRun) {
+                openRun = 0;
+            }
+
+            index = end;
+            continue;
+        }
+
+        if (openRun === 0) {
+            outside += text[index];
+        }
+
+        index++;
+    }
+
+    return { outside, openRun, openEnd };
+}
+
+/**
+ * Closes a code span of any backtick length left open, or removes its opener
+ * when nothing follows it yet.
+ */
+function closeCodeSpan(text: string): string {
+    const { openRun, openEnd } = codeSpanState(text);
+
+    if (openRun === 0) {
+        return text;
+    }
+
+    if (openEnd === text.length) {
+        return text.slice(0, -openRun);
+    }
+
+    return `${text.replace(/`+$/, '')}${'`'.repeat(openRun)}`;
+}
+
+/**
+ * Closes the underscore emphasis still open at the end, counting only
+ * delimiters CommonMark can pair: an opener is not preceded by a letter or
+ * digit and a closer is not followed by one, so `snake_case` is left alone.
+ */
+function closeUnderscore(text: string): string {
+    text = text.replace(/(^|\s)_+$/, '$1');
+
+    const { outside } = codeSpanState(text);
+    let pending = 0;
+
+    for (const run of outside.matchAll(/_+/g)) {
+        const before = outside[run.index - 1] ?? ' ';
+        const after = outside[run.index + run[0].length] ?? ' ';
+        const canOpen = !/\s/.test(after) && !/[\p{L}\p{N}]/u.test(before);
+        const canClose = !/\s/.test(before) && !/[\p{L}\p{N}]/u.test(after);
+
+        if (canOpen) {
+            pending += run[0].length;
+        } else if (canClose) {
+            pending = Math.max(0, pending - run[0].length);
+        }
+    }
+
+    return pending === 0 ? text : `${text.trimEnd()}${'_'.repeat(Math.min(pending, 3))}`;
+}
+
+const blockStart = /^\s*([-*+>]|\d+[.)]|#{1,6})\s/;
+
+/**
+ * Closes the code span and emphasis left open anywhere in the paragraph that
+ * is still being written, after the block marker that starts its first line.
+ */
+function closeParagraph(paragraph: string): string {
+    const marker = paragraph.match(blockStart)?.[0] ?? '';
+    let body = closeCodeSpan(paragraph.slice(marker.length));
+
+    body = ['~', '~~', '*', '**'].reduce(closeEmphasis, body);
+
+    return marker + closeUnderscore(body);
+}
+
+/**
+ * Closes one unbalanced emphasis marker at the end of the text, or removes it
  * when the marker itself is what arrived last.
  */
 function closeEmphasis(line: string, marker: string): string {
-    const outsideCode = line.replace(/`[^`]*`/g, '');
+    const outsideCode = codeSpanState(line).outside;
     const withoutDoubles = marker.length === 1 ? outsideCode.replaceAll(marker + marker, '') : outsideCode;
     const markerCount = withoutDoubles.split(marker).length - 1;
 
@@ -178,7 +271,28 @@ export function settleMarkdown(source: string): string {
         }
     }
 
-    let settled = completeLines.join('\n') + (completeLines.length > 0 ? '\n' : '') + lastLine;
+    let paragraphStart = completeLines.length;
+
+    if (!isInFence && !blockStart.test(lastLine)) {
+        while (paragraphStart > 0 && completeLines[paragraphStart - 1].trim() !== '' && !/^\s*\|/.test(completeLines[paragraphStart - 1])) {
+            paragraphStart--;
+
+            if (blockStart.test(completeLines[paragraphStart])) {
+                break;
+            }
+        }
+    }
+
+    const paragraphLines = completeLines.slice(paragraphStart);
+    let paragraph = isInFence ? '' : paragraphLines.join('\n');
+
+    if (!isInFence) {
+        paragraph = closeParagraph(lastLine === '' ? paragraph : `${paragraph}${paragraph === '' ? '' : '\n'}${lastLine}`);
+    }
+
+    const head = completeLines.slice(0, isInFence ? completeLines.length : paragraphStart);
+    const tail = isInFence ? lastLine : paragraph + (lastLine === '' && paragraph !== '' ? '\n' : '');
+    let settled = head.join('\n') + (head.length > 0 ? '\n' : '') + tail;
 
     if (isInFence) {
         settled += (settled.endsWith('\n') ? '' : '\n') + '```';
