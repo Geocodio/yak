@@ -222,6 +222,8 @@ export type ThreadCiChecks = {
     counts: { failing: number; passed: number; skipped: number; running: number };
     checks: ThreadCiCheck[];
     sharedWithDefaultBranch: boolean;
+    /** Set while Yak waits for the default branch to pass the shared failures before it updates the branch. */
+    defaultBranchWait: { since: string; limitHours: number } | null;
     diagnosis: { why: string; next: string } | null;
     canRerun: boolean;
 };

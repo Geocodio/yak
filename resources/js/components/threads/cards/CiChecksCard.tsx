@@ -1,6 +1,6 @@
 import { usePoll } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
-import { Check, CheckCircle2, ChevronDown, CircleAlert, ExternalLink, MinusCircle, RefreshCw, Sparkles, TriangleAlert, Wrench, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, CircleAlert, Clock, ExternalLink, MinusCircle, RefreshCw, Sparkles, TriangleAlert, Wrench, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cardDraftKey, useCardDraft } from '@/components/threads/cards/useCardDraft';
 import { formatSeconds } from '@/lib/formatSeconds';
@@ -136,19 +136,22 @@ function FinishedCard({ threadId, ciChecks, actions, onShowLog }: { threadId: st
     const failing = ciChecks.checks.filter((check) => check.status === 'failed');
     const settled = ciChecks.checks.filter((check) => check.status !== 'failed');
     const isShared = ciChecks.sharedWithDefaultBranch;
+    const wait = ciChecks.defaultBranchWait;
     const link = checksUrl(ciChecks);
     const names = failing.length === 1 ? failing[0].name : `${failing.length} checks`;
-    const title = isShared ? 'CI is red, but not because of this change' : failing.length === 1 ? '1 check fails on this change' : `${failing.length} checks fail on this change`;
+    const title = wait !== null ? `Waiting for ${defaultBranch}` : isShared ? 'CI is red, but not because of this change' : failing.length === 1 ? '1 check fails on this change' : `${failing.length} checks fail on this change`;
     const isAllFromBranch = failing.every((check) => check.alsoFailsOnDefaultBranch === false);
     const isCompared = failing.every((check) => check.alsoFailsOnDefaultBranch !== null);
-    const subtitle = isShared
+    const subtitle = wait !== null
+        ? `${names} ${failing.length === 1 ? 'fails' : 'fail'} on ${defaultBranch} too, so this change did not cause ${failing.length === 1 ? 'it' : 'them'}. Yak updates the branch from ${defaultBranch} and re-runs CI as soon as ${failing.length === 1 ? 'it passes' : 'they pass'} there.`
+        : isShared
         ? `${names} ${failing.length === 1 ? 'fails' : 'fail'} on ${defaultBranch} too, so Yak left the branch as it is.${ciChecks.pullRequestUrl !== null ? ' The pull request is ready for review.' : ''}`
         : isAllFromBranch
           ? `${failing.length === 1 ? 'It passes' : 'They pass'} on ${defaultBranch}, so this branch caused ${failing.length === 1 ? 'it' : 'them'}.`
           : isCompared
             ? `Some of these also fail on ${defaultBranch}. The others come from this branch.`
             : `Yak could not compare these with ${defaultBranch}.`;
-    const Icon = isShared ? TriangleAlert : CircleAlert;
+    const Icon = wait !== null ? Clock : isShared ? TriangleAlert : CircleAlert;
     const settledSummary = [counts.passed > 0 ? `${counts.passed} passed` : null, counts.skipped > 0 ? `${counts.skipped} skipped` : null].filter(Boolean).join(', ');
 
     const run = (key: string, url: string, fallback: string) =>
@@ -158,13 +161,18 @@ function FinishedCard({ threadId, ciChecks, actions, onShowLog }: { threadId: st
         });
 
     return (
-        <section className={`flex flex-col gap-3.5 rounded-card px-5 pb-5 pt-4 ${isShared ? 'bg-warn-soft' : 'bg-fail-soft'}`} aria-labelledby="ci-title" data-testid="card-ci-checks" data-state="failed" data-shared={isShared}>
+        <section className={`flex flex-col gap-3.5 rounded-card px-5 pb-5 pt-4 ${isShared ? 'bg-warn-soft' : 'bg-fail-soft'}`} aria-labelledby="ci-title" data-testid="card-ci-checks" data-state="failed" data-shared={isShared} data-waiting={wait !== null}>
             <div className="flex flex-col gap-1">
                 <h2 id="ci-title" className="flex items-center gap-2 text-[15px] font-semibold">
                     <Icon className={`size-4 ${isShared ? 'text-warn' : 'text-fail'}`} aria-hidden />
                     {title}
                 </h2>
                 <p className="text-[13px] leading-normal" data-testid="ci-subtitle">{subtitle}</p>
+                {wait !== null && (
+                    <p className="text-[12.5px] text-muted" data-testid="ci-wait">
+                        Waiting since {new Date(wait.since).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · Yak stops waiting after {wait.limitHours} hours
+                    </p>
+                )}
             </div>
 
             <div className="overflow-hidden rounded-control border border-border bg-panel">
@@ -233,7 +241,7 @@ function FinishedCard({ threadId, ciChecks, actions, onShowLog }: { threadId: st
                     </Button>
                 )}
                 {ciChecks.canRerun && (
-                    <Button variant={isShared ? 'primary' : undefined} className="max-sm:h-11 max-sm:w-full" icon={<RefreshCw size={13} />} pending={action.isPending('rerun')} pendingLabel="Re-running…" disabled={action.busy} onClick={() => run('rerun', rerun.url(threadId), 'GitHub could not re-run the checks. Try again.')} aria-describedby={error !== null ? 'ci-error' : undefined} data-testid="ci-rerun">
+                    <Button variant={isShared && wait === null ? 'primary' : undefined} className="max-sm:h-11 max-sm:w-full" icon={<RefreshCw size={13} />} pending={action.isPending('rerun')} pendingLabel="Re-running…" disabled={action.busy} onClick={() => run('rerun', rerun.url(threadId), 'GitHub could not re-run the checks. Try again.')} aria-describedby={error !== null ? 'ci-error' : undefined} data-testid="ci-rerun">
                         Re-run failed checks
                     </Button>
                 )}

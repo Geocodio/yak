@@ -9,6 +9,7 @@ use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\DefaultBranchCi;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -26,6 +27,7 @@ use Throwable;
  *     counts: array{failing: int, passed: int, skipped: int, running: int},
  *     checks: list<CiCheck>,
  *     sharedWithDefaultBranch: bool,
+ *     defaultBranchWait: ?array{since: string, limitHours: int},
  *     diagnosis: ?array{why: string, next: string},
  *     canRerun: bool,
  * }
@@ -114,6 +116,9 @@ final class ThreadCiChecks
             ],
             'checks' => $checks,
             'sharedWithDefaultBranch' => $state === 'failed' && $failing !== [] && collect($failing)->every(fn (array $check): bool => $check['alsoFailsOnDefaultBranch'] === true),
+            'defaultBranchWait' => $state === 'failed' && $task->waiting_on_default_branch_at !== null
+                ? ['since' => $task->waiting_on_default_branch_at->toIso8601String(), 'limitHours' => DefaultBranchCi::WAIT_LIMIT_HOURS]
+                : null,
             'diagnosis' => $state === 'failed' ? $task->ci_diagnosis : null,
             'canRerun' => $state === 'failed' && app(ThreadAccess::class)->canDrive($viewer, $thread),
         ];

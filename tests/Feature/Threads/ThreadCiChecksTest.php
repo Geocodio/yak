@@ -71,6 +71,23 @@ it('marks a failure that also happens on the default branch as shared', function
         ->and($checks['canRerun'])->toBeTrue();
 });
 
+it('carries the wait of a task parked on the default branch', function () {
+    $thread = ciThread($this->user, 'awaitingCi', ['waiting_on_default_branch_at' => '2026-11-27 14:10:00', 'default_branch_wait_checks' => ['Audit']]);
+    fakeChecks([checkRun('Audit', 'completed', 'failure'), checkRun('Tests')], [checkRun('Audit', 'completed', 'failure')]);
+
+    $checks = ThreadCiChecks::for($thread, $this->user);
+
+    expect($checks['sharedWithDefaultBranch'])->toBeTrue()
+        ->and($checks['defaultBranchWait'])->toBe(['since' => '2026-11-27T14:10:00+00:00', 'limitHours' => 24]);
+});
+
+it('carries no wait for a shared failure Yak is not waiting on', function () {
+    $thread = ciThread($this->user, 'failed');
+    fakeChecks([checkRun('Audit', 'completed', 'failure')], [checkRun('Audit', 'completed', 'failure')]);
+
+    expect(ThreadCiChecks::for($thread, $this->user)['defaultBranchWait'])->toBeNull();
+});
+
 it('marks a failure the default branch passes as caused by the branch', function () {
     $thread = ciThread($this->user, 'failed');
     fakeChecks([checkRun('Tests', 'completed', 'failure')], [checkRun('Tests')]);
