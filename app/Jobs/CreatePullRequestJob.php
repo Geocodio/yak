@@ -119,7 +119,8 @@ class CreatePullRequestJob implements ShouldQueue
             Telemetry::record('pr.updated', ['pr_number' => (int) $existing['number']], task: $this->task);
 
             $summary = $this->task->result_summary;
-            $hasReplies = ! empty($this->task->review_replies);
+            // An empty list means the follow-up already posted its replies.
+            $hasReplies = $this->task->review_replies !== null;
 
             app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $existing['number']);
 

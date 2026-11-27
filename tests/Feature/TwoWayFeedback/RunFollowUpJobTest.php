@@ -8,6 +8,7 @@ use App\Jobs\RunFollowUpJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ReviewReplyPoster;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeSandboxManager;
 
@@ -43,8 +44,10 @@ test('the finisher force-pushes the existing branch and parks at awaiting_ci', f
         ->and($shell->commandsMatching('git checkout -b'))->toBe([]);
 });
 
-test('the finisher stores the change summary and the rewritten description separately', function () {
-    $task = pendingFollowUpTask();
+test('the finisher stores the change summary and the rewritten description, and replies without waiting for CI', function () {
+    $poster = $this->mock(ReviewReplyPoster::class);
+    $poster->shouldReceive('post')->once()->withArgs(fn (YakTask $task, string $repo, int $prNumber): bool => $prNumber === 9 && $task->review_replies === [42 => 'Fixed in a1b2c3d.'])->andReturn(1);
+    $task = pendingFollowUpTask(['description' => "Review:\n\n- [c:42] app/Foo.php:7 — why a queue here?"]);
     $output = "## What changed in this run\n\n- Added backoff\n\n## Replies\n\n- [c:42] Fixed in a1b2c3d.\n\n## PR description\n\n## Summary\n\nWhole PR, rewritten.";
 
     finishTaskTurn(FinishFollowUpTurnJob::class, $task, new FakeSandboxManager, $output);
@@ -52,7 +55,8 @@ test('the finisher stores the change summary and the rewritten description separ
     $task->refresh();
     expect($task->result_summary)->toBe('- Added backoff')
         ->and($task->pr_body_update)->toBe("## Summary\n\nWhole PR, rewritten.")
-        ->and($task->review_replies)->toBe([42 => 'Fixed in a1b2c3d.']);
+        ->and($task->status)->toBe(TaskStatus::AwaitingCi)
+        ->and($task->review_replies)->toBe([]);
 });
 
 test('the finisher stores a null result_summary when the changes section is blank', function () {

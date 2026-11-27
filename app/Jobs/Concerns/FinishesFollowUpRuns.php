@@ -137,6 +137,15 @@ trait FinishesFollowUpRuns
         $recorder->mark('post_agent');
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 
+        // Replies answer the reviewer's questions and do not depend on CI,
+        // so they go out as soon as the commits they cite are pushed. The
+        // empty list left behind records that this run replied, so the PR
+        // step after CI does not add a "pushed changes" placeholder.
+        if ($parsed->replies !== []) {
+            app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $this->task->pr_number);
+            $this->task->update(['review_replies' => []]);
+        }
+
         if ($ciSystem === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {

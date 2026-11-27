@@ -71,6 +71,18 @@ it('skips the summary comment when the run only produced replies', function () {
     (new CreatePullRequestJob(followUpTask(['result_summary' => null, 'review_replies' => [1 => 'Done.']])))->handle($github);
 });
 
+it('skips the placeholder comment when the follow-up already posted its replies', function () {
+    $github = test()->mock(GitHubAppService::class);
+    $github->shouldReceive('findOpenPullRequestForBranch')->once()->andReturn(['number' => 9, 'html_url' => 'https://github.com/acme/web/pull/9']);
+    $github->shouldNotReceive('commentOnPullRequest');
+    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setSections');
+
+    $task = followUpTask(['result_summary' => null, 'review_replies' => []]);
+    (new CreatePullRequestJob($task))->handle($github);
+
+    expect($task->fresh()->review_replies)->toBeNull();
+});
+
 it('posts the comment and rewrites the description section when a rewrite is stored', function () {
     $github = existingPrGitHub();
     $updater = $this->mock(PullRequestBodyUpdater::class);
