@@ -21,6 +21,7 @@ use App\Jobs\QuietPeriodReviewJob;
 use App\Jobs\RecordCiJobGreenJob;
 use App\Jobs\RefreshPullRequestMergeabilityJob;
 use App\Jobs\RunConfigCheckJob;
+use App\Jobs\SyncThreadCiChecksJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
@@ -224,6 +225,8 @@ class WebhookController extends Controller
 
     private function handleWorkflowJob(Request $request): JsonResponse
     {
+        $this->syncThreadCiChecks($request);
+
         $intake = app(CiFailureIntake::class);
         $repository = $intake->accepts($request);
 
@@ -244,6 +247,28 @@ class WebhookController extends Controller
         HandleCiJobFailureJob::dispatch($repository->id, $request->input());
 
         return response()->json(['ok' => true, 'dispatched' => true]);
+    }
+
+    /**
+     * Queues a fresh read of the CI checks of every thread whose branch the workflow job ran on,
+     * so an open thread page follows GitHub as jobs queue, start and finish.
+     */
+    private function syncThreadCiChecks(Request $request): void
+    {
+        $branch = (string) $request->input('workflow_job.head_branch', '');
+        $repository = $branch === '' ? null : $this->resolveRepositoryFromPayload($request);
+
+        if ($repository === null) {
+            return;
+        }
+
+        YakTask::query()
+            ->where('repo', $repository->slug)
+            ->where('branch_name', $branch)
+            ->whereNotNull('thread_id')
+            ->distinct()
+            ->pluck('thread_id')
+            ->each(fn (mixed $threadId) => SyncThreadCiChecksJob::dispatch((int) $threadId));
     }
 
     private function handleCheckSuite(Request $request, AppService $github): JsonResponse

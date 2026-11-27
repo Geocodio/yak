@@ -1,13 +1,17 @@
 <?php
 
 use App\DataTransferObjects\TaskStop;
+use App\Events\ThreadEventBroadcast;
+use App\Jobs\SyncThreadCiChecksJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadCiChecks;
+use App\Services\Threads\ThreadShowChanged;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -185,4 +189,26 @@ it('flashes GitHub\'s message when it refuses the re-run', function () {
     ]);
 
     $this->actingAs($this->user)->post("/threads/{$thread->public_id}/ci/rerun")->assertSessionHas('error', 'Workflow is disabled');
+});
+
+it('changes the show key only when what the card shows changes', function () {
+    Event::fake([ThreadEventBroadcast::class]);
+    $thread = ciThread($this->user);
+    Http::fakeSequence('api.github.com/repos/org/app/commits/yak*')
+        ->push(['check_runs' => [checkRun('Tests', 'completed', 'failure')]])
+        ->push(['check_runs' => [checkRun('Tests', 'completed', 'failure')]])
+        ->push(['check_runs' => [checkRun('Tests', 'in_progress', null)]]);
+    Http::fake(['api.github.com/repos/org/app/commits/main/check-runs*' => Http::response(['check_runs' => []])]);
+
+    $keys = [ThreadShowChanged::key($thread->id)];
+
+    foreach (range(1, 3) as $read) {
+        (new SyncThreadCiChecksJob($thread->id))->handle();
+        $keys[] = ThreadShowChanged::key($thread->id);
+    }
+
+    expect($keys[1])->not->toBe($keys[0])
+        ->and($keys[2])->toBe($keys[1])
+        ->and($keys[3])->not->toBe($keys[2])
+        ->and(Event::dispatched(ThreadEventBroadcast::class))->toHaveCount(2);
 });
