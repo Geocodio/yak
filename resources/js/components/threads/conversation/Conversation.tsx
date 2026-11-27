@@ -11,6 +11,7 @@ import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
 import { ChildResultRow } from './ChildResultRow';
+import { nextStreamingLatch } from './nextStreamingLatch';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
@@ -157,9 +158,11 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
     // Once text has streamed in a running turn the follow keeps its ease through the gaps between blocks, so a block ending never snaps the view.
     const isStreamingNow = entries.some((entry) => entry.type === 'event' && entry.item.streaming === true);
-    const hasStreamedThisTurn = useRef(false);
-    hasStreamedThisTurn.current = working && (hasStreamedThisTurn.current || isStreamingNow);
-    const isStreaming = isStreamingNow || hasStreamedThisTurn.current;
+    const [latch, setLatch] = useState({ threadId, isOn: false });
+    useEffect(() => {
+        setLatch((previous) => ({ threadId, isOn: nextStreamingLatch({ previous: previous.isOn, threadChanged: previous.threadId !== threadId, working, anyStreaming: isStreamingNow }) }));
+    }, [threadId, working, isStreamingNow]);
+    const isStreaming = isStreamingNow || (latch.isOn && latch.threadId === threadId);
     const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey, isStreaming);
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
