@@ -49,6 +49,20 @@ final readonly class TaskStop
         );
     }
 
+    private const string WAITED_ON_DEFAULT_BRANCH = 'The default branch kept failing the same checks';
+
+    /**
+     * @param  list<string>  $checks
+     */
+    public static function waitedOnDefaultBranch(int $hours, array $checks): self
+    {
+        return new self(
+            StopKind::YakStopped,
+            self::WAITED_ON_DEFAULT_BRANCH . ", so Yak stopped waiting after {$hours} hours (" . implode(', ', $checks) . ').',
+            'Yak was waiting for the default branch to pass ' . implode(', ', $checks) . ' before updating this branch.',
+        );
+    }
+
     /**
      * @param  list<string>  $failingChecks
      */
@@ -70,6 +84,7 @@ final readonly class TaskStop
     {
         return str_starts_with((string) $summary, self::CI_STILL_FAILING)
             || str_starts_with((string) $summary, self::CI_NEVER_REPORTED)
+            || str_starts_with((string) $summary, self::WAITED_ON_DEFAULT_BRANCH)
             || str_starts_with((string) $detail, self::CI_RERUN_REFUSED);
     }
 

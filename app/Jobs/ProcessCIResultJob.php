@@ -12,12 +12,14 @@ use App\Facades\Telemetry;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
+use App\Services\DefaultBranchCi;
 use App\Services\PullRequestFinisher;
 use App\Services\Push\PullRequestPush;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StopNotifier;
 use App\Services\Teleport\HeldEvents;
 use App\Services\Threads\PullRequests\ThreadPullRequestSync;
+use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -136,6 +138,11 @@ class ProcessCIResultJob implements ShouldQueue
 
             $this->recordCiResult();
             app(ThreadPullRequestSync::class)->recordPrimaryCiStatus($this->task, $this->passed ? 'passing' : 'failing');
+
+            if (! $this->passed && $this->deferToDefaultBranch()) {
+                return;
+            }
+
             $this->pushCiResult();
 
             if ($this->passed) {
@@ -283,6 +290,74 @@ class ProcessCIResultJob implements ShouldQueue
     private function notifyUnlessGitHubStarted(NotificationType $type, string $message): void
     {
         app(PullRequestFinisher::class)->notifyUnlessGitHubStarted($this->task, $type, $message);
+    }
+
+    /**
+     * A red result may not be the branch's fault. When every failing check also fails on the default
+     * branch, the task parks until the default branch passes them. When the branch is behind a default
+     * branch that passes them, the branch is updated once per default branch head. Either way no
+     * agent run and no attempt is spent. Anything unreadable or conflicting goes to the normal retry.
+     */
+    private function deferToDefaultBranch(): bool
+    {
+        $task = $this->task;
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($repository === null || $task->branch_name === null || (int) config('yak.channels.github.installation_id') === 0) {
+            return false;
+        }
+
+        $defaultBranchCi = app(DefaultBranchCi::class);
+
+        try {
+            $comparison = $defaultBranchCi->compare($repository, $task->branch_name);
+
+            if ($comparison['branchFailing'] === []) {
+                return false;
+            }
+
+            if (array_diff($comparison['branchFailing'], $comparison['defaultFailing']) === []) {
+                $this->parkOnDefaultBranch($comparison['branchFailing'], $repository);
+
+                return true;
+            }
+
+            if ($comparison['defaultHasChecks']
+                && array_intersect($comparison['branchFailing'], $comparison['defaultFailing']) === []
+                && $defaultBranchCi->isBehindDefaultBranch($task, $repository)
+                && $defaultBranchCi->claimDefaultBranchHead($task, $repository) !== null
+                && $defaultBranchCi->syncBranch($task, $repository) === true) {
+                $defaultBranchCi->resumeAwaitingCi($task);
+
+                return true;
+            }
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Could not compare the failing checks with the default branch', ['task_id' => $task->id, 'error' => $e->getMessage()]);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $checks
+     */
+    private function parkOnDefaultBranch(array $checks, Repository $repository): void
+    {
+        if ($this->task->status !== TaskStatus::AwaitingCi) {
+            $this->task->update(['status' => TaskStatus::AwaitingCi]);
+        }
+
+        $this->task->update([
+            'waiting_on_default_branch_at' => now(),
+            'default_branch_wait_checks' => $checks,
+        ]);
+
+        TaskLogger::info($this->task, 'Failing checks also fail on the default branch -- waiting for it to pass', ['checks' => $checks]);
+
+        $list = implode(', ', $checks);
+        $verb = count($checks) === 1 ? 'fails' : 'fail';
+        $message = YakPersonality::generate(NotificationType::Progress, "CI failed on {$this->task->branch_name}, but {$list} also {$verb} on {$repository->default_branch}. Not retrying; I'll update the branch once they pass there.");
+        SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
     }
 
     private function handleRetry(): void

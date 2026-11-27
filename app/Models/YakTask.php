@@ -74,6 +74,9 @@ use Illuminate\Support\Str;
  * @property array<string, mixed>|null $early_warning
  * @property array{why: string, next: string}|null $ci_diagnosis
  * @property int|null $responsible_user_id
+ * @property CarbonImmutable|null $waiting_on_default_branch_at set while the task waits for the default branch to pass the checks that fail on both
+ * @property list<string>|null $default_branch_wait_checks
+ * @property string|null $default_branch_synced_sha the default branch head the branch was last updated from
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
  * @property CarbonImmutable|null $resume_after_setup_at set when a person asks the task to continue once its repository's setup finishes
@@ -136,6 +139,8 @@ class YakTask extends Model
             'screenshots' => 'json',
             'early_warning' => 'array',
             'ci_diagnosis' => 'array',
+            'waiting_on_default_branch_at' => 'datetime',
+            'default_branch_wait_checks' => 'array',
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
             'dispatched_at' => 'datetime',

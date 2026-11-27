@@ -14,6 +14,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Services\ArtifactPersister;
+use App\Services\DefaultBranchCi;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
@@ -158,7 +159,7 @@ trait FinishesRetryRuns
     private function rerunCiOnUnchangedBranch(Repository $repository, AgentRunResult $result): void
     {
         // A failure the default branch shares is not this branch's to fix, and a rerun would fail the same way.
-        if ($this->failingChecksAlsoFailOnDefaultBranch($repository)) {
+        if (app(DefaultBranchCi::class)->failingChecksAlsoFailOnDefaultBranch($this->task, $repository)) {
             $this->finishWithoutChanges($result, 'No new changes and every failing check also fails on the default branch -- finished without a CI rerun');
 
             return;
@@ -205,35 +206,6 @@ trait FinishesRetryRuns
             $runs,
             fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run) || ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true),
         ) === [];
-    }
-
-    /**
-     * Whether every check that failed on the branch head also failed on the default branch head. False when
-     * nothing failed on the branch or either side cannot be read, so the rerun path still runs.
-     */
-    private function failingChecksAlsoFailOnDefaultBranch(Repository $repository): bool
-    {
-        $installationId = (int) config('yak.channels.github.installation_id');
-
-        if ($installationId === 0 || $this->task->branch_name === null) {
-            return false;
-        }
-
-        $gitHub = app(GitHubAppService::class);
-        $failingChecks = fn (string $ref): array => array_values(array_unique(array_column(array_filter(
-            $gitHub->getCheckRunSummaries($installationId, $repository->github_full_name, $ref),
-            fn (array $check): bool => $check['conclusion'] !== null && ! in_array($check['conclusion'], ['success', 'skipped', 'neutral'], true),
-        ), 'name')));
-
-        try {
-            $branchFailures = $failingChecks($this->task->branch_name);
-
-            return $branchFailures !== [] && array_diff($branchFailures, $failingChecks($repository->default_branch)) === [];
-        } catch (Throwable $e) {
-            Log::channel('yak')->warning('Could not compare failing checks with the default branch', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
-
-            return false;
-        }
     }
 
     private function rerunFailedCiJobs(Repository $repository): bool
