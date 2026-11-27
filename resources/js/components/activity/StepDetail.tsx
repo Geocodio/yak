@@ -1,4 +1,4 @@
-import { cn } from '@geocodio/console-ui';
+import { AnsiText } from '@/components/shared/AnsiText';
 import { formatStepDuration } from '@/components/tasks/groupActivity';
 import { useStepDetailSource } from './StepDetailContext';
 import type { StepView } from './types';
@@ -22,12 +22,7 @@ const ERROR_LINE = /\b(error|errors|fail|failed|failure|fatal|exception|denied|u
 function Output({ text, failed }: { text: string; failed: boolean }) {
     return (
         <pre className="m-0 max-h-[190px] overflow-auto border-t border-hair px-[11px] py-[9px] font-mono text-[12px] leading-[1.55] wrap-anywhere whitespace-pre-wrap text-muted">
-            {text.split('\n').map((line, index, lines) => (
-                <span key={index} className={cn(failed && ERROR_LINE.test(line) && 'text-fail')}>
-                    {line}
-                    {index < lines.length - 1 ? '\n' : ''}
-                </span>
-            ))}
+            <AnsiText text={text} lineClassName={(line) => failed && ERROR_LINE.test(line) && 'text-fail'} />
         </pre>
     );
 }
