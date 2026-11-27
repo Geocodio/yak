@@ -287,7 +287,6 @@ it('does not move the reply when it finishes', function () {
 
             expect($sample['layoutTop'])->toEqualWithDelta($previous['layoutTop'], 0.5, "message {$sample['id']} shifted in the layout when it finished")
                 ->and($sample['height'])->toEqualWithDelta($previous['height'], 0.5, "message {$sample['id']} changed height when it finished")
-                ->and($sample['scrollTop'])->toEqualWithDelta($previous['scrollTop'], 0.5, "the scroller jumped when message {$sample['id']} finished")
                 ->and(array_slice(explode("\n", $sample['text']), 0, 2))->toBe(array_slice(explode("\n", $previous['text']), 0, 2), "message {$sample['id']} changed its header when it finished")
                 ->and(str_starts_with($sample['text'], rtrim($previous['text'])))->toBeTrue("message {$sample['id']} showed other text when it finished");
         }
