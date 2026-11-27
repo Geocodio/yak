@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\TurnState;
 use App\Events\ThreadActivity;
 use App\Listeners\PublishThreadActivity;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\E2e\E2eRunnerScript;
 use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadEventWindow;
@@ -150,8 +153,11 @@ function installFrameSampler(mixed $page): void
                         busy: message.getAttribute('aria-busy') === 'true',
                         top: box.top,
                         height: box.height,
+                        layoutTop: (() => { let offset = 0; for (let node = message; node; node = node.offsetParent) { offset += node.offsetTop; } return offset; })(),
+                        isAnimating: message.getAnimations().some((animation) => animation.playState === 'running'),
                         scrollTop: scroller ? scroller.scrollTop : null,
-                        startsWhole: /^Scrubbed /.test(message.innerText.split('\n').slice(2).join('\n').replace(/^[^\n]*Sonnet[^\n]*\n/, '')),
+                        text: message.innerText,
+                        startsWhole: /^Scrubbed /.test(message.innerText.split('\n').slice(2).join('\n').replace(/^[^\n]*Sonnet[^\n]*\n/, '').trimStart()),
                         hasHeading: !!message.querySelector('h2'),
                         hasList: !!message.querySelector('ul, ol'),
                         hasCode: !!message.querySelector('pre'),
@@ -185,6 +191,7 @@ function openStreamingThread(): array
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
     $publisher = app(ThreadEventPublisher::class);
+    TaskRun::factory()->create(['yak_task_id' => YakTask::factory()->create(['thread_id' => $thread->id])->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
 
     foreach (range(1, 14) as $number) {
         $publisher->append($thread->id, 'entry', ['role' => 'assistant', 'messageId' => "history-{$number}", 'blocks' => [['type' => 'text', 'text' => "History message {$number}\n\nA few words so the row has some height."]]]);
@@ -196,6 +203,16 @@ function openStreamingThread(): array
     installFrameSampler($page);
 
     return [$page, $thread, new StreamedTurnPlayback($thread)];
+}
+
+/**
+ * Waits, up to 10 seconds, until no message is streaming, then one more frame so the final layout is sampled.
+ */
+function waitUntilNotStreaming(mixed $page): void
+{
+    $isDone = $page->script('(async () => { for (let attempt = 0; attempt < 200 && document.querySelector(\'' . MESSAGE . '[aria-busy="true"]\'); attempt++) { await new Promise((resolve) => setTimeout(resolve, 50)); } await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); return !document.querySelector(\'' . MESSAGE . '[aria-busy="true"]\'); })()');
+
+    expect($isDone)->toBeTrue('A message was still streaming after 10 seconds.');
 }
 
 function threadStreamingState(string $attribute): string
@@ -244,7 +261,7 @@ it('does not move the reply when it finishes', function () {
     withStreamingServers(function () {
         [$page, , $playback] = openStreamingThread();
         $playback->playUntil();
-        $page->wait(1);
+        waitUntilNotStreaming($page);
 
         $samples = frameSamples($page);
         $transitions = 0;
@@ -260,14 +277,18 @@ it('does not move the reply when it finishes', function () {
             }
 
             $transitions++;
-            expect($sample['height'])->toEqualWithDelta($previous['height'], 0.5, "message {$sample['id']} changed height when it finished");
-
-            // A thinking block finishes just as the reply's first words arrive, so the scroller follows the new row at that frame.
-            if ($sample['hasHeading']) {
-                $formattedReplyFinished = true;
-                expect($sample['top'])->toEqualWithDelta($previous['top'], 0.5, 'the reply moved when it finished')
-                    ->and($sample['scrollTop'])->toEqualWithDelta($previous['scrollTop'], 0.5, 'the scroller jumped when the reply finished');
+            $formattedReplyFinished = $formattedReplyFinished || $sample['hasHeading'];
+            // The last delta and the final entry can land in one frame, so the final text may extend the last streamed text but never replace it.
+            // A row's own slide-in (row-enter) moves its painted box, never its layout, so while it plays only the layout position is compared.
+            if (! $sample['isAnimating'] && ! $previous['isAnimating']) {
+                expect($sample['top'])->toEqualWithDelta($previous['top'], 0.5, "message {$sample['id']} moved when it finished");
             }
+
+            expect($sample['layoutTop'])->toEqualWithDelta($previous['layoutTop'], 0.5, "message {$sample['id']} shifted in the layout when it finished")
+                ->and($sample['height'])->toEqualWithDelta($previous['height'], 0.5, "message {$sample['id']} changed height when it finished")
+                ->and($sample['scrollTop'])->toEqualWithDelta($previous['scrollTop'], 0.5, "the scroller jumped when message {$sample['id']} finished")
+                ->and(array_slice(explode("\n", $sample['text']), 0, 2))->toBe(array_slice(explode("\n", $previous['text']), 0, 2), "message {$sample['id']} changed its header when it finished")
+                ->and(str_starts_with($sample['text'], rtrim($previous['text'])))->toBeTrue("message {$sample['id']} showed other text when it finished");
         }
 
         expect($transitions)->toBeGreaterThanOrEqual(1)->and($formattedReplyFinished)->toBeTrue('the formatted reply never went from streaming to final');
@@ -279,7 +300,7 @@ it('shows streamed text formatted while it arrives', function () {
     withStreamingServers(function () {
         [$page, , $playback] = openStreamingThread();
         $playback->playUntil();
-        $page->wait(1);
+        waitUntilNotStreaming($page);
 
         $busy = array_values(array_filter(frameSamples($page), fn (array $sample): bool => $sample['busy']));
 
@@ -302,14 +323,16 @@ it('leaves a reader who scrolled up where they are', function () {
         expect($before)->toBeGreaterThan(0);
 
         $playback->playUntil();
-        $page->wait(1);
+        waitUntilNotStreaming($page);
 
         $positions = array_column(array_filter(frameSamples($page), fn (array $sample): bool => $sample['scrollTop'] !== null), 'scrollTop');
-        $afterScrollUp = array_slice($positions, (int) array_search($before, $positions, true));
+        $firstAtStart = array_search(true, array_map(fn ($position): bool => abs($position - $before) <= 0.5, $positions), true);
 
-        expect($positions)->not->toBeEmpty()
-            ->and(array_unique(array_map(fn ($position): int => (int) round($position), $afterScrollUp)))->toBe([(int) round($before)]);
-        expect($page->script('document.querySelectorAll(\'' . MESSAGE . '[aria-busy="true"]\').length'))->toBe(0);
+        expect($firstAtStart)->not->toBeFalse();
+
+        $moved = array_values(array_filter(array_slice($positions, $firstAtStart), fn ($position): bool => abs($position - $before) > 0.5));
+
+        expect($moved)->toBe([], 'the scroller moved under a reader who scrolled up');
     });
 });
 
@@ -323,7 +346,7 @@ it('shows a viewer who opens the thread mid-reply the block whole', function () 
         installFrameSampler($second);
 
         $playback->playUntil();
-        $second->wait(1);
+        waitUntilNotStreaming($second);
 
         $streaming = array_values(array_filter(frameSamples($second), fn (array $sample): bool => $sample['busy']));
         $text = $second->script('JSON.stringify([...document.querySelectorAll(\'' . MESSAGE . '\')].map((message) => message.innerText))');
