@@ -214,7 +214,7 @@ trait FinishesRetryRuns
     {
         $installationId = (int) config('yak.channels.github.installation_id');
 
-        if ($installationId === 0 || $repository->github_full_name === null || $this->task->branch_name === null) {
+        if ($installationId === 0 || $this->task->branch_name === null) {
             return false;
         }
 
