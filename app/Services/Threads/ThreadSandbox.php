@@ -534,7 +534,7 @@ class ThreadSandbox
         Log::info('Thread sandbox state recorded', [
             'thread' => $thread->id,
             'container' => $thread->sandbox_container,
-            'from' => $thread->sandbox_state?->value,
+            'from' => $thread->sandbox_state->value,
             'to' => $state->value,
         ]);
 
