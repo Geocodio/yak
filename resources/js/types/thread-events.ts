@@ -1,8 +1,8 @@
 import type { ThreadAgent } from '@/types/thread-agents';
 
-/** Mirrors `App\Enums\ThreadStatus`. */
 export type CutReason = 'stopped' | 'restarted';
 
+/** Mirrors `App\Enums\ThreadStatus`. */
 export type ThreadStatus = 'open' | 'closed';
 
 /** Mirrors `App\Enums\TurnState`. */

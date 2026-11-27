@@ -378,5 +378,9 @@ it('a stopped reply keeps its text and shows the marker', function () {
             ->and($firstWithMarker['layoutTop'])->toEqualWithDelta($lastWithoutMarker['layoutTop'], 0.5)
             ->and(str_starts_with($firstWithMarker['text'], rtrim($lastWithoutMarker['text'])))->toBeTrue('the reply text changed when the marker appeared');
         $page->assertNoJavaScriptErrors();
+
+        // A reload replays the stored block.cut, so the marker survives it.
+        $page->navigate($page->url());
+        $page->wait(2)->assertSee('Scrubbed Essay Title')->assertSee('You stopped this reply');
     });
 });

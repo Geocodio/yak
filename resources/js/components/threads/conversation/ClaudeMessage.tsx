@@ -55,7 +55,7 @@ function CutOffMarker({ reason }: { reason?: ConversationItem['cutReason'] }) {
     }
 
     return (
-        <Tooltip label={RESTARTED_HINT}>
+        <Tooltip label={RESTARTED_HINT} side="bottom" className="max-w-[260px]">
             <div className="mt-2 flex w-fit items-center gap-1.5 text-[12px] text-faint" tabIndex={0} data-testid="thread-cut-marker">
                 <CircleStop className="size-3" aria-hidden />
                 Reply cut off

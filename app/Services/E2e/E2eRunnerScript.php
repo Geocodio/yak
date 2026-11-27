@@ -9,7 +9,8 @@ use RuntimeException;
 /**
  * Decides what the fake broker writes for each command, from the recorded runner streams.
  * Turn lines come from natural-turn-end; a turn whose text contains HOLD_MARKER plays the
- * prefix of interrupt-result-without-result-key and waits; one containing STREAM_STOPPED_MARKER plays streamed-interrupt; one containing STREAM_MARKER plays streamed-reply, whose
+ * prefix of interrupt-result-without-result-key and waits; one containing STREAM_STOPPED_MARKER plays
+ * streamed-interrupt; one containing STREAM_MARKER plays streamed-reply, whose
  * stream_event lines carry the text as it was typed; interrupt plays that file's tail;
  * a steer plays the second command's queued and started lines of steer-during-final-text.
  * Every recorded command uuid is replaced by the command's own uuid.
