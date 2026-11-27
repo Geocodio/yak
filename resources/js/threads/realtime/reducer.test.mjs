@@ -4,7 +4,7 @@ import { findGap, initialEventState, reduceEvents } from './reducer.ts';
 
 const at = '2026-11-11T00:00:00Z';
 const user = (sequence, text = 'hi') => ({ sequence, type: 'entry', createdAt: at, data: { role: 'user', kind: 'prompt', text } });
-const delta = (sequence, text, blockKey = 'm1:0') => ({ sequence, type: 'delta', createdAt: at, data: { blockKey, kind: 'text', text } });
+const delta = (sequence, text, blockKey = 'm1:0', offset = 0) => ({ sequence, type: 'delta', createdAt: at, data: { blockKey, kind: 'text', text, offset } });
 const assistant = (sequence) => ({
     sequence,
     type: 'entry',
@@ -36,7 +36,7 @@ test('reports a gap for an out-of-order event or pointer', () => {
 });
 
 test('accumulates deltas until the assistant entry clears them', () => {
-    let state = apply(initialEventState(), delta(1, 'he'), delta(2, 'llo'), delta(3, 'x', 'other:0'));
+    let state = apply(initialEventState(), delta(1, 'he'), delta(2, 'llo', 'm1:0', 2), delta(3, 'x', 'other:0'));
 
     assert.equal(state.streamingBlocks['m1:0'].text, 'hello');
     state = apply(state, assistant(4));
@@ -128,4 +128,46 @@ test('keeps an agent entry out of the transcript and tracks the agent from its e
     assert.equal(state.agents.a1.status, 'completed');
     assert.equal(state.agents.a1.lastTool, 'Bash');
     assert.equal(state.lastSequence, 5);
+});
+
+test('a block first seen mid-way stays hidden until its entry', () => {
+    const state = apply(initialEventState(), delta(1, 'llo', 'm1:0', 40));
+
+    assert.equal(state.streamingBlocks['m1:0'].seen, false);
+
+    const done = apply(state, { ...assistant(2), data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text: 'done' }] } });
+
+    assert.deepEqual(done.streamingBlocks, {});
+    assert.equal(done.entries.length, 1);
+});
+
+test('a delta whose offset does not match marks the block unseen', () => {
+    const state = apply(initialEventState(), delta(1, 'he'), delta(2, 'llo', 'm1:0', 5));
+
+    assert.equal(state.streamingBlocks['m1:0'].seen, false);
+});
+
+test('a catch-up gap marks open blocks unseen', () => {
+    const state = apply(initialEventState(), delta(1, 'he'));
+
+    assert.equal(state.streamingBlocks['m1:0'].seen, true);
+    assert.equal(apply(state, user(4)).streamingBlocks['m1:0'].seen, false);
+    assert.equal(reduceEvents(state, { kind: 'events', events: [], latestSequence: 9 }).streamingBlocks['m1:0'].seen, false);
+});
+
+test('a final entry replaces a cut-off entry with the same key', () => {
+    const entry = (sequence, extra, text) => ({ sequence, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text }], ...extra } });
+    const state = apply(initialEventState(), entry(1, { cutOff: true }, 'par'), entry(2, {}, 'partial done'));
+
+    assert.equal(state.entries.length, 1);
+    assert.equal(state.entries[0].cutOff, undefined);
+});
+
+test('block.cut flags the received entry and ignores an unknown key', () => {
+    const entry = { sequence: 1, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text: 'x' }] } };
+    const cut = (sequence, blockKey) => ({ sequence, type: 'block.cut', createdAt: at, data: { blockKey } });
+    const state = apply(initialEventState(), entry, cut(2, 'm1:0'), cut(3, 'm9:0'));
+
+    assert.equal(state.entries[0].cutOff, true);
+    assert.equal(state.entries.length, 1);
 });

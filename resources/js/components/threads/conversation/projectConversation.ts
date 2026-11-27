@@ -144,7 +144,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
             return;
         }
 
-        items.push({ kind: block.type, key: `${entry.messageId}:${index}`, sequence, role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
+        items.push({ kind: block.type, key: `${entry.messageId}:${entry.blockIndex ?? index}`, sequence, ...(entry.startedAt ? { at: entry.startedAt } : {}), ...(entry.cutOff ? { cutOff: true } : {}), role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
     });
 
     closeRun();
@@ -190,7 +190,7 @@ export function projectConversation(state: Source, entrySequences: number[], ent
 
         if (entry.role === 'assistant') {
             projectAssistant(entry, sequence, results, model).forEach((projected) => {
-                const item = entryTimes[index] ? { ...projected, at: entryTimes[index] } : projected;
+                const item = entryTimes[index] && !projected.at ? { ...projected, at: entryTimes[index] } : projected;
                 const previous = items[items.length - 1];
                 const joinsPrevious = item.kind === 'tools' && previous?.kind === 'tools' && !personSpoke;
 
@@ -241,9 +241,9 @@ export function projectConversation(state: Source, entrySequences: number[], ent
     });
 
     Object.entries(state.streamingBlocks)
-        .filter(([, block]) => block.kind === 'text' || block.kind === 'thinking')
+        .filter(([, block]) => block.seen && (block.kind === 'text' || block.kind === 'thinking'))
         .forEach(([key, block], order) => {
-            items.push({ kind: block.kind as 'text' | 'thinking', key, sequence: state.lastSequence + 1 + order, role: 'assistant', text: block.text });
+            items.push({ kind: block.kind as 'text' | 'thinking', key, sequence: state.lastSequence + 1 + order, role: 'assistant', text: block.text, streaming: true, at: block.startedAt, ...(block.kind === 'text' && model ? { model } : {}) });
         });
 
     return { items, readSequences };

@@ -19,6 +19,10 @@ export type ConversationItem = {
     model?: string;
     /** When the entry was recorded, for the time in Claude's header. */
     at?: string;
+    /** True while the block is still being written. */
+    streaming?: boolean;
+    /** True when an interrupt ended the block before it finished. */
+    cutOff?: boolean;
     files?: string[];
     added?: number;
     removed?: number;

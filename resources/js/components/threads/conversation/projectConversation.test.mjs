@@ -67,7 +67,7 @@ test('a user entry with a uuid only yields a read sequence', () => {
 });
 
 test('streaming text becomes a trailing item that a stored block replaces after merge; tool_input is skipped', () => {
-    const delta = (sequence, blockKey, kind, text) => ({ sequence, type: 'delta', createdAt: at, data: { blockKey, kind, text } });
+    const delta = (sequence, blockKey, kind, text) => ({ sequence, type: 'delta', createdAt: at, data: { blockKey, kind, text, offset: 0 } });
     const streaming = project(feedOf(delta(1, 'm1:0', 'text', 'hel'), delta(2, 'm1:1', 'tool_input', '{}')));
 
     assert.deepEqual(streaming.items.map((item) => [item.key, item.sequence]), [['m1:0', 3]]);
@@ -279,4 +279,41 @@ test('an Agent or Workflow call becomes its own card and splits the tool run aro
         ['tools', null, null],
         ['agent', 'toolu_flow', 'review'],
     ]);
+});
+
+test('streaming and final items share a key', () => {
+    const delta = { sequence: 1, type: 'delta', createdAt: '2026-11-11T00:00:05Z', data: { blockKey: 'msg_1:1', kind: 'text', text: 'hel', offset: 0 } };
+    const streaming = project(feedOf(delta)).items[0];
+    const final = project(feedOf(entry(2, { role: 'assistant', messageId: 'msg_1', blockIndex: 1, startedAt: '2026-11-11T00:00:05Z', blocks: [{ type: 'text', text: 'hello' }] }))).items[0];
+
+    assert.equal(streaming.key, 'msg_1:1');
+    assert.equal(final.key, streaming.key);
+    assert.equal(final.at, streaming.at);
+    assert.equal(streaming.streaming, true);
+});
+
+test('two blocks of one message never share a key', () => {
+    const { items } = project(feedOf(
+        entry(1, { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text: 'a' }] }),
+        entry(2, { role: 'assistant', messageId: 'm1', blockIndex: 1, blocks: [{ type: 'text', text: 'b' }] }),
+    ));
+
+    assert.deepEqual(items.map((item) => item.key), ['m1:0', 'm1:1']);
+});
+
+test('a streaming item carries the turn model and its start time', () => {
+    const { items } = project(feedOf(
+        entry(1, { role: 'system', subtype: 'init', model: 'claude-x' }),
+        { sequence: 2, type: 'delta', createdAt: '2026-11-11T00:00:09Z', data: { blockKey: 'm1:0', kind: 'text', text: 'hi', offset: 0 } },
+    ));
+
+    assert.equal(items[0].model, 'claude-x');
+    assert.equal(items[0].at, '2026-11-11T00:00:09Z');
+});
+
+test('a block seen mid-way is not projected and a cut-off entry is flagged', () => {
+    const midway = { sequence: 1, type: 'delta', createdAt: at, data: { blockKey: 'm1:0', kind: 'text', text: 'x', offset: 9 } };
+
+    assert.deepEqual(project(feedOf(midway)).items, []);
+    assert.equal(project(feedOf(entry(1, { role: 'assistant', messageId: 'm1', blockIndex: 0, cutOff: true, blocks: [{ type: 'text', text: 'x' }] }))).items[0].cutOff, true);
 });

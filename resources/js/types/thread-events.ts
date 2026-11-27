@@ -20,7 +20,7 @@ export type AssistantBlock =
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
 export type TranscriptEntry = (
-    | { role: 'assistant'; messageId: string; blocks: AssistantBlock[] }
+    | { role: 'assistant'; messageId: string; blocks: AssistantBlock[]; blockIndex?: number; startedAt?: string; cutOff?: boolean }
     | { role: 'tool_result'; toolUseId: string; isError: boolean; text: string; truncated?: boolean }
     | { role: 'system'; subtype: 'init'; model?: string; sessionId?: string }
     | { role: 'user'; uuid?: string; text: string; kind: 'prompt' | 'steer' }
@@ -92,11 +92,12 @@ export type RepositoryCardData = {
     error: string | null;
 };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'child.result' | 'repository' | 'question' | 'agent.started' | 'agent.progress' | 'agent.finished';
+export type ThreadEventType = 'entry' | 'delta' | 'block.cut' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child' | 'child.result' | 'repository' | 'question' | 'agent.started' | 'agent.progress' | 'agent.finished';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
-    delta: { blockKey: string; kind: 'text' | 'thinking' | 'tool_input'; text: string };
+    delta: { blockKey: string; kind: 'text' | 'thinking' | 'tool_input'; text: string; offset: number };
+    'block.cut': { blockKey: string };
     'stream.reset': Record<string, never>;
     turn: { turnId: number; state: TurnState };
     thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null; pullRequestOpening?: 'opening' | 'failed' | null; ownerSide?: 'yak' | 'device'; showKey?: string };
@@ -125,7 +126,7 @@ export type Viewer = { id: number; name: string };
 
 export type ThreadEventState = {
     entries: TranscriptEntry[];
-    streamingBlocks: Record<string, { kind: string; text: string }>;
+    streamingBlocks: Record<string, { kind: string; text: string; seen: boolean; startedAt: string }>;
     turn: { turnId: number; state: TurnState } | null;
     /** Sequence of the event that started the current turn running; null when no such event is in the feed. */
     turnStartSequence: number | null;
