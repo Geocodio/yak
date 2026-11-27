@@ -14,7 +14,7 @@ const INTERACT_HOLD_MS = 1000;
  * not scrolled away from under them, and following resumes after that. With `latestKey`, only a new key raises `hasNew`,
  * so an image loading or a row re-rendering above never claims a reply that is not there.
  * While `isStreaming`, growth is followed with a short eased scroll instead of a jump (a jump when the reader prefers
- * reduced motion); a wheel, touch or key scroll by the reader stops the follow at once.
+ * reduced motion); an ease in flight when streaming ends runs on to the bottom instead of snapping; a wheel, touch or key scroll by the reader stops the follow at once.
  */
 export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string, isStreaming = false): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
@@ -290,9 +290,10 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         };
     }, [threadId]);
 
-    // The streamed text is final: stop easing and land exactly on the bottom.
+    // Streaming ended: an eased follow in flight keeps going until it has caught up, so a block that ends never snaps the view.
+    // Only a reader who prefers reduced motion has no easing to finish and lands on the bottom at once.
     useEffect(() => {
-        if (!isStreaming) {
+        if (!isStreaming && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             finishFollow.current();
         }
     }, [isStreaming]);

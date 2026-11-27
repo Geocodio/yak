@@ -155,7 +155,12 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const unsent = embed === null ? webUnsent : embedUnsent;
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
-    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey, entries.some((entry) => entry.type === 'event' && entry.item.streaming === true));
+    // Once text has streamed in a running turn the follow keeps its ease through the gaps between blocks, so a block ending never snaps the view.
+    const isStreamingNow = entries.some((entry) => entry.type === 'event' && entry.item.streaming === true);
+    const hasStreamedThisTurn = useRef(false);
+    hasStreamedThisTurn.current = working && (hasStreamedThisTurn.current || isStreamingNow);
+    const isStreaming = isStreamingNow || hasStreamedThisTurn.current;
+    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey, isStreaming);
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
