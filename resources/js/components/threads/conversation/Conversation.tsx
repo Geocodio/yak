@@ -155,7 +155,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const unsent = embed === null ? webUnsent : embedUnsent;
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
-    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
+    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey, entries.some((entry) => entry.type === 'event' && entry.item.streaming === true));
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);

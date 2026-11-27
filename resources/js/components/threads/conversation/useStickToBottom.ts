@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { followStep } from './followStep';
 
 const NEAR_BOTTOM_PIXELS = 80;
 const INTERACT_HOLD_MS = 1000;
@@ -10,8 +11,10 @@ const INTERACT_HOLD_MS = 1000;
  * content arrived below. A click inside the content holds the follow for a moment, so a row the reader just opened is
  * not scrolled away from under them, and following resumes after that. With `latestKey`, only a new key raises `hasNew`,
  * so an image loading or a row re-rendering above never claims a reply that is not there.
+ * While `isStreaming`, growth is followed with a short eased scroll instead of a jump (a jump when the reader prefers
+ * reduced motion); a wheel, touch or key scroll by the reader stops the follow at once.
  */
-export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
+export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string, isStreaming = false): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     const footer = useRef<HTMLDivElement>(null);
@@ -19,6 +22,9 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
     const [hasNew, setHasNew] = useState(false);
     const hasLatestKey = useRef(latestKey !== undefined);
     const seenKey = useRef(latestKey);
+    const isStreamingRef = useRef(isStreaming);
+    isStreamingRef.current = isStreaming;
+    const finishFollow = useRef<() => void>(() => {});
 
     useEffect(() => {
         const box = scroller.current;
@@ -49,6 +55,56 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         };
 
         let lastScrollTop = box.scrollTop;
+        let frame = 0;
+        let lastFrameAt = 0;
+        const stopFollow = (): void => {
+            cancelAnimationFrame(frame);
+            frame = 0;
+        };
+        // Each frame closes part of the gap to the bottom. The position written here is recorded as the follow's own,
+        // so the scroll event it raises is never read as the reader.
+        const followFrame = (now: number): void => {
+            frame = 0;
+
+            const target = box.scrollHeight - box.clientHeight;
+
+            if (!isAtBottom.current || target <= box.scrollTop + 0.5) {
+                return;
+            }
+
+            pinnedHeight = box.scrollHeight;
+            box.scrollTop = followStep(box.scrollTop, target, (now - lastFrameAt) / 1000);
+            lastScrollTop = box.scrollTop;
+            lastFrameAt = now;
+            frame = requestAnimationFrame(followFrame);
+        };
+        const follow = (): void => {
+            if (frame === 0) {
+                lastFrameAt = performance.now();
+                frame = requestAnimationFrame(followFrame);
+            }
+        };
+        finishFollow.current = () => {
+            stopFollow();
+
+            if (isAtBottom.current) {
+                toBottom();
+                lastScrollTop = box.scrollTop;
+            }
+        };
+        // Only input that can move the view up counts: a wheel down at the bottom raises no scroll event to restore the flag.
+        const onReaderScroll = (event: Event): void => {
+            if (event instanceof WheelEvent && event.deltaY >= 0) {
+                return;
+            }
+
+            if (event instanceof KeyboardEvent && !['ArrowUp', 'PageUp', 'Home'].includes(event.key) && !(event.key === ' ' && event.shiftKey)) {
+                return;
+            }
+
+            isAtBottom.current = false;
+            stopFollow();
+        };
         const onScroll = (): void => {
             // Growth never moves the scroll position up, so a move up is the reader even when content grew in the same frame.
             const hasMovedUp = box.scrollTop < lastScrollTop;
@@ -78,7 +134,11 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             const isHeld = Date.now() < holdUntil;
 
             if (isAtBottom.current && !isHeld) {
-                toBottom();
+                if (isStreamingRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    follow();
+                } else {
+                    toBottom();
+                }
 
                 // A field the reader is typing in stays in view when its card grows above it.
                 if (hasFooterGrown && footerElement?.contains(document.activeElement)) {
@@ -105,15 +165,30 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         }
         boxObserver.observe(box);
         box.addEventListener('scroll', onScroll, { passive: true });
+        box.addEventListener('wheel', onReaderScroll, { passive: true });
+        box.addEventListener('touchmove', onReaderScroll, { passive: true });
+        box.addEventListener('keydown', onReaderScroll);
         inner.addEventListener('click', onInteract);
 
         return () => {
+            stopFollow();
+            finishFollow.current = () => {};
             observer.disconnect();
             boxObserver.disconnect();
             box.removeEventListener('scroll', onScroll);
+            box.removeEventListener('wheel', onReaderScroll);
+            box.removeEventListener('touchmove', onReaderScroll);
+            box.removeEventListener('keydown', onReaderScroll);
             inner.removeEventListener('click', onInteract);
         };
     }, [threadId]);
+
+    // The streamed text is final: stop easing and land exactly on the bottom.
+    useEffect(() => {
+        if (!isStreaming) {
+            finishFollow.current();
+        }
+    }, [isStreaming]);
 
     useEffect(() => {
         if (latestKey === seenKey.current) {
