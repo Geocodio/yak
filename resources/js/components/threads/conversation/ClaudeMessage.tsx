@@ -49,7 +49,7 @@ function CutOffMarker({ reason }: { reason?: ConversationItem['cutReason'] }) {
         return (
             <div className="mt-2 flex items-center gap-1.5 text-[12px] text-faint" data-testid="thread-cut-marker">
                 <CircleStop className="size-3" aria-hidden />
-                You stopped this reply
+                Reply stopped
             </div>
         );
     }

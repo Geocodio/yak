@@ -372,7 +372,7 @@ it('a stopped reply keeps its text and shows the marker', function () {
         $firstWithMarker = collect($samples)->first(fn (array $sample): bool => $sample['hasMarker']);
         $lastWithoutMarker = $firstWithMarker === null ? null : collect($samples)->last(fn (array $sample): bool => $sample['id'] === $firstWithMarker['id'] && ! $sample['hasMarker']);
 
-        $page->assertSee('You stopped this reply');
+        $page->assertSee('Reply stopped');
         expect($firstWithMarker)->not->toBeNull()->and($lastWithoutMarker)->not->toBeNull()
             ->and($firstWithMarker['id'])->toBe($lastWithoutMarker['id'])
             ->and($firstWithMarker['top'])->toEqualWithDelta($lastWithoutMarker['top'], 0.5, 'the reply moved when the marker appeared')
@@ -382,7 +382,7 @@ it('a stopped reply keeps its text and shows the marker', function () {
 
         // A reload replays the stored block.cut, so the marker survives it.
         $page->navigate($page->url());
-        $page->wait(2)->assertSee('Scrubbed Essay Title')->assertSee('You stopped this reply');
+        $page->wait(2)->assertSee('Scrubbed Essay Title')->assertSee('Reply stopped');
     });
 });
 
