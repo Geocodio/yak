@@ -62,6 +62,18 @@ test('pause and resume use incus pause and resume', function () {
     Process::assertRan(fn ($p) => is_array($p->command) && implode(' ', $p->command) === "incus resume yak-thread-{$thread->id}");
 });
 
+test('resume accepts a container that is already running', function () {
+    Process::fake(['*' => Process::result('', 'Error: The container is already running', 1)]);
+
+    incusManager()->resume(Thread::factory()->create());
+})->throwsNoExceptions();
+
+test('resume surfaces other failures', function () {
+    Process::fake(['*' => Process::result('', "Error: The instance isn't running", 1)]);
+
+    incusManager()->resume(Thread::factory()->create());
+})->throws(SandboxCommandFailed::class);
+
 test('start waits until the container answers an exec', function () {
     Sleep::fake();
     Process::fake([

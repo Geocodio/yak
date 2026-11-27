@@ -96,9 +96,15 @@ class IncusThreadSandboxManager implements SandboxManager
         $this->mustRun('pause', ['incus', 'pause', $this->containerName($thread)]);
     }
 
+    /** A container that is already running counts as resumed: the row can lag behind Incus. */
     public function resume(Thread $thread): void
     {
-        $this->mustRun('resume', ['incus', 'resume', $this->containerName($thread)]);
+        $result = Process::timeout(self::COMMAND_TIMEOUT)->run(['incus', 'resume', $this->containerName($thread)]);
+
+        if ($result->failed() && ! str_contains(strtolower($result->errorOutput()), 'already running')) {
+            throw SandboxCommandFailed::for('resume', $result);
+        }
+
         $this->recordAddress($thread);
         $this->writeThreadEnv($thread);
     }

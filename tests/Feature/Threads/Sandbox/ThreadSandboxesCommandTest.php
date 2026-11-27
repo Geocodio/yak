@@ -8,11 +8,14 @@ use App\Enums\TurnState;
 use App\Events\ThreadSandboxSlotFreed;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\IncusThreadSandboxManager;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 
@@ -157,6 +160,31 @@ test('woken without a turn is paused after the grace', function () {
 
     expect($stale->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused)
         ->and($fresh->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
+});
+
+test('the sweep records the state incus reports when the row has drifted', function () {
+    $woken = Thread::factory()->paused()->create(['last_activity_at' => now()]);
+    $gone = Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running, 'last_activity_at' => now()]);
+    $frozen = Thread::factory()->paused()->create(['sandbox_state' => ThreadSandboxState::Running, 'last_activity_at' => now()]);
+    $unknown = Thread::factory()->paused()->create(['last_activity_at' => now()]);
+    app()->instance(SandboxManager::class, new IncusThreadSandboxManager(app(IncusSandboxManager::class), fn (): ?string => null));
+    config(['yak.threads.memory_floor_gb' => 0]);
+    $statuses = [
+        $woken->sandbox_container => Process::result("Status: RUNNING\n"),
+        $gone->sandbox_container => Process::result("Status: STOPPED\n"),
+        $frozen->sandbox_container => Process::result("Status: FROZEN\n"),
+        $unknown->sandbox_container => Process::result('', 'Error: timed out', 1),
+    ];
+    Process::fake(fn ($process) => is_array($process->command) && array_slice($process->command, 0, 2) === ['incus', 'info']
+        ? $statuses[$process->command[2]]
+        : Process::result("space used: \"0\"\ntotal space: \"100\"\n"));
+
+    sweep();
+
+    expect($woken->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
+        ->and($gone->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and($frozen->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused)
+        ->and($unknown->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
 });
 
 test('scheduled every minute without overlap', function () {
