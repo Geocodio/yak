@@ -1,0 +1,12 @@
+[Unit]
+Description=Incus instance lifecycle log
+After=incus.service
+Requires=incus.service
+
+[Service]
+ExecStart=/usr/local/bin/incus-lifecycle-log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

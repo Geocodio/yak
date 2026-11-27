@@ -15,6 +15,7 @@ use App\Services\Threads\IncusThreadSandboxManager;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
@@ -179,8 +180,13 @@ test('the sweep records the state incus reports when the row has drifted', funct
         ? $statuses[$process->command[2]]
         : Process::result("space used: \"0\"\ntotal space: \"100\"\n"));
 
+    Log::spy();
+
     sweep();
 
+    Log::shouldHaveReceived('warning')->with('Thread sandbox state drifted from Incus', Mockery::on(fn (array $context): bool => $context['container'] === $woken->sandbox_container
+        && $context['recorded'] === 'paused' && $context['incus'] === 'running'))->once();
+    Log::shouldHaveReceived('warning')->with('Thread sandbox state drifted from Incus', Mockery::any())->times(3);
     expect($woken->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
         ->and($gone->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
         ->and($frozen->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused)

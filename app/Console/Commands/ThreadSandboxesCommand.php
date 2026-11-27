@@ -19,6 +19,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 
 #[Signature('yak:thread-sandboxes')]
 #[Description('Run the thread sandbox lifecycle: stop idle, destroy old, enforce capacity, release waiting threads')]
@@ -53,6 +54,14 @@ class ThreadSandboxesCommand extends Command
                 $actual = $manager->reconcile($thread);
 
                 if ($actual !== ThreadSandboxState::Destroyed && $actual !== $thread->sandbox_state) {
+                    Log::warning('Thread sandbox state drifted from Incus', [
+                        'thread' => $thread->id,
+                        'container' => $thread->sandbox_container,
+                        'recorded' => $thread->sandbox_state->value,
+                        'recorded_at' => $thread->sandbox_state_changed_at?->toIso8601String(),
+                        'incus' => $actual->value,
+                    ]);
+
                     Thread::withoutGlobalScopes()->where('sandbox_container', $thread->sandbox_container)
                         ->update(['sandbox_state' => $actual->value, 'sandbox_state_changed_at' => now()]);
                 }

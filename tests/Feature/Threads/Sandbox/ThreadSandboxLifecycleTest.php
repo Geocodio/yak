@@ -51,6 +51,20 @@ test('pause only when no runner in the sandbox has a turn', function () {
     expect(operations())->toBe(['pause'])->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
 });
 
+test('every recorded state change is logged with the state it replaces', function () {
+    $thread = runningSandboxThread();
+    Log::spy();
+
+    app(ThreadSandbox::class)->pauseIfIdle($thread);
+
+    Log::shouldHaveReceived('info')->once()->with('Thread sandbox state recorded', [
+        'thread' => $thread->id,
+        'container' => $thread->sandbox_container,
+        'from' => 'running',
+        'to' => 'paused',
+    ]);
+});
+
 test('an open session keeps the sandbox awake at turn end', function () {
     $thread = runningSandboxThread();
     app(ThreadSandbox::class)->markSessionOpen($thread);
