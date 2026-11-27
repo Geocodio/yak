@@ -53,7 +53,7 @@ class ThreadOrigin
     private function sourceOf(string $taskSource, ThreadSource $fallback): ThreadSource
     {
         return match ($taskSource) {
-            'flaky-test' => ThreadSource::Github,
+            'flaky-test', 'ci-failure' => ThreadSource::Github,
             'manual', 'system' => ThreadSource::Cli,
             default => ThreadSource::tryFrom(str_replace('-', '_', $taskSource)) ?? $fallback,
         };

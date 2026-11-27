@@ -2,6 +2,7 @@ import { Button, IconButton, Sheet, Skeleton, cn } from '@geocodio/console-ui';
 import { ChevronLeft } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Prose } from '@/components/Prose';
+import { AnsiText } from '@/components/shared/AnsiText';
 import { useTranscriptEntry } from '@/components/shared/useTranscriptEntry';
 import type { TranscriptEntry } from '@/types/tasks';
 import type { TranscriptPaging, TranscriptRow } from '@/components/shared/TranscriptOverlay';
@@ -36,7 +37,7 @@ function OutputBlock({ output, error }: { output: string | null | undefined; err
     return (
         <>
             <Block title="Output" error={error}>
-                {shown}
+                {shown ? <AnsiText text={shown} /> : shown}
             </Block>
             {isLong && !expanded && (
                 <Button variant="tertiary" className="mt-2 w-full" onClick={() => setExpanded(true)}>

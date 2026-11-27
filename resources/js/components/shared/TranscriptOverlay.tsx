@@ -2,6 +2,7 @@ import { Badge, Button, Dialog, Skeleton, cn, toast } from '@geocodio/console-ui
 import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Prose } from '@/components/Prose';
+import { AnsiText } from '@/components/shared/AnsiText';
 import { useTranscriptEntry } from '@/components/shared/useTranscriptEntry';
 import { formatMs } from '@/lib/format';
 import type { ActivityRow, TranscriptEntry } from '@/types/tasks';
@@ -429,7 +430,7 @@ export function TranscriptOverlay({
                                         <>
                                             <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.isShellCommand && current.input ? `$ ${current.input}` : current.input}</Block>
                                             <Block title="Output" error={current.error}>
-                                                {current.output}
+                                                {current.output ? <AnsiText text={current.output} /> : current.output}
                                             </Block>
                                             {current.isTruncated && <p className="mt-2 text-[11px] text-faint">Long text is cut at 16 KB.</p>}
                                         </>

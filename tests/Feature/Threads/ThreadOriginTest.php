@@ -30,6 +30,15 @@ it('maps preview-repair by value', function () {
     expect(app(ThreadOrigin::class)->forRequest($task)['source'])->toBe(ThreadSource::PreviewRepair);
 });
 
+it('maps a ci-failure request to github with the job url', function () {
+    $task = YakTask::factory()->create(['source' => 'ci-failure', 'external_url' => 'https://github.com/acme/app/actions/runs/1/job/2']);
+
+    expect(app(ThreadOrigin::class)->forRequest($task))->toMatchArray([
+        'source' => ThreadSource::Github,
+        'source_url' => 'https://github.com/acme/app/actions/runs/1/job/2',
+    ]);
+});
+
 it('marks risk profile research', function () {
     Queue::fake();
     $task = app(RepositoryRiskProfiles::class)->generate(Repository::factory()->create(), 'cli');
