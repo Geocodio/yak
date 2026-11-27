@@ -2,6 +2,7 @@
 
 namespace App\Services\Threads;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Container\Attributes\Singleton;
 
 /**
@@ -24,10 +25,76 @@ class DeltaBatcher
     /** @var array<int, true> */
     private array $openThreads = [];
 
-    public function add(int $threadId, string $blockKey, string $kind, string $text, float $now): void
+    /** @var array<int, string> */
+    private array $currentMessages = [];
+
+    /** @var array<int, array<string, int>> messageId => index of the block started and not yet stopped */
+    private array $openBlocks = [];
+
+    /** @var array<string, float> thread|blockKey => time of the block's first delta */
+    private array $firstDeltaTimes = [];
+
+    /** @var array<string, int> thread|blockKey => UTF-16 code units already emitted */
+    private array $offsets = [];
+
+    /**
+     * Remembers the thread's latest message id, the fallback for a stream line that carries none.
+     */
+    public function startMessage(int $threadId, string $messageId): void
+    {
+        $this->currentMessages[$threadId] = $messageId;
+    }
+
+    public function currentMessageId(int $threadId): ?string
+    {
+        return $this->currentMessages[$threadId] ?? null;
+    }
+
+    public function startBlock(int $threadId, string $messageId, int $index): void
+    {
+        $this->openBlocks[$threadId][$messageId] = $index;
+    }
+
+    public function stopBlock(int $threadId, string $messageId, int $index): void
+    {
+        if (($this->openBlocks[$threadId][$messageId] ?? null) === $index) {
+            unset($this->openBlocks[$threadId][$messageId]);
+        }
+    }
+
+    /**
+     * The block of the message that is started and not yet stopped, with the time of its first delta.
+     * The block's assistant line arrives before its stop.
+     *
+     * @return array{blockIndex: int, startedAt: ?string}|null
+     */
+    public function takeOpenBlock(int $threadId, string $messageId): ?array
+    {
+        $index = $this->openBlocks[$threadId][$messageId] ?? null;
+
+        if ($index === null) {
+            return null;
+        }
+
+        $startedAt = $this->firstDeltaTimes[$threadId . '|' . $messageId . ':' . $index] ?? null;
+
+        return [
+            'blockIndex' => $index,
+            'startedAt' => $startedAt === null ? null : CarbonImmutable::createFromTimestampMs((int) round($startedAt * 1000))->toIso8601String(),
+        ];
+    }
+
+    public function hasPending(): bool
+    {
+        return array_filter($this->buffers, fn (array $buffer): bool => $buffer['text'] !== '') !== [];
+    }
+
+    public function add(int $threadId, string $messageId, int $index, string $kind, string $text, float $now): void
     {
         $this->openThreads[$threadId] = true;
+        $blockKey = $messageId . ':' . $index;
         $key = $threadId . '|' . $blockKey;
+        $this->firstDeltaTimes[$key] ??= $now;
 
         if (isset($this->buffers[$key])) {
             $this->buffers[$key]['text'] .= $text;
@@ -39,7 +106,7 @@ class DeltaBatcher
     }
 
     /**
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
      */
     public function due(float $now): array
     {
@@ -56,7 +123,7 @@ class DeltaBatcher
     }
 
     /**
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
      */
     public function takeThread(int $threadId): array
     {
@@ -85,7 +152,13 @@ class DeltaBatcher
      */
     public function closeThread(int $threadId): void
     {
-        unset($this->openThreads[$threadId]);
+        unset($this->openThreads[$threadId], $this->openBlocks[$threadId]);
+
+        foreach (array_keys($this->firstDeltaTimes + $this->offsets) as $key) {
+            if (str_starts_with((string) $key, $threadId . '|')) {
+                unset($this->firstDeltaTimes[$key], $this->offsets[$key]);
+            }
+        }
 
         foreach ($this->buffers as $key => $buffer) {
             if ($buffer['threadId'] === $threadId) {
@@ -96,7 +169,7 @@ class DeltaBatcher
 
     /**
      * @param  array{threadId: int, blockKey: string, kind: string, text: string, startedAt: float}  $buffer
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
      */
     private function emit(array $buffer): array
     {
@@ -105,7 +178,10 @@ class DeltaBatcher
 
         while ($text !== '') {
             $chunk = mb_strcut($text, 0, self::MAX_CHUNK_BYTES);
-            $chunks[] = ['threadId' => $buffer['threadId'], 'blockKey' => $buffer['blockKey'], 'kind' => $buffer['kind'], 'text' => $chunk];
+            $offsetKey = $buffer['threadId'] . '|' . $buffer['blockKey'];
+            $offset = $this->offsets[$offsetKey] ?? 0;
+            $chunks[] = ['threadId' => $buffer['threadId'], 'blockKey' => $buffer['blockKey'], 'kind' => $buffer['kind'], 'text' => $chunk, 'offset' => $offset];
+            $this->offsets[$offsetKey] = $offset + intdiv(strlen(mb_convert_encoding($chunk, 'UTF-16LE', 'UTF-8')), 2);
             $text = (string) substr($text, strlen($chunk));
         }
 

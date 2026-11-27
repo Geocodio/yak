@@ -728,6 +728,8 @@ return [
         'stack_alert_turns' => (int) env('YAK_THREADS_STACK_ALERT_TURNS', 50),
         'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
         'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
+        // Stream Claude's reply text, thinking and tool input into the thread as it is written. Off sends whole blocks.
+        'stream_replies' => (bool) env('YAK_THREADS_STREAM_REPLIES', true),
         // Claude's own subagents: background agents and workflows, per-agent stop, agent events. Off restores the old runner behaviour.
         'subagents' => (bool) env('YAK_THREADS_SUBAGENTS', true),
         // Undocumented SDK option that forwards depth-2 agent tool calls; turn it off if a CLI update removes it.

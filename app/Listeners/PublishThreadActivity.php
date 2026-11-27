@@ -31,8 +31,8 @@ class PublishThreadActivity
         $threadId = $event->thread->id;
         $line = $event->line;
 
-        if (($delta = $this->projector->delta($line)) !== null) {
-            $this->batcher->add($threadId, $delta['blockKey'], $delta['kind'], $delta['text'], now()->getTimestampMs() / 1000);
+        if (($line['type'] ?? null) === 'stream_event') {
+            $this->handleStreamLine($threadId, $line);
 
             return;
         }
@@ -46,11 +46,56 @@ class PublishThreadActivity
         $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
 
         foreach ($projected as $item) {
+            if (($item['data']['role'] ?? null) === 'assistant' && is_string($item['data']['messageId'] ?? null) && ($block = $this->batcher->takeOpenBlock($threadId, $item['data']['messageId'])) !== null) {
+                $item['data'] = [...$item['data'], 'blockIndex' => $block['blockIndex'], 'startedAt' => $block['startedAt']];
+            }
+
             if ($item['type'] === 'stream.reset' || ($item['data']['role'] ?? null) === 'assistant') {
                 $this->batcher->closeThread($threadId);
             }
 
             $this->publisher->append($threadId, $item['type'], $this->withPromptKind($item), isStored: $item['type'] !== 'stream.reset');
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function handleStreamLine(int $threadId, array $line): void
+    {
+        $streamEvent = $this->projector->streamEvent($line);
+
+        if ($streamEvent === null) {
+            return;
+        }
+
+        if ($streamEvent['type'] === 'message_start' && $streamEvent['messageId'] !== null) {
+            $this->batcher->startMessage($threadId, $streamEvent['messageId']);
+
+            return;
+        }
+
+        $messageId = $streamEvent['messageId'] ?? $this->batcher->currentMessageId($threadId);
+
+        if ($messageId === null) {
+            return;
+        }
+
+        match ($streamEvent['type']) {
+            'content_block_start' => $this->batcher->startBlock($threadId, $messageId, $streamEvent['index']),
+            'content_block_stop' => $this->batcher->stopBlock($threadId, $messageId, $streamEvent['index']),
+            'content_block_delta' => $this->addDelta($threadId, $messageId, $line),
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    private function addDelta(int $threadId, string $messageId, array $line): void
+    {
+        if (($delta = $this->projector->delta($line)) !== null) {
+            $this->batcher->add($threadId, $messageId, $delta['index'], $delta['kind'], $delta['text'], now()->getTimestampMs() / 1000);
         }
     }
 

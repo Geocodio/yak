@@ -111,7 +111,7 @@ class ThreadEventPublisher
     }
 
     /**
-     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string}>  $deltas
+     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>  $deltas
      */
     public function appendDeltas(array $deltas): void
     {
@@ -120,6 +120,7 @@ class ThreadEventPublisher
                 'blockKey' => $delta['blockKey'],
                 'kind' => $delta['kind'],
                 'text' => $delta['text'],
+                'offset' => $delta['offset'],
             ], isStored: false);
         }
     }

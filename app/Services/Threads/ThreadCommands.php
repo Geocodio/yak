@@ -80,7 +80,7 @@ class ThreadCommands
                 'mcpConfigPath' => $this->mcpConfigPath(),
                 'settingSources' => $this->settingSourcesFor($thread),
                 'resume' => $resumeSessionId,
-                'partial' => true,
+                'partial' => (bool) config('yak.threads.stream_replies'),
                 'claudeConfigDir' => $thread->claude_config_dir,
                 'placeholder' => $placeholder,
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
