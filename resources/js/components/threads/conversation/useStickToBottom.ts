@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { followStep } from './followStep';
+import { NEAR_BOTTOM_PIXELS, readerLeftBottom } from './readerLeftBottom';
 
-const NEAR_BOTTOM_PIXELS = 80;
+const DETACHED_BOTTOM_PIXELS = 4;
+const READER_SCROLL_WINDOW_MS = 500;
 const INTERACT_HOLD_MS = 1000;
 
 /**
@@ -66,6 +68,10 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         const followFrame = (now: number): void => {
             frame = 0;
 
+            if (Date.now() < holdUntil) {
+                return;
+            }
+
             const target = box.scrollHeight - box.clientHeight;
 
             if (!isAtBottom.current || target <= box.scrollTop + 0.5) {
@@ -92,18 +98,81 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
                 lastScrollTop = box.scrollTop;
             }
         };
-        // Only input that can move the view up counts: a wheel down at the bottom raises no scroll event to restore the flag.
-        const onReaderScroll = (event: Event): void => {
-            if (event instanceof WheelEvent && event.deltaY >= 0) {
+        // A reader who scrolled up stays detached until back within a few pixels of the bottom.
+        let isDetached = false;
+        let isReaderActive = false;
+        let wasAtBottom = false;
+        let scrollTopAtInput = 0;
+        let lastReaderInputAt = 0;
+        let settleFrame = 0;
+        const distanceFromBottom = (): number => box.scrollHeight - box.scrollTop - box.clientHeight;
+        const catchUp = (): void => {
+            if (!isAtBottom.current || distanceFromBottom() <= 0.5) {
                 return;
             }
 
-            if (event instanceof KeyboardEvent && !['ArrowUp', 'PageUp', 'Home'].includes(event.key) && !(event.key === ' ' && event.shiftKey)) {
-                return;
+            if (isStreamingRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                follow();
+            } else {
+                toBottom();
+                lastScrollTop = box.scrollTop;
+            }
+        };
+        // The input only stops the eased loop; where the view ended up decides whether the reader left the bottom.
+        const settleReaderInput = (): void => {
+            settleFrame = 0;
+            isReaderActive = false;
+
+            if (readerLeftBottom({ scrollTopAtInput, scrollTopNow: box.scrollTop, distanceFromBottom: distanceFromBottom() })) {
+                if (box.scrollTop < scrollTopAtInput) {
+                    isDetached = true;
+                }
+
+                isAtBottom.current = false;
+            } else if (wasAtBottom) {
+                isAtBottom.current = true;
+                catchUp();
+            }
+        };
+        const beginReaderInput = (): void => {
+            lastReaderInputAt = Date.now();
+
+            if (!isReaderActive) {
+                isReaderActive = true;
+                wasAtBottom = isAtBottom.current;
+                scrollTopAtInput = box.scrollTop;
             }
 
-            isAtBottom.current = false;
             stopFollow();
+        };
+        const scheduleSettle = (): void => {
+            cancelAnimationFrame(settleFrame);
+            settleFrame = requestAnimationFrame(settleReaderInput);
+        };
+        const onWheel = (event: WheelEvent): void => {
+            if (event.deltaY < 0) {
+                beginReaderInput();
+                scheduleSettle();
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent): void => {
+            const target = event.target;
+
+            if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+                return;
+            }
+
+            if (['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)) {
+                beginReaderInput();
+                scheduleSettle();
+            }
+        };
+        const onTouchEnd = (): void => {
+            lastReaderInputAt = Date.now();
+
+            if (isReaderActive) {
+                scheduleSettle();
+            }
         };
         const onScroll = (): void => {
             // Growth never moves the scroll position up, so a move up is the reader even when content grew in the same frame.
@@ -114,7 +183,15 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
                 return;
             }
 
-            isAtBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM_PIXELS;
+            if (hasMovedUp && (isReaderActive || Date.now() - lastReaderInputAt < READER_SCROLL_WINDOW_MS)) {
+                isDetached = true;
+            }
+
+            isAtBottom.current = distanceFromBottom() < (isDetached ? DETACHED_BOTTOM_PIXELS : NEAR_BOTTOM_PIXELS);
+
+            if (isAtBottom.current) {
+                isDetached = false;
+            }
 
             if (isAtBottom.current) {
                 setHasNew(false);
@@ -134,10 +211,8 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             const isHeld = Date.now() < holdUntil;
 
             if (isAtBottom.current && !isHeld) {
-                if (isStreamingRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                    follow();
-                } else {
-                    toBottom();
+                if (!isReaderActive) {
+                    catchUp();
                 }
 
                 // A field the reader is typing in stays in view when its card grows above it.
@@ -165,9 +240,11 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         }
         boxObserver.observe(box);
         box.addEventListener('scroll', onScroll, { passive: true });
-        box.addEventListener('wheel', onReaderScroll, { passive: true });
-        box.addEventListener('touchmove', onReaderScroll, { passive: true });
-        box.addEventListener('keydown', onReaderScroll);
+        box.addEventListener('wheel', onWheel, { passive: true });
+        box.addEventListener('touchmove', beginReaderInput, { passive: true });
+        box.addEventListener('touchend', onTouchEnd, { passive: true });
+        box.addEventListener('touchcancel', onTouchEnd, { passive: true });
+        box.addEventListener('keydown', onKeyDown);
         inner.addEventListener('click', onInteract);
 
         return () => {
@@ -176,9 +253,12 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             observer.disconnect();
             boxObserver.disconnect();
             box.removeEventListener('scroll', onScroll);
-            box.removeEventListener('wheel', onReaderScroll);
-            box.removeEventListener('touchmove', onReaderScroll);
-            box.removeEventListener('keydown', onReaderScroll);
+            box.removeEventListener('wheel', onWheel);
+            box.removeEventListener('touchmove', beginReaderInput);
+            box.removeEventListener('touchend', onTouchEnd);
+            box.removeEventListener('touchcancel', onTouchEnd);
+            box.removeEventListener('keydown', onKeyDown);
+            cancelAnimationFrame(settleFrame);
             inner.removeEventListener('click', onInteract);
         };
     }, [threadId]);
