@@ -27,6 +27,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
     const isStreamingRef = useRef(isStreaming);
     isStreamingRef.current = isStreaming;
     const finishFollow = useRef<() => void>(() => {});
+    const reattach = useRef<() => void>(() => {});
 
     useEffect(() => {
         const box = scroller.current;
@@ -69,6 +70,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             frame = 0;
 
             if (Date.now() < holdUntil) {
+                resumeAfterHold();
                 return;
             }
 
@@ -106,8 +108,20 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         let lastReaderInputAt = 0;
         let settleFrame = 0;
         const distanceFromBottom = (): number => box.scrollHeight - box.scrollTop - box.clientHeight;
+        // The click hold ends on its own: following resumes then if the reader is still at the bottom.
+        let holdTimer = 0;
+        const resumeAfterHold = (): void => {
+            clearTimeout(holdTimer);
+            holdTimer = window.setTimeout(catchUp, Math.max(0, holdUntil - Date.now()) + 10);
+        };
         const catchUp = (): void => {
             if (!isAtBottom.current || distanceFromBottom() <= 0.5) {
+                return;
+            }
+
+            if (Date.now() < holdUntil) {
+                resumeAfterHold();
+
                 return;
             }
 
@@ -117,6 +131,13 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
                 toBottom();
                 lastScrollTop = box.scrollTop;
             }
+        };
+        reattach.current = () => {
+            isDetached = false;
+            isReaderActive = false;
+            isAtBottom.current = true;
+            holdUntil = 0;
+            catchUp();
         };
         // The input only stops the eased loop; where the view ended up decides whether the reader left the bottom.
         const settleReaderInput = (): void => {
@@ -210,6 +231,10 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
 
             const isHeld = Date.now() < holdUntil;
 
+            if (isAtBottom.current && isHeld) {
+                resumeAfterHold();
+            }
+
             if (isAtBottom.current && !isHeld) {
                 if (!isReaderActive) {
                     catchUp();
@@ -249,6 +274,8 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
 
         return () => {
             stopFollow();
+            clearTimeout(holdTimer);
+            reattach.current = () => {};
             finishFollow.current = () => {};
             observer.disconnect();
             boxObserver.disconnect();
@@ -285,7 +312,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
     const jumpToNewest = useCallback(() => {
         isAtBottom.current = true;
         setHasNew(false);
-        scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+        reattach.current();
     }, []);
 
     return { scroller, content, footer, hasNew, jumpToNewest };
