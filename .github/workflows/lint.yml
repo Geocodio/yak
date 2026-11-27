@@ -44,6 +44,9 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
+      - name: Streaming markdown parity
+        run: node --test resources/js/threads/streaming/*.test.mjs resources/js/threads/realtime/reducer.test.mjs resources/js/components/threads/conversation/projectConversation.test.mjs
+
       - name: Script bridge contract
         run: node --test resources/js/embed/bridge.test.mjs
 

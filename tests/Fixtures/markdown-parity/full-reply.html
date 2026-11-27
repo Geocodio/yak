@@ -1,0 +1,41 @@
+<p>I traced the stalled exports to the retry loop in <code>ExportBatchJob</code>. When the upstream API answers with a <strong>429</strong>, the job sleeps inside the worker instead of releasing itself, so one slow batch can hold a worker for up to 15 minutes.</p>
+<h2>What I changed</h2>
+<ol>
+<li>The job now calls <code>$this-&gt;release($retryAfter)</code> and lets the queue reschedule it.</li>
+<li><code>$retryAfter</code> comes from the <code>Retry-After</code> header, <strong>capped at 120 seconds</strong>.</li>
+<li>A new test fakes three 429s in a row and checks that the fourth attempt finishes the batch.</li>
+</ol>
+<pre><code class="language-php">if ($response-&gt;status() === 429) {
+    $this-&gt;release(min((int) $response-&gt;header('Retry-After'), 120));
+
+    return;
+}
+</code></pre>
+<h2>Before and after</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single 429</td>
+<td>Worker blocked 60 s</td>
+<td>Released, retried in 12 s</td>
+</tr>
+<tr>
+<td>Burst of 429s</td>
+<td>Worker stuck 15 min</td>
+<td>Spread across the queue</td>
+</tr>
+<tr>
+<td>Normal batch</td>
+<td>4.1 s</td>
+<td>4.1 s</td>
+</tr>
+</tbody>
+</table>
+<p><code>ExportBatchJobTest</code> passes locally (9 tests). I opened <a href="#">PR #482</a> for review. Want me to also lower the batch size from 500 to 250, or keep that for a separate change?</p>
