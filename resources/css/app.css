@@ -158,6 +158,31 @@
 }
 
 /*
+ * The waiting row folds away once the reply starts to arrive: its height
+ * collapses while it fades, then the component unmounts it.
+ */
+.waiting-collapse {
+    display: grid;
+    grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .waiting-collapse {
+        transition:
+            grid-template-rows 280ms var(--ease-out-quart),
+            margin-top 280ms var(--ease-out-quart),
+            opacity 180ms var(--ease-out-quart);
+    }
+}
+
+.waiting-collapse[data-collapsed='true'] {
+    grid-template-rows: 0fr;
+    /* cancels the flex gap above the row so unmounting moves nothing */
+    margin-top: -1rem;
+    opacity: 0;
+}
+
+/*
  * The element an address fragment or the app's `focus` message points at wears
  * a ring and a tint for a moment (`useFragmentScroll` sets and removes the
  * attribute). Under Reduce Motion the mark is the same and does not fade.

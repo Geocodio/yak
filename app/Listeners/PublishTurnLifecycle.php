@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Enums\ThreadStatus;
+use App\Enums\TurnState;
 use App\Events\RunnerExited;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
@@ -39,6 +40,11 @@ class PublishTurnLifecycle
 
         if ($run->thread_id === null) {
             return;
+        }
+
+        // A turn can end without a result line (a lost runner, the reaper, a stop timeout); its streamed text is kept.
+        if ($run->turn_state !== TurnState::Running) {
+            $this->publisher->endStream($run->thread_id);
         }
 
         $this->publisher->append($run->thread_id, 'turn', ['turnId' => $run->id, 'state' => $run->turn_state->value]);

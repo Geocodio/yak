@@ -56,16 +56,34 @@ it('drops the marker the CLI writes for messages an interrupt dropped', function
     expect((new ThreadEventProjector)->project($line))->toBe([]);
 });
 
-it('extracts text, thinking and tool input deltas from stream events', function () {
+it('extracts text and thinking deltas from stream events and leaves tool input out', function () {
     $projector = new ThreadEventProjector;
-    $make = fn (array $delta, int $index = 2): array => ['type' => 'stream_event', 'message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => $index, 'delta' => $delta]];
+    $make = fn (array $delta, int $index = 2): array => ['type' => 'stream_event', 'api_message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => $index, 'delta' => $delta]];
 
-    expect($projector->delta($make(['type' => 'text_delta', 'text' => 'Hi'])))->toBe(['blockKey' => 'm1:2', 'kind' => 'text', 'text' => 'Hi'])
+    expect($projector->delta($make(['type' => 'text_delta', 'text' => 'Hi'])))->toBe(['index' => 2, 'kind' => 'text', 'text' => 'Hi'])
         ->and($projector->delta($make(['type' => 'thinking_delta', 'thinking' => 'hm']))['kind'])->toBe('thinking')
-        ->and($projector->delta($make(['type' => 'input_json_delta', 'partial_json' => '{"a"']))['kind'])->toBe('tool_input')
+        ->and($projector->delta($make(['type' => 'input_json_delta', 'partial_json' => '{"a"'])))->toBeNull()
         ->and($projector->delta($make(['type' => 'signature_delta'])))->toBeNull()
         ->and($projector->delta(['type' => 'assistant']))->toBeNull()
         ->and($projector->project($make(['type' => 'text_delta', 'text' => 'x'])))->toBe([]);
+});
+
+it('ignores stream lines written by an agent', function () {
+    $projector = new ThreadEventProjector;
+    $line = ['type' => 'stream_event', 'parent_tool_use_id' => 'toolu_1', 'api_message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'x']]];
+
+    expect($projector->delta($line))->toBeNull()
+        ->and($projector->streamEvent($line))->toBeNull()
+        ->and($projector->streamEvent([...$line, 'parent_tool_use_id' => null, 'agent_id' => 'a1']))->toBeNull();
+});
+
+it('reads the message id from the line or from message_start', function () {
+    $projector = new ThreadEventProjector;
+    $start = ['type' => 'stream_event', 'event' => ['type' => 'message_start', 'message' => ['id' => 'msg_1']]];
+
+    expect($projector->streamEvent($start))->toBe(['type' => 'message_start', 'index' => 0, 'messageId' => 'msg_1'])
+        ->and($projector->streamEvent([...$start, 'api_message_id' => 'msg_2'])['messageId'])->toBe('msg_2')
+        ->and($projector->streamEvent(['type' => 'assistant']))->toBeNull();
 });
 
 it('renders assistant text and result text as markdown html', function () {

@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Events\ThreadEventBroadcast;
 use App\Models\Thread;
 use App\Services\Threads\PullRequests\PullRequestOpening;
+use App\Support\SecretRedactor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -14,7 +15,7 @@ use Throwable;
  * `thread_events` (the source of truth), mirrors all of them into the Redis window and
  * broadcasts them. A failed broadcast is reported; browsers catch up over HTTP.
  *
- * Event types: entry, delta, stream.reset, turn, thread, message.state, diff.updated, child, repository, question, agent.started, agent.progress (live only), agent.finished.
+ * Event types: entry, delta, stream.reset, block.cut, turn, thread, message.state, diff.updated, child, repository, question, agent.started, agent.progress (live only), agent.finished.
  */
 class ThreadEventPublisher
 {
@@ -26,6 +27,7 @@ class ThreadEventPublisher
     public function __construct(
         private readonly ThreadEventWindow $window,
         private readonly DeltaBatcher $batcher,
+        private readonly ThreadEventProjector $projector,
     ) {}
 
     /**
@@ -111,7 +113,7 @@ class ThreadEventPublisher
     }
 
     /**
-     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string}>  $deltas
+     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int, startedAt?: string}>  $deltas
      */
     public function appendDeltas(array $deltas): void
     {
@@ -120,8 +122,34 @@ class ThreadEventPublisher
                 'blockKey' => $delta['blockKey'],
                 'kind' => $delta['kind'],
                 'text' => $delta['text'],
+                'offset' => $delta['offset'],
+                ...(isset($delta['startedAt']) ? ['startedAt' => $delta['startedAt']] : []),
             ], isStored: false);
         }
+    }
+
+    /**
+     * Ends the thread's stream once its turn is over, however it ended: sends the buffered deltas,
+     * stores the text of every block that streamed but never got its assistant line as a cut-off
+     * entry, and drops the stream state.
+     */
+    public function endStream(int $threadId): void
+    {
+        $this->appendDeltas($this->batcher->takeThread($threadId));
+
+        foreach ($this->batcher->takeUnfinishedBlocks($threadId) as $block) {
+            $this->append($threadId, 'entry', $this->projector->withHtml([
+                'role' => 'assistant',
+                'messageId' => $block['messageId'],
+                'blockIndex' => $block['blockIndex'],
+                'startedAt' => $block['startedAt'],
+                'cutOff' => true,
+                'cutReason' => 'restarted',
+                'blocks' => [['type' => $block['kind'], 'text' => SecretRedactor::redact($block['text'])]],
+            ]));
+        }
+
+        $this->batcher->closeThread($threadId);
     }
 
     public function flush(): void

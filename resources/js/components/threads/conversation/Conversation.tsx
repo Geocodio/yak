@@ -1,6 +1,6 @@
 import { router, usePoll } from '@inertiajs/react';
 import { ArrowDown } from 'lucide-react';
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
@@ -11,6 +11,8 @@ import type { LinkState } from '@/threads/realtime/catchUpRunner';
 import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
 import { ChildResultRow } from './ChildResultRow';
+import { nextStreamingLatch } from './nextStreamingLatch';
+import { shouldShowWaitingRow, WAITING_ROW_DELAY_MS } from './shouldShowWaitingRow';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
@@ -95,11 +97,54 @@ function waitingRow(entries: ConversationEntry[], working: boolean, otherwiseSho
     if (last.type === 'person' && last.pending) {
         return { queued: true, since: last.message.sentAt };
     }
-    if (!working || (last.type === 'event' && last.item.kind === 'tools' && last.item.running === true)) {
+    if (!working || (last.type === 'event' && last.item.streaming === true) || (last.type === 'event' && last.item.kind === 'tools' && last.item.running === true)) {
         return null;
     }
 
     return { queued: false, since: last.type === 'person' ? last.message.sentAt : null };
+}
+
+/**
+ * Keeps the waiting row mounted while it collapses (280 ms, none under reduced motion), then unmounts it.
+ */
+function CollapsingWaitingRow({ waiting }: { waiting: { queued: boolean; since: string | null } | null }) {
+    const [shown, setShown] = useState(waiting);
+    const lastWaiting = useRef(waiting);
+
+    if (waiting !== null) {
+        lastWaiting.current = waiting;
+    }
+
+    useEffect(() => {
+        if (waiting !== null) {
+            setShown(waiting);
+
+            return;
+        }
+
+        if (shown === null) {
+            return;
+        }
+
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const timer = window.setTimeout(() => setShown(null), reducedMotion ? 0 : 280);
+
+        return () => window.clearTimeout(timer);
+    }, [waiting, shown]);
+
+    const row = waiting ?? (shown === null ? null : lastWaiting.current);
+
+    if (row === null) {
+        return null;
+    }
+
+    return (
+        <div className="waiting-collapse" data-collapsed={waiting === null ? 'true' : undefined}>
+            <div className="ml-9 min-h-0 overflow-hidden">
+                <PendingStep since={row.since} label={row.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={row.queued} testId={row.queued ? 'thread-queued' : 'thread-thinking'} />
+            </div>
+        </div>
+    );
 }
 
 export function Conversation({ working = false, modelLabels = {}, threadId, repo, branch, messages, question = null, walkthrough = null, earlierWalkthroughs = [], sharedFiles = [], isTeamThread = false, canShareFiles = false, localTurns = [], notice, readonly, pullRequestCount = 0, lastActivityAt = null, title = null, environmentNote = null, environmentSwitches = [], runs = [], milestones = [], walkthroughStartAt = null, onOpenRunLog, onLinkChange, onAgentsChange, onLiveStepsChange, onEditUnsent, onOpenChanges, footer = null, isWaitingForRepository = false, serverMessages = messages }: { serverMessages?: { sendKey: string | null }[]; isWaitingForRepository?: boolean; footer?: ReactNode; runs?: ThreadRunSummary[]; milestones?: ThreadMilestone[]; walkthroughStartAt?: number | null; onOpenRunLog?: (runId: string) => void; working?: boolean; onOpenChanges?: (path?: string) => void; modelLabels?: Record<string, string>; onLinkChange?: (kind: LinkState['kind']) => void; onAgentsChange?: (agents: Record<string, ThreadAgent>, children: ThreadEventState['children']) => void; onLiveStepsChange?: (steps: number) => void; onEditUnsent?: (text: string) => void; title?: string | null; environmentNote?: { text: string; from: string; to: string; at: string } | null; environmentSwitches?: { from: string; to: string; at: string }[]; threadId: string; repo: string; branch: string | null; messages: ThreadMessage[]; question?: ThreadPageData['question']; walkthrough?: ThreadWalkthrough | null; earlierWalkthroughs?: EarlierWalkthrough[]; sharedFiles?: SharedFile[]; isTeamThread?: boolean; canShareFiles?: boolean; localTurns?: LocalTurnsData[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
@@ -112,7 +157,14 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const unsent = embed === null ? webUnsent : embedUnsent;
     const latest = entries.at(-1);
     const latestKey = `${latest === undefined ? '' : latest.type === 'event' ? latest.item.key : (latest.message.uuid ?? latest.message.id)}:${unsent.length}`;
-    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey);
+    // Once text has streamed in a running turn the follow keeps its ease through the gaps between blocks, so a block ending never snaps the view.
+    const isStreamingNow = entries.some((entry) => entry.type === 'event' && entry.item.streaming === true);
+    const [latch, setLatch] = useState({ threadId, isOn: false });
+    useEffect(() => {
+        setLatch((previous) => ({ threadId, isOn: nextStreamingLatch({ previous: previous.isOn, threadChanged: previous.threadId !== threadId, working, anyStreaming: isStreamingNow }) }));
+    }, [threadId, working, isStreamingNow]);
+    const isStreaming = isStreamingNow || (latch.isOn && latch.threadId === threadId);
+    const { scroller, content, footer: footerRef, hasNew, jumpToNewest } = useStickToBottom(threadId, true, latestKey, isStreaming);
 
     useEmbedMessage('scrollToBottom', jumpToNewest);
     useEffect(() => onLinkChange?.(link.kind), [link.kind, onLinkChange]);
@@ -162,7 +214,27 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const firstPerson = entries.find((entry) => entry.type === 'person');
     let previousDay = '';
     const runningRun = working ? runs.find((run) => run.isActive) : undefined;
-    const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null || isWaitingForRepository);
+    const wantedWaiting = waitingRow(entries, working, unsent.length > 0 || notice !== null || isWaitingForRepository);
+    // The row that follows a streamed block waits a moment: the next block usually arrives first. The person's own message is never delayed.
+    const wasStreaming = useRef(false);
+    const streamEndedAt = useRef<number | null>(null);
+    if (wasStreaming.current && !isStreamingNow) {
+        streamEndedAt.current = Date.now();
+    }
+    wasStreaming.current = isStreamingNow;
+    const isDelayable = wantedWaiting !== null && !wantedWaiting.queued && entries.at(-1)?.type === 'event';
+    const waiting = wantedWaiting !== null && shouldShowWaitingRow({ wantsRow: true, lastStreamEndedAt: isDelayable ? streamEndedAt.current : null, now: Date.now() }) ? wantedWaiting : null;
+    const [, setWaitingTick] = useState(0);
+    const isHeldBack = wantedWaiting !== null && waiting === null;
+    useEffect(() => {
+        if (!isHeldBack || streamEndedAt.current === null) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => setWaitingTick((tick) => tick + 1), Math.max(0, WAITING_ROW_DELAY_MS - (Date.now() - (streamEndedAt.current ?? 0))) + 5);
+
+        return () => window.clearTimeout(timer);
+    }, [isHeldBack]);
     // Each move gets its divider before the first message of the new side; the computer stretch that began at a
     // move follows its divider, and the stretch the thread began with opens the conversation.
     const switchBlocks = new Map<number, React.ReactNode[]>();
@@ -251,11 +323,7 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
                 {walkthrough?.isRecording === true && <WalkthroughRecordingRow number={walkthrough.nextNumber} />}
                 {trailingFiles.length > 0 && <SharedFilesCard files={trailingFiles} threadId={threadId} canShare={canShareFiles} isTeamThread={isTeamThread} />}
                 {trailingUpdates.map(renderUpdate)}
-                {waiting !== null && (
-                    <div className="ml-9">
-                        <PendingStep since={waiting.since} label={waiting.queued ? 'Queued. Claude picks this up next.' : 'Thinking…'} quiet={waiting.queued} testId={waiting.queued ? 'thread-queued' : 'thread-thinking'} />
-                    </div>
-                )}
+                <CollapsingWaitingRow waiting={waiting} />
                 {runningRun !== undefined && onOpenRunLog !== undefined && (
                     <div className="ml-9">
                         <RunLogButton testId="run-log-button-running" onOpen={() => onOpenRunLog(runningRun.runId)} />

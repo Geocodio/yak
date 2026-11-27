@@ -112,6 +112,14 @@ it('plays natural-turn-end under the command uuid', function (): void {
         ->and(collect($lines)->where('line.type', 'runner')->isEmpty())->toBeTrue();
 });
 
+it('plays streamed-reply, stream events included, when the text has the stream marker', function (): void {
+    $lines = liveScript(1.0)->respond('threads:1', scriptTurnCommand('Explain it ' . E2eRunnerScript::STREAM_MARKER), 1);
+    $encoded = json_encode(array_column($lines, 'line'));
+
+    expect(collect($lines)->where('line.type', 'stream_event')->count())->toBeGreaterThan(50)
+        ->and($encoded)->not->toContain('00000000-0000-4000-8000-000000000001')->toContain(SCRIPT_TURN_UUID);
+});
+
 it('stretches recorded time by the pace', function (): void {
     $normal = array_column(liveScript(1.0)->respond('threads:1', scriptTurnCommand(), 1), 'afterMilliseconds');
     $slow = array_column(liveScript(4.0)->respond('threads:1', scriptTurnCommand(), 1), 'afterMilliseconds');

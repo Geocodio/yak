@@ -65,9 +65,29 @@ function recordedLines(string $name): array
 /**
  * @return array<string, mixed>
  */
-function textDelta(string $text): array
+function textDelta(string $text, string $messageId = 'm1'): array
 {
-    return ['type' => 'stream_event', 'message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => $text]]];
+    return ['type' => 'stream_event', 'api_message_id' => $messageId, 'event' => ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => $text]]];
+}
+
+/**
+ * The stream line that opens a text block, as the runner writes it before the block's deltas.
+ *
+ * @return array<string, mixed>
+ */
+function textBlockStart(string $messageId = 'm1'): array
+{
+    return ['type' => 'stream_event', 'api_message_id' => $messageId, 'event' => ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'text', 'text' => '']]];
+}
+
+/**
+ * The message id of the first assistant line with a text block, so streamed deltas belong to that entry.
+ *
+ * @param  list<array<string, mixed>>  $lines
+ */
+function firstTextMessageId(array $lines): string
+{
+    return (string) collect($lines)->first(hasTextBlock(...))['message']['id'];
 }
 
 /**
@@ -218,7 +238,9 @@ function writeScenario($test, string $scenario, string $source, array $broadcast
 }
 
 it('records a simple turn with deltas, tool use and a completed turn', function () {
-    $lines = insertBefore(recordedLines('background-bash-task'), hasTextBlock(...), [textDelta('Checking '), textDelta('the uploads') + ['_travelMs' => 60]]);
+    $recordedLines = recordedLines('background-bash-task');
+    $messageId = firstTextMessageId($recordedLines);
+    $lines = insertBefore($recordedLines, hasTextBlock(...), [textBlockStart($messageId), textDelta('Checking ', $messageId), textDelta('the uploads', $messageId) + ['_travelMs' => 60]]);
     replayLines($this, $lines, 'background-bash-task');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));
@@ -281,7 +303,7 @@ it('records a turn that failed', function () {
 });
 
 it('records a stream reset that is never stored', function () {
-    $lines = insertBefore(recordedLines('cutoff-synthetic-user-message'), fn (array $line): bool => ($line['isSynthetic'] ?? false) === true, [textDelta('Checking the upl')]);
+    $lines = insertBefore(recordedLines('cutoff-synthetic-user-message'), fn (array $line): bool => ($line['isSynthetic'] ?? false) === true, [textBlockStart(), textDelta('Checking the upl')]);
     replayLines($this, $lines, 'cutoff-synthetic-user-message');
     $this->run->update(['turn_state' => TurnState::Completed]);
     event(new TurnCompleted($this->run));

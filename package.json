@@ -39,6 +39,8 @@
         "laravel-echo": "2.6.3",
         "laravel-vite-plugin": "^3.0.0",
         "lucide-react": "^1.39.0",
+        "micromark": "4.0.2",
+        "micromark-extension-gfm": "3.0.0",
         "playwright": "^1.59.1",
         "pusher-js": "8.6.0",
         "react": "^19.2.8",

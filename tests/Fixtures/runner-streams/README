@@ -20,3 +20,6 @@ agent-stopped.jsonl: stopTask on one of two background agents; the stopped agent
 agent-parent-stopped.jsonl: stopTask on a background agent that started a background agent of its own; the parent stops and the child keeps running to completion.
 workflow-background.jsonl: a Workflow tool call (task_type local_workflow) with workflow_progress, ending with its own task_notification and a turn.
 agent-progress-summaries.jsonl: a long foreground agent with agentProgressSummaries on; task_progress lines carry summary text.
+streamed-reply.jsonl: a real run with partial: true: thinking, a text block (heading, list, fenced code, table, link), a Bash tool_use, then a second text block in the follow-up message; all stream_event lines kept (the text deltas concatenate to the scrubbed block text).
+streamed-interrupt.jsonl: an interrupt sent while a long text block streams (25 text deltas in); the partial assistant text line, the "[Request interrupted by user]" user line, message_delta with a null stop_reason and a result error_during_execution with terminal_reason aborted_streaming.
+streamed-subagent.jsonl: a foreground agent (subagents on); the sub-agent wrote text but emitted no stream_event lines, only an assistant line carrying parent_tool_use_id and agent_id.

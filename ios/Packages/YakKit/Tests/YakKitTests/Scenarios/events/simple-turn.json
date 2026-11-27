@@ -59,7 +59,8 @@
       "data": {
         "blockKey": "msg_1:0",
         "kind": "text",
-        "text": "Looking at "
+        "text": "Looking at ",
+        "offset": 0
       },
       "createdAt": "2026-11-15T09:00:06Z"
     },
@@ -69,7 +70,8 @@
       "data": {
         "blockKey": "msg_1:0",
         "kind": "text",
-        "text": "the importer."
+        "text": "the importer.",
+        "offset": 11
       },
       "createdAt": "2026-11-15T09:00:07Z"
     },
@@ -133,7 +135,8 @@
       "data": {
         "blockKey": "msg_2:0",
         "kind": "text",
-        "text": "Done."
+        "text": "Done.",
+        "offset": 0
       },
       "createdAt": "2026-11-15T09:00:11Z"
     },
@@ -149,7 +152,9 @@
             "text": "Done. Failed rows now retry three times.",
             "html": "<p>Done. Failed rows now retry three times.</p>"
           }
-        ]
+        ],
+        "blockIndex": 0,
+        "startedAt": "2026-11-15T09:00:11Z"
       },
       "createdAt": "2026-11-15T09:00:12Z"
     },
@@ -296,7 +301,9 @@
               "text": "Done. Failed rows now retry three times.",
               "html": "<p>Done. Failed rows now retry three times.</p>"
             }
-          ]
+          ],
+          "blockIndex": 0,
+          "startedAt": "2026-11-15T09:00:11Z"
         },
         "createdAt": "2026-11-15T09:00:12Z"
       },

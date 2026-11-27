@@ -39,6 +39,7 @@ it('sends start_runner with the placeholder and never a credential', function ()
         ->and($command['start']['permissionMode'])->toBe('bypassPermissions')
         ->and($command['start']['askUserQuestion'])->toBeTrue()
         ->and($command['start']['resume'])->toBe('session-1')
+        ->and($command['start']['partial'])->toBeTrue()
         ->and($command['start']['settingSources'])->toBe(['user', 'project', 'local'])
         ->and($command['start']['claudeConfigDir'])->toBe($thread->claude_config_dir)
         ->and($command['start']['placeholder'])->toBe('yakph-test')
@@ -50,6 +51,18 @@ it('sends start_runner with the placeholder and never a credential', function ()
     expect($thread->runner_state)->toBe(RunnerState::Starting)
         ->and($thread->getAttribute('runner_model'))->toBe('opus')
         ->and($thread->getAttribute('append_system_prompt'))->toBe('Be brief.');
+});
+
+it('starts the runner without partial messages when streaming is switched off', function () {
+    config(['yak.threads.stream_replies' => false]);
+    $thread = commandsThread();
+    $account = ClaudeAccount::factory()->create();
+    app(SandboxManager::class)->queueExecResult(Process::result("2: eth0    inet 10.100.0.7/24 scope global eth0\n"));
+
+    (new ThreadCommands(app(BrokerStreams::class), app(SandboxManager::class), app(AuthProxyPlaceholders::class), app(ClaudeModelCatalog::class), app(RunnerDelivery::class)))
+        ->startRunner($thread, $account, 'session-1', 'Be brief.');
+
+    expect(app(BrokerStreams::class)->commands('threads:' . $thread->id)[0]['start']['partial'])->toBeFalse();
 });
 
 it('points the runner at the pushed MCP config only when the host has one', function () {

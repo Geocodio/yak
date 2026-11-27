@@ -53,6 +53,15 @@ class ThreadDriver
      */
     private array $handlers = [];
 
+    private const TICK_INTERVAL_MS = 1000;
+
+    private const ACTIVITY_WRITE_INTERVAL_MS = 1000;
+
+    private int $tickedAtMs = 0;
+
+    /** @var array<int, int> thread id => when a stream line last wrote its activity time */
+    private array $activityWrittenAtMs = [];
+
     public function __construct(
         private readonly ThreadCommands $commands,
         private readonly YakToolRouter $tools,
@@ -70,6 +79,12 @@ class ThreadDriver
         }
 
         $threadId = (int) substr($entry->channel, strlen('threads:'));
+
+        if (! $entry->fromBroker && ($entry->line['type'] ?? null) === 'stream_event') {
+            $this->handleStreamLine($threadId, $entry);
+
+            return;
+        }
         /** @var list<object> $events */
         $events = [];
 
@@ -89,6 +104,54 @@ class ThreadDriver
         });
 
         $this->dispatchAll($events);
+    }
+
+    /**
+     * Streamed token lines arrive tens per second per thread and only feed the delta publisher: no
+     * row lock, no agent, question, handler or tracker work. The thread is read without a lock for
+     * the generation check, and the line counts as activity with at most one write a second. A
+     * stream line does not advance the applied sequence; a later structural line does.
+     */
+    private function handleStreamLine(int $threadId, StreamEntry $entry): void
+    {
+        $thread = Thread::query()->find($threadId);
+
+        if ($thread === null || ! $this->isNew($thread, $entry) || $entry->generation !== $thread->runner_generation) {
+            return;
+        }
+
+        $nowMs = now()->getTimestampMs();
+
+        if ($nowMs - ($this->activityWrittenAtMs[$threadId] ?? 0) >= self::ACTIVITY_WRITE_INTERVAL_MS) {
+            $this->activityWrittenAtMs[$threadId] = $nowMs;
+            Thread::query()->whereKey($threadId)->update(['last_activity_at' => now()]);
+        }
+
+        event(new ThreadActivity($thread, $entry->generation, $entry->sequence, $this->redacted($entry->line)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     * @return array<string, mixed>
+     */
+    private function redacted(array $line): array
+    {
+        return json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];
+    }
+
+    /**
+     * Runs tick() when a second has passed since the last one; the consumer loop asks after every read.
+     */
+    public function tickIfDue(): void
+    {
+        $nowMs = now()->getTimestampMs();
+
+        if ($nowMs - $this->tickedAtMs < self::TICK_INTERVAL_MS) {
+            return;
+        }
+
+        $this->tickedAtMs = $nowMs;
+        $this->tick();
     }
 
     /**
@@ -252,6 +315,8 @@ class ThreadDriver
             return;
         }
 
+        $line = $this->redacted($line);
+
         $run = ThreadTurns::activeTurn($thread);
 
         if ($isStarted) {
@@ -261,8 +326,6 @@ class ThreadDriver
                 'runner_started_at' => now(),
             ]);
         }
-
-        $line = json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];
 
         if (($line['type'] ?? null) === 'yak.tool_call') {
             $this->answerToolCall($thread, $entry, $line);

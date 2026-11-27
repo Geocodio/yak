@@ -1,5 +1,5 @@
 import type { StepView } from '@/components/activity/types';
-import type { ChildCardData, ChildResultData, RepositoryCardData } from '@/types/thread-events';
+import type { ChildCardData, CutReason, ChildResultData, RepositoryCardData } from '@/types/thread-events';
 
 export type ConversationItem = {
     kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'childResult' | 'repository' | 'agent';
@@ -7,7 +7,7 @@ export type ConversationItem = {
     sequence: number;
     role: 'assistant';
     text?: string;
-    /** Server-rendered markdown for `text`; plain `text` is shown when absent. */
+    /** Rendered markdown for `text`: the server's for a final item, the streaming render while it streams; plain `text` is shown when absent. */
     html?: string;
     detail?: string;
     /** The tool calls of a `tools` item, drawn by the shared step rows. */
@@ -19,6 +19,12 @@ export type ConversationItem = {
     model?: string;
     /** When the entry was recorded, for the time in Claude's header. */
     at?: string;
+    /** True while the block is still being written. */
+    streaming?: boolean;
+    /** True when an interrupt ended the block before it finished. */
+    cutOff?: boolean;
+    /** Who ended the block: the person (`stopped`) or a session restart (`restarted`). */
+    cutReason?: CutReason;
     files?: string[];
     added?: number;
     removed?: number;

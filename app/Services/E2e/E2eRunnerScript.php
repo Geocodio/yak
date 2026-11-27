@@ -9,7 +9,9 @@ use RuntimeException;
 /**
  * Decides what the fake broker writes for each command, from the recorded runner streams.
  * Turn lines come from natural-turn-end; a turn whose text contains HOLD_MARKER plays the
- * prefix of interrupt-result-without-result-key and waits; interrupt plays that file's tail;
+ * prefix of interrupt-result-without-result-key and waits; one containing STREAM_STOPPED_MARKER plays
+ * streamed-interrupt; one containing STREAM_MARKER plays streamed-reply, whose
+ * stream_event lines carry the text as it was typed; interrupt plays that file's tail;
  * a steer plays the second command's queued and started lines of steer-during-final-text.
  * Every recorded command uuid is replaced by the command's own uuid.
  *
@@ -19,6 +21,10 @@ use RuntimeException;
 final class E2eRunnerScript
 {
     public const string HOLD_MARKER = '(hold this turn)';
+
+    public const string STREAM_MARKER = '(stream this turn)';
+
+    public const string STREAM_STOPPED_MARKER = '(stream and stop this turn)';
 
     public const int HOLD_BOUND_SECONDS = 120;
 
@@ -33,6 +39,12 @@ final class E2eRunnerScript
     private const string INTERRUPT = 'interrupt-result-without-result-key';
 
     private const string STEER = 'steer-during-final-text';
+
+    private const string STREAMED = 'streamed-reply';
+
+    private const string STREAMED_STOPPED = 'streamed-interrupt';
+
+    private const string RECORDED_STREAMED_UUID = '00000000-0000-4000-8000-000000000001';
 
     private const string RECORDED_STEER_UUID = 'da1213d2-e404-5255-85f1-5d09e68a921a';
 
@@ -167,6 +179,14 @@ final class E2eRunnerScript
             $this->held[$channel] = ['uuid' => $uuid, 'since' => CarbonImmutable::now()];
 
             return $this->timed($this->heldPrefix(), $uuid, 0);
+        }
+
+        if (str_contains((string) ($command['text'] ?? ''), self::STREAM_STOPPED_MARKER)) {
+            return $this->timed($this->turnLines(self::STREAMED_STOPPED), $uuid, 0, self::RECORDED_STREAMED_UUID);
+        }
+
+        if (str_contains((string) ($command['text'] ?? ''), self::STREAM_MARKER)) {
+            return $this->timed($this->turnLines(self::STREAMED), $uuid, 0, self::RECORDED_STREAMED_UUID);
         }
 
         return $this->timed($this->turnLines(self::NATURAL), $uuid, 0);

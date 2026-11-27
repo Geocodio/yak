@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { followStep } from './followStep';
+import { NEAR_BOTTOM_PIXELS, readerLeftBottom } from './readerLeftBottom';
 
-const NEAR_BOTTOM_PIXELS = 80;
+const DETACHED_BOTTOM_PIXELS = 4;
+const READER_SCROLL_WINDOW_MS = 500;
 const INTERACT_HOLD_MS = 1000;
 
 /**
@@ -10,8 +13,11 @@ const INTERACT_HOLD_MS = 1000;
  * content arrived below. A click inside the content holds the follow for a moment, so a row the reader just opened is
  * not scrolled away from under them, and following resumes after that. With `latestKey`, only a new key raises `hasNew`,
  * so an image loading or a row re-rendering above never claims a reply that is not there.
+ * While `isStreaming`, growth is followed with a short eased scroll instead of a jump (a jump when the reader prefers
+ * reduced motion); an ease in flight when streaming ends runs on to the bottom instead of snapping; a wheel, touch or key scroll by the reader stops the follow at once.
+ * The ease's own scrolling never counts as the reader leaving the bottom, however large the gap it is closing.
  */
-export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
+export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string, isStreaming = false): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
     const content = useRef<HTMLDivElement>(null);
     const footer = useRef<HTMLDivElement>(null);
@@ -19,6 +25,10 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
     const [hasNew, setHasNew] = useState(false);
     const hasLatestKey = useRef(latestKey !== undefined);
     const seenKey = useRef(latestKey);
+    const isStreamingRef = useRef(isStreaming);
+    isStreamingRef.current = isStreaming;
+    const finishFollow = useRef<() => void>(() => {});
+    const reattach = useRef<() => void>(() => {});
 
     useEffect(() => {
         const box = scroller.current;
@@ -49,16 +59,168 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         };
 
         let lastScrollTop = box.scrollTop;
+        let frame = 0;
+        let lastFrameAt = 0;
+        // An eased follow is owed from its start until it reaches the bottom or the reader stops it, a click hold
+        // included. A scroll that does not move up meanwhile is the follow's own, however far the gap still is.
+        let isEasing = false;
+        const stopFollow = (): void => {
+            cancelAnimationFrame(frame);
+            frame = 0;
+            isEasing = false;
+        };
+        // Each frame closes part of the gap to the bottom. The position written here is recorded as the follow's own,
+        // so the scroll event it raises is never read as the reader.
+        const followFrame = (now: number): void => {
+            frame = 0;
+
+            if (Date.now() < holdUntil) {
+                resumeAfterHold();
+                return;
+            }
+
+            const target = box.scrollHeight - box.clientHeight;
+
+            if (!isAtBottom.current || target <= box.scrollTop + 0.5) {
+                isEasing = false;
+                return;
+            }
+
+            pinnedHeight = box.scrollHeight;
+            box.scrollTop = followStep(box.scrollTop, target, (now - lastFrameAt) / 1000);
+            lastScrollTop = box.scrollTop;
+            lastFrameAt = now;
+            frame = requestAnimationFrame(followFrame);
+        };
+        const follow = (): void => {
+            isEasing = true;
+
+            if (frame === 0) {
+                lastFrameAt = performance.now();
+                frame = requestAnimationFrame(followFrame);
+            }
+        };
+        finishFollow.current = () => {
+            stopFollow();
+
+            if (isAtBottom.current) {
+                toBottom();
+                lastScrollTop = box.scrollTop;
+            }
+        };
+        // A reader who scrolled up stays detached until back within a few pixels of the bottom.
+        let isDetached = false;
+        let isReaderActive = false;
+        let wasAtBottom = false;
+        let scrollTopAtInput = 0;
+        let lastReaderInputAt = 0;
+        let settleFrame = 0;
+        const distanceFromBottom = (): number => box.scrollHeight - box.scrollTop - box.clientHeight;
+        // The click hold ends on its own: following resumes then if the reader is still at the bottom.
+        let holdTimer = 0;
+        const resumeAfterHold = (): void => {
+            clearTimeout(holdTimer);
+            holdTimer = window.setTimeout(catchUp, Math.max(0, holdUntil - Date.now()) + 10);
+        };
+        const catchUp = (): void => {
+            if (!isAtBottom.current || isReaderActive || distanceFromBottom() <= 0.5) {
+                return;
+            }
+
+            if (Date.now() < holdUntil) {
+                resumeAfterHold();
+
+                return;
+            }
+
+            if (isStreamingRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                follow();
+            } else {
+                toBottom();
+                lastScrollTop = box.scrollTop;
+            }
+        };
+        reattach.current = () => {
+            isDetached = false;
+            isReaderActive = false;
+            isAtBottom.current = true;
+            holdUntil = 0;
+            catchUp();
+        };
+        // The input only stops the eased loop; where the view ended up decides whether the reader left the bottom.
+        const settleReaderInput = (): void => {
+            settleFrame = 0;
+            isReaderActive = false;
+
+            if (readerLeftBottom({ scrollTopAtInput, scrollTopNow: box.scrollTop, distanceFromBottom: distanceFromBottom() })) {
+                if (box.scrollTop < scrollTopAtInput) {
+                    isDetached = true;
+                }
+
+                isAtBottom.current = false;
+            } else if (wasAtBottom) {
+                isAtBottom.current = true;
+                catchUp();
+            }
+        };
+        const beginReaderInput = (): void => {
+            lastReaderInputAt = Date.now();
+
+            if (!isReaderActive) {
+                isReaderActive = true;
+                wasAtBottom = isAtBottom.current;
+                scrollTopAtInput = box.scrollTop;
+            }
+
+            stopFollow();
+        };
+        const scheduleSettle = (): void => {
+            cancelAnimationFrame(settleFrame);
+            settleFrame = requestAnimationFrame(settleReaderInput);
+        };
+        const onWheel = (event: WheelEvent): void => {
+            if (event.deltaY < 0) {
+                beginReaderInput();
+                scheduleSettle();
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent): void => {
+            const target = event.target;
+
+            if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+                return;
+            }
+
+            if (['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)) {
+                beginReaderInput();
+                scheduleSettle();
+            }
+        };
+        const onTouchEnd = (): void => {
+            lastReaderInputAt = Date.now();
+
+            if (isReaderActive) {
+                scheduleSettle();
+            }
+        };
         const onScroll = (): void => {
             // Growth never moves the scroll position up, so a move up is the reader even when content grew in the same frame.
             const hasMovedUp = box.scrollTop < lastScrollTop;
             lastScrollTop = box.scrollTop;
 
-            if (box.scrollHeight !== pinnedHeight && !hasMovedUp) {
+            if ((box.scrollHeight !== pinnedHeight || isEasing) && !hasMovedUp) {
                 return;
             }
 
-            isAtBottom.current = box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM_PIXELS;
+            if (hasMovedUp && (isReaderActive || Date.now() - lastReaderInputAt < READER_SCROLL_WINDOW_MS)) {
+                isDetached = true;
+            }
+
+            isAtBottom.current = distanceFromBottom() < (isDetached ? DETACHED_BOTTOM_PIXELS : NEAR_BOTTOM_PIXELS);
+
+            if (isAtBottom.current) {
+                isDetached = false;
+            }
 
             if (isAtBottom.current) {
                 setHasNew(false);
@@ -77,8 +239,14 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
 
             const isHeld = Date.now() < holdUntil;
 
+            if (isAtBottom.current && isHeld) {
+                resumeAfterHold();
+            }
+
             if (isAtBottom.current && !isHeld) {
-                toBottom();
+                if (!isReaderActive) {
+                    catchUp();
+                }
 
                 // A field the reader is typing in stays in view when its card grows above it.
                 if (hasFooterGrown && footerElement?.contains(document.activeElement)) {
@@ -105,15 +273,38 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         }
         boxObserver.observe(box);
         box.addEventListener('scroll', onScroll, { passive: true });
+        box.addEventListener('wheel', onWheel, { passive: true });
+        box.addEventListener('touchmove', beginReaderInput, { passive: true });
+        box.addEventListener('touchend', onTouchEnd, { passive: true });
+        box.addEventListener('touchcancel', onTouchEnd, { passive: true });
+        box.addEventListener('keydown', onKeyDown);
         inner.addEventListener('click', onInteract);
 
         return () => {
+            stopFollow();
+            clearTimeout(holdTimer);
+            reattach.current = () => {};
+            finishFollow.current = () => {};
             observer.disconnect();
             boxObserver.disconnect();
             box.removeEventListener('scroll', onScroll);
+            box.removeEventListener('wheel', onWheel);
+            box.removeEventListener('touchmove', beginReaderInput);
+            box.removeEventListener('touchend', onTouchEnd);
+            box.removeEventListener('touchcancel', onTouchEnd);
+            box.removeEventListener('keydown', onKeyDown);
+            cancelAnimationFrame(settleFrame);
             inner.removeEventListener('click', onInteract);
         };
     }, [threadId]);
+
+    // Streaming ended: an eased follow in flight keeps going until it has caught up, so a block that ends never snaps the view.
+    // Only a reader who prefers reduced motion has no easing to finish and lands on the bottom at once.
+    useEffect(() => {
+        if (!isStreaming && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            finishFollow.current();
+        }
+    }, [isStreaming]);
 
     useEffect(() => {
         if (latestKey === seenKey.current) {
@@ -130,7 +321,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
     const jumpToNewest = useCallback(() => {
         isAtBottom.current = true;
         setHasNew(false);
-        scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
+        reattach.current();
     }, []);
 
     return { scroller, content, footer, hasNew, jumpToNewest };

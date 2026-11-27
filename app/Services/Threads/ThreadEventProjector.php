@@ -182,35 +182,57 @@ class ThreadEventProjector
     }
 
     /**
-     * Extracts the streamed text of a `stream_event` content block delta. The block key is the
-     * message id (or `stream` when the partial carries none) plus the content block index.
+     * The type, content index and message id of a `stream_event` line, or null for any other line
+     * and for one an agent wrote. The message id comes from `api_message_id`, which every stream
+     * line carries; a `message_start` also names it inside the event.
      *
      * @param  array<string, mixed>  $line
-     * @return array{blockKey: string, kind: string, text: string}|null
+     * @return array{type: string, index: int, messageId: ?string}|null
      */
-    public function delta(array $line): ?array
+    public function streamEvent(array $line): ?array
     {
-        if (($line['type'] ?? null) !== 'stream_event') {
+        if (($line['type'] ?? null) !== 'stream_event' || ($line['parent_tool_use_id'] ?? null) !== null || ($line['agent_id'] ?? null) !== null) {
             return null;
         }
 
         $event = (array) ($line['event'] ?? []);
-        $delta = (array) ($event['delta'] ?? []);
+        $messageId = $line['api_message_id'] ?? $event['message']['id'] ?? null;
+
+        return [
+            'type' => (string) ($event['type'] ?? ''),
+            'index' => (int) ($event['index'] ?? 0),
+            'messageId' => is_string($messageId) ? $messageId : null,
+        ];
+    }
+
+    /**
+     * Extracts the streamed text of a `stream_event` content block delta. Tool input is not
+     * streamed: tool steps show once their assistant line arrives.
+     *
+     * @param  array<string, mixed>  $line
+     * @return array{index: int, kind: string, text: string}|null
+     */
+    public function delta(array $line): ?array
+    {
+        $streamEvent = $this->streamEvent($line);
+
+        if ($streamEvent === null || $streamEvent['type'] !== 'content_block_delta') {
+            return null;
+        }
+
+        $delta = (array) ($line['event']['delta'] ?? []);
 
         [$kind, $text] = match ($delta['type'] ?? null) {
             'text_delta' => ['text', $delta['text'] ?? null],
             'thinking_delta' => ['thinking', $delta['thinking'] ?? null],
-            'input_json_delta' => ['tool_input', $delta['partial_json'] ?? null],
             default => [null, null],
         };
 
-        if (($event['type'] ?? null) !== 'content_block_delta' || $kind === null || ! is_string($text) || $text === '') {
+        if ($kind === null || ! is_string($text) || $text === '') {
             return null;
         }
 
-        $messageId = $line['message_id'] ?? $event['message']['id'] ?? 'stream';
-
-        return ['blockKey' => $messageId . ':' . (int) ($event['index'] ?? 0), 'kind' => $kind, 'text' => $text];
+        return ['index' => $streamEvent['index'], 'kind' => $kind, 'text' => $text];
     }
 
     private function resultText(mixed $content): string
