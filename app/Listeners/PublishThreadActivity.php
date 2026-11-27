@@ -44,6 +44,10 @@ class PublishThreadActivity
             $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
         }
 
+        if ($this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
+            $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey], isStored: true);
+        }
+
         $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
 
         if ($projected === []) {
@@ -61,8 +65,16 @@ class PublishThreadActivity
                 $item['data'] = [...$item['data'], 'blockIndex' => $block['blockIndex'], 'startedAt' => $block['startedAt']];
             }
 
+            if ($item['type'] === 'stream.reset') {
+                $this->storeUnfinishedBlocks($threadId);
+            }
+
             if ($item['type'] === 'stream.reset' || ($item['data']['role'] ?? null) === 'assistant') {
                 $this->batcher->closeThread($threadId);
+            }
+
+            if (isset($item['data']['blockIndex']) && is_string($item['data']['messageId'] ?? null)) {
+                $this->batcher->rememberAssistantBlock($threadId, $item['data']['messageId'] . ':' . $item['data']['blockIndex']);
             }
 
             $this->publisher->append($threadId, $item['type'], $this->withPromptKind($item), isStored: $item['type'] !== 'stream.reset');
@@ -74,11 +86,44 @@ class PublishThreadActivity
     }
 
     /**
-     * Ends the thread's stream bookkeeping once its turn is over.
+     * Stores the text of every block that streamed but never got its assistant line, then ends
+     * the thread's stream bookkeeping once its turn is over.
      */
     private function closeStream(int $threadId): void
     {
+        $this->storeUnfinishedBlocks($threadId);
         $this->batcher->closeThread($threadId);
+    }
+
+    private function storeUnfinishedBlocks(int $threadId): void
+    {
+        foreach ($this->batcher->takeUnfinishedBlocks($threadId) as $block) {
+            $this->publisher->append($threadId, 'entry', $this->projector->withHtml([
+                'role' => 'assistant',
+                'messageId' => $block['messageId'],
+                'blockIndex' => $block['blockIndex'],
+                'startedAt' => $block['startedAt'],
+                'cutOff' => true,
+                'blocks' => [['type' => $block['kind'], 'text' => $block['text']]],
+            ]), isStored: true);
+        }
+    }
+
+    /**
+     * Claude Code writes this user line after the partial assistant line of an interrupted reply.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function isInterruptMarker(array $line): bool
+    {
+        if (($line['type'] ?? null) !== 'user' || ($line['isSynthetic'] ?? false) === true) {
+            return false;
+        }
+
+        $content = $line['message']['content'] ?? null;
+        $text = is_string($content) ? $content : (is_array($content) ? (string) ($content[0]['text'] ?? '') : '');
+
+        return str_starts_with(trim($text), '[Request interrupted by user');
     }
 
     /**

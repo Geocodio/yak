@@ -37,6 +37,12 @@ class DeltaBatcher
     /** @var array<string, int> thread|blockKey => UTF-16 code units already emitted */
     private array $offsets = [];
 
+    /** @var array<string, array{messageId: string, blockIndex: int, kind: string, text: string, startedAt: float}> thread|blockKey => the block's full streamed text */
+    private array $fullTexts = [];
+
+    /** @var array<int, string> */
+    private array $lastAssistantBlockKeys = [];
+
     /**
      * Remembers the thread's latest message id, the fallback for a stream line that carries none.
      */
@@ -51,9 +57,9 @@ class DeltaBatcher
     public function hasStateFor(int $threadId): bool
     {
         $prefix = $threadId . '|';
-        $keys = array_merge(array_keys($this->buffers), array_keys($this->firstDeltaTimes), array_keys($this->offsets));
+        $keys = array_merge(array_keys($this->fullTexts), array_keys($this->buffers), array_keys($this->firstDeltaTimes), array_keys($this->offsets));
 
-        return isset($this->openThreads[$threadId]) || isset($this->openBlocks[$threadId]) || isset($this->currentMessages[$threadId])
+        return isset($this->openThreads[$threadId]) || isset($this->openBlocks[$threadId]) || isset($this->currentMessages[$threadId]) || isset($this->lastAssistantBlockKeys[$threadId])
             || array_filter($keys, fn (int|string $key): bool => str_starts_with((string) $key, $prefix)) !== [];
     }
 
@@ -107,6 +113,8 @@ class DeltaBatcher
         $blockKey = $messageId . ':' . $index;
         $key = $threadId . '|' . $blockKey;
         $this->firstDeltaTimes[$key] ??= $now;
+        $this->fullTexts[$key] ??= ['messageId' => $messageId, 'blockIndex' => $index, 'kind' => $kind, 'text' => '', 'startedAt' => $now];
+        $this->fullTexts[$key]['text'] .= $text;
 
         if (isset($this->buffers[$key])) {
             $this->buffers[$key]['text'] .= $text;
@@ -152,6 +160,35 @@ class DeltaBatcher
     }
 
     /**
+     * The thread's blocks that streamed text but never got an assistant line, in stream order.
+     * Tool input is never returned.
+     *
+     * @return list<array{messageId: string, blockIndex: int, kind: string, text: string, startedAt: string}>
+     */
+    public function takeUnfinishedBlocks(int $threadId): array
+    {
+        $blocks = [];
+
+        foreach ($this->fullTexts as $key => $block) {
+            if (str_starts_with($key, $threadId . '|') && $block['text'] !== '' && in_array($block['kind'], ['text', 'thinking'], true)) {
+                $blocks[] = [...$block, 'startedAt' => CarbonImmutable::createFromTimestampMs((int) round($block['startedAt'] * 1000))->toIso8601String()];
+            }
+        }
+
+        return $blocks;
+    }
+
+    public function rememberAssistantBlock(int $threadId, string $blockKey): void
+    {
+        $this->lastAssistantBlockKeys[$threadId] = $blockKey;
+    }
+
+    public function lastAssistantBlockKey(int $threadId): ?string
+    {
+        return $this->lastAssistantBlockKeys[$threadId] ?? null;
+    }
+
+    /**
      * Whether a streaming block of the thread has started and no entry or reset has closed it.
      */
     public function hasOpenBlock(int $threadId): bool
@@ -164,11 +201,11 @@ class DeltaBatcher
      */
     public function closeThread(int $threadId): void
     {
-        unset($this->openThreads[$threadId], $this->openBlocks[$threadId], $this->currentMessages[$threadId]);
+        unset($this->openThreads[$threadId], $this->openBlocks[$threadId], $this->currentMessages[$threadId], $this->lastAssistantBlockKeys[$threadId]);
 
-        foreach (array_keys($this->firstDeltaTimes + $this->offsets) as $key) {
+        foreach (array_keys($this->firstDeltaTimes + $this->offsets + $this->fullTexts) as $key) {
             if (str_starts_with((string) $key, $threadId . '|')) {
-                unset($this->firstDeltaTimes[$key], $this->offsets[$key]);
+                unset($this->firstDeltaTimes[$key], $this->offsets[$key], $this->fullTexts[$key]);
             }
         }
 

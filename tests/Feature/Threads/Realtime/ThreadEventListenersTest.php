@@ -50,7 +50,7 @@ function activity(Thread $thread, array $line, int $sequence = 1): void
 
 function streamDelta(string $text, int $index = 0): array
 {
-    return ['type' => 'stream_event', 'message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => $index, 'delta' => ['type' => 'text_delta', 'text' => $text]]];
+    return ['type' => 'stream_event', 'api_message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => $index, 'delta' => ['type' => 'text_delta', 'text' => $text]]];
 }
 
 it('replays a fixture into ordered entries and a completed turn event', function () {
@@ -85,7 +85,7 @@ it('flushes buffered deltas before a structural event', function () {
     $window = app(ThreadEventWindow::class)->since($thread->id, 0, 100);
 
     expect(array_column($window, 'type'))->toBe(['delta', 'entry'])
-        ->and($window[0]['data'])->toBe(['blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello']);
+        ->and($window[0]['data'])->toBe(['blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello', 'offset' => 0]);
 });
 
 it('flushes a due batch of another thread on the next line', function () {
@@ -111,8 +111,8 @@ it('resets streaming state on a cut-off synthetic message', function () {
 
     $window = app(ThreadEventWindow::class)->since($thread->id, 0, 100);
 
-    expect(array_column($window, 'type'))->toBe(['delta', 'stream.reset'])
-        ->and(DB::table('thread_events')->count())->toBe(0);
+    expect(array_column($window, 'type'))->toBe(['delta', 'entry', 'stream.reset'])
+        ->and(DB::table('thread_events')->count())->toBe(1);
 });
 
 it('marks a prompt entry as a steer when its uuid was sent as one', function () {
