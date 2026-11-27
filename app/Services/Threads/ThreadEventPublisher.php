@@ -113,7 +113,7 @@ class ThreadEventPublisher
     }
 
     /**
-     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>  $deltas
+     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int, startedAt?: string}>  $deltas
      */
     public function appendDeltas(array $deltas): void
     {

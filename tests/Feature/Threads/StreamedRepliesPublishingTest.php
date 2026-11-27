@@ -147,7 +147,7 @@ it('names the last streamed block when an interrupt arrives', function () {
 
     expect($cuts)->toHaveCount(1)
         ->and($cuts[0]->data['blockKey'])->toBe($entry->data['messageId'] . ':' . $entry->data['blockIndex'])
-        ->and($cuts[0]->data['reason'])->toBe('stopped')
+        ->and($cuts[0]->data['cutReason'])->toBe('stopped')
         ->and(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true))->toBe([]);
 });
 

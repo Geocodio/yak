@@ -47,7 +47,7 @@ class PublishThreadActivity
         }
 
         if (! $isAgentLine && $this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
-            $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey, 'reason' => 'stopped'], isStored: true);
+            $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey, 'cutReason' => 'stopped'], isStored: true);
         }
 
         $projected = $this->projector->project($line, ! $isAgentLine && $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());

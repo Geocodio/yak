@@ -99,7 +99,7 @@ export type ThreadEventType = 'entry' | 'delta' | 'block.cut' | 'stream.reset' |
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
     delta: { blockKey: string; kind: 'text' | 'thinking'; text: string; offset: number; startedAt?: string };
-    'block.cut': { blockKey: string; reason?: CutReason };
+    'block.cut': { blockKey: string; cutReason?: CutReason };
     'stream.reset': Record<string, never>;
     turn: { turnId: number; state: TurnState };
     thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null; pullRequestOpening?: 'opening' | 'failed' | null; ownerSide?: 'yak' | 'device'; showKey?: string };
