@@ -12,6 +12,7 @@ import { AgentContinuedRow, AgentItemCard } from './AgentCard';
 import { ChildCard } from './ChildCard';
 import { ChildResultRow } from './ChildResultRow';
 import { nextStreamingLatch } from './nextStreamingLatch';
+import { shouldShowWaitingRow, WAITING_ROW_DELAY_MS } from './shouldShowWaitingRow';
 import { ConnectionStrip } from './ConnectionStrip';
 import { LocalTurnsFold } from './LocalTurnsFold';
 import { UnsentMessage } from './UnsentMessage';
@@ -213,7 +214,27 @@ export function Conversation({ working = false, modelLabels = {}, threadId, repo
     const firstPerson = entries.find((entry) => entry.type === 'person');
     let previousDay = '';
     const runningRun = working ? runs.find((run) => run.isActive) : undefined;
-    const waiting = waitingRow(entries, working, unsent.length > 0 || notice !== null || isWaitingForRepository);
+    const wantedWaiting = waitingRow(entries, working, unsent.length > 0 || notice !== null || isWaitingForRepository);
+    // The row that follows a streamed block waits a moment: the next block usually arrives first. The person's own message is never delayed.
+    const wasStreaming = useRef(false);
+    const streamEndedAt = useRef<number | null>(null);
+    if (wasStreaming.current && !isStreamingNow) {
+        streamEndedAt.current = Date.now();
+    }
+    wasStreaming.current = isStreamingNow;
+    const isDelayable = wantedWaiting !== null && !wantedWaiting.queued && entries.at(-1)?.type === 'event';
+    const waiting = wantedWaiting !== null && shouldShowWaitingRow({ wantsRow: true, lastStreamEndedAt: isDelayable ? streamEndedAt.current : null, now: Date.now() }) ? wantedWaiting : null;
+    const [, setWaitingTick] = useState(0);
+    const isHeldBack = wantedWaiting !== null && waiting === null;
+    useEffect(() => {
+        if (!isHeldBack || streamEndedAt.current === null) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => setWaitingTick((tick) => tick + 1), Math.max(0, WAITING_ROW_DELAY_MS - (Date.now() - (streamEndedAt.current ?? 0))) + 5);
+
+        return () => window.clearTimeout(timer);
+    }, [isHeldBack]);
     // Each move gets its divider before the first message of the new side; the computer stretch that began at a
     // move follows its divider, and the stretch the thread began with opens the conversation.
     const switchBlocks = new Map<number, React.ReactNode[]>();
