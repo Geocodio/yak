@@ -92,6 +92,50 @@ test('a retry that leaves the branch unchanged fails at once when no CI jobs can
         ->and($task->fresh()->error_log)->toContain('Retry made no changes');
 });
 
+test('a retry that leaves the branch unchanged finishes when every failing check also fails on the default branch', function () {
+    $task = unchangedRetryTask();
+    Http::fake([
+        'api.github.com/repos/org/flaky/commits/yak/ISSUE-100/check-runs*' => Http::response(['check_runs' => [
+            ['name' => 'Security Audit', 'conclusion' => 'failure'],
+            ['name' => 'tests', 'conclusion' => 'success'],
+        ]]),
+        'api.github.com/repos/org/flaky/commits/main/check-runs*' => Http::response(['check_runs' => [
+            ['name' => 'Security Audit', 'conclusion' => 'failure'],
+        ]]),
+    ]);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'The audit fails on main too.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Success)
+        ->and($task->fresh()->result_summary)->toBe('The audit fails on main too.');
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'rerun-failed-jobs'));
+});
+
+test('a retry that leaves the branch unchanged still reruns when a failing check passes on the default branch', function () {
+    $task = unchangedRetryTask();
+    Http::fake([
+        'api.github.com/repos/org/flaky/commits/yak/ISSUE-100/check-runs*' => Http::response(['check_runs' => [
+            ['name' => 'Security Audit', 'conclusion' => 'failure'],
+            ['name' => 'browser', 'conclusion' => 'failure'],
+        ]]),
+        'api.github.com/repos/org/flaky/commits/main/check-runs*' => Http::response(['check_runs' => [
+            ['name' => 'Security Audit', 'conclusion' => 'failure'],
+            ['name' => 'browser', 'conclusion' => 'success'],
+        ]]),
+        'api.github.com/repos/org/flaky/actions/runs/*/rerun-failed-jobs' => Http::response(['message' => 'Unable to rerun'], 403),
+        'api.github.com/repos/org/flaky/branches/*' => Http::response(['commit' => ['sha' => 'abc']]),
+        'api.github.com/repos/org/flaky/actions/runs*' => Http::response(['workflow_runs' => [
+            ['id' => 7, 'head_sha' => 'abc', 'status' => 'completed', 'conclusion' => 'failure'],
+        ]]),
+    ]);
+
+    finishTaskTurn(FinishRetryTurnJob::class, $task, (new FakeSandboxManager)->setBranchDiffCount(0), 'Browser failures look like flakes.', TaskRunKind::Retry);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->fresh()->error_log)->toContain('Retry made no changes');
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/actions/runs/7/rerun-failed-jobs'));
+});
+
 test('a retry that leaves a green branch without a pull request opens the pull request', function () {
     $task = unchangedRetryTask();
     Http::fake([
