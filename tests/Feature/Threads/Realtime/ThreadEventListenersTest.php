@@ -6,10 +6,12 @@ use App\Events\RunnerExited;
 use App\Events\ThreadActivity;
 use App\Events\ThreadEventBroadcast;
 use App\Events\TurnCompleted;
+use App\Events\TurnFailed;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
+use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadEventWindow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -149,4 +151,21 @@ it('sends an empty event payload as a JSON object', function () {
     $broadcast = new ThreadEventBroadcast(1, 1, 'stream.reset', [], '2026-11-15T12:00:00+00:00', 'public');
 
     expect(json_encode($broadcast->broadcastWith()['data']))->toBe('{}');
+});
+
+it('stores the streamed text when a turn ends without a result', function () {
+    $thread = Thread::factory()->create();
+    $run = TaskRun::factory()->create(['yak_task_id' => YakTask::factory()->create(['thread_id' => $thread->id])->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Failed]);
+
+    activity($thread, ['type' => 'stream_event', 'api_message_id' => 'm1', 'event' => ['type' => 'content_block_start', 'index' => 0]]);
+    activity($thread, streamDelta('Half a sent'));
+    event(new TurnFailed($run));
+
+    $stored = DB::table('thread_events')->where('thread_id', $thread->id)->whereIn('type', ['entry', 'turn'])->orderBy('sequence')->get();
+    $cutOff = json_decode($stored[0]->payload, true);
+
+    expect($stored->pluck('type')->all())->toBe(['entry', 'turn'])
+        ->and($cutOff['cutOff'])->toBeTrue()
+        ->and($cutOff['blocks'][0]['text'])->toBe('Half a sent')
+        ->and(app(DeltaBatcher::class)->hasStateFor($thread->id))->toBeFalse();
 });

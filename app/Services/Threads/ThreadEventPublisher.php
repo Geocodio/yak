@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Events\ThreadEventBroadcast;
 use App\Models\Thread;
 use App\Services\Threads\PullRequests\PullRequestOpening;
+use App\Support\SecretRedactor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -26,6 +27,7 @@ class ThreadEventPublisher
     public function __construct(
         private readonly ThreadEventWindow $window,
         private readonly DeltaBatcher $batcher,
+        private readonly ThreadEventProjector $projector,
     ) {}
 
     /**
@@ -124,6 +126,30 @@ class ThreadEventPublisher
                 ...(isset($delta['startedAt']) ? ['startedAt' => $delta['startedAt']] : []),
             ], isStored: false);
         }
+    }
+
+    /**
+     * Ends the thread's stream once its turn is over, however it ended: sends the buffered deltas,
+     * stores the text of every block that streamed but never got its assistant line as a cut-off
+     * entry, and drops the stream state.
+     */
+    public function endStream(int $threadId): void
+    {
+        $this->appendDeltas($this->batcher->takeThread($threadId));
+
+        foreach ($this->batcher->takeUnfinishedBlocks($threadId) as $block) {
+            $this->append($threadId, 'entry', $this->projector->withHtml([
+                'role' => 'assistant',
+                'messageId' => $block['messageId'],
+                'blockIndex' => $block['blockIndex'],
+                'startedAt' => $block['startedAt'],
+                'cutOff' => true,
+                'cutReason' => 'restarted',
+                'blocks' => [['type' => $block['kind'], 'text' => SecretRedactor::redact($block['text'])]],
+            ]));
+        }
+
+        $this->batcher->closeThread($threadId);
     }
 
     public function flush(): void

@@ -101,7 +101,10 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const turn = event.data as ThreadEventEnvelope<'turn'>['data'];
             const isStart = turn.state === 'running' && (state.turn === null || state.turn.turnId !== turn.turnId || state.turn.state !== 'running');
 
-            return { ...next, turn, turnStartSequence: isStart ? event.sequence : state.turnStartSequence };
+            // A turn that stopped running streams nothing more; its unfinished text arrives as stored entries.
+            const streamingBlocks = turn.state === 'running' ? state.streamingBlocks : {};
+
+            return { ...next, turn, turnStartSequence: isStart ? event.sequence : state.turnStartSequence, streamingBlocks };
         }
         case 'thread': {
             const data = event.data as ThreadEventEnvelope<'thread'>['data'];

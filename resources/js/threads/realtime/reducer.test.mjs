@@ -197,3 +197,11 @@ test('a late delta for a block that has its final entry is ignored, and a cut-of
     assert.equal(state.entries[0].blocks[0].text, '- Fixed the logging');
     assert.equal(state.entries[0].cutOff, undefined);
 });
+
+test('a turn that stops running clears the streaming blocks', () => {
+    const turn = (sequence, state) => ({ sequence, type: 'turn', createdAt: at, data: { turnId: 7, state } });
+    const running = apply(initialEventState(), turn(1, 'running'), delta(2, 'half a sent'));
+
+    assert.equal(apply(running, turn(3, 'running')).streamingBlocks['m1:0'].text, 'half a sent');
+    assert.deepEqual(apply(running, turn(3, 'failed')).streamingBlocks, {});
+});

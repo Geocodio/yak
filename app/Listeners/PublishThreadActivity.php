@@ -10,7 +10,6 @@ use App\Services\Threads\BrokerLine;
 use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadEventProjector;
 use App\Services\Threads\ThreadEventPublisher;
-use App\Support\SecretRedactor;
 
 /**
  * Turns one handled, already redacted runner line into sequenced thread events. Streaming
@@ -42,9 +41,9 @@ class PublishThreadActivity
         $isTurnEnd = ($line['type'] ?? null) === 'result' || BrokerLine::event($line) === 'runner_exited';
         $isAgentLine = $this->isAgentLine($line);
 
+        // Unfinished blocks are stored before the result entry, so a cut-off reply reads above it.
         if ($isTurnEnd) {
-            $this->publisher->appendDeltas($this->batcher->takeThread($threadId));
-            $this->storeUnfinishedBlocks($threadId);
+            $this->publisher->endStream($threadId);
         }
 
         if (! $isAgentLine && $this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
@@ -67,10 +66,6 @@ class PublishThreadActivity
             }
 
             $this->publisher->append($threadId, $item['type'], $this->withPromptKind($item), isStored: $item['type'] !== 'stream.reset');
-        }
-
-        if ($isTurnEnd) {
-            $this->batcher->closeThread($threadId);
         }
     }
 
@@ -114,24 +109,6 @@ class PublishThreadActivity
     private function isAgentLine(array $line): bool
     {
         return ($line['parent_tool_use_id'] ?? null) !== null || ($line['agent_id'] ?? null) !== null;
-    }
-
-    /**
-     * Stores the text of every block that streamed but never got its assistant line, marked cut off.
-     */
-    private function storeUnfinishedBlocks(int $threadId): void
-    {
-        foreach ($this->batcher->takeUnfinishedBlocks($threadId) as $block) {
-            $this->publisher->append($threadId, 'entry', $this->projector->withHtml([
-                'role' => 'assistant',
-                'messageId' => $block['messageId'],
-                'blockIndex' => $block['blockIndex'],
-                'startedAt' => $block['startedAt'],
-                'cutOff' => true,
-                'cutReason' => 'restarted',
-                'blocks' => [['type' => $block['kind'], 'text' => SecretRedactor::redact($block['text'])]],
-            ]), isStored: true);
-        }
     }
 
     /**
