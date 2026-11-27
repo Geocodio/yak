@@ -37,7 +37,10 @@ class ThreadSandboxesCommand extends Command
         return self::SUCCESS;
     }
 
-    /** Records sandboxes that stopped behind our back; only the real manager can tell. */
+    /**
+     * Records sandboxes that stopped, froze or woke behind our back, so the steps below act on what Incus
+     * reports. A failed lookup is left alone: it cannot tell a missing container from a slow daemon.
+     */
     private function reconcile(SandboxManager $manager): void
     {
         if (! $manager instanceof IncusThreadSandboxManager) {
@@ -47,9 +50,11 @@ class ThreadSandboxesCommand extends Command
         $this->withState([ThreadSandboxState::Running, ThreadSandboxState::Paused])->get()
             ->unique('sandbox_container')
             ->each(function (Thread $thread) use ($manager): void {
-                if ($manager->state($thread) === ThreadSandboxState::Stopped) {
+                $actual = $manager->reconcile($thread);
+
+                if ($actual !== ThreadSandboxState::Destroyed && $actual !== $thread->sandbox_state) {
                     Thread::withoutGlobalScopes()->where('sandbox_container', $thread->sandbox_container)
-                        ->update(['sandbox_state' => ThreadSandboxState::Stopped->value, 'sandbox_state_changed_at' => now()]);
+                        ->update(['sandbox_state' => $actual->value, 'sandbox_state_changed_at' => now()]);
                 }
             });
     }
