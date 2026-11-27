@@ -46,7 +46,7 @@ class PublishThreadActivity
         }
 
         if ($this->isInterruptMarker($line) && ($blockKey = $this->batcher->lastAssistantBlockKey($threadId)) !== null) {
-            $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey], isStored: true);
+            $this->publisher->append($threadId, 'block.cut', ['blockKey' => $blockKey, 'reason' => 'stopped'], isStored: true);
         }
 
         $projected = $this->projector->project($line, $this->batcher->hasOpenBlock($threadId), ThreadAgent::isEnabled());
@@ -105,6 +105,7 @@ class PublishThreadActivity
                 'blockIndex' => $block['blockIndex'],
                 'startedAt' => $block['startedAt'],
                 'cutOff' => true,
+                'cutReason' => 'restarted',
                 'blocks' => [['type' => $block['kind'], 'text' => SecretRedactor::redact($block['text'])]],
             ]), isStored: true);
         }

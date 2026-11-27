@@ -1,6 +1,8 @@
 import type { ThreadAgent } from '@/types/thread-agents';
 
 /** Mirrors `App\Enums\ThreadStatus`. */
+export type CutReason = 'stopped' | 'restarted';
+
 export type ThreadStatus = 'open' | 'closed';
 
 /** Mirrors `App\Enums\TurnState`. */
@@ -20,7 +22,7 @@ export type AssistantBlock =
     | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 
 export type TranscriptEntry = (
-    | { role: 'assistant'; messageId: string; blocks: AssistantBlock[]; blockIndex?: number; startedAt?: string; cutOff?: boolean }
+    | { role: 'assistant'; messageId: string; blocks: AssistantBlock[]; blockIndex?: number; startedAt?: string; cutOff?: boolean; cutReason?: CutReason }
     | { role: 'tool_result'; toolUseId: string; isError: boolean; text: string; truncated?: boolean }
     | { role: 'system'; subtype: 'init'; model?: string; sessionId?: string }
     | { role: 'user'; uuid?: string; text: string; kind: 'prompt' | 'steer' }
@@ -97,7 +99,7 @@ export type ThreadEventType = 'entry' | 'delta' | 'block.cut' | 'stream.reset' |
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
     delta: { blockKey: string; kind: 'text' | 'thinking' | 'tool_input'; text: string; offset: number; startedAt?: string };
-    'block.cut': { blockKey: string };
+    'block.cut': { blockKey: string; reason?: CutReason };
     'stream.reset': Record<string, never>;
     turn: { turnId: number; state: TurnState };
     thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null; pullRequestOpening?: 'opening' | 'failed' | null; ownerSide?: 'yak' | 'device'; showKey?: string };

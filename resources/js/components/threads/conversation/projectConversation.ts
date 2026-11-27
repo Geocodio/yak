@@ -144,7 +144,7 @@ function projectAssistant(entry: Extract<TranscriptEntry, { role: 'assistant' }>
             return;
         }
 
-        items.push({ kind: block.type, key: `${entry.messageId}:${entry.blockIndex ?? index}`, sequence, ...(entry.startedAt ? { at: entry.startedAt } : {}), ...(entry.cutOff ? { cutOff: true } : {}), role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
+        items.push({ kind: block.type, key: `${entry.messageId}:${entry.blockIndex ?? index}`, sequence, ...(entry.startedAt ? { at: entry.startedAt } : {}), ...(entry.cutOff ? { cutOff: true, ...(entry.cutReason ? { cutReason: entry.cutReason } : {}) } : {}), role: 'assistant', text: block.text, ...(block.type === 'text' && block.html ? { html: block.html } : {}), ...(block.type === 'text' && model ? { model } : {}) });
     });
 
     closeRun();

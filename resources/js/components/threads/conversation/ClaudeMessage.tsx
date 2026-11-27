@@ -1,4 +1,5 @@
-import { cn } from '@geocodio/console-ui';
+import { Tooltip, cn } from '@geocodio/console-ui';
+import { CircleStop, Info } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Prose } from '@/components/Prose';
 import { renderStreamingMarkdown } from '@/threads/streaming/streamingMarkdown';
@@ -35,7 +36,31 @@ export function ClaudeMessage({ item, modelLabels = {} }: { item: ConversationIt
                 ) : (
                     <p className={cn('mt-1 text-[13px] leading-relaxed whitespace-pre-wrap wrap-break-word', item.kind === 'thinking' && 'text-muted italic')}>{item.text}</p>
                 )}
+                {item.cutOff && <CutOffMarker reason={item.cutReason} />}
             </div>
         </div>
+    );
+}
+
+const RESTARTED_HINT = 'Claude’s session restarted before this reply finished. Ask Claude to continue if you need the rest.';
+
+function CutOffMarker({ reason }: { reason?: ConversationItem['cutReason'] }) {
+    if (reason === 'stopped') {
+        return (
+            <div className="mt-2 flex items-center gap-1.5 text-[12px] text-faint" data-testid="thread-cut-marker">
+                <CircleStop className="size-3" aria-hidden />
+                You stopped this reply
+            </div>
+        );
+    }
+
+    return (
+        <Tooltip label={RESTARTED_HINT}>
+            <div className="mt-2 flex w-fit items-center gap-1.5 text-[12px] text-faint" tabIndex={0} data-testid="thread-cut-marker">
+                <CircleStop className="size-3" aria-hidden />
+                Reply cut off
+                <Info className="size-3" aria-hidden />
+            </div>
+        </Tooltip>
     );
 }

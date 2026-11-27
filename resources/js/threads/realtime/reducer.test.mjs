@@ -165,10 +165,11 @@ test('a final entry replaces a cut-off entry with the same key', () => {
 
 test('block.cut flags the received entry and ignores an unknown key', () => {
     const entry = { sequence: 1, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text: 'x' }] } };
-    const cut = (sequence, blockKey) => ({ sequence, type: 'block.cut', createdAt: at, data: { blockKey } });
+    const cut = (sequence, blockKey) => ({ sequence, type: 'block.cut', createdAt: at, data: { blockKey, reason: 'stopped' } });
     const state = apply(initialEventState(), entry, cut(2, 'm1:0'), cut(3, 'm9:0'));
 
     assert.equal(state.entries[0].cutOff, true);
+    assert.equal(state.entries[0].cutReason, 'stopped');
     assert.equal(state.entries.length, 1);
 });
 

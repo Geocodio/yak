@@ -82,11 +82,11 @@ final class StreamedTurnPlayback
 
     private ?float $startedAt = null;
 
-    public function __construct(private readonly Thread $thread)
+    public function __construct(private readonly Thread $thread, string $marker = E2eRunnerScript::STREAM_MARKER)
     {
         $script = new E2eRunnerScript(pace: STREAM_PACE);
         $script->respond("threads:{$thread->id}", ['type' => 'start_runner', 'container' => 'thread', 'start' => ['type' => 'start']], 1);
-        $this->lines = $script->respond("threads:{$thread->id}", ['type' => 'turn', 'uuid' => '11111111-2222-4333-8444-555555555555', 'text' => 'Explain it ' . E2eRunnerScript::STREAM_MARKER], 1);
+        $this->lines = $script->respond("threads:{$thread->id}", ['type' => 'turn', 'uuid' => '11111111-2222-4333-8444-555555555555', 'text' => 'Explain it ' . $marker], 1);
     }
 
     public function isFinished(): bool
@@ -163,6 +163,7 @@ function installFrameSampler(mixed $page): void
                         hasCode: !!message.querySelector('pre'),
                         hasTable: !!message.querySelector('table'),
                         hasMarkdownBold: message.innerText.includes('**'),
+                        hasMarker: !!message.querySelector('[data-testid="thread-cut-marker"]'),
                         hasTableRow: /^\s*\|/m.test(message.innerText),
                     });
                 });
@@ -186,7 +187,7 @@ function frameSamples(mixed $page): array
  *
  * @return array{0: mixed, 1: Thread, 2: StreamedTurnPlayback}
  */
-function openStreamingThread(): array
+function openStreamingThread(string $marker = E2eRunnerScript::STREAM_MARKER): array
 {
     $user = User::factory()->create();
     $thread = Thread::factory()->create(['created_by_user_id' => $user->id]);
@@ -202,7 +203,7 @@ function openStreamingThread(): array
     $page->wait(2)->assertScript(threadStreamingState('data-status'), 'live');
     installFrameSampler($page);
 
-    return [$page, $thread, new StreamedTurnPlayback($thread)];
+    return [$page, $thread, new StreamedTurnPlayback($thread, $marker)];
 }
 
 /**
@@ -356,5 +357,26 @@ it('shows a viewer who opens the thread mid-reply the block whole', function () 
             ->and($streaming)->not->toBeEmpty()
             ->and(collect($streaming)->every(fn (array $sample): bool => $sample['startsWhole']))->toBeTrue('the viewer saw a block without its start');
         $second->assertNoJavaScriptErrors();
+    });
+});
+
+it('a stopped reply keeps its text and shows the marker', function () {
+    withStreamingServers(function () {
+        [$page, , $playback] = openStreamingThread(E2eRunnerScript::STREAM_STOPPED_MARKER);
+        $playback->playUntil();
+        waitUntilNotStreaming($page);
+        $page->wait(1);
+
+        $samples = frameSamples($page);
+        $firstWithMarker = collect($samples)->first(fn (array $sample): bool => $sample['hasMarker']);
+        $lastWithoutMarker = $firstWithMarker === null ? null : collect($samples)->last(fn (array $sample): bool => $sample['id'] === $firstWithMarker['id'] && ! $sample['hasMarker']);
+
+        $page->assertSee('You stopped this reply');
+        expect($firstWithMarker)->not->toBeNull()->and($lastWithoutMarker)->not->toBeNull()
+            ->and($firstWithMarker['id'])->toBe($lastWithoutMarker['id'])
+            ->and($firstWithMarker['top'])->toEqualWithDelta($lastWithoutMarker['top'], 0.5, 'the reply moved when the marker appeared')
+            ->and($firstWithMarker['layoutTop'])->toEqualWithDelta($lastWithoutMarker['layoutTop'], 0.5)
+            ->and(str_starts_with($firstWithMarker['text'], rtrim($lastWithoutMarker['text'])))->toBeTrue('the reply text changed when the marker appeared');
+        $page->assertNoJavaScriptErrors();
     });
 });

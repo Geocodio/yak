@@ -147,6 +147,7 @@ it('names the last streamed block when an interrupt arrives', function () {
 
     expect($cuts)->toHaveCount(1)
         ->and($cuts[0]->data['blockKey'])->toBe($entry->data['messageId'] . ':' . $entry->data['blockIndex'])
+        ->and($cuts[0]->data['reason'])->toBe('stopped')
         ->and(array_filter($events, fn ($event) => ($event->data['cutOff'] ?? false) === true))->toBe([]);
 });
 
@@ -158,6 +159,7 @@ it('stores the streamed text of a block that never got its assistant line', func
         ->and($cutOff[0]->data['role'])->toBe('assistant')
         ->and($cutOff[0]->data['messageId'])->toBe('msg_1')
         ->and($cutOff[0]->data['blockIndex'])->toBe(0)
+        ->and($cutOff[0]->data['cutReason'])->toBe('restarted')
         ->and($cutOff[0]->data['startedAt'])->toBeString()
         ->and($cutOff[0]->data['blocks'][0]['text'])->toBe('Hello wor')
         ->and($cutOff[0]->data['blocks'][0]['html'])->toContain('Hello wor');

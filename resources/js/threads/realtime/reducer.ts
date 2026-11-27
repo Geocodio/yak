@@ -81,9 +81,9 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             return { ...next, entries, streamingBlocks };
         }
         case 'block.cut': {
-            const { blockKey } = event.data as ThreadEventEnvelope<'block.cut'>['data'];
+            const { blockKey, reason } = event.data as ThreadEventEnvelope<'block.cut'>['data'];
 
-            return { ...next, entries: state.entries.map((entry) => (entry.role === 'assistant' && blockKeyOf(entry) === blockKey ? { ...entry, cutOff: true } : entry)) };
+            return { ...next, entries: state.entries.map((entry) => (entry.role === 'assistant' && blockKeyOf(entry) === blockKey ? { ...entry, cutOff: true, cutReason: reason ?? 'stopped' } : entry)) };
         }
         case 'stream.reset':
             return { ...next, streamingBlocks: {} };

@@ -1,5 +1,5 @@
 import type { StepView } from '@/components/activity/types';
-import type { ChildCardData, ChildResultData, RepositoryCardData } from '@/types/thread-events';
+import type { ChildCardData, CutReason, ChildResultData, RepositoryCardData } from '@/types/thread-events';
 
 export type ConversationItem = {
     kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child' | 'childResult' | 'repository' | 'agent';
@@ -23,6 +23,8 @@ export type ConversationItem = {
     streaming?: boolean;
     /** True when an interrupt ended the block before it finished. */
     cutOff?: boolean;
+    /** Who ended the block: the person (`stopped`) or a session restart (`restarted`). */
+    cutReason?: CutReason;
     files?: string[];
     added?: number;
     removed?: number;
