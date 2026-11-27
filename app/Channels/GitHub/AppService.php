@@ -967,6 +967,36 @@ class AppService
     }
 
     /**
+     * How many commits the head branch is behind the base branch. Throws when GitHub cannot say.
+     */
+    public function commitsBehind(int $installationId, string $repoSlug, string $base, string $head): int
+    {
+        return (int) $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/compare/" . rawurlencode($base) . '...' . rawurlencode($head))
+            ->throw()->json('behind_by', 0);
+    }
+
+    /**
+     * Merges the pull request's base branch into its head branch. GitHub answers 202 when it
+     * queued the merge and 422 when the merge conflicts.
+     */
+    public function updatePullRequestBranchResponse(int $installationId, string $repoSlug, int $prNumber): Response
+    {
+        return $this->installationClient($installationId)
+            ->put("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/update-branch");
+    }
+
+    /**
+     * Merges `$head` into `$base` without a pull request. GitHub answers 201 for a new merge
+     * commit, 204 when `$base` already has everything, and 409 when the merge conflicts.
+     */
+    public function mergeBranchResponse(int $installationId, string $repoSlug, string $base, string $head): Response
+    {
+        return $this->installationClient($installationId)
+            ->post("https://api.github.com/repos/{$repoSlug}/merges", ['base' => $base, 'head' => $head]);
+    }
+
+    /**
      * Whether every check run on a commit has completed. Throws on API
      * failure so an outage is not read as finished checks.
      */

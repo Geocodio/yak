@@ -10,6 +10,7 @@ use App\Jobs\ProcessCIResultJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
+use App\Services\DefaultBranchCi;
 use App\Services\TaskLogger;
 use App\Services\Tasks\StopNotifier;
 use App\Services\Tasks\TaskActions;
@@ -48,7 +49,10 @@ class TimeoutAwaitingCiCommand extends Command
         $timeoutMinutes = (int) config('yak.ci_timeout_minutes', 30);
         $maxWaitMinutes = max($timeoutMinutes, (int) config('yak.ci_max_wait_minutes', 180));
 
+        $this->failExpiredDefaultBranchWaits();
+
         $tasks = YakTask::where('status', TaskStatus::AwaitingCi)
+            ->whereNull('waiting_on_default_branch_at')
             ->where('updated_at', '<=', now()->subMinutes($timeoutMinutes))
             ->get();
 
@@ -111,6 +115,28 @@ class TimeoutAwaitingCiCommand extends Command
         $this->components->info("Processed {$tasks->count()} task(s).");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A task parked on the default branch waits for it to pass, not for CI, so only its own limit ends the wait.
+     */
+    private function failExpiredDefaultBranchWaits(): void
+    {
+        $expired = YakTask::where('status', TaskStatus::AwaitingCi)
+            ->where('waiting_on_default_branch_at', '<=', now()->subHours(DefaultBranchCi::WAIT_LIMIT_HOURS))
+            ->get();
+
+        foreach ($expired as $task) {
+            $checks = (array) $task->default_branch_wait_checks;
+
+            $task->update(['status' => TaskStatus::Failed, 'completed_at' => now()]);
+
+            TaskLogger::warning($task, 'Task failed -- the default branch kept failing the same checks', ['checks' => $checks]);
+
+            StopNotifier::notify($task, TaskStop::waitedOnDefaultBranch(DefaultBranchCi::WAIT_LIMIT_HOURS, $checks));
+
+            $this->components->info("Gave up on task #{$task->id} waiting for the default branch");
+        }
     }
 
     /**
@@ -188,7 +214,7 @@ class TimeoutAwaitingCiCommand extends Command
             ->max('agent_finished_at');
 
         $lastCiResume = $task->logs()
-            ->whereIn('message', [self::CI_RESUMED_LOG_MESSAGE, TaskActions::RECOVERY_RERUN_LOG_MESSAGE])
+            ->whereIn('message', [self::CI_RESUMED_LOG_MESSAGE, TaskActions::RECOVERY_RERUN_LOG_MESSAGE, DefaultBranchCi::RESYNCED_LOG_MESSAGE])
             ->max('created_at');
 
         $candidates = array_filter([$lastAgentFinish, $lastCiResume]);

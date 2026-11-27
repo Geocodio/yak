@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Channels\GitHub\AppService;
 use App\Models\Repository;
 use App\Services\CiFailure\CiFailureIntake;
+use App\Services\DefaultBranchCi;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class RecordCiJobGreenJob implements ShouldQueue
         public array $payload,
     ) {}
 
-    public function handle(AppService $github, CiFailureIntake $intake): void
+    public function handle(AppService $github, CiFailureIntake $intake, DefaultBranchCi $defaultBranchCi): void
     {
         $repository = Repository::find($this->repositoryId);
 
@@ -55,5 +56,9 @@ class RecordCiJobGreenJob implements ShouldQueue
         }
 
         $intake->recordGreen($repository, Request::create('/', 'POST', $this->payload));
+
+        if ($branch === $repository->default_branch) {
+            $defaultBranchCi->unparkReadyTasks($repository);
+        }
     }
 }
