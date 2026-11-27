@@ -165,6 +165,7 @@ function installFrameSampler(mixed $page): void
                         hasMarkdownBold: message.innerText.includes('**'),
                         hasMarker: !!message.querySelector('[data-testid="thread-cut-marker"]'),
                         hasTableRow: /^\s*\|/m.test(message.innerText),
+                        hasRawHeading: /^\s*#/m.test(message.innerText),
                     });
                 });
                 requestAnimationFrame(loop);
@@ -307,7 +308,8 @@ it('shows streamed text formatted while it arrives', function () {
         expect($busy)->not->toBeEmpty()
             ->and(collect($busy)->contains(fn (array $sample): bool => $sample['hasHeading'] && $sample['hasList'] && $sample['hasCode'] && $sample['hasTable']))->toBeTrue('no streaming frame showed the heading, list, code block and table together')
             ->and(collect($busy)->contains(fn (array $sample): bool => $sample['hasMarkdownBold']))->toBeFalse('a streaming frame showed a literal **')
-            ->and(collect($busy)->contains(fn (array $sample): bool => $sample['hasTableRow']))->toBeFalse('a streaming frame showed a table row as plain text');
+            ->and(collect($busy)->contains(fn (array $sample): bool => $sample['hasTableRow']))->toBeFalse('a streaming frame showed a table row as plain text')
+            ->and(collect($busy)->contains(fn (array $sample): bool => $sample['hasRawHeading']))->toBeFalse('a streaming frame showed a raw # heading marker');
     });
 });
 

@@ -324,3 +324,16 @@ test("a streaming item's at is the opening delta's startedAt", () => {
 
     assert.equal(project(feedOf(opening)).items[0].at, '2026-11-11T00:00:59Z');
 });
+
+test('a streaming text block shows only once its settled render has visible words, already formatted', () => {
+    const delta = (sequence, text, offset) => ({ sequence, type: 'delta', createdAt: at, data: { blockKey: 'm1:0', kind: 'text', text, offset } });
+
+    for (const opening of ['##', '**', '- ', '1.', '|', '`', '\n\n', '```clarification\n{"questions": [']) {
+        assert.deepEqual(project(feedOf(delta(1, opening, 0))).items, [], JSON.stringify(opening));
+    }
+
+    const [item] = project(feedOf(delta(1, '##', 0), delta(2, ' Plan\n\nStep', 2))).items;
+
+    assert.equal(item.streaming, true);
+    assert.match(item.html, /^<h2>Plan<\/h2>/);
+});

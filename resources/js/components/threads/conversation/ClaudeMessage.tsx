@@ -1,8 +1,7 @@
 import { Tooltip, cn } from '@geocodio/console-ui';
 import { CircleStop, Info } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Prose } from '@/components/Prose';
-import { renderStreamingMarkdown } from '@/threads/streaming/streamingMarkdown';
 import type { ConversationItem } from './conversationItem';
 import { pickHtml } from './streamedHtml';
 
@@ -10,7 +9,7 @@ export function ClaudeMessage({ item, modelLabels = {} }: { item: ConversationIt
     // A row that mounts as streaming slides in once; the final item keeps its key, so the row stays mounted.
     const [entersStreaming] = useState(() => item.streaming === true);
     const lastStreamedHtml = useRef<string | null>(null);
-    const streamedHtml = useMemo(() => (item.streaming === true && item.kind === 'text' ? renderStreamingMarkdown(item.text ?? '') : null), [item.streaming, item.kind, item.text]);
+    const streamedHtml = item.streaming === true && item.kind === 'text' ? (item.html ?? '') : null;
     useEffect(() => {
         if (streamedHtml !== null) {
             lastStreamedHtml.current = streamedHtml;
@@ -31,8 +30,9 @@ export function ClaudeMessage({ item, modelLabels = {} }: { item: ConversationIt
                         </span>
                     )}
                 </div>
-                {html ? (
-                    <Prose html={html} className={cn('mt-1', item.kind === 'thinking' && 'text-muted italic')} />
+                {/* A streaming text block always renders as Prose, so it never shows raw Markdown at a smaller size first. */}
+                {html || streamedHtml !== null ? (
+                    <Prose html={html ?? ''} className={cn('mt-1', item.kind === 'thinking' && 'text-muted italic')} />
                 ) : (
                     <p className={cn('mt-1 text-[13px] leading-relaxed whitespace-pre-wrap wrap-break-word', item.kind === 'thinking' && 'text-muted italic')}>{item.text}</p>
                 )}

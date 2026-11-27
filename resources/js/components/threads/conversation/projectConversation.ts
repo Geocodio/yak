@@ -1,5 +1,6 @@
 import type { AssistantBlock, ThreadEventState, TranscriptEntry } from '@/types/thread-events';
 import type { StepView } from '@/components/activity/types';
+import { renderStreamingMarkdown } from '../../../threads/streaming/streamingMarkdown.ts';
 import type { ConversationItem } from './conversationItem';
 
 type ToolUse = Extract<AssistantBlock, { type: 'tool_use' }>;
@@ -240,11 +241,27 @@ export function projectConversation(state: Source, entrySequences: number[], ent
         items.push({ kind: 'repository', key: `repository:${data.repo}`, sequence, role: 'assistant', repository: data });
     });
 
+    // A text block shows from its first visible words, already formatted; until then the waiting row stays.
     Object.entries(state.streamingBlocks)
         .filter(([, block]) => block.seen && (block.kind === 'text' || block.kind === 'thinking'))
-        .forEach(([key, block], order) => {
-            items.push({ kind: block.kind as 'text' | 'thinking', key, sequence: state.lastSequence + 1 + order, role: 'assistant', text: block.text, streaming: true, at: block.startedAt, ...(block.kind === 'text' && model ? { model } : {}) });
+        .map(([key, block]) => ({ key, block, html: block.kind === 'text' ? streamedHtmlOf(block.text) : undefined }))
+        .filter(({ html }) => html === undefined || html.trim() !== '')
+        .forEach(({ key, block, html }, order) => {
+            items.push({ kind: block.kind as 'text' | 'thinking', key, sequence: state.lastSequence + 1 + order, role: 'assistant', text: block.text, streaming: true, at: block.startedAt, ...(html !== undefined ? { html } : {}), ...(block.kind === 'text' && model ? { model } : {}) });
         });
 
     return { items, readSequences };
+}
+
+let lastStreamedText: string | null = null;
+let lastStreamedHtml = '';
+
+/** The streaming render of a text block; the projection runs on every event, so the latest render is kept. */
+function streamedHtmlOf(text: string): string {
+    if (text !== lastStreamedText) {
+        lastStreamedText = text;
+        lastStreamedHtml = renderStreamingMarkdown(text);
+    }
+
+    return lastStreamedHtml;
 }

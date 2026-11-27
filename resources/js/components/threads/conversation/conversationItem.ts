@@ -7,7 +7,7 @@ export type ConversationItem = {
     sequence: number;
     role: 'assistant';
     text?: string;
-    /** Server-rendered markdown for `text`; plain `text` is shown when absent. */
+    /** Rendered markdown for `text`: the server's for a final item, the streaming render while it streams; plain `text` is shown when absent. */
     html?: string;
     detail?: string;
     /** The tool calls of a `tools` item, drawn by the shared step rows. */
