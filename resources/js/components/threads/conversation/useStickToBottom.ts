@@ -15,6 +15,7 @@ const INTERACT_HOLD_MS = 1000;
  * so an image loading or a row re-rendering above never claims a reply that is not there.
  * While `isStreaming`, growth is followed with a short eased scroll instead of a jump (a jump when the reader prefers
  * reduced motion); an ease in flight when streaming ends runs on to the bottom instead of snapping; a wheel, touch or key scroll by the reader stops the follow at once.
+ * The ease's own scrolling never counts as the reader leaving the bottom, however large the gap it is closing.
  */
 export function useStickToBottom(threadId: string, startAtBottom = true, latestKey?: string, isStreaming = false): { scroller: RefObject<HTMLDivElement | null>; content: RefObject<HTMLDivElement | null>; footer: RefObject<HTMLDivElement | null>; hasNew: boolean; jumpToNewest: () => void } {
     const scroller = useRef<HTMLDivElement>(null);
@@ -60,9 +61,13 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
         let lastScrollTop = box.scrollTop;
         let frame = 0;
         let lastFrameAt = 0;
+        // An eased follow is owed from its start until it reaches the bottom or the reader stops it, a click hold
+        // included. A scroll that does not move up meanwhile is the follow's own, however far the gap still is.
+        let isEasing = false;
         const stopFollow = (): void => {
             cancelAnimationFrame(frame);
             frame = 0;
+            isEasing = false;
         };
         // Each frame closes part of the gap to the bottom. The position written here is recorded as the follow's own,
         // so the scroll event it raises is never read as the reader.
@@ -77,6 +82,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             const target = box.scrollHeight - box.clientHeight;
 
             if (!isAtBottom.current || target <= box.scrollTop + 0.5) {
+                isEasing = false;
                 return;
             }
 
@@ -87,6 +93,8 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             frame = requestAnimationFrame(followFrame);
         };
         const follow = (): void => {
+            isEasing = true;
+
             if (frame === 0) {
                 lastFrameAt = performance.now();
                 frame = requestAnimationFrame(followFrame);
@@ -115,7 +123,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             holdTimer = window.setTimeout(catchUp, Math.max(0, holdUntil - Date.now()) + 10);
         };
         const catchUp = (): void => {
-            if (!isAtBottom.current || distanceFromBottom() <= 0.5) {
+            if (!isAtBottom.current || isReaderActive || distanceFromBottom() <= 0.5) {
                 return;
             }
 
@@ -200,7 +208,7 @@ export function useStickToBottom(threadId: string, startAtBottom = true, latestK
             const hasMovedUp = box.scrollTop < lastScrollTop;
             lastScrollTop = box.scrollTop;
 
-            if (box.scrollHeight !== pinnedHeight && !hasMovedUp) {
+            if ((box.scrollHeight !== pinnedHeight || isEasing) && !hasMovedUp) {
                 return;
             }
 

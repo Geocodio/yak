@@ -383,3 +383,46 @@ it('a stopped reply keeps its text and shows the marker', function () {
         $page->wait(2)->assertSee('Scrubbed Essay Title')->assertSee('You stopped this reply');
     });
 });
+
+function streamingGapToBottom(mixed $page): float
+{
+    return (float) $page->script('(() => { const box = document.querySelector(\'' . SCROLLER . '\'); return box.scrollHeight - box.scrollTop - box.clientHeight; })()');
+}
+
+it('follows a large growth to the bottom while a reply streams', function () {
+    withStreamingServers(function () {
+        [$page, , $playback] = openStreamingThread();
+        $playback->playUntil(4500);
+        $page->wait(0.5);
+
+        $page->script('(() => { const messages = document.querySelectorAll(\'' . MESSAGE . '\'); messages[messages.length - 1].style.paddingBottom = "300px"; })()');
+        $page->wait(1.5);
+
+        expect(streamingGapToBottom($page))->toBeLessThanOrEqual(1.0, 'the follow stopped short of the bottom after one large growth');
+
+        $playback->playUntil();
+        waitUntilNotStreaming($page);
+        $page->wait(1);
+
+        expect(streamingGapToBottom($page))->toBeLessThanOrEqual(1.0);
+    });
+});
+
+it('jumps to the newest message from the pill while a reply streams', function () {
+    withStreamingServers(function () {
+        [$page, , $playback] = openStreamingThread();
+        $playback->playUntil(2000);
+        $page->wait(0.5);
+
+        $page->script('document.querySelector(\'' . SCROLLER . '\').scrollTop = 150');
+        $page->wait(0.3);
+        $playback->playUntil(4500);
+        $page->wait(0.3);
+
+        $page->click('[data-testid="thread-jump-to-newest"]');
+        $page->wait(1.5);
+
+        expect(streamingGapToBottom($page))->toBeLessThanOrEqual(1.0, 'the pill did not bring the reader to the bottom while streaming');
+        $page->assertNoJavaScriptErrors();
+    });
+});
