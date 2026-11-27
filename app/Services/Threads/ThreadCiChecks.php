@@ -137,6 +137,40 @@ final class ThreadCiChecks
     }
 
     /**
+     * Stores a short fingerprint of what the CI card of the thread shows, the same for every viewer.
+     * True when it differs from the one stored before, so open pages need to reload.
+     */
+    public static function rememberFingerprint(Thread $thread): bool
+    {
+        $checks = self::for($thread, null);
+        $fingerprint = $checks === null ? 'none' : substr(md5(json_encode([
+            $checks['state'],
+            array_map(fn (array $check): array => [$check['name'], $check['status']], $checks['checks']),
+        ], JSON_THROW_ON_ERROR)), 0, 12);
+
+        if (Cache::get(self::fingerprintKey($thread->id)) === $fingerprint) {
+            return false;
+        }
+
+        Cache::put(self::fingerprintKey($thread->id), $fingerprint, now()->addDay());
+
+        return true;
+    }
+
+    /**
+     * The fingerprint {@see rememberFingerprint()} stored last, or null before the first read.
+     */
+    public static function fingerprint(int $threadId): ?string
+    {
+        return Cache::get(self::fingerprintKey($threadId));
+    }
+
+    private static function fingerprintKey(int $threadId): string
+    {
+        return "thread-ci-checks-fingerprint:{$threadId}";
+    }
+
+    /**
      * @return list<array{name: string, status: ?string, conclusion: ?string, url: ?string, startedAt: ?string, completedAt: ?string, title: ?string}>
      */
     private static function branchRuns(int $installationId, Repository $repository, YakTask $task): array

@@ -2,9 +2,11 @@
 
 use App\Jobs\HandleCiJobFailureJob;
 use App\Jobs\RecordCiJobGreenJob;
+use App\Jobs\SyncThreadCiChecksJob;
 use App\Models\CiDefaultBranchGreen;
 use App\Models\CiJobFailure;
 use App\Models\Repository;
+use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -270,3 +272,11 @@ it('does not resolve the default branch when a PR with head ref master closes', 
 
     expect($failure->fresh()->resolved_at)->toBeNull();
 });
+
+it('queues a fresh read of the thread checks whenever a job on its branch moves', function (string $action) {
+    $task = YakTask::factory()->awaitingCi()->create(['repo' => 'widgets-slug', 'branch_name' => 'yak/fix']);
+
+    postCiFailureWebhook('workflow_job', ciFailureWorkflowJobPayload(['head_branch' => 'yak/fix', 'conclusion' => null], ['action' => $action]));
+
+    Queue::assertPushed(SyncThreadCiChecksJob::class, fn (SyncThreadCiChecksJob $job): bool => $job->threadId === $task->thread_id);
+})->with(['queued', 'in_progress', 'completed']);
