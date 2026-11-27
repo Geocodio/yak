@@ -317,3 +317,9 @@ test('a block seen mid-way is not projected and a cut-off entry is flagged', () 
     assert.deepEqual(project(feedOf(midway)).items, []);
     assert.equal(project(feedOf(entry(1, { role: 'assistant', messageId: 'm1', blockIndex: 0, cutOff: true, blocks: [{ type: 'text', text: 'x' }] }))).items[0].cutOff, true);
 });
+
+test("a streaming item's at is the opening delta's startedAt", () => {
+    const opening = { sequence: 1, type: 'delta', createdAt: '2026-11-11T00:01:00Z', data: { blockKey: 'm1:0', kind: 'text', text: 'a', offset: 0, startedAt: '2026-11-11T00:00:59Z' } };
+
+    assert.equal(project(feedOf(opening)).items[0].at, '2026-11-11T00:00:59Z');
+});

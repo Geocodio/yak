@@ -56,7 +56,7 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             const known = state.streamingBlocks[data.blockKey];
             // A block is shown only when every chunk of it arrived in order from its start.
             const isContiguous = data.offset === (known?.text.length ?? 0);
-            const block = { kind: data.kind, text: (known?.text ?? '') + data.text, seen: (known?.seen ?? true) && isContiguous, startedAt: known?.startedAt ?? event.createdAt };
+            const block = { kind: data.kind, text: (known?.text ?? '') + data.text, seen: (known?.seen ?? true) && isContiguous, startedAt: known?.startedAt ?? data.startedAt ?? event.createdAt };
 
             return { ...next, streamingBlocks: { ...state.streamingBlocks, [data.blockKey]: block } };
         }
@@ -72,8 +72,9 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
                 return { ...next, entries: [...state.entries, entry] };
             }
 
-            const prefix = entry.messageId + ':';
-            const streamingBlocks = Object.fromEntries(Object.entries(state.streamingBlocks).filter(([key]) => !key.startsWith(prefix)));
+            // An entry with a block index closes only its own block; a later block of the message keeps streaming.
+            const closes = (key: string): boolean => (entry.blockIndex === undefined ? key.startsWith(entry.messageId + ':') : key === `${entry.messageId}:${entry.blockIndex}`);
+            const streamingBlocks = Object.fromEntries(Object.entries(state.streamingBlocks).filter(([key]) => !closes(key)));
             const replaced = entry.blockIndex === undefined ? -1 : state.entries.findIndex((known) => known.role === 'assistant' && blockKeyOf(known) === blockKeyOf(entry));
             const entries = replaced === -1 ? [...state.entries, entry] : state.entries.map((known, index) => (index === replaced ? entry : known));
 

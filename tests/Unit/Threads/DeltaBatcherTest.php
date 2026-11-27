@@ -9,7 +9,7 @@ it('batches deltas of one block for 50 ms', function () {
     $batcher->add(1, 'm1', 0, 'text', 'there', 0.040);
 
     expect($batcher->due(0.045))->toBe([])
-        ->and($batcher->due(0.051))->toBe([['threadId' => 1, 'blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello there', 'offset' => 0]])
+        ->and($batcher->due(0.051))->toBe([['threadId' => 1, 'blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Hello there', 'offset' => 0, 'startedAt' => '1970-01-01T00:00:00+00:00']])
         ->and($batcher->due(0.200))->toBe([]);
 });
 
@@ -18,7 +18,7 @@ it('hands over everything buffered for one thread early', function () {
     $batcher->add(1, 'm1', 0, 'text', 'a', 0.0);
     $batcher->add(2, 'm2', 0, 'thinking', 'b', 0.0);
 
-    expect($batcher->takeThread(1))->toBe([['threadId' => 1, 'blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'a', 'offset' => 0]])
+    expect($batcher->takeThread(1))->toBe([['threadId' => 1, 'blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'a', 'offset' => 0, 'startedAt' => '1970-01-01T00:00:00+00:00']])
         ->and($batcher->takeThread(1))->toBe([])
         ->and($batcher->due(1.0))->toHaveCount(1);
 });
@@ -112,4 +112,16 @@ it('holds no state for a thread after it is closed', function () {
 
     $batcher->closeThread(1);
     expect($batcher->hasStateFor(1))->toBeFalse();
+});
+
+it('carries the first delta time on the offset 0 chunk only', function () {
+    $batcher = new DeltaBatcher;
+    $batcher->add(1, 'msg_1', 0, 'text', 'a', 1700000000.5);
+    $batcher->add(1, 'msg_1', 0, 'text', 'b', 1700000009.0);
+    $first = $batcher->due(1700000001.0);
+    $batcher->add(1, 'msg_1', 0, 'text', 'c', 1700000010.0);
+    $second = $batcher->takeThread(1);
+
+    expect($first[0]['startedAt'])->toBe('2023-11-14T22:13:20+00:00')
+        ->and($second[0])->not->toHaveKey('startedAt');
 });

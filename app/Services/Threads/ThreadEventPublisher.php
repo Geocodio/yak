@@ -121,6 +121,7 @@ class ThreadEventPublisher
                 'kind' => $delta['kind'],
                 'text' => $delta['text'],
                 'offset' => $delta['offset'],
+                ...(isset($delta['startedAt']) ? ['startedAt' => $delta['startedAt']] : []),
             ], isStored: false);
         }
     }

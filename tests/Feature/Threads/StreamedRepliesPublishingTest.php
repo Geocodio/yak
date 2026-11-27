@@ -48,8 +48,11 @@ it('publishes deltas whose text and key match the final entry blocks', function 
         $key = $entry->data['messageId'] . ':' . $entry->data['blockIndex'];
         $block = $entry->data['blocks'][0];
 
+        $opening = collect($deltas)->first(fn ($delta) => $delta->data['blockKey'] === $key && $delta->data['offset'] === 0);
+
         expect($textByKey)->toHaveKey($key)
-            ->and($entry->data['startedAt'])->toBeString();
+            ->and($entry->data['startedAt'])->toBeString()
+            ->and($opening->data['startedAt'])->toBe($entry->data['startedAt']);
 
         if ($block['type'] === 'text') {
             expect($textByKey[$key])->toBe($block['text']);

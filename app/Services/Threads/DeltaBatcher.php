@@ -96,10 +96,7 @@ class DeltaBatcher
 
         $startedAt = $this->firstDeltaTimes[$threadId . '|' . $messageId . ':' . $index] ?? null;
 
-        return [
-            'blockIndex' => $index,
-            'startedAt' => $startedAt === null ? null : CarbonImmutable::createFromTimestampMs((int) round($startedAt * 1000))->toIso8601String(),
-        ];
+        return ['blockIndex' => $index, 'startedAt' => $startedAt === null ? null : $this->isoTime($startedAt)];
     }
 
     public function hasPending(): bool
@@ -126,7 +123,7 @@ class DeltaBatcher
     }
 
     /**
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int, startedAt?: string}>
      */
     public function due(float $now): array
     {
@@ -143,7 +140,7 @@ class DeltaBatcher
     }
 
     /**
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int, startedAt?: string}>
      */
     public function takeThread(int $threadId): array
     {
@@ -171,7 +168,7 @@ class DeltaBatcher
 
         foreach ($this->fullTexts as $key => $block) {
             if (str_starts_with($key, $threadId . '|') && $block['text'] !== '' && in_array($block['kind'], ['text', 'thinking'], true)) {
-                $blocks[] = [...$block, 'startedAt' => CarbonImmutable::createFromTimestampMs((int) round($block['startedAt'] * 1000))->toIso8601String()];
+                $blocks[] = [...$block, 'startedAt' => $this->isoTime($block['startedAt'])];
             }
         }
 
@@ -216,9 +213,14 @@ class DeltaBatcher
         }
     }
 
+    private function isoTime(float $seconds): string
+    {
+        return CarbonImmutable::createFromTimestampMs((int) round($seconds * 1000))->toIso8601String();
+    }
+
     /**
      * @param  array{threadId: int, blockKey: string, kind: string, text: string, startedAt: float}  $buffer
-     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int}>
+     * @return list<array{threadId: int, blockKey: string, kind: string, text: string, offset: int, startedAt?: string}>
      */
     private function emit(array $buffer): array
     {
@@ -229,7 +231,8 @@ class DeltaBatcher
             $chunk = mb_strcut($text, 0, self::MAX_CHUNK_BYTES);
             $offsetKey = $buffer['threadId'] . '|' . $buffer['blockKey'];
             $offset = $this->offsets[$offsetKey] ?? 0;
-            $chunks[] = ['threadId' => $buffer['threadId'], 'blockKey' => $buffer['blockKey'], 'kind' => $buffer['kind'], 'text' => $chunk, 'offset' => $offset];
+            $chunks[] = ['threadId' => $buffer['threadId'], 'blockKey' => $buffer['blockKey'], 'kind' => $buffer['kind'], 'text' => $chunk, 'offset' => $offset]
+                + ($offset === 0 ? ['startedAt' => $this->isoTime($this->firstDeltaTimes[$offsetKey] ?? $buffer['startedAt'])] : []);
             $this->offsets[$offsetKey] = $offset + intdiv(strlen(mb_convert_encoding($chunk, 'UTF-16LE', 'UTF-8')), 2);
             $text = (string) substr($text, strlen($chunk));
         }

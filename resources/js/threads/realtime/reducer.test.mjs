@@ -171,3 +171,18 @@ test('block.cut flags the received entry and ignores an unknown key', () => {
     assert.equal(state.entries[0].cutOff, true);
     assert.equal(state.entries.length, 1);
 });
+
+test("a block's entry leaves the next block of its message streaming", () => {
+    const entry = { sequence: 3, type: 'entry', createdAt: at, data: { role: 'assistant', messageId: 'm1', blockIndex: 0, blocks: [{ type: 'text', text: 'a' }] } };
+    const state = apply(initialEventState(), delta(1, 'a'), delta(2, 'b', 'm1:1'), entry);
+
+    assert.deepEqual(Object.keys(state.streamingBlocks), ['m1:1']);
+    assert.equal(state.streamingBlocks['m1:1'].seen, true);
+});
+
+test("an opening delta's startedAt is the block's start time", () => {
+    const opening = { sequence: 1, type: 'delta', createdAt: '2026-11-11T00:00:09Z', data: { blockKey: 'm1:0', kind: 'text', text: 'a', offset: 0, startedAt: '2026-11-11T00:00:07Z' } };
+    const state = apply(initialEventState(), opening, delta(2, 'b', 'm1:0', 1));
+
+    assert.equal(state.streamingBlocks['m1:0'].startedAt, '2026-11-11T00:00:07Z');
+});
