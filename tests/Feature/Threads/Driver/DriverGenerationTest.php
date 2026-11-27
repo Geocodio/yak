@@ -3,6 +3,7 @@
 use App\Enums\RunnerState;
 use App\Enums\TurnState;
 use App\Events\RunnerExited;
+use App\Events\ThreadActivity;
 use App\Models\Thread;
 use App\Models\ThreadTurnMessage;
 use App\Models\YakTask;
@@ -232,4 +233,26 @@ it('leaves the turn tracker untouched for a stream line', function () {
     app(ThreadDriver::class)->handle($entry);
 
     expect($run->refresh()->tracker_state)->toBe($before);
+});
+
+it('neither locks nor writes the thread row for a stream line within a second of the last activity write', function () {
+    Event::fake();
+    [$thread] = runningTurnFor();
+    $driver = app(ThreadDriver::class);
+    $driver->handle(app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 1, streamDeltaLine('hi')));
+    $touchedAt = $thread->refresh()->last_activity_at;
+
+    $this->travel(500)->milliseconds();
+    DB::enableQueryLog();
+    $driver->handle(app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 2, streamDeltaLine('there')));
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    $this->travel(600)->milliseconds();
+    $driver->handle(app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 3, streamDeltaLine('!')));
+
+    expect($queries->filter(fn ($query) => str_contains(strtolower($query), 'for update') || str_starts_with(strtolower($query), 'update')))->toBeEmpty()
+        ->and($touchedAt)->not->toBeNull()
+        ->and($thread->refresh()->last_activity_at->greaterThan($touchedAt))->toBeTrue();
+    Event::assertDispatchedTimes(ThreadActivity::class, 3);
 });

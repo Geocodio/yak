@@ -52,7 +52,7 @@ class ThreadDriversCommand extends Command
             $publisher->flush();
 
             try {
-                $driver->tick();
+                $this->option('once') ? $driver->tick() : $driver->tickIfDue();
             } catch (Throwable $exception) {
                 report($exception);
             }

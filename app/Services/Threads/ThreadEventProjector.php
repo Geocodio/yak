@@ -206,7 +206,8 @@ class ThreadEventProjector
     }
 
     /**
-     * Extracts the streamed text of a `stream_event` content block delta.
+     * Extracts the streamed text of a `stream_event` content block delta. Tool input is not
+     * streamed: tool steps show once their assistant line arrives.
      *
      * @param  array<string, mixed>  $line
      * @return array{index: int, kind: string, text: string}|null
@@ -224,7 +225,6 @@ class ThreadEventProjector
         [$kind, $text] = match ($delta['type'] ?? null) {
             'text_delta' => ['text', $delta['text'] ?? null],
             'thinking_delta' => ['thinking', $delta['thinking'] ?? null],
-            'input_json_delta' => ['tool_input', $delta['partial_json'] ?? null],
             default => [null, null],
         };
 

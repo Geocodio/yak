@@ -76,3 +76,20 @@ it('does not finish a turn while a background task is pending', function () {
     Event::assertDispatchedTimes(TurnCompleted::class, 1);
     expect(TaskRun::query()->whereNull('completion_event_emitted_at')->where('turn_state', TurnState::Completed)->exists())->toBeFalse();
 });
+
+it('ticks at most once a second however often the loop asks', function () {
+    Event::fake([TurnCompleted::class]);
+    $driver = app(ThreadDriver::class);
+    runningTurnFor(['turn_state' => TurnState::Completed, 'completion_event_emitted_at' => null]);
+
+    $driver->tickIfDue();
+    runningTurnFor(['turn_state' => TurnState::Completed, 'completion_event_emitted_at' => null]);
+    $driver->tickIfDue();
+
+    Event::assertDispatchedTimes(TurnCompleted::class, 1);
+
+    $this->travel(1001)->milliseconds();
+    $driver->tickIfDue();
+
+    Event::assertDispatchedTimes(TurnCompleted::class, 2);
+});
