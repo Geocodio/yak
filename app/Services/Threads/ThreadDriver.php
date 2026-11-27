@@ -252,6 +252,15 @@ class ThreadDriver
             return;
         }
 
+        $line = json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];
+
+        // Streamed token lines only feed the delta publisher: no agent, question, handler or tracker work.
+        if (($line['type'] ?? null) === 'stream_event') {
+            $events[] = new ThreadActivity($thread, $entry->generation, $entry->sequence, $line);
+
+            return;
+        }
+
         $run = ThreadTurns::activeTurn($thread);
 
         if ($isStarted) {
@@ -261,8 +270,6 @@ class ThreadDriver
                 'runner_started_at' => now(),
             ]);
         }
-
-        $line = json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];
 
         if (($line['type'] ?? null) === 'yak.tool_call') {
             $this->answerToolCall($thread, $entry, $line);

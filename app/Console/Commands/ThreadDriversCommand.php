@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\DataTransferObjects\StreamEntry;
 use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -23,7 +25,7 @@ class ThreadDriversCommand extends Command
 
     private bool $shouldStop = false;
 
-    public function handle(BrokerStreams $streams, ThreadDriver $driver): int
+    public function handle(BrokerStreams $streams, ThreadDriver $driver, DeltaBatcher $batcher, ThreadEventPublisher $publisher): int
     {
         $this->trap([SIGTERM, SIGINT], function (): void {
             $this->shouldStop = true;
@@ -36,7 +38,7 @@ class ThreadDriversCommand extends Command
 
             $blockedChannels = [];
 
-            foreach ($streams->read($channels, $consumer, 1000, 100) as $entry) {
+            foreach ($streams->read($channels, $consumer, $batcher->hasPending() ? 50 : 1000, 100) as $entry) {
                 if (isset($blockedChannels[$entry->channel])) {
                     continue;
                 }
@@ -45,6 +47,9 @@ class ThreadDriversCommand extends Command
                     $blockedChannels[$entry->channel] = true;
                 }
             }
+
+            $publisher->flushDueDeltas();
+            $publisher->flush();
 
             try {
                 $driver->tick();

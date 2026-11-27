@@ -1,8 +1,10 @@
 <?php
 
 use App\Events\ThreadActivity;
+use App\Events\ThreadEventBroadcast;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\DeltaBatcher;
 use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Event;
@@ -158,4 +160,14 @@ it('never trims past a failing entry', function () {
     $this->artisan('yak:thread-drivers --once')->assertSuccessful();
 
     expect($streams->read(['threads:' . $thread->id], gethostname() . '-' . getmypid(), 0, 10))->toHaveCount(2);
+});
+
+it('flushes a due batch without another line arriving', function () {
+    Event::fake([ThreadEventBroadcast::class]);
+    $thread = Thread::factory()->create();
+    app(DeltaBatcher::class)->add($thread->id, 'm1', 0, 'text', 'hello', (now()->getTimestampMs() / 1000) - 1);
+
+    $this->artisan('yak:thread-drivers --once')->assertSuccessful();
+
+    Event::assertDispatched(ThreadEventBroadcast::class, fn ($event) => $event->type === 'delta' && $event->data['text'] === 'hello');
 });

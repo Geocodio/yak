@@ -12,6 +12,7 @@ use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
 use App\YakPromptBuilder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
@@ -199,4 +200,36 @@ it('starts the runner again when the broker restarts while a recovery start is u
     app(ThreadDriver::class)->handle($restarted);
 
     expect($run->refresh()->restart_count)->toBe(2);
+});
+
+function streamDeltaLine(string $text): array
+{
+    return ['type' => 'stream_event', 'api_message_id' => 'm1', 'event' => ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => $text]]];
+}
+
+it('runs no queries beyond the generation check for a stream line', function () {
+    Event::fake();
+    [$thread] = runningTurnFor();
+    $entry = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 1, streamDeltaLine('hi'));
+    $driver = app(ThreadDriver::class);
+    $driver->handle($entry);
+
+    $second = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 2, streamDeltaLine('there'));
+    DB::enableQueryLog();
+    $driver->handle($second);
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    expect($queries->filter(fn ($query) => str_contains($query, 'task_runs')))->toBeEmpty();
+});
+
+it('leaves the turn tracker untouched for a stream line', function () {
+    Event::fake();
+    [$thread, $run] = runningTurnFor();
+    $before = $run->refresh()->tracker_state;
+    $entry = app(BrokerStreams::class)->pushOut('threads:' . $thread->id, 1, 1, streamDeltaLine('hi'));
+
+    app(ThreadDriver::class)->handle($entry);
+
+    expect($run->refresh()->tracker_state)->toBe($before);
 });
